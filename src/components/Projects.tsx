@@ -512,6 +512,7 @@ const Projects: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
+            <div className="border-b border-gray-200 mb-4"></div>
             <p className="text-sm text-gray-600 mb-6">Escolha uma das opções abaixo para gerenciar seus dados:</p>
             
             <div className="space-y-4">
