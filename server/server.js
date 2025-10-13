@@ -332,6 +332,30 @@ app.delete('/api/transactions', (req, res) => {
   }
 });
 
+// APIs para Subcategorias
+app.get('/api/subcategories', (req, res) => {
+  try {
+    const subcategories = db.getAllSubcategories();
+    res.json({ success: true, data: subcategories });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/subcategories', (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
+    }
+    
+    const subcategory = db.saveSubcategory(name.trim());
+    res.json({ success: true, data: subcategory });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // APIs para Produtos
 app.get('/api/products', (req, res) => {
   try {

@@ -15,50 +15,7 @@ interface Transaction {
 
 const API_BASE_URL = '/api'
 
-const SUBCATEGORIES = [
-  'ALUGUEL + INTERNET',
-  'ANUIDADE CREA IMP',
-  'ANUIDADE CREA SÓCIOS',
-  'ART',
-  'Auxiliar de Campo',
-  'CARTÃO BB (PROJETOS)',
-  'CARTÃO C6',
-  'CDB',
-  'CELULAR',
-  'CONFRAS E REFEIÇÕES',
-  'CONSELHO REG ENG',
-  'CONSULTOR',
-  'CONTADOR',
-  'DARF',
-  'Despesa variável de projetos',
-  'FEZINHA',
-  'FGTS',
-  'GUIA DAS',
-  'ISS',
-  'Locomoção',
-  'Manutenções',
-  'Materiais Extras',
-  'MATERIAL ESCRITÓRIO',
-  'MICROSOFT 365',
-  'MÉTRICA TOPO',
-  'ONR',
-  'OUTROS GASTOS DU/VINI',
-  'PLUXEE BENEFICIOS',
-  'Produção Conteúdo',
-  'Reembolso projetos',
-  'RTK',
-  'RTK (TOPOMIG)',
-  'SALARIO DU - PRO LABORE',
-  'SALARIO RAFAELA APARECIDA',
-  'SALARIO VINI - PRO LABORE',
-  'SALÁRIO THAISA TEIXEIRA BAHIA',
-  'SEGURO DRONE',
-  'SEGURO RTK',
-  'Sindicato',
-  'SITE',
-  'Social Media',
-  'Tráfego/SEO'
-]
+// SUBCATEGORIES agora será carregado do backend
 
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -74,6 +31,7 @@ const Transactions: React.FC = () => {
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [newSubcategory, setNewSubcategory] = useState('')
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
+  const [subcategories, setSubcategories] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -93,6 +51,18 @@ const Transactions: React.FC = () => {
       } catch {}
     }
     load()
+  }, [])
+
+  // Carregar subcategorias do backend
+  useEffect(() => {
+    const loadSubcategories = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/subcategories`)
+        const j = await r.json()
+        if (j.success) setSubcategories(j.data)
+      } catch {}
+    }
+    loadSubcategories()
   }, [])
 
   // Controla overlay global (classe no body) ao abrir/fechar modais
@@ -159,7 +129,7 @@ const Transactions: React.FC = () => {
   const renderFilterCalendarTo = () => null
 
   // Função para adicionar nova subcategoria
-  const addNewSubcategory = () => {
+  const addNewSubcategory = async () => {
     if (!newSubcategory.trim()) {
       setNewSubcategoryError('Campo obrigatório')
       return
@@ -167,27 +137,37 @@ const Transactions: React.FC = () => {
     
     const trimmedSubcategory = newSubcategory.trim()
     
-    if (SUBCATEGORIES.includes(trimmedSubcategory)) {
+    if (subcategories.includes(trimmedSubcategory)) {
       setNewSubcategoryError('Esta subcategoria já existe')
       return
     }
     
-    // Encontrar a posição correta para inserir em ordem alfabética
-    let insertIndex = SUBCATEGORIES.length
-    for (let i = 0; i < SUBCATEGORIES.length; i++) {
-      if (trimmedSubcategory.toLowerCase() < SUBCATEGORIES[i].toLowerCase()) {
-        insertIndex = i
-        break
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedSubcategory })
+      })
+      const j = await r.json()
+      
+      if (j.success) {
+        // Recarregar subcategorias do backend
+        const subcategoriesResponse = await fetch(`${API_BASE_URL}/subcategories`)
+        const subcategoriesData = await subcategoriesResponse.json()
+        if (subcategoriesData.success) {
+          setSubcategories(subcategoriesData.data)
+        }
+        
+        setForm(prev => ({ ...prev, subcategory: trimmedSubcategory }))
+        setNewSubcategory('')
+        setNewSubcategoryError('')
+        setIsAddSubcategoryOpen(false)
+      } else {
+        setNewSubcategoryError(j.error || 'Erro ao salvar subcategoria')
       }
+    } catch (error) {
+      setNewSubcategoryError('Erro ao salvar subcategoria')
     }
-    
-    // Inserir na posição correta
-    SUBCATEGORIES.splice(insertIndex, 0, trimmedSubcategory)
-    
-    setForm(prev => ({ ...prev, subcategory: trimmedSubcategory }))
-    setNewSubcategory('')
-    setNewSubcategoryError('')
-    setIsAddSubcategoryOpen(false)
   }
 
   // CRUD
@@ -631,7 +611,7 @@ const Transactions: React.FC = () => {
                       }`}
                     >
                       <option value="">Selecione uma subcategoria</option>
-                      {SUBCATEGORIES.map((subcat, index) => (
+                      {subcategories.map((subcat, index) => (
                         <option key={index} value={subcat}>{subcat}</option>
                       ))}
                     </select>

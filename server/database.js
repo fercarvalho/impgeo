@@ -6,6 +6,7 @@ class Database {
     this.dbPath = path.join(__dirname, 'database');
     this.transactionsFile = path.join(this.dbPath, 'transactions.json');
     this.productsFile = path.join(this.dbPath, 'products.json');
+    this.subcategoriesFile = path.join(this.dbPath, 'subcategories.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -22,6 +23,55 @@ class Database {
     
     if (!fs.existsSync(this.productsFile)) {
       fs.writeFileSync(this.productsFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.subcategoriesFile)) {
+      // Inicializar com as subcategorias padrão
+      const defaultSubcategories = [
+        'ALUGUEL + INTERNET',
+        'ANUIDADE CREA IMP',
+        'ANUIDADE CREA SÓCIOS',
+        'ART',
+        'Auxiliar de Campo',
+        'CARTÃO BB (PROJETOS)',
+        'CARTÃO C6',
+        'CDB',
+        'CELULAR',
+        'CONFRAS E REFEIÇÕES',
+        'CONSELHO REG ENG',
+        'CONSULTOR',
+        'CONTADOR',
+        'DARF',
+        'Despesa variável de projetos',
+        'FEZINHA',
+        'FGTS',
+        'GUIA DAS',
+        'ISS',
+        'Locomoção',
+        'Manutenções',
+        'Materiais Extras',
+        'MATERIAL ESCRITÓRIO',
+        'MICROSOFT 365',
+        'MÉTRICA TOPO',
+        'ONR',
+        'OUTROS GASTOS DU/VINI',
+        'PLUXEE BENEFICIOS',
+        'Produção Conteúdo',
+        'Reembolso projetos',
+        'RTK',
+        'RTK (TOPOMIG)',
+        'SALARIO DU - PRO LABORE',
+        'SALARIO RAFAELA APARECIDA',
+        'SALARIO VINI - PRO LABORE',
+        'SALÁRIO THAISA TEIXEIRA BAHIA',
+        'SEGURO DRONE',
+        'SEGURO RTK',
+        'Sindicato',
+        'SITE',
+        'Social Media',
+        'Tráfego/SEO'
+      ];
+      fs.writeFileSync(this.subcategoriesFile, JSON.stringify(defaultSubcategories, null, 2));
     }
   }
 
@@ -171,6 +221,46 @@ class Database {
       return true;
     } catch (error) {
       console.error('Erro ao deletar múltiplos produtos:', error);
+      throw error;
+    }
+  }
+
+  // Métodos para Subcategorias
+  getAllSubcategories() {
+    try {
+      const data = fs.readFileSync(this.subcategoriesFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler subcategorias:', error);
+      return [];
+    }
+  }
+
+  saveSubcategory(name) {
+    try {
+      const subcategories = this.getAllSubcategories();
+      
+      // Verificar se já existe
+      if (subcategories.includes(name)) {
+        throw new Error('Subcategoria já existe');
+      }
+      
+      // Encontrar a posição correta para inserir em ordem alfabética
+      let insertIndex = subcategories.length;
+      for (let i = 0; i < subcategories.length; i++) {
+        if (name.toLowerCase() < subcategories[i].toLowerCase()) {
+          insertIndex = i;
+          break;
+        }
+      }
+      
+      // Inserir na posição correta
+      subcategories.splice(insertIndex, 0, name);
+      
+      fs.writeFileSync(this.subcategoriesFile, JSON.stringify(subcategories, null, 2));
+      return name;
+    } catch (error) {
+      console.error('Erro ao salvar subcategoria:', error);
       throw error;
     }
   }
