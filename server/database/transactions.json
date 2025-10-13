@@ -1,0 +1,52 @@
+[
+  {
+    "id": "mfxjbqx2kmcebnhtzc",
+    "date": "2025-09-24",
+    "description": "Teste",
+    "value": 30,
+    "type": "Receita",
+    "category": "Varejo",
+    "createdAt": "2025-09-24T05:19:49.766Z",
+    "updatedAt": "2025-09-24T05:19:49.766Z"
+  },
+  {
+    "id": "mfxju6685g8pkxlm71r",
+    "date": "2025-09-25",
+    "description": "teste3",
+    "value": 20,
+    "type": "Despesa",
+    "category": "Fixo",
+    "createdAt": "2025-09-24T05:34:09.344Z",
+    "updatedAt": "2025-09-24T05:34:09.344Z"
+  },
+  {
+    "id": "mfxkps76h97op5h2m1r",
+    "date": "2025-09-23",
+    "description": "Venda de produto A",
+    "value": 150,
+    "type": "Receita",
+    "category": "Varejo",
+    "createdAt": "2025-09-24T05:58:44.226Z",
+    "updatedAt": "2025-09-24T05:58:44.226Z"
+  },
+  {
+    "id": "mfxkps78zluekdmhnig",
+    "date": "2025-09-23",
+    "description": "Compra de material",
+    "value": 75.5,
+    "type": "Despesa",
+    "category": "Fixo",
+    "createdAt": "2025-09-24T05:58:44.228Z",
+    "updatedAt": "2025-09-24T05:58:44.228Z"
+  },
+  {
+    "id": "mfxkps7invamhpx33gd",
+    "date": "2025-09-23",
+    "description": "Pagamento de serviço",
+    "value": 200,
+    "type": "Despesa",
+    "category": "Variavel",
+    "createdAt": "2025-09-24T05:58:44.238Z",
+    "updatedAt": "2025-09-24T05:58:44.238Z"
+  }
+]

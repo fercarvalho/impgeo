@@ -1,0 +1,28 @@
+[
+  {
+    "id": "mgl40lfji8cjbf5dce8",
+    "name": "João Silva Atualizado",
+    "email": "joao.novo@empresa.com",
+    "phone": "(11) 88888-8888",
+    "company": "Empresa XYZ",
+    "address": "Rua Nova, 456",
+    "city": "Rio de Janeiro",
+    "state": "RJ",
+    "zipCode": "20000-000",
+    "createdAt": "2025-10-10T17:17:43.423Z",
+    "updatedAt": "2025-10-10T17:19:19.709Z"
+  },
+  {
+    "id": "mgl45j3r97q1lyt6kh",
+    "name": "Maria Santos",
+    "email": "maria@empresa.com",
+    "phone": "(11) 77777-7777",
+    "company": "Empresa ABC",
+    "address": "Rua Teste, 123",
+    "city": "São Paulo",
+    "state": "SP",
+    "zipCode": "01234-567",
+    "createdAt": "2025-10-10T17:21:33.687Z",
+    "updatedAt": "2025-10-10T17:21:33.687Z"
+  }
+]

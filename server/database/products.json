@@ -1,0 +1,46 @@
+[
+  {
+    "id": "mfxjc902534aqvlapk",
+    "name": "teste1",
+    "category": "teste",
+    "price": 30,
+    "cost": 10,
+    "stock": 10,
+    "sold": 5,
+    "createdAt": "2025-09-24T05:20:13.202Z",
+    "updatedAt": "2025-09-24T05:20:13.202Z"
+  },
+  {
+    "id": "mfxkqztyivau3yogj9h",
+    "name": "Produto Exemplo 1",
+    "category": "Eletrônicos",
+    "price": 299.9,
+    "cost": 150,
+    "stock": 25,
+    "sold": 8,
+    "createdAt": "2025-09-24T05:59:40.774Z",
+    "updatedAt": "2025-09-24T05:59:40.774Z"
+  },
+  {
+    "id": "mfxkqzu17nn6s9q269d",
+    "name": "Produto Exemplo 2",
+    "category": "Roupas",
+    "price": 89.9,
+    "cost": 45,
+    "stock": 50,
+    "sold": 15,
+    "createdAt": "2025-09-24T05:59:40.778Z",
+    "updatedAt": "2025-09-24T05:59:40.778Z"
+  },
+  {
+    "id": "mfxkqzuorywdwmufgb",
+    "name": "Produto Exemplo 3",
+    "category": "Casa",
+    "price": 149.9,
+    "cost": 75,
+    "stock": 10,
+    "sold": 3,
+    "createdAt": "2025-09-24T05:59:40.800Z",
+    "updatedAt": "2025-09-24T05:59:40.800Z"
+  }
+]
