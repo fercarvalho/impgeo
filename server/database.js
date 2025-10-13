@@ -91,7 +91,7 @@ class Database {
     }
     
     if (!fs.existsSync(this.usersFile)) {
-      // Criar usuário admin padrão
+      // Criar usuários padrão
       const bcrypt = require('bcryptjs');
       const defaultUsers = [
         {
@@ -99,6 +99,22 @@ class Database {
           username: 'admin',
           password: bcrypt.hashSync('123456', 10),
           role: 'admin',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: this.generateId(),
+          username: 'user',
+          password: bcrypt.hashSync('135246', 10),
+          role: 'user',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: this.generateId(),
+          username: 'guest',
+          password: bcrypt.hashSync('654321', 10),
+          role: 'guest',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }

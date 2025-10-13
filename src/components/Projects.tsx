@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Map, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X } from 'lucide-react'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface Project {
   id: string
@@ -37,6 +38,7 @@ interface Client {
 }
 
 const Projects: React.FC = () => {
+  const permissions = usePermissions();
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -325,20 +327,24 @@ const Projects: React.FC = () => {
           <p className="text-gray-600">Gerencie seus projetos e acompanhe o progresso</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => setIsImportExportOpen(true)}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Download className="h-5 w-5" />
-            Importar/Exportar
-          </button>
-          <button
-            onClick={() => { setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Plus className="h-5 w-5" />
-            Novo Projeto
-          </button>
+          {(permissions.canImport || permissions.canExport) && (
+            <button
+              onClick={() => setIsImportExportOpen(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Download className="h-5 w-5" />
+              Importar/Exportar
+            </button>
+          )}
+          {permissions.canCreate && (
+            <button
+              onClick={() => { setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Plus className="h-5 w-5" />
+              Novo Projeto
+            </button>
+          )}
         </div>
       </div>
 
@@ -509,20 +515,24 @@ const Projects: React.FC = () => {
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex justify-center space-x-2">
-                      <button 
-                        onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress), selectedServices: project.services || [] }); setIsModalOpen(true) }}
-                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
-                        title="Editar projeto"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => deleteOne(project.id)}
-                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors"
-                        title="Excluir projeto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {permissions.canEdit && (
+                        <button 
+                          onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress), selectedServices: project.services || [] }); setIsModalOpen(true) }}
+                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                          title="Editar projeto"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {permissions.canDelete && (
+                        <button 
+                          onClick={() => deleteOne(project.id)}
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors"
+                          title="Excluir projeto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

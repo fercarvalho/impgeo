@@ -25,6 +25,7 @@ import Projects from './components/Projects'
 import Services from './components/Services'
 import Login from './components/Login'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
@@ -88,6 +89,7 @@ const AppContent: React.FC = () => {
 };
 
 const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
+  const permissions = usePermissions();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
@@ -511,13 +513,15 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Dashboard IMPGEO
           </h1>
-        <button 
-            onClick={() => setShowTransactionModal(true)}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-        >
-            <Plus className="h-5 w-5" />
-          Nova Transação
-        </button>
+        {permissions.canCreate && (
+          <button 
+              onClick={() => setShowTransactionModal(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+              <Plus className="h-5 w-5" />
+            Nova Transação
+          </button>
+        )}
       </div>
 
         {/* Seção Mês Atual */}

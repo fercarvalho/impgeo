@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag } from 'lucide-react'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface Service {
   id: string
@@ -14,6 +15,7 @@ interface Service {
 const API_BASE_URL = '/api'
 
 const Services: React.FC = () => {
+  const permissions = usePermissions();
   const [services, setServices] = useState<Service[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
@@ -130,13 +132,15 @@ const Services: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Serviços</h1>
           <p className="text-gray-600">Gerencie seus serviços e preços</p>
         </div>
-        <button
-          onClick={() => { setEditing(null); setForm({ name: '', description: '', category: '', price: '', duration: '', status: 'ativo' }); setFormErrors({}); setIsModalOpen(true) }}
-          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-        >
-          <Plus className="h-5 w-5" />
-          Novo Serviço
-        </button>
+        {permissions.canCreate && (
+          <button
+            onClick={() => { setEditing(null); setForm({ name: '', description: '', category: '', price: '', duration: '', status: 'ativo' }); setFormErrors({}); setIsModalOpen(true) }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Plus className="h-5 w-5" />
+            Novo Serviço
+          </button>
+        )}
       </div>
 
       {/* Cards de Serviços */}
@@ -169,20 +173,24 @@ const Services: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setIsModalOpen(true) }}
-                className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                Editar
-              </button>
-              <button
-                onClick={() => deleteService(service.id)}
-                className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir
-              </button>
+              {permissions.canEdit && (
+                <button
+                  onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setIsModalOpen(true) }}
+                  className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Editar
+                </button>
+              )}
+              {permissions.canDelete && (
+                <button
+                  onClick={() => deleteService(service.id)}
+                  className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir
+                </button>
+              )}
             </div>
           </div>
         ))}

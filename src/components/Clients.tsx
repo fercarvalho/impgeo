@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Users, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, Phone, Mail, MapPin } from 'lucide-react'
+import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X } from 'lucide-react'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface Client {
   id: string
@@ -16,6 +17,7 @@ interface Client {
 const API_BASE_URL = '/api'
 
 const Clients: React.FC = () => {
+  const permissions = usePermissions();
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -33,8 +35,6 @@ const Clients: React.FC = () => {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
-  const [newClient, setNewClient] = useState('')
-  const [newClientError, setNewClientError] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -205,20 +205,24 @@ const Clients: React.FC = () => {
           Clientes
         </h1>
         <div className="flex gap-3">
-          <button
-            onClick={() => setIsImportExportOpen(true)}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Download className="h-5 w-5" />
-            Importar/Exportar
-          </button>
-          <button
-            onClick={() => { setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({}); setIsModalOpen(true) }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Plus className="h-5 w-5" />
-            Novo Cliente
-          </button>
+          {(permissions.canImport || permissions.canExport) && (
+            <button
+              onClick={() => setIsImportExportOpen(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Download className="h-5 w-5" />
+              Importar/Exportar
+            </button>
+          )}
+          {permissions.canCreate && (
+            <button
+              onClick={() => { setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({}); setIsModalOpen(true) }}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Plus className="h-5 w-5" />
+              Novo Cliente
+            </button>
+          )}
         </div>
       </div>
 
@@ -280,14 +284,16 @@ const Clients: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
-                <div className="flex justify-center">
-                  <input
-                    type="checkbox"
-                    checked={clients.length > 0 && selectedClients.size === clients.length}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                </div>
+                {permissions.canDelete && (
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={clients.length > 0 && selectedClients.size === clients.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                )}
                 <button onClick={() => handleSort('name')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-52 sm:w-60">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Nome</p>
                   {getSortIcon('name')}
@@ -313,14 +319,16 @@ const Clients: React.FC = () => {
             {filteredAndSorted.map((c, index) => (
               <div key={c.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
-                  <div className="flex-shrink-0 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectedClients.has(c.id)}
-                      onChange={() => handleSelect(c.id)}
-                      className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                  </div>
+                  {permissions.canDelete && (
+                    <div className="flex-shrink-0 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.has(c.id)}
+                        onChange={() => handleSelect(c.id)}
+                        className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                  )}
                   <div className="flex-shrink-0 w-52 sm:w-60 text-left">
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{c.name}</h3>
                     {(c.cpf || c.cnpj) && (
@@ -337,18 +345,22 @@ const Clients: React.FC = () => {
                     <p className="text-xs sm:text-sm text-gray-600 truncate">{c.address}</p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
-                    <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
-                      <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    </button>
-                    <button onClick={() => deleteOne(c.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir cliente">
-                      <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    </button>
+                    {permissions.canEdit && (
+                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
+                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </button>
+                    )}
+                    {permissions.canDelete && (
+                      <button onClick={() => deleteOne(c.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir cliente">
+                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
 
-            {selectedClients.size > 0 && (
+            {selectedClients.size > 0 && permissions.canDelete && (
               <div className="flex justify-end p-4 bg-red-50 border-t border-red-200">
                 <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                   <Trash2 className="h-4 w-4" />

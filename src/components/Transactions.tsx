@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X } from 'lucide-react'
+import { usePermissions } from '../hooks/usePermissions'
 
 type TransactionType = 'Receita' | 'Despesa'
 
@@ -23,6 +24,7 @@ interface TransactionsProps {
 }
 
 const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) => {
+  const permissions = usePermissions();
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -32,7 +34,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
-  const [importType, setImportType] = useState<'transactions'>('transactions')
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [newSubcategory, setNewSubcategory] = useState('')
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
@@ -46,8 +47,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
 
   // calendários de filtro
-  const [isFilterCalendarFromOpen, setIsFilterCalendarFromOpen] = useState(false)
-  const [isFilterCalendarToOpen, setIsFilterCalendarToOpen] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -156,8 +155,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
 
-  const renderFilterCalendarFrom = () => null
-  const renderFilterCalendarTo = () => null
 
   // Função para adicionar nova subcategoria
   const addNewSubcategory = async () => {
@@ -320,20 +317,24 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           Transações
         </h1>
         <div className="flex gap-3">
-          <button
-            onClick={() => setIsImportExportOpen(true)}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Download className="h-5 w-5" />
-            Importar/Exportar
-          </button>
-          <button
-            onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Plus className="h-5 w-5" />
-            Nova Transação
-          </button>
+          {(permissions.canImport || permissions.canExport) && (
+            <button
+              onClick={() => setIsImportExportOpen(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Download className="h-5 w-5" />
+              Importar/Exportar
+            </button>
+          )}
+          {permissions.canCreate && (
+            <button
+              onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Plus className="h-5 w-5" />
+              Nova Transação
+            </button>
+          )}
         </div>
       </div>
 
@@ -421,14 +422,16 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
-                <div className="flex justify-center">
-                  <input
-                    type="checkbox"
-                    checked={transactions.length > 0 && selectedTransactions.size === transactions.length}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                </div>
+                {permissions.canDelete && (
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={transactions.length > 0 && selectedTransactions.size === transactions.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                )}
                 <button onClick={() => handleSort('date')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Data</p>
                   {getSortIcon('date')}
@@ -461,14 +464,16 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             {filteredAndSorted.map((t, index) => (
               <div key={t.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === transactions.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
-                  <div className="flex-shrink-0 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectedTransactions.has(t.id)}
-                      onChange={() => handleSelect(t.id)}
-                      className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                  </div>
+                  {permissions.canDelete && (
+                    <div className="flex-shrink-0 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedTransactions.has(t.id)}
+                        onChange={() => handleSelect(t.id)}
+                        className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                  )}
                   <div className="flex-shrink-0 w-20 sm:w-24 text-left">
                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
                   </div>
@@ -490,18 +495,22 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     </p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
-                  <button onClick={() => { setEditing(t); setForm({ date: t.date, description: t.description, value: String(t.value), type: t.type, category: t.category, subcategory: t.subcategory || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar transação">
-                      <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    </button>
-                    <button onClick={() => deleteOne(t.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir transação">
-                      <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    </button>
+                    {permissions.canEdit && (
+                      <button onClick={() => { setEditing(t); setForm({ date: t.date, description: t.description, value: String(t.value), type: t.type, category: t.category, subcategory: t.subcategory || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar transação">
+                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </button>
+                    )}
+                    {permissions.canDelete && (
+                      <button onClick={() => deleteOne(t.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir transação">
+                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
 
-            {selectedTransactions.size > 0 && (
+            {selectedTransactions.size > 0 && permissions.canDelete && (
               <div className="flex justify-end p-4 bg-red-50 border-t border-red-200">
                 <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                   <Trash2 className="h-4 w-4" />
