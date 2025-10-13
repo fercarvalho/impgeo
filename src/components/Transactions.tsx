@@ -32,6 +32,7 @@ const Transactions: React.FC = () => {
   const [newSubcategory, setNewSubcategory] = useState('')
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
   const [subcategories, setSubcategories] = useState<string[]>([])
+  const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -69,10 +70,10 @@ const Transactions: React.FC = () => {
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen])
+  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen])
 
   const handleSort = (field: keyof Transaction) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -167,6 +168,15 @@ const Transactions: React.FC = () => {
       }
     } catch (error) {
       setNewSubcategoryError('Erro ao salvar subcategoria')
+    }
+  }
+
+  // Função para remover subcategoria da lista local (não afeta o banco)
+  const removeSubcategoryFromList = () => {
+    if (form.subcategory) {
+      setSubcategories(prev => prev.filter(subcat => subcat !== form.subcategory))
+      setForm(prev => ({ ...prev, subcategory: '' }))
+      setIsRemoveSubcategoryOpen(false)
     }
   }
 
@@ -617,11 +627,15 @@ const Transactions: React.FC = () => {
                     </select>
                     <button
                       type="button"
-                      onClick={() => setIsAddSubcategoryOpen(true)}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      title="Adicionar nova subcategoria"
+                      onClick={() => form.subcategory ? setIsRemoveSubcategoryOpen(true) : setIsAddSubcategoryOpen(true)}
+                      className={`px-3 py-2 rounded-lg transition-colors ${
+                        form.subcategory 
+                          ? 'bg-red-600 text-white hover:bg-red-700' 
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      title={form.subcategory ? "Remover subcategoria da lista" : "Adicionar nova subcategoria"}
                     >
-                      <Plus className="w-4 h-4" />
+                      {form.subcategory ? <Trash2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                     </button>
                   </div>
                 ) : (
@@ -750,6 +764,38 @@ const Transactions: React.FC = () => {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={addNewSubcategory} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Adicionar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Remover Subcategoria */}
+      {isRemoveSubcategoryOpen && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRemoveSubcategoryOpen(false) }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Remover Subcategoria</h2>
+              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                  <h3 className="font-semibold text-yellow-800">Atenção</h3>
+                </div>
+                <p className="text-yellow-700 text-sm">
+                  Você está removendo a subcategoria <strong>"{form.subcategory}"</strong> da lista atual.
+                </p>
+                <p className="text-yellow-700 text-sm mt-2">
+                  <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
+              <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold">Remover da Lista</button>
             </div>
           </div>
         </div>
