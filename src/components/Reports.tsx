@@ -109,7 +109,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
             <div className="mb-8">
               <div className="flex items-center mb-6">
                 <span className="text-gray-400 text-lg mr-3">📈</span>
-                <h3 className="text-lg font-bold text-gray-800">Vendas por Categoria</h3>
+                <h3 className="text-lg font-bold text-gray-800">Vendas por Projeto</h3>
               </div>
               <div className="space-y-3">
                 {dados.vendasPorCategoria.map((item: any, index: number) => {
@@ -134,7 +134,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
                               <YAxis />
-                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
                               <Bar dataKey="valor" fill={item.cor} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -151,7 +151,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                     onClick={() => toggleChart(`total-vendas-categoria-${periodo}`)}
                   >
                     <span className="bg-green-300 text-green-800 font-bold px-4 py-2 rounded-lg min-w-0 flex-shrink-0">
-                      Total Vendas por Categoria
+                      Total Vendas por Projeto
                     </span>
                     <span className="font-bold text-green-800 text-lg ml-4 text-right">
                       R$ {totalVendasCategoria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -164,7 +164,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="nome" />
                           <YAxis />
-                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
                           <Bar dataKey="valor" fill="#22c55e" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -176,7 +176,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
             {/* Vendas por Produto */}
             <div>
               <div className="mb-4">
-                <h4 className="text-md font-bold text-gray-700">Vendas por Produto</h4>
+                <h4 className="text-md font-bold text-gray-700">Vendas por Serviço</h4>
               </div>
               <div className="space-y-3">
                 {dados.vendasPorProduto.map((item: any, index: number) => {
@@ -201,7 +201,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
                               <YAxis />
-                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
                               <Bar dataKey="valor" fill={item.cor} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -218,7 +218,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                     onClick={() => toggleChart(`total-vendas-produto-${periodo}`)}
                   >
                     <span className="bg-blue-300 text-blue-800 font-bold text-sm px-3 py-2 rounded min-w-0 flex-shrink-0">
-                      Total por Produto
+                      Total por Serviço
                     </span>
                     <span className="font-bold text-blue-800 text-sm ml-3 text-right">
                       R$ {totalVendasProduto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -231,7 +231,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="nome" />
                           <YAxis />
-                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
                           <Bar dataKey="valor" fill="#3b82f6" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -245,7 +245,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
             <div className="flex items-center mb-6">
               <span className="text-gray-400 text-lg mr-3">💸</span>
-              <h3 className="text-lg font-bold text-gray-800">Despesas por Categoria</h3>
+              <h3 className="text-lg font-bold text-gray-800">Despesas por Projeto</h3>
             </div>
             <div className="space-y-3">
               {dados.despesasPorCategoria.map((item: any, index: number) => {
@@ -270,7 +270,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="name" />
                             <YAxis />
-                            <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                            <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
                             <Bar dataKey="valor" fill={item.cor} />
                           </BarChart>
                         </ResponsiveContainer>
@@ -300,7 +300,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="nome" />
                         <YAxis />
-                        <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
                         <Bar dataKey="valor" fill="#f97316" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -316,7 +316,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <span className="text-gray-400 text-lg mr-3">📦</span>
-              <h3 className="text-lg font-bold text-gray-800">Produtos Vendidos por {periodo === 'Semana' ? 'Dia' : periodo === 'Mês' ? 'Semana' : periodo === 'Trimestre' ? 'Mês' : 'Trimestre'}</h3>
+              <h3 className="text-lg font-bold text-gray-800">Serviços Vendidos por {periodo === 'Semana' ? 'Dia' : periodo === 'Mês' ? 'Semana' : periodo === 'Trimestre' ? 'Mês' : 'Trimestre'}</h3>
             </div>
             <button 
               className="text-blue-600 hover:text-blue-800 font-medium"
@@ -339,9 +339,9 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="vela_lavanda" fill="#8b5cf6" name="Vela Lavanda" />
-                  <Bar dataKey="vela_vanilla" fill="#ec4899" name="Vela Vanilla" />
-                  <Bar dataKey="kit_romance" fill="#06b6d4" name="Kit Romance" />
+                  <Bar dataKey="vela_lavanda" fill="#8b5cf6" name="Serviço A" />
+                  <Bar dataKey="vela_vanilla" fill="#ec4899" name="Serviço B" />
+                  <Bar dataKey="kit_romance" fill="#06b6d4" name="Serviço C" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
