@@ -59,7 +59,8 @@ function processTransactions(worksheet) {
         description: row['Descrição'] || row['Descricao'] || row['description'] || row['Description'] || '',
         value: parseFloat(row['Valor'] || row['value'] || row['Value'] || 0),
         type: row['Tipo'] || row['type'] || row['Type'] || 'Entrada',
-        category: row['Categoria'] || row['category'] || row['Category'] || 'Outros'
+        category: row['Categoria'] || row['category'] || row['Category'] || 'Outros',
+        subcategory: row['Subcategoria'] || row['SubCategoria'] || row['subcategory'] || row['Subcategory'] || ''
       };
 
       // Validar se tem dados essenciais
@@ -108,20 +109,57 @@ function processProducts(worksheet) {
 app.get('/api/modelo/:type', (req, res) => {
   try {
     const { type } = req.params;
-    
     if (!['transactions', 'products'].includes(type)) {
       return res.status(400).json({ error: 'Tipo inválido! Use "transactions" ou "products"' });
     }
-    
-    const fileName = type === 'transactions' ? 'modelo-transacoes.xlsx' : 'modelo-produtos.xlsx';
-    const filePath = path.join(__dirname, 'public', fileName);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Arquivo modelo não encontrado' });
+
+    // Sempre gerar arquivo modelo dinamicamente para garantir colunas atualizadas
+    const workbook = XLSX.utils.book_new();
+    let worksheet;
+
+    if (type === 'transactions') {
+      // Criar dados de exemplo com todas as colunas
+      const sampleData = [
+        {
+          'Data': '2024-01-15',
+          'Descrição': 'Venda de produto',
+          'Valor': 150.00,
+          'Tipo': 'Receita',
+          'Categoria': 'Vendas',
+          'Subcategoria': 'Online'
+        },
+        {
+          'Data': '2024-01-16',
+          'Descrição': 'Compra de material',
+          'Valor': 75.50,
+          'Tipo': 'Despesa',
+          'Categoria': 'Compras',
+          'Subcategoria': 'Escritório'
+        }
+      ];
+      worksheet = XLSX.utils.json_to_sheet(sampleData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');
+    } else {
+      const headers = [{
+        'Nome': '',
+        'Categoria': '',
+        'Preço': '',
+        'Custo': '',
+        'Estoque': '',
+        'Vendido': ''
+      }];
+      worksheet = XLSX.utils.json_to_sheet(headers);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
     }
-    
-    res.download(filePath, fileName);
-    
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 'modelo-produtos.xlsx';
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length
+    });
+    return res.send(buffer);
   } catch (error) {
     console.error('Erro ao baixar modelo:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -201,7 +239,8 @@ app.post('/api/export', (req, res) => {
         'Descrição': t.description,
         'Valor': t.value,
         'Tipo': t.type,
-        'Categoria': t.category
+        'Categoria': t.category,
+        'Subcategoria': t.subcategory || ''
       }));
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');

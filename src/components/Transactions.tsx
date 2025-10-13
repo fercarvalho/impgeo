@@ -10,6 +10,7 @@ interface Transaction {
   value: number
   type: TransactionType
   category: string
+  subcategory?: string
 }
 
 const API_BASE_URL = '/api'
@@ -19,8 +20,8 @@ const Transactions: React.FC = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [form, setForm] = useState<{date: string; description: string; value: string; type: TransactionType; category: string}>({
-    date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: ''
+  const [form, setForm] = useState<{date: string; description: string; value: string; type: TransactionType; category: string; subcategory: string}>({
+    date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: ''
   })
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [importType, setImportType] = useState<'transactions'>('transactions')
@@ -28,7 +29,7 @@ const Transactions: React.FC = () => {
 
   // filtros / ordenação
   const [sortConfig, setSortConfig] = useState<{ field: keyof Transaction | null, direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' })
-  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, dateFrom: string, dateTo: string }>({ type: '', category: '', dateFrom: '', dateTo: '' })
+  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
 
   // calendários de filtro
   const [isFilterCalendarFromOpen, setIsFilterCalendarFromOpen] = useState(false)
@@ -69,6 +70,7 @@ const Transactions: React.FC = () => {
     let list = [...transactions]
     if (filters.type) list = list.filter(t => t.type === filters.type)
     if (filters.category) list = list.filter(t => t.category.toLowerCase().includes(filters.category.toLowerCase()))
+    if (filters.subcategory) list = list.filter(t => (t.subcategory || '').toLowerCase().includes(filters.subcategory.toLowerCase()))
     if (filters.dateFrom) list = list.filter(t => new Date(t.date) >= new Date(filters.dateFrom))
     if (filters.dateTo) list = list.filter(t => new Date(t.date) <= new Date(filters.dateTo))
 
@@ -102,7 +104,7 @@ const Transactions: React.FC = () => {
     })
   }
 
-  const clearFilters = () => setFilters({ type: '', category: '', dateFrom: '', dateTo: '' })
+  const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
 
   const renderFilterCalendarFrom = () => null
   const renderFilterCalendarTo = () => null
@@ -116,7 +118,8 @@ const Transactions: React.FC = () => {
       description: form.description,
       value: parseFloat(form.value),
       type: form.type,
-      category: form.category
+      category: form.category,
+      subcategory: form.subcategory
     }
     try {
       if (editing) {
@@ -126,7 +129,7 @@ const Transactions: React.FC = () => {
         const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         const j = await r.json(); if (j.success) setTransactions(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '' })
+      setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' })
     } catch {}
   }
 
@@ -231,6 +234,16 @@ const Transactions: React.FC = () => {
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Subcategoria</label>
+              <input
+                type="text"
+                placeholder="Subcategoria..."
+                value={filters.subcategory}
+                onChange={(e) => setFilters(prev => ({ ...prev, subcategory: e.target.value }))}
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
               <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Início</label>
               <div className="relative">
                 <input
@@ -298,6 +311,9 @@ const Transactions: React.FC = () => {
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Categoria</p>
                   {getSortIcon('category')}
                 </button>
+                <div className="flex items-center justify-center gap-1 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-24 sm:w-28">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Subcategoria</p>
+                </div>
                 <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Valor</p>
                   {getSortIcon('value')}
@@ -322,7 +338,7 @@ const Transactions: React.FC = () => {
                   <div className="flex-shrink-0 w-20 sm:w-24 text-left">
                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
+                  <div className="flex-[1.2] min-w-0 text-left">
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{t.description}</h3>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
@@ -331,13 +347,16 @@ const Transactions: React.FC = () => {
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
                     <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.category}</span>
                   </div>
+                  <div className="flex-shrink-0 w-24 sm:w-28 text-center">
+                    <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.subcategory || '-'}</span>
+                  </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
                     <p className={`text-xs sm:text-xs md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
                       {t.type === 'Receita' ? '+' : '-'}R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
-                    <button onClick={() => { setEditing(t); setForm({ date: t.date, description: t.description, value: String(t.value), type: t.type, category: t.category }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar transação">
+                  <button onClick={() => { setEditing(t); setForm({ date: t.date, description: t.description, value: String(t.value), type: t.type, category: t.category, subcategory: t.subcategory || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar transação">
                       <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </button>
                     <button onClick={() => deleteOne(t.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir transação">
@@ -393,6 +412,10 @@ const Transactions: React.FC = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Categoria</label>
                 <input type="text" value={form.category} onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Subcategoria</label>
+                <input type="text" value={form.subcategory} onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
