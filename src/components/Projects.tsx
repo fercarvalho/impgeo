@@ -15,8 +15,19 @@ interface Project {
 
 const API_BASE_URL = '/api'
 
+interface Client {
+  id: string
+  name: string
+  email: string
+  phone: string
+  address: string
+  cpf?: string
+  cnpj?: string
+}
+
 const Projects: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
@@ -64,6 +75,17 @@ const Projects: React.FC = () => {
       } catch {}
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/clients`)
+        const j = await r.json()
+        if (j.success) setClients(j.data)
+      } catch {}
+    }
+    loadClients()
   }, [])
 
   // Controla overlay global (classe no body) ao abrir/fechar modais
@@ -581,14 +603,20 @@ const Projects: React.FC = () => {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Cliente <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={form.client}
                   onChange={(e) => setForm(prev => ({ ...prev, client: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     formErrors.client ? 'border-red-500 bg-red-50' : ''
                   }`}
-                />
+                >
+                  <option value="">Selecione um cliente</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.name}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
                 {formErrors.client && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
                     {formErrors.client}
