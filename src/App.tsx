@@ -152,7 +152,7 @@ function App() {
   const NavigationBar = () => (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 min-w-0">
+        <div className="flex justify-between h-20 min-w-0">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
               <img 
@@ -169,7 +169,7 @@ function App() {
           <div className="flex items-center space-x-4 overflow-x-auto scrollbar-hide nav-scroll min-w-0 flex-1">
         <button
           onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
             activeTab === 'dashboard'
               ? 'bg-blue-700 text-white'
               : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -180,7 +180,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('projects')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'projects'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -191,7 +191,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('services')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'services'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -202,7 +202,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('reports')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'reports'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -213,7 +213,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('metas')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'metas'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -224,7 +224,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('projecao')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'projecao'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -235,7 +235,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'transactions'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -246,7 +246,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('clients')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'clients'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
@@ -257,7 +257,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('dre')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${
                 activeTab === 'dre'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
