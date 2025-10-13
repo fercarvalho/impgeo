@@ -288,15 +288,15 @@ const Clients: React.FC = () => {
                     className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
                 </div>
-                <button onClick={() => handleSort('name')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
+                <button onClick={() => handleSort('name')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-52 sm:w-60">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Nome</p>
                   {getSortIcon('name')}
                 </button>
-                <button onClick={() => handleSort('email')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
+                <button onClick={() => handleSort('email')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-36 sm:w-44">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Email</p>
                   {getSortIcon('email')}
                 </button>
-                <button onClick={() => handleSort('phone')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-24 sm:w-28">
+                <button onClick={() => handleSort('phone')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-28 sm:w-32">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Telefone</p>
                   {getSortIcon('phone')}
                 </button>
@@ -321,16 +321,16 @@ const Clients: React.FC = () => {
                       className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                     />
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
+                  <div className="flex-shrink-0 w-52 sm:w-60 text-left">
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{c.name}</h3>
                     {(c.cpf || c.cnpj) && (
                       <p className="text-xs text-gray-500 truncate">{c.cpf || c.cnpj}</p>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
+                  <div className="flex-shrink-0 w-36 sm:w-44 text-center">
                     <p className="text-xs sm:text-sm text-gray-600 truncate">{c.email}</p>
                   </div>
-                  <div className="flex-shrink-0 w-24 sm:w-28 text-center">
+                  <div className="flex-shrink-0 w-28 sm:w-32 text-center">
                     <p className="text-xs sm:text-sm text-gray-600 truncate">{c.phone}</p>
                   </div>
                   <div className="flex-1 min-w-0 text-left">

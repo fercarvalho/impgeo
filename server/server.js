@@ -113,14 +113,15 @@ function processClients(worksheet) {
   data.forEach((row, index) => {
     try {
       // Mapear colunas do Excel para o formato esperado
+      const documentType = row['Tipo de Documento'] || row['tipo de documento'] || row['Tipo de documento'] || 'cpf';
       const client = {
         id: Date.now() + index,
         name: row['Nome'] || row['name'] || row['Name'] || '',
         email: row['Email'] || row['email'] || row['Email'] || '',
         phone: row['Telefone'] || row['phone'] || row['Phone'] || '',
         address: row['Endereço'] || row['Endereco'] || row['address'] || row['Address'] || '',
-        cpf: row['CPF'] || row['cpf'] || row['Cpf'] || '',
-        cnpj: row['CNPJ'] || row['cnpj'] || row['Cnpj'] || ''
+        cpf: documentType === 'cpf' ? (row['CPF'] || row['cpf'] || row['Cpf'] || '') : '',
+        cnpj: documentType === 'cnpj' ? (row['CNPJ'] || row['cnpj'] || row['Cnpj'] || '') : ''
       };
 
       // Validar se tem dados essenciais
@@ -176,6 +177,7 @@ app.get('/api/modelo/:type', (req, res) => {
           'Email': 'joao@email.com',
           'Telefone': '(11) 99999-9999',
           'Endereço': 'Rua das Flores, 123',
+          'Tipo de Documento': 'cpf',
           'CPF': '123.456.789-00',
           'CNPJ': ''
         },
@@ -184,6 +186,7 @@ app.get('/api/modelo/:type', (req, res) => {
           'Email': 'contato@empresa.com',
           'Telefone': '(11) 88888-8888',
           'Endereço': 'Av. Principal, 456',
+          'Tipo de Documento': 'cnpj',
           'CPF': '',
           'CNPJ': '12.345.678/0001-90'
         }
