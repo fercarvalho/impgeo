@@ -250,7 +250,7 @@ function App() {
               }`}
             >
               <Calculator className="h-4 w-4 mb-1 mt-4" />
-              <span className="text-center leading-tight">Projeção<br />Anual</span>
+              <span className="text-center leading-tight">Projeção</span>
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
