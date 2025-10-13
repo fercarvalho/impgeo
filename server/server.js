@@ -136,12 +136,44 @@ function processClients(worksheet) {
   return clients;
 }
 
+// Função para processar dados de projetos
+function processProjects(worksheet) {
+  const data = XLSX.utils.sheet_to_json(worksheet);
+  const projects = [];
+
+  data.forEach((row, index) => {
+    try {
+      // Mapear colunas do Excel para o formato esperado
+      const project = {
+        id: Date.now() + index,
+        name: row['Nome'] || row['name'] || row['Name'] || '',
+        description: row['Descrição'] || row['descricao'] || row['description'] || row['Description'] || '',
+        client: row['Cliente'] || row['client'] || row['Client'] || '',
+        startDate: row['Data Início'] || row['data_inicio'] || row['startDate'] || row['StartDate'] || '',
+        endDate: row['Data Fim'] || row['data_fim'] || row['endDate'] || row['EndDate'] || '',
+        status: row['Status'] || row['status'] || row['Status'] || 'ativo',
+        value: parseFloat(row['Valor'] || row['valor'] || row['value'] || row['Value'] || 0),
+        progress: parseInt(row['Progresso'] || row['progresso'] || row['progress'] || row['Progress'] || 0)
+      };
+
+      // Validar se tem dados essenciais
+      if (project.name && project.client) {
+        projects.push(project);
+      }
+    } catch (error) {
+      console.log(`Erro ao processar linha ${index + 1}:`, error.message);
+    }
+  });
+
+  return projects;
+}
+
 // Rota para baixar modelo de arquivo
 app.get('/api/modelo/:type', (req, res) => {
   try {
     const { type } = req.params;
-    if (!['transactions', 'products', 'clients'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products" ou "clients"' });
+    if (!['transactions', 'products', 'clients', 'projects'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients" ou "projects"' });
     }
 
     // Sempre gerar arquivo modelo dinamicamente para garantir colunas atualizadas
@@ -193,6 +225,31 @@ app.get('/api/modelo/:type', (req, res) => {
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+    } else if (type === 'projects') {
+      const sampleData = [
+        {
+          'Nome': 'Projeto Topografia Urbana',
+          'Descrição': 'Levantamento topográfico para loteamento',
+          'Cliente': 'Construtora ABC',
+          'Data Início': '2024-01-15',
+          'Data Fim': '2024-03-15',
+          'Status': 'ativo',
+          'Valor': 15000.00,
+          'Progresso': 60
+        },
+        {
+          'Nome': 'Projeto Georreferenciamento',
+          'Descrição': 'Georreferenciamento de propriedade rural',
+          'Cliente': 'Fazenda XYZ',
+          'Data Início': '2024-02-01',
+          'Data Fim': '2024-02-28',
+          'Status': 'concluido',
+          'Valor': 8500.00,
+          'Progresso': 100
+        }
+      ];
+      worksheet = XLSX.utils.json_to_sheet(sampleData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Projetos');
     } else {
       const headers = [{
         'Nome': '',
@@ -230,8 +287,8 @@ app.post('/api/import', upload.single('file'), (req, res) => {
 
     const { type } = req.body; // 'transactions' ou 'products'
     
-    if (!type || !['transactions', 'products', 'clients'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products" ou "clients"' });
+    if (!type || !['transactions', 'products', 'clients', 'projects'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients" ou "projects"' });
     }
 
     console.log(`Processando arquivo: ${req.file.originalname} (${type})`);
@@ -253,6 +310,9 @@ app.post('/api/import', upload.single('file'), (req, res) => {
     } else if (type === 'clients') {
       processedData = processClients(worksheet);
       message = `${processedData.length} clientes importados com sucesso!`;
+    } else if (type === 'projects') {
+      processedData = processProjects(worksheet);
+      message = `${processedData.length} projetos importados com sucesso!`;
     }
 
     // Limpar o arquivo temporário
@@ -473,6 +533,59 @@ app.delete('/api/clients', (req, res) => {
     }
     db.deleteMultipleClients(ids);
     res.json({ success: true, message: `${ids.length} clientes deletados com sucesso` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// APIs para Projetos
+app.get('/api/projects', (req, res) => {
+  try {
+    const projects = db.getAllProjects();
+    res.json({ success: true, data: projects });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/projects', (req, res) => {
+  try {
+    const project = db.saveProject(req.body);
+    res.json({ success: true, data: project });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/projects/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedProject = db.updateProject(id, req.body);
+    res.json({ success: true, data: updatedProject });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/projects/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    db.deleteProject(id);
+    res.json({ success: true, message: 'Projeto excluído com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/projects', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
+    }
+    
+    db.deleteMultipleProjects(ids);
+    res.json({ success: true, message: `${ids.length} projetos deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

@@ -8,6 +8,7 @@ class Database {
     this.productsFile = path.join(this.dbPath, 'products.json');
     this.subcategoriesFile = path.join(this.dbPath, 'subcategories.json');
     this.clientsFile = path.join(this.dbPath, 'clients.json');
+    this.projectsFile = path.join(this.dbPath, 'projects.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -77,6 +78,10 @@ class Database {
     
     if (!fs.existsSync(this.clientsFile)) {
       fs.writeFileSync(this.clientsFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.projectsFile)) {
+      fs.writeFileSync(this.projectsFile, '[]');
     }
   }
 
@@ -342,6 +347,76 @@ class Database {
     } catch (error) {
       console.error('Erro ao deletar múltiplos clientes:', error);
       throw error;
+    }
+  }
+
+  // Métodos para Projetos
+  getAllProjects() {
+    try {
+      const data = fs.readFileSync(this.projectsFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler projetos:', error);
+      return [];
+    }
+  }
+
+  saveProject(projectData) {
+    try {
+      const projects = this.getAllProjects();
+      const newProject = {
+        id: this.generateId(),
+        ...projectData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      projects.push(newProject);
+      fs.writeFileSync(this.projectsFile, JSON.stringify(projects, null, 2));
+      return newProject;
+    } catch (error) {
+      throw new Error('Erro ao salvar projeto: ' + error.message);
+    }
+  }
+
+  updateProject(id, updatedData) {
+    try {
+      const projects = this.getAllProjects();
+      const index = projects.findIndex(p => p.id === id);
+      if (index === -1) {
+        throw new Error('Projeto não encontrado');
+      }
+      projects[index] = {
+        ...projects[index],
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.projectsFile, JSON.stringify(projects, null, 2));
+      return projects[index];
+    } catch (error) {
+      throw new Error('Erro ao atualizar projeto: ' + error.message);
+    }
+  }
+
+  deleteProject(id) {
+    try {
+      const projects = this.getAllProjects();
+      const filteredProjects = projects.filter(p => p.id !== id);
+      if (filteredProjects.length === projects.length) {
+        throw new Error('Projeto não encontrado');
+      }
+      fs.writeFileSync(this.projectsFile, JSON.stringify(filteredProjects, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir projeto: ' + error.message);
+    }
+  }
+
+  deleteMultipleProjects(ids) {
+    try {
+      const projects = this.getAllProjects();
+      const filteredProjects = projects.filter(p => !ids.includes(p.id));
+      fs.writeFileSync(this.projectsFile, JSON.stringify(filteredProjects, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir projetos: ' + error.message);
     }
   }
 
