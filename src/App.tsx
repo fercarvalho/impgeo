@@ -198,16 +198,17 @@ function App() {
       receitas: number,
       despesas: number
     ) => (
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-900">{titulo}</h3>
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 flex items-center justify-between">
+          <h3 className="text-2xl font-bold text-white">{titulo}</h3>
           <button
             onClick={() => toggleReportChart(id)}
-            className="text-sm px-3 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            className="text-sm px-3 py-1 rounded-md border border-white/70 text-white hover:bg-white/10 transition"
           >
             {expandedReportCharts.includes(id) ? 'Ocultar gráfico' : 'Ver gráfico'}
           </button>
         </div>
+        <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
           <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
             <p className="text-sm font-semibold text-green-700">Receitas</p>
@@ -223,11 +224,12 @@ function App() {
           </div>
         </div>
         {expandedReportCharts.includes(id) && (
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 mt-4">
+          <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 mt-4">
             <h4 className="text-lg font-bold text-gray-800 mb-4">Distribuição: Receitas vs Despesas</h4>
             <div className="text-gray-600 text-sm">(Gráfico simplificado neste layout)</div>
           </div>
         )}
+        </div>
       </div>
     )
 
