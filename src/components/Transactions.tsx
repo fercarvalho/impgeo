@@ -394,25 +394,63 @@ const Transactions: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Importar/Exportar */}
+      {/* Modal Importar/Exportar (estrutura Alya com visual IMPGEO) */}
       {isImportExportOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Importar/Exportar</h2>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-b from-blue-50 to-white border-b">
+              <div className="flex items-center gap-3">
+                <Upload className="w-5 h-5 text-blue-700" />
+                <h2 className="text-xl font-extrabold text-gray-800">Importar/Exportar Transações</h2>
+              </div>
+              <button onClick={() => setIsImportExportOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-4">
-              <button onClick={downloadModel} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                Baixar modelo (Transações)
-              </button>
-              <label className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
-                <Upload className="w-4 h-4" /> Importar .xlsx
-                <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
-              </label>
-              <button onClick={handleExport} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white">
-                Exportar atual
-              </button>
+
+            {/* Body */}
+            <div className="px-5 py-5">
+              <p className="text-center text-sm text-gray-700 mb-5">Escolha uma das opções abaixo para gerenciar seus dados:</p>
+
+              {/* Dica / Info box */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6 text-center">
+                <p className="font-bold text-blue-800 mb-1">Primeiro baixe o modelo, depois importe!</p>
+                <p className="text-blue-700 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
+                <button onClick={downloadModel} className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow mx-auto">
+                  <Download className="w-4 h-4" /> Baixar Modelo de Transações
+                </button>
+              </div>
+
+              {/* Importar */}
+              <div className="space-y-3">
+                <label className="block w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white cursor-pointer shadow hover:shadow-md transition-shadow text-center">
+                  <div className="px-3 py-3 flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4 opacity-90" />
+                    <div className="text-center">
+                      <p className="text-lg font-bold leading-tight">Selecionar Arquivo</p>
+                      <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
+                    </div>
+                  </div>
+                  <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+                </label>
+
+                {/* Exportar */}
+                <button onClick={handleExport} className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-3 text-center shadow hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-center gap-2">
+                    <Download className="w-4 h-4 opacity-90" />
+                    <div className="text-center">
+                      <p className="text-lg font-bold leading-tight">Exportar</p>
+                      <p className="text-white/90 text-xs">Salvar dados em arquivo</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-6">
+                <button onClick={() => setIsImportExportOpen(false)} className="w-full px-6 py-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold">
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>
