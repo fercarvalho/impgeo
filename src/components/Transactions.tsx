@@ -176,7 +176,10 @@ const Transactions: React.FC = () => {
     if (!form.value || parseFloat(form.value) <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
     if (!form.category) errors.category = 'Campo obrigatório'
-    // Subcategoria é opcional agora
+    // Subcategoria é obrigatória apenas para Despesas
+    if (form.type === 'Despesa' && !form.subcategory.trim()) {
+      errors.subcategory = 'Campo obrigatório'
+    }
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -593,7 +596,7 @@ const Transactions: React.FC = () => {
               </div>
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Subcategoria
+                  Subcategoria {form.type === 'Despesa' && <span className="text-red-500">*</span>}
                 </label>
                 {form.type === 'Despesa' ? (
                   <div className="flex gap-2">
