@@ -320,6 +320,15 @@ app.post('/api/import', upload.single('file'), (req, res) => {
     } else if (type === 'projects') {
       processedData = processProjects(worksheet);
       message = `${processedData.length} projetos importados com sucesso!`;
+      
+      // Salvar projetos processados no banco de dados
+      processedData.forEach(project => {
+        try {
+          db.saveProject(project);
+        } catch (error) {
+          console.error('Erro ao salvar projeto:', error);
+        }
+      });
     }
 
     // Limpar o arquivo temporário
