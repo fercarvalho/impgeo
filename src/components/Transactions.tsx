@@ -32,6 +32,7 @@ const Transactions: React.FC = () => {
   const [newSubcategory, setNewSubcategory] = useState('')
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
   const [subcategories, setSubcategories] = useState<string[]>([])
+  const [hiddenSubcategories, setHiddenSubcategories] = useState<string[]>([])
   const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -54,13 +55,21 @@ const Transactions: React.FC = () => {
     load()
   }, [])
 
-  // Carregar subcategorias do backend
+  // Carregar subcategorias do backend e subcategorias ocultas do localStorage
   useEffect(() => {
     const loadSubcategories = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/subcategories`)
         const j = await r.json()
-        if (j.success) setSubcategories(j.data)
+        if (j.success) {
+          // Carregar subcategorias ocultas do localStorage
+          const hidden = JSON.parse(localStorage.getItem('hiddenSubcategories') || '[]')
+          setHiddenSubcategories(hidden)
+          
+          // Filtrar subcategorias ocultas
+          const visibleSubcategories = j.data.filter((subcat: string) => !hidden.includes(subcat))
+          setSubcategories(visibleSubcategories)
+        }
       } catch {}
     }
     loadSubcategories()
@@ -171,9 +180,17 @@ const Transactions: React.FC = () => {
     }
   }
 
-  // Função para remover subcategoria da lista local (não afeta o banco)
+  // Função para remover subcategoria da lista local (salva no localStorage)
   const removeSubcategoryFromList = () => {
     if (form.subcategory) {
+      // Adicionar à lista de subcategorias ocultas
+      const newHidden = [...hiddenSubcategories, form.subcategory]
+      setHiddenSubcategories(newHidden)
+      
+      // Salvar no localStorage
+      localStorage.setItem('hiddenSubcategories', JSON.stringify(newHidden))
+      
+      // Remover da lista visível
       setSubcategories(prev => prev.filter(subcat => subcat !== form.subcategory))
       setForm(prev => ({ ...prev, subcategory: '' }))
       setIsRemoveSubcategoryOpen(false)
@@ -786,10 +803,10 @@ const Transactions: React.FC = () => {
                   <h3 className="font-semibold text-yellow-800">Atenção</h3>
                 </div>
                 <p className="text-yellow-700 text-sm">
-                  Você está removendo a subcategoria <strong>"{form.subcategory}"</strong> da lista atual.
+                  Você está ocultando a subcategoria <strong>"{form.subcategory}"</strong> da sua lista.
                 </p>
                 <p className="text-yellow-700 text-sm mt-2">
-                  <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas.
+                  <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas, mas não aparecerá mais na sua lista mesmo após atualizar a página.
                 </p>
               </div>
             </div>
