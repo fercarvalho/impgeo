@@ -701,7 +701,7 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <NavigationBar />
       
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-20">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'transactions' && (
     <div className="space-y-6">
