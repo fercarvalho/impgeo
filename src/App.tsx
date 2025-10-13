@@ -412,7 +412,7 @@ function App() {
     </div>
 
         {/* 2. FATURAMENTO */}
-          <div className="space-y-4">
+        <div className="space-y-4">
           <h2 className="text-2xl font-bold text-emerald-800 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-emerald-600" />
             Faturamento
@@ -423,14 +423,14 @@ function App() {
               <h3 className="text-lg font-bold text-emerald-800 mb-4">Faturamento TOTAL</h3>
               <div className="text-2xl font-bold text-emerald-900 mb-4">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            
+              </div>
+              
               {/* Barra de Progresso */}
               <div className="mb-3">
                 <div className="flex justify-between text-sm font-medium text-emerald-700 mb-1">
                   <span>Progresso</span>
                   <span>{((totalReceitas / 30000) * 100).toFixed(0)}%</span>
-            </div>
+                </div>
                 <div className="w-full bg-emerald-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
@@ -438,22 +438,200 @@ function App() {
                     style={{ width: `${Math.min(100, ((totalReceitas / 30000) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {totalReceitas > 30000 && (
+                  {((totalReceitas / 30000) * 100) > 100 && (
                     <div 
-                      className="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-300 absolute top-0"
-                      style={{ 
-                        width: `${Math.min(100, ((totalReceitas - 30000) / 30000) * 100)}%`,
-                        left: '100%'
-                      }}
+                      className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((totalReceitas / 30000) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
+              </div>
+              
+              {/* Valores Alcançado/Restante */}
+              <div className="text-sm text-emerald-700 font-medium">
+                R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 30000 - totalReceitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
-            
-              <div className="text-sm text-emerald-600">
-                Meta: R$ 30.000,00
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200 shadow-lg">
+              <h3 className="text-lg font-bold text-green-800 mb-4">Faturamento Varejo</h3>
+              <div className="text-2xl font-bold text-green-900 mb-4">
+                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-green-700 mb-1">
+                  <span>Progresso</span>
+                  <span>{(((totalReceitas * 0.6) / 18000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-green-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / 18000) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {(((totalReceitas * 0.6) / 18000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-green-700 to-green-800 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / 18000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Valores Alcançado/Restante */}
+              <div className="text-sm text-green-700 font-medium">
+                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 18000 - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-teal-50 to-teal-100 p-6 rounded-2xl border border-teal-200 shadow-lg">
+              <h3 className="text-lg font-bold text-teal-800 mb-4">Faturamento Atacado</h3>
+              <div className="text-2xl font-bold text-teal-900 mb-4">
+                R$ {(totalReceitas * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-teal-700 mb-1">
+                  <span>Progresso</span>
+                  <span>{(((totalReceitas * 0.3) / 12000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-teal-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.3) / 12000) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {(((totalReceitas * 0.3) / 12000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-teal-700 to-teal-800 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.3) / 12000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Valores Alcançado/Restante */}
+              <div className="text-sm text-teal-700 font-medium">
+                R$ {(totalReceitas * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 12000 - (totalReceitas * 0.3)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* 3. DESPESAS */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-red-800 flex items-center gap-3">
+            <TrendingDown className="w-6 h-6 text-red-600" />
+            Despesas
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-2xl border border-red-200 shadow-lg">
+              <h3 className="text-lg font-bold text-red-800 mb-4">Despesas TOTAL</h3>
+              <div className="text-2xl font-bold text-red-900 mb-4">
+                R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              
+              {/* Barra de Progresso (Para despesas, menos é melhor) */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-red-700 mb-1">
+                  <span>Limite</span>
+                  <span>{((totalDespesas / 15000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-red-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((totalDespesas / 15000) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {((totalDespesas / 15000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-900 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((totalDespesas / 15000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Valores Usado/Restante */}
+              <div className="text-sm text-red-700 font-medium">
+                R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 15000 - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-2xl border border-orange-200 shadow-lg">
+              <h3 className="text-lg font-bold text-orange-800 mb-4">Despesas Variáveis</h3>
+              <div className="text-2xl font-bold text-orange-900 mb-4">
+                R$ {(totalDespesas * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-orange-700 mb-1">
+                  <span>Limite</span>
+                  <span>{(((totalDespesas * 0.7) / 10500) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-orange-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalDespesas * 0.7) / 10500) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {(((totalDespesas * 0.7) / 10500) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-orange-700 to-orange-900 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.7) / 10500) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Valores Usado/Restante */}
+              <div className="text-sm text-orange-700 font-medium">
+                R$ {(totalDespesas * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 10500 - (totalDespesas * 0.7)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-2xl border border-amber-200 shadow-lg">
+              <h3 className="text-lg font-bold text-amber-800 mb-4">Despesas Fixas</h3>
+              <div className="text-2xl font-bold text-amber-900 mb-4">
+                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-amber-700 mb-1">
+                  <span>Limite</span>
+                  <span>{(((totalDespesas * 0.25) / 4500) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-amber-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalDespesas * 0.25) / 4500) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {(((totalDespesas * 0.25) / 4500) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-amber-700 to-amber-900 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.25) / 4500) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Valores Usado/Restante */}
+              <div className="text-sm text-amber-700 font-medium">
+                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 4500 - (totalDespesas * 0.25)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
