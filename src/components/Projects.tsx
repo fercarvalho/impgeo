@@ -396,7 +396,7 @@ const Projects: React.FC = () => {
       </div>
 
       {/* Ações em lote */}
-      {selectedProjects.size > 0 && (
+      {selectedProjects.size > 0 && permissions.canDelete && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <span className="text-blue-800 font-medium">
@@ -418,14 +418,16 @@ const Projects: React.FC = () => {
           <table className="w-full">
             <thead className="bg-blue-50">
               <tr>
-                <th className="px-4 sm:px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={projects.length > 0 && selectedProjects.size === projects.length}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                </th>
+                {permissions.canDelete && (
+                  <th className="px-4 sm:px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={projects.length > 0 && selectedProjects.size === projects.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </th>
+                )}
                 <th className="px-4 sm:px-6 py-3 text-left">
                   <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
                     <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Nome</span>
@@ -470,14 +472,16 @@ const Projects: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProjects.map((project) => (
                 <tr key={project.id} className="hover:bg-gray-50">
-                  <td className="px-4 sm:px-6 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedProjects.has(project.id)}
-                      onChange={() => handleSelect(project.id)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                  </td>
+                  {permissions.canDelete && (
+                    <td className="px-4 sm:px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedProjects.has(project.id)}
+                        onChange={() => handleSelect(project.id)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </td>
+                  )}
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-medium text-gray-900 truncate">{project.name}</h3>
