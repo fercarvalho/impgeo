@@ -61,7 +61,7 @@ function App() {
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
+  
 
 
   // Estados para gráficos expandidos
@@ -167,103 +167,103 @@ function App() {
             </div>
           </div>
           <div className="flex items-center space-x-4 overflow-x-auto scrollbar-hide nav-scroll min-w-0 flex-1">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'bg-blue-700 text-white'
-                  : 'text-blue-200 hover:text-white hover:bg-blue-700'
-              }`}
-            >
-              <Home className="h-4 w-4 inline mr-1" />
+        <button
+          onClick={() => setActiveTab('dashboard')}
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+            activeTab === 'dashboard'
+              ? 'bg-blue-700 text-white'
+              : 'text-blue-200 hover:text-white hover:bg-blue-700'
+          }`}
+        >
+              <Home className="h-4 w-4 mb-1" />
               Dashboard
             </button>
             <button
               onClick={() => setActiveTab('projects')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'projects'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <Map className="h-4 w-4 inline mr-1" />
+              <Map className="h-4 w-4 mb-1" />
               Projetos
             </button>
             <button
               onClick={() => setActiveTab('services')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'services'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <Target className="h-4 w-4 inline mr-1" />
+              <Target className="h-4 w-4 mb-1" />
               Serviços
             </button>
             <button
               onClick={() => setActiveTab('reports')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'reports'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <BarChart3 className="h-4 w-4 inline mr-1" />
+              <BarChart3 className="h-4 w-4 mb-1" />
               Relatórios
             </button>
             <button
               onClick={() => setActiveTab('metas')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'metas'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <TrendingUp className="h-4 w-4 inline mr-1" />
+              <TrendingUp className="h-4 w-4 mb-1" />
               Metas
             </button>
             <button
               onClick={() => setActiveTab('projecao')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'projecao'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <Calculator className="h-4 w-4 inline mr-1" />
-              Projeção Anual
+              <Calculator className="h-4 w-4 mb-1" />
+              <span className="text-center">Projeção<br />Anual</span>
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'transactions'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <FileText className="h-4 w-4 inline mr-1" />
+              <FileText className="h-4 w-4 mb-1" />
               Transações
             </button>
             <button
               onClick={() => setActiveTab('clients')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'clients'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <Building className="h-4 w-4 inline mr-1" />
+              <Building className="h-4 w-4 mb-1" />
               Clientes
             </button>
             <button
               onClick={() => setActiveTab('dre')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
                 activeTab === 'dre'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <BarChart3 className="h-4 w-4 inline mr-1" />
+              <BarChart3 className="h-4 w-4 mb-1" />
               DRE
             </button>
           </div>
@@ -357,15 +357,15 @@ function App() {
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-800 mb-2">
                 {hasData ? `R$ ${data[0].value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem dados'}
-              </div>
+            </div>
               <div className="text-sm text-gray-600">
                 {hasData ? data[0].name : 'Nenhuma transação encontrada'}
-              </div>
+            </div>
             </div>
           </div>
-        </div>
+          </div>
       );
-    }
+  }
 
     return (
       <div className="space-y-8">
@@ -374,17 +374,17 @@ function App() {
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Dashboard IMPGEO
           </h1>
-          <button
+            <button
             onClick={() => setActiveTab('transactions')}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
           >
             <Plus className="h-5 w-5" />
             Nova Transação
-          </button>
-        </div>
+            </button>
+          </div>
 
         {/* Seção Mês Atual */}
-        <div className="space-y-4">
+          <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-gray-600" />
             Mês Atual
@@ -404,18 +404,18 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+            <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('receitas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
+            </div>
               </div>
-
+              </div>
+                {expandedCharts.includes('receitas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
+            </div>
+            
               {/* Card Despesas */}
               <div className="space-y-4">
                 <div 
@@ -425,20 +425,20 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <TrendingDown className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+            </div>
+            <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
+            </div>
+          </div>
+          </div>
                 {expandedCharts.includes('despesas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
-              </div>
+        </div>
 
               {/* Card Saldo */}
-              <div className="space-y-4">
+          <div className="space-y-4">
                 <div 
                   className={`p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
                     lucroLiquidoMes >= 0 ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-red-600'
@@ -448,23 +448,23 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <BarChart3 className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo</p>
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoMes >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
                         R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[new Date().getMonth()]})`)}
+              </div>
               </div>
             </div>
-          </div>
-        </div>
-
+                {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[new Date().getMonth()]})`)}
+              </div>
+              </div>
+            </div>
+            </div>
+            
         {/* Seção Trimestre */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-cyan-800 flex items-center gap-3">
@@ -486,18 +486,18 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+          </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalReceitasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              </div>
+            </div>
                 {expandedCharts.includes('receitas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
               </div>
-
+              
               {/* Card Despesas Trimestrais */}
               <div className="space-y-4">
                 <div 
@@ -507,18 +507,18 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <TrendingDown className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+            <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
+            </div>
               </div>
-
+              </div>
+                {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
+          </div>
+          
               {/* Card Saldo Trimestral */}
               <div className="space-y-4">
                 <div 
@@ -530,23 +530,23 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <BarChart3 className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+          </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo</p>
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoTrimestre >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
                         R$ {lucroLiquidoTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[currentQuarter]})`)}
+              </div>
               </div>
             </div>
-          </div>
-        </div>
-
+                {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[currentQuarter]})`)}
+              </div>
+              </div>
+            </div>
+            </div>
+            
         {/* Seção Ano */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-purple-800 flex items-center gap-3">
@@ -565,20 +565,20 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('receitas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
               </div>
+            </div>
+          </div>
+                {expandedCharts.includes('receitas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
+          </div>
 
               {/* Card Despesas Anuais */}
-              <div className="space-y-4">
+          <div className="space-y-4">
                 <div 
                   className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
                   onClick={() => toggleChart('despesas-anual')}
@@ -586,18 +586,18 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <TrendingDown className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
+              </div>
                   </div>
                 </div>
                 {expandedCharts.includes('despesas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
-              </div>
-
+            </div>
+            
               {/* Card Saldo Anual */}
               <div className="space-y-4">
                 <div 
@@ -609,25 +609,25 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <BarChart3 className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
+              </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo Anual</p>
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoAno >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
                         R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                    </div>
-                  </div>
-                </div>
-                {expandedCharts.includes('saldo-anual') && renderPieChart(pieChartDataAnual, 'Comparação Anual: Meta vs Real')}
               </div>
             </div>
+            </div>
+                {expandedCharts.includes('saldo-anual') && renderPieChart(pieChartDataAnual, 'Comparação Anual: Meta vs Real')}
+          </div>
           </div>
         </div>
+      </div>
 
         {/* Lista de Transações Recentes */}
-        <div className="space-y-4">
+          <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <DollarSign className="w-6 h-6 text-gray-600" />
             Transações Recentes
@@ -648,11 +648,11 @@ function App() {
                         <div className={`w-3 h-3 rounded-full ${
                           transacao.type === 'Receita' ? 'bg-emerald-500' : 'bg-red-500'
                         }`}></div>
-                        <div>
+              <div>
                           <p className="font-medium text-gray-900">{transacao.description}</p>
                           <p className="text-sm text-gray-500">{transacao.category}</p>
-                        </div>
-                      </div>
+              </div>
+              </div>
                       <div className="text-right">
                         <p className={`font-bold ${
                           transacao.type === 'Receita' ? 'text-emerald-600' : 'text-red-600'
@@ -662,22 +662,22 @@ function App() {
                         <p className="text-sm text-gray-500">
                           {new Date(transacao.date).toLocaleDateString('pt-BR')}
                         </p>
-                      </div>
-                    </div>
-                  </div>
+            </div>
+            </div>
+          </div>
                 ))}
               </div>
             )}
-            
+          
             <div className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-100">
-              <button 
+            <button
                 onClick={() => setActiveTab('transactions')}
                 className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group"
               >
                 <DollarSign className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
                 Ver todas as transações
                 <ArrowUpCircle className="h-5 w-5 rotate-90 group-hover:translate-x-1 transition-all duration-300" />
-              </button>
+            </button>
             </div>
           </div>
         </div>
@@ -687,42 +687,42 @@ function App() {
 
   // Renderização principal
   if (isLoading) {
-    return (
+      return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Carregando dados...</p>
+          </div>
         </div>
-      </div>
-    )
-  }
+      )
+    }
 
-  return (
+    return (
     <div className="min-h-screen bg-gray-100">
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-20">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'transactions' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-gray-900">Transações</h1>
-              <button 
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Transações</h1>
+        <button 
                 onClick={() => alert('Funcionalidade em desenvolvimento')}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-bold"
-              >
-                <Plus className="h-4 w-4 inline mr-2" />
-                Nova Transação
-              </button>
-            </div>
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-bold"
+        >
+          <Plus className="h-4 w-4 inline mr-2" />
+          Nova Transação
+        </button>
+      </div>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+            </div>
         )}
         {activeTab === 'projects' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Projetos</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+            </div>
         )}
         {activeTab === 'services' && (
           <div className="space-y-6">
@@ -731,31 +731,31 @@ function App() {
           </div>
         )}
         {activeTab === 'reports' && (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+            </div>
         )}
         {activeTab === 'metas' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Metas</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+            </div>
         )}
         {activeTab === 'projecao' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Projeção Anual</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+            </div>
         )}
         {activeTab === 'clients' && (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
+    <div className="space-y-6">
+        <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+      </div>
         )}
         {activeTab === 'dre' && (
-          <div className="space-y-6">
+      <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">DRE</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
           </div>
