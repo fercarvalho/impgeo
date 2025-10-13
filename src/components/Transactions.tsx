@@ -23,6 +23,7 @@ const Transactions: React.FC = () => {
   const [form, setForm] = useState<{date: string; description: string; value: string; type: TransactionType; category: string; subcategory: string}>({
     date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: ''
   })
+  const [formErrors, setFormErrors] = useState<{[key: string]: boolean}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [importType, setImportType] = useState<'transactions'>('transactions')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -110,8 +111,23 @@ const Transactions: React.FC = () => {
   const renderFilterCalendarTo = () => null
 
   // CRUD
+  const validateForm = () => {
+    const errors: {[key: string]: boolean} = {}
+    
+    if (!form.date) errors.date = true
+    if (!form.description.trim()) errors.description = true
+    if (!form.value || parseFloat(form.value) <= 0) errors.value = true
+    if (!form.type) errors.type = true
+    if (!form.category) errors.category = true
+    if (!form.subcategory.trim()) errors.subcategory = true
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const saveTransaction = async () => {
-    if (!form.description || !form.value || !form.type || !form.category || !form.date) return
+    if (!validateForm()) return
+    
     const payload = {
       id: editing?.id,
       date: form.date,
@@ -129,7 +145,7 @@ const Transactions: React.FC = () => {
         const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         const j = await r.json(); if (j.success) setTransactions(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' })
+      setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({})
     } catch {}
   }
 
@@ -381,45 +397,127 @@ const Transactions: React.FC = () => {
 
       {/* Modal Nova/Editar Transação */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null) } }}>
+        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Transação' : 'Nova Transação'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null) }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Data</label>
-                <input type="date" value={form.date} onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Data <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="date" 
+                  value={form.date} 
+                  onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))} 
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    formErrors.date ? 'border-red-500 bg-red-50' : ''
+                  }`} 
+                />
+                {formErrors.date && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição</label>
-                <input type="text" value={form.description} onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Descrição <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={form.description} 
+                  onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))} 
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    formErrors.description ? 'border-red-500 bg-red-50' : ''
+                  }`} 
+                />
+                {formErrors.description && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Valor (R$)</label>
-                  <input type="number" step="0.01" value={form.value} onChange={(e) => setForm(prev => ({ ...prev, value: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Valor (R$) <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={form.value} 
+                    onChange={(e) => setForm(prev => ({ ...prev, value: e.target.value }))} 
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.value ? 'border-red-500 bg-red-50' : ''
+                    }`} 
+                  />
+                  {formErrors.value && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Tipo</label>
-                  <select value={form.type} onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value as TransactionType }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Tipo <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    value={form.type} 
+                    onChange={(e) => setForm(prev => ({ 
+                      ...prev, 
+                      type: e.target.value as TransactionType,
+                      category: '' // Limpar categoria quando tipo mudar
+                    }))} 
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.type ? 'border-red-500 bg-red-50' : ''
+                    }`}
+                  >
                     <option value="Receita">Receita</option>
                     <option value="Despesa">Despesa</option>
                   </select>
+                  {formErrors.type && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Categoria</label>
-                <input type="text" value={form.category} onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Categoria <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  value={form.category} 
+                  onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))} 
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    formErrors.category ? 'border-red-500 bg-red-50' : ''
+                  }`}
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {form.type === 'Receita' ? (
+                    <>
+                      <option value="Reforço de Caixa">Reforço de Caixa</option>
+                      <option value="REURB">REURB</option>
+                      <option value="GEO">GEO</option>
+                      <option value="PLAN">PLAN</option>
+                      <option value="REG">REG</option>
+                      <option value="NN">NN</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Fixo">Fixo</option>
+                      <option value="Variavel">Variavel</option>
+                      <option value="Investimento">Investimento</option>
+                      <option value="Mkt">Mkt</option>
+                    </>
+                  )}
+                </select>
+                {formErrors.category && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Subcategoria</label>
-                <input type="text" value={form.subcategory} onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Subcategoria <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={form.subcategory} 
+                  onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} 
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
+                  }`} 
+                />
+                {formErrors.subcategory && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={saveTransaction} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
             </div>
           </div>
