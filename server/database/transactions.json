@@ -1,35 +1,5 @@
 [
   {
-    "id": "mfxjbqx2kmcebnhtzc",
-    "date": "2025-09-24",
-    "description": "Teste",
-    "value": 30,
-    "type": "Receita",
-    "category": "Varejo",
-    "createdAt": "2025-09-24T05:19:49.766Z",
-    "updatedAt": "2025-09-24T05:19:49.766Z"
-  },
-  {
-    "id": "mfxju6685g8pkxlm71r",
-    "date": "2025-09-25",
-    "description": "teste3",
-    "value": 20,
-    "type": "Despesa",
-    "category": "Fixo",
-    "createdAt": "2025-09-24T05:34:09.344Z",
-    "updatedAt": "2025-09-24T05:34:09.344Z"
-  },
-  {
-    "id": "mfxkps76h97op5h2m1r",
-    "date": "2025-09-23",
-    "description": "Venda de produto A",
-    "value": 150,
-    "type": "Receita",
-    "category": "Varejo",
-    "createdAt": "2025-09-24T05:58:44.226Z",
-    "updatedAt": "2025-09-24T05:58:44.226Z"
-  },
-  {
     "id": "mfxkps78zluekdmhnig",
     "date": "2025-09-23",
     "description": "Compra de material",
@@ -48,5 +18,15 @@
     "category": "Variavel",
     "createdAt": "2025-09-24T05:58:44.238Z",
     "updatedAt": "2025-09-24T05:58:44.238Z"
+  },
+  {
+    "id": "mgp8k1mp0g7ip3j02r7a",
+    "date": "2025-10-13",
+    "description": "Teste",
+    "value": 100,
+    "type": "Receita",
+    "category": "Variavel",
+    "createdAt": "2025-10-13T14:35:54.049Z",
+    "updatedAt": "2025-10-13T14:35:54.049Z"
   }
 ]

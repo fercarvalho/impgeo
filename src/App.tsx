@@ -14,9 +14,16 @@ import {
   Phone,
   Mail,
   Map,
-  Calculator
+  Calculator,
+  Download,
+  Upload,
+  Edit,
+  Trash2,
+  Calendar,
+  Filter
 } from 'lucide-react'
 import Reports from './components/Reports'
+import TransactionsPage from './components/Transactions'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
@@ -149,6 +156,218 @@ function App() {
         : [...prev, chartId]
     )
   }
+  // Render Transações (copiado do Alya com visual IMPGEO)
+  const renderTransactions = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <DollarSign className="w-8 h-8 text-blue-600" />
+          Transações
+        </h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => alert('Importação/Exportação em breve')}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Download className="h-5 w-5" />
+            Importar/Exportar
+          </button>
+          <button
+            onClick={() => alert('Nova transação em breve')}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Plus className="h-5 w-5" />
+            Nova Transação
+          </button>
+        </div>
+      </div>
+
+      {/* Filtros de Transações */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+          {/* Título */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide">Filtre seus itens:</h2>
+          </div>
+
+          {/* Campos de Filtro */}
+          <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
+            {/* Filtro Tipo */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Tipo</label>
+              <select
+                value={transactionFilters.type}
+                onChange={(e) => setTransactionFilters(prev => ({ 
+                  ...prev, 
+                  type: e.target.value,
+                  category: ''
+                }))}
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              >
+                <option value="">Todos os tipos</option>
+                <option value="Receita">Receitas</option>
+                <option value="Despesa">Despesas</option>
+              </select>
+            </div>
+
+            {/* Filtro Categoria */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Categoria</label>
+              <input
+                type="text"
+                placeholder="Categoria..."
+                value={transactionFilters.category}
+                onChange={(e) => setTransactionFilters(prev => ({ ...prev, category: e.target.value }))}
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              />
+            </div>
+
+            {/* Data Início */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Início</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Início"
+                  value={transactionFilters.dateFrom ? new Date(transactionFilters.dateFrom).toLocaleDateString('pt-BR') : ''}
+                  readOnly
+                  onClick={handleFilterCalendarFromToggle}
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer w-full"
+                />
+                <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
+                {isFilterCalendarFromOpen && renderFilterCalendarFrom?.()}
+              </div>
+            </div>
+
+            {/* Data Fim */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Fim</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Fim"
+                  value={transactionFilters.dateTo ? new Date(transactionFilters.dateTo).toLocaleDateString('pt-BR') : ''}
+                  readOnly
+                  onClick={handleFilterCalendarToToggle}
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer w-full"
+                />
+                <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
+                {isFilterCalendarToOpen && renderFilterCalendarTo?.()}
+              </div>
+            </div>
+          </div>
+
+          {/* Limpar Filtros */}
+          <div className="lg:ml-auto">
+            <button
+              onClick={clearTransactionFilters}
+              className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 bg-blue-600 text-white rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors w-full lg:w-auto"
+            >
+              Limpar Filtros
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de Transações */}
+      <div className="space-y-4">
+        {transactions.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
+            <p className="text-gray-600">Nenhuma transação encontrada.</p>
+            <p className="text-gray-500 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4">
+              <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={transactions.length > 0 && selectedTransactions.size === transactions.length}
+                    onChange={handleSelectAllTransactions}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                </div>
+                <button onClick={() => handleSort('date')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Data</p>
+                  {getSortIcon('date')}
+                </button>
+                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Descrição</p>
+                  {getSortIcon('description')}
+                </button>
+                <button onClick={() => handleSort('type')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-16 sm:w-20">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Tipo</p>
+                  {getSortIcon('type')}
+                </button>
+                <button onClick={() => handleSort('category')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Categoria</p>
+                  {getSortIcon('category')}
+                </button>
+                <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Valor</p>
+                  {getSortIcon('value')}
+                </button>
+                <div className="flex-shrink-0 w-16 sm:w-20 flex justify-center">
+                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Ações</p>
+                </div>
+              </div>
+            </div>
+
+            {getFilteredAndSortedTransactions().map((transaction, index) => (
+              <div key={transaction.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === transactions.length - 1 ? 'border-b-0' : ''}`}>
+                <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
+                  <div className="flex-shrink-0 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedTransactions.has(transaction.id)}
+                      onChange={() => handleSelectTransaction(transaction.id)}
+                      className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                  <div className="flex-shrink-0 w-20 sm:w-24 text-left">
+                    <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(transaction.date).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{transaction.description}</h3>
+                  </div>
+                  <div className="flex-shrink-0 w-16 sm:w-20 text-center">
+                    <span className={`px-0.5 sm:px-1 py-0.5 rounded-full text-xs font-medium ${transaction.type === 'Receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{transaction.type}</span>
+                  </div>
+                  <div className="flex-shrink-0 w-20 sm:w-24 text-center">
+                    <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{transaction.category}</span>
+                  </div>
+                  <div className="flex-shrink-0 w-20 sm:w-24 text-center">
+                    <p className={`text-xs sm:text-sm md:text-lg font-bold ${transaction.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
+                      {transaction.type === 'Receita' ? '+' : '-'}R$ {transaction.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
+                    <button onClick={() => alert('Editar em breve')} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar transação">
+                      <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    </button>
+                    <button onClick={() => alert('Excluir em breve')} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir transação">
+                      <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {selectedTransactions.size > 0 && (
+              <div className="flex justify-end p-4 bg-red-50 border-t border-red-200">
+                <button onClick={() => alert('Deletar selecionadas em breve')} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                  <Trash2 className="h-4 w-4" />
+                  Deletar Selecionada{selectedTransactions.size > 1 ? 's' : ''} ({selectedTransactions.size})
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   // Relatórios renderizados via componente dedicado
   // (removido: alternância de gráficos específica de Relatórios do Alya)
@@ -1620,19 +1839,7 @@ function App() {
           <Reports transactions={transactions} />
         )}
         {activeTab === 'transactions' && (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Transações</h1>
-        <button 
-                onClick={() => alert('Funcionalidade em desenvolvimento')}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-bold"
-        >
-          <Plus className="h-4 w-4 inline mr-2" />
-          Nova Transação
-        </button>
-      </div>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-            </div>
+          <TransactionsPage />
         )}
         {activeTab === 'projects' && (
           <div className="space-y-6">
