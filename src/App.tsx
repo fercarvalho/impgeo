@@ -304,7 +304,7 @@ function App() {
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
 
     return (
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* 1. RESULTADO */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
@@ -320,82 +320,140 @@ function App() {
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">REFORÇO DE CAIXA</span>
                   <span className="font-bold text-gray-800">R$ 0,00</span>
-                </div>
-                
+        </div>
+
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">SAÍDA DE CAIXA</span>
                   <span className="font-bold text-gray-800">R$ 0,00</span>
-                </div>
-                
+        </div>
+
                 {/* RECEITA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-emerald-700">RECEITA</span>
                   <span className="font-bold text-emerald-800">
                     R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
+      </div>
+
                 {/* DESPESA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-red-700">DESPESA</span>
                   <span className="font-bold text-red-800">
                     -R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
-                {/* SALDO FINAL */}
-                <div className="flex justify-between items-center py-2 bg-blue-50 rounded-lg px-3">
-                  <span className="font-bold text-blue-800">SALDO FINAL</span>
-                  <span className="font-bold text-blue-900">
+          </div>
+
+                {/* SALDO INICIAL */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-blue-700">SALDO INICIAL</span>
+                  <span className="font-bold text-blue-800">R$ {saldoInicial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+
+                {/* TOTAL GERAL */}
+                <div className="flex justify-between items-center py-4 bg-gray-50 px-4 rounded-lg border-2 border-gray-300 mt-4">
+                  <span className="font-bold text-gray-900 text-lg">Total geral</span>
+                  <span className={`font-bold text-xl ${
+                    (saldoInicial + totalReceitas - totalDespesas) >= 0 ? 'text-emerald-800' : 'text-red-800'
+                  }`}>
                     R$ {(saldoInicial + totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-              </div>
-            </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Quadrante de Metas */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-blue-200">
-              <div className="space-y-4">
-                <h3 className="text-xl font-bold text-blue-800 text-center mb-4">META DO MÊS</h3>
-                
-                {/* META ESTABELECIDA */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
-                  <span className="font-bold text-blue-800 text-lg">META ESTABELECIDA</span>
-                  <span className="font-bold text-blue-900 text-lg">
-                    R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+            {/* Quadrante META DO MÊS */}
+            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+        <div className="space-y-4">
+                {/* Cabeçalho com colunas R$ e % */}
+                <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-gray-300">
+                  <div className="text-center">
+                    <span className="font-bold text-gray-600 text-lg"></span>
                 </div>
-                
-                {/* RESULTADO REAL */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
-                  <span className="font-bold text-blue-800 text-lg">RESULTADO REAL</span>
-                  <span className={`font-bold text-lg ${(totalReceitas - totalDespesas) >= metaValue ? 'text-green-600' : 'text-red-600'}`}>
-                    R$ {(totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+                  <div className="text-center">
+                    <span className="font-bold text-gray-800 text-xl">R$</span>
                 </div>
-                
-                {/* DIFERENÇA */}
-                <div className="flex justify-between items-center py-3 bg-blue-100 rounded-lg px-3">
-                  <span className="font-bold text-blue-900 text-lg">DIFERENÇA</span>
-                  <span className={`font-bold text-lg ${(totalReceitas - totalDespesas) >= metaValue ? 'text-green-600' : 'text-red-600'}`}>
-                    {((totalReceitas - totalDespesas) >= metaValue ? '+' : '')}
-                    R$ {((totalReceitas - totalDespesas) - metaValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                
-                {/* STATUS */}
-                <div className="text-center py-2">
-                  <span className={`inline-block px-4 py-2 rounded-full font-bold text-sm ${
-                    (totalReceitas - totalDespesas) >= metaValue 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {(totalReceitas - totalDespesas) >= metaValue ? '✅ META ATINGIDA' : '❌ META NÃO ATINGIDA'}
-                  </span>
-                </div>
+                  <div className="text-center">
+                    <span className="font-bold text-gray-800 text-xl">%</span>
               </div>
             </div>
+                
+                {/* META */}
+                <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-200">
+                  <div className="font-bold text-gray-800 italic">META</div>
+                  <div className="text-center font-bold text-gray-800">R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-center font-bold text-gray-800">100%</div>
+      </div>
+
+                {/* ALCANÇADO */}
+                <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-200">
+                  <div className="font-bold text-emerald-700 italic">ALCANÇADO</div>
+                  <div className="text-center font-bold text-emerald-800">
+                    R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+                  <div className="text-center font-bold text-emerald-800">
+                    {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(0) : 0}%
+        </div>
+      </div>
+                
+                {/* RESTANTE */}
+                <div className="grid grid-cols-3 gap-4 py-3">
+                  <div className="font-bold text-red-700 italic">RESTANTE</div>
+                  <div className="text-center font-bold text-red-800">
+                    -R$ {Math.max(0, metaValue - totalReceitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      </div>
+                  <div className="text-center font-bold text-red-800">
+                    {metaValue > 0 ? Math.max(0, 100 - ((totalReceitas / metaValue) * 100)).toFixed(0) : 100}%
+            </div>
+            </div>
+            </div>
+          </div>
+      </div>
+    </div>
+
+        {/* 2. FATURAMENTO */}
+          <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-emerald-800 flex items-center gap-3">
+            <TrendingUp className="w-6 h-6 text-emerald-600" />
+            Faturamento
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-lg">
+              <h3 className="text-lg font-bold text-emerald-800 mb-4">Faturamento TOTAL</h3>
+              <div className="text-2xl font-bold text-emerald-900 mb-4">
+                R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            
+              {/* Barra de Progresso */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-emerald-700 mb-1">
+                  <span>Progresso</span>
+                  <span>{((totalReceitas / 30000) * 100).toFixed(0)}%</span>
+            </div>
+                <div className="w-full bg-emerald-200 rounded-full h-2 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((totalReceitas / 30000) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {totalReceitas > 30000 && (
+                    <div 
+                      className="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-300 absolute top-0"
+                      style={{ 
+                        width: `${Math.min(100, ((totalReceitas - 30000) / 30000) * 100)}%`,
+                        left: '100%'
+                      }}
+                    ></div>
+                  )}
+                </div>
+            </div>
+            
+              <div className="text-sm text-emerald-600">
+                Meta: R$ 30.000,00
+            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -411,11 +469,11 @@ function App() {
           <h2 className="text-3xl font-bold text-white text-center uppercase tracking-wider">
             {monthName} - 2025
           </h2>
-        </div>
-        
+            </div>
+            
         {/* Conteúdo do Mês */}
         {renderMonthContent(monthName, monthIndex, metaValue, saldoInicial)}
-      </div>
+            </div>
     )
   }
 
@@ -447,7 +505,7 @@ function App() {
         </div>
 
         {/* 1. RESULTADO ANUAL */}
-        <div className="space-y-4">
+          <div className="space-y-4">
           <h2 className="text-3xl font-bold text-purple-800 flex items-center gap-3">
             <PieChart className="w-8 h-8 text-purple-600" />
             Resultado Anual
@@ -461,30 +519,30 @@ function App() {
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-purple-800 text-lg">REFORÇO DE CAIXA</span>
                   <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
-                </div>
-                
+              </div>
+              
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-purple-800 text-lg">SAÍDA DE CAIXA</span>
                   <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
-                </div>
-                
+            </div>
+            
                 {/* RECEITA ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-purple-800 text-lg">RECEITA ANUAL</span>
                   <span className="font-bold text-purple-900 text-lg">
                     R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
+            </div>
+            
                 {/* DESPESA ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-purple-800 text-lg">DESPESA ANUAL</span>
                   <span className="font-bold text-purple-900 text-lg">
                     -R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
+              </div>
+              
                 {/* SALDO FINAL ANUAL */}
                 <div className="flex justify-between items-center py-3 bg-purple-100 rounded-lg px-3">
                   <span className="font-bold text-purple-900 text-lg">SALDO FINAL ANUAL</span>
@@ -494,7 +552,7 @@ function App() {
                 </div>
               </div>
             </div>
-
+            
             {/* Quadrante de Metas Anuais */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-blue-200">
               <div className="space-y-4">
@@ -506,15 +564,15 @@ function App() {
                   <span className="font-bold text-blue-900 text-lg">
                     R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
+            </div>
+            
                 {/* RESULTADO REAL ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
                   <span className="font-bold text-blue-800 text-lg">RESULTADO REAL</span>
                   <span className={`font-bold text-lg ${(totalReceitasAno - totalDespesasAno) >= metaTotalAno ? 'text-green-600' : 'text-red-600'}`}>
                     R$ {(totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
+            </div>
                 
                 {/* DIFERENÇA ANUAL */}
                 <div className="flex justify-between items-center py-3 bg-blue-100 rounded-lg px-3">
@@ -523,8 +581,8 @@ function App() {
                     {((totalReceitasAno - totalDespesasAno) >= metaTotalAno ? '+' : '')}
                     R$ {((totalReceitasAno - totalDespesasAno) - metaTotalAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
-                
+          </div>
+          
                 {/* STATUS ANUAL */}
                 <div className="text-center py-2">
                   <span className={`inline-block px-4 py-2 rounded-full font-bold text-sm ${
@@ -562,14 +620,14 @@ function App() {
             <Plus className="h-5 w-5" />
             Nova Meta
           </button>
-        </div>
-
+            </div>
+            
         {/* Renderizar Mês Selecionado com Dropdown Integrado */}
         {mesSelecionado && (
           <div className="space-y-6 mb-12">
             {/* Dropdown do Mês Selecionado */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg">
-              <select 
+                <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                 className="w-full text-3xl font-bold text-white text-center uppercase tracking-wider bg-transparent border-none outline-none cursor-pointer"
@@ -589,12 +647,12 @@ function App() {
                     {mes.nome} - 2025
                   </option>
                 ))}
-              </select>
-            </div>
-            
+                </select>
+              </div>
+              
             {/* Conteúdo do Mês */}
             {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice, mesSelecionado.meta, 31970.50)}
-          </div>
+              </div>
         )}
 
         {/* Renderizar Total do Ano */}
@@ -693,13 +751,13 @@ function App() {
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-800 mb-2">
                 {hasData ? `R$ ${data[0].value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem dados'}
-            </div>
+              </div>
               <div className="text-sm text-gray-600">
                 {hasData ? data[0].name : 'Nenhuma transação encontrada'}
             </div>
             </div>
-          </div>
-          </div>
+              </div>
+              </div>
       );
   }
 
@@ -741,17 +799,17 @@ function App() {
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
               </div>
-            <div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
+              </div>
             </div>
-              </div>
-              </div>
+            </div>
                 {expandedCharts.includes('receitas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
-            </div>
-            
+          </div>
+          
               {/* Card Despesas */}
               <div className="space-y-4">
                 <div 
@@ -761,18 +819,18 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <TrendingDown className="h-6 w-6 text-white" />
-            </div>
-            <div>
+          </div>
+              <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-            </div>
-          </div>
+              </div>
+              </div>
           </div>
                 {expandedCharts.includes('despesas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
-        </div>
-
+            </div>
+            
               {/* Card Saldo */}
           <div className="space-y-4">
                 <div 
@@ -793,13 +851,13 @@ function App() {
                         R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
               </div>
-              </div>
+            </div>
             </div>
                 {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[new Date().getMonth()]})`)}
-              </div>
-              </div>
-            </div>
-            </div>
+          </div>
+          </div>
+        </div>
+      </div>
             
         {/* Seção Trimestre */}
         <div className="space-y-4">
@@ -822,7 +880,7 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
-          </div>
+        </div>
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
@@ -832,8 +890,8 @@ function App() {
               </div>
             </div>
                 {expandedCharts.includes('receitas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
-              </div>
-              
+          </div>
+
               {/* Card Despesas Trimestrais */}
               <div className="space-y-4">
                 <div 
@@ -848,13 +906,13 @@ function App() {
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
+                </p>
+              </div>
             </div>
-              </div>
-              </div>
-                {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
           </div>
-          
+                {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
+        </div>
+
               {/* Card Saldo Trimestral */}
               <div className="space-y-4">
                 <div 
@@ -866,23 +924,23 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <BarChart3 className="h-6 w-6 text-white" />
-          </div>
+      </div>
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo</p>
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoTrimestre >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
                         R$ {lucroLiquidoTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-              </div>
-              </div>
+              </p>
             </div>
+          </div>
+        </div>
                 {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[currentQuarter]})`)}
-              </div>
-              </div>
             </div>
             </div>
-            
+          </div>
+        </div>
+
         {/* Seção Ano */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-purple-800 flex items-center gap-3">
@@ -901,17 +959,17 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-white" />
-              </div>
+            </div>
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-              </div>
+              </p>
             </div>
           </div>
+        </div>
                 {expandedCharts.includes('receitas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
-          </div>
+      </div>
 
               {/* Card Despesas Anuais */}
           <div className="space-y-4">
@@ -922,17 +980,17 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <TrendingDown className="h-6 w-6 text-white" />
-              </div>
+        </div>
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
                         R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-              </div>
-                  </div>
-                </div>
+          </div>
+        </div>
+      </div>
                 {expandedCharts.includes('despesas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
-            </div>
+    </div>
             
               {/* Card Saldo Anual */}
               <div className="space-y-4">
@@ -945,7 +1003,7 @@ function App() {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
                       <BarChart3 className="h-6 w-6 text-white" />
-              </div>
+      </div>
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo Anual</p>
                       <p className={`text-2xl font-bold mt-1 ${
@@ -953,12 +1011,12 @@ function App() {
                       }`}>
                         R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-              </div>
-            </div>
-            </div>
+                        </div>
+                      </div>
+                        </div>
                 {expandedCharts.includes('saldo-anual') && renderPieChart(pieChartDataAnual, 'Comparação Anual: Meta vs Real')}
-          </div>
-          </div>
+                      </div>
+                    </div>
         </div>
       </div>
 
@@ -974,7 +1032,7 @@ function App() {
               <div className="p-8 text-center">
                 <p className="text-gray-500">Nenhuma transação encontrada.</p>
                 <p className="text-sm text-gray-400 mt-1">Adicione suas primeiras transações para vê-las aqui.</p>
-              </div>
+          </div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {transacoesRecentes.map((transacao, index) => (
@@ -987,7 +1045,7 @@ function App() {
               <div>
                           <p className="font-medium text-gray-900">{transacao.description}</p>
                           <p className="text-sm text-gray-500">{transacao.category}</p>
-              </div>
+        </div>
               </div>
                       <div className="text-right">
                         <p className={`font-bold ${
@@ -997,8 +1055,8 @@ function App() {
                         </p>
                         <p className="text-sm text-gray-500">
                           {new Date(transacao.date).toLocaleDateString('pt-BR')}
-                        </p>
-            </div>
+                </p>
+              </div>
             </div>
           </div>
                 ))}
@@ -1023,17 +1081,17 @@ function App() {
 
   // Renderização principal
   if (isLoading) {
-      return (
+    return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Carregando dados...</p>
-          </div>
         </div>
-      )
-    }
+      </div>
+    )
+  }
 
-    return (
+  return (
     <div className="min-h-screen bg-gray-100">
       <NavigationBar />
       
