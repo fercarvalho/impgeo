@@ -17,47 +17,47 @@ const API_BASE_URL = '/api'
 
 const SUBCATEGORIES = [
   'ALUGUEL + INTERNET',
-  'CONTADOR',
-  'CONSULTOR',
-  'SITE',
   'ANUIDADE CREA IMP',
   'ANUIDADE CREA SÓCIOS',
-  'GUIA DAS',
-  'ISS',
-  'MICROSOFT 365',
-  'MÉTRICA TOPO',
-  'RTK (TOPOMIG)',
-  'SEGURO DRONE',
-  'SEGURO RTK',
-  'SALARIO DU - PRO LABORE',
-  'SALARIO VINI - PRO LABORE',
-  'SALARIO RAFAELA APARECIDA',
-  'SALÁRIO THAISA TEIXEIRA BAHIA',
-  'CONFRAS E REFEIÇÕES',
-  'MATERIAL ESCRITÓRIO',
+  'ART',
+  'Auxiliar de Campo',
   'CARTÃO BB (PROJETOS)',
   'CARTÃO C6',
-  'OUTROS GASTOS DU/VINI',
-  'Tráfego/SEO',
-  'Social Media',
-  'Produção Conteúdo',
-  'Auxiliar de Campo',
+  'CDB',
+  'CELULAR',
+  'CONFRAS E REFEIÇÕES',
+  'CONSELHO REG ENG',
+  'CONSULTOR',
+  'CONTADOR',
+  'DARF',
+  'Despesa variável de projetos',
+  'FEZINHA',
+  'FGTS',
+  'GUIA DAS',
+  'ISS',
+  'Locomoção',
   'Manutenções',
   'Materiais Extras',
-  'ART',
-  'CONSELHO REG ENG',
+  'MATERIAL ESCRITÓRIO',
+  'MICROSOFT 365',
+  'MÉTRICA TOPO',
   'ONR',
-  'Sindicato',
-  'FGTS',
-  'CDB',
-  'FEZINHA',
-  'DARF',
-  'Locomoção',
+  'OUTROS GASTOS DU/VINI',
   'PLUXEE BENEFICIOS',
+  'Produção Conteúdo',
   'Reembolso projetos',
-  'Despesa variável de projetos',
-  'CELULAR',
-  'RTK'
+  'RTK',
+  'RTK (TOPOMIG)',
+  'SALARIO DU - PRO LABORE',
+  'SALARIO RAFAELA APARECIDA',
+  'SALARIO VINI - PRO LABORE',
+  'SALÁRIO THAISA TEIXEIRA BAHIA',
+  'SEGURO DRONE',
+  'SEGURO RTK',
+  'Sindicato',
+  'SITE',
+  'Social Media',
+  'Tráfego/SEO'
 ]
 
 const Transactions: React.FC = () => {
@@ -165,13 +165,26 @@ const Transactions: React.FC = () => {
       return
     }
     
-    if (SUBCATEGORIES.includes(newSubcategory.trim())) {
+    const trimmedSubcategory = newSubcategory.trim()
+    
+    if (SUBCATEGORIES.includes(trimmedSubcategory)) {
       setNewSubcategoryError('Esta subcategoria já existe')
       return
     }
     
-    SUBCATEGORIES.push(newSubcategory.trim())
-    setForm(prev => ({ ...prev, subcategory: newSubcategory.trim() }))
+    // Encontrar a posição correta para inserir em ordem alfabética
+    let insertIndex = SUBCATEGORIES.length
+    for (let i = 0; i < SUBCATEGORIES.length; i++) {
+      if (trimmedSubcategory.toLowerCase() < SUBCATEGORIES[i].toLowerCase()) {
+        insertIndex = i
+        break
+      }
+    }
+    
+    // Inserir na posição correta
+    SUBCATEGORIES.splice(insertIndex, 0, trimmedSubcategory)
+    
+    setForm(prev => ({ ...prev, subcategory: trimmedSubcategory }))
     setNewSubcategory('')
     setNewSubcategoryError('')
     setIsAddSubcategoryOpen(false)
