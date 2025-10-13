@@ -277,7 +277,7 @@ const Clients: React.FC = () => {
             <p className="text-gray-500 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
                 <div className="flex justify-center">
