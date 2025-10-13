@@ -58,3 +58,4 @@ server/database/*.json
 !server/database/clients.json
 !server/database/products.json
 !server/database/transactions.json
+node_modules
