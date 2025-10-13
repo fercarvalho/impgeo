@@ -8,6 +8,7 @@ import {
   Target,
   PieChart,
   TrendingDown,
+  LogOut,
   ArrowUpCircle,
   Building,
   FileText,
@@ -22,6 +23,8 @@ import Clients from './components/Clients'
 import DRE from './components/DRE'
 import Projects from './components/Projects'
 import Services from './components/Services'
+import Login from './components/Login'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
@@ -63,7 +66,28 @@ interface Meta {
 
 type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao'
 
-function App() {
+const AppContent: React.FC = () => {
+  const { user, logout, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return <AppMain user={user} logout={logout} />;
+};
+
+const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
@@ -219,6 +243,19 @@ function App() {
             <button onClick={() => setActiveTab('dre')} className={`px-3 py-3 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
               <BarChart3 className="h-4 w-4 mb-1" />
               DRE
+            </button>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-white text-sm">
+              <span className="text-blue-200">Olá,</span> {user.username}
+            </div>
+            <button 
+              onClick={logout}
+              className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
@@ -913,6 +950,14 @@ function App() {
       </footer>
     </div>
   )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
 
 export default App

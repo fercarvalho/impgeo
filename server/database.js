@@ -10,6 +10,7 @@ class Database {
     this.clientsFile = path.join(this.dbPath, 'clients.json');
     this.projectsFile = path.join(this.dbPath, 'projects.json');
     this.servicesFile = path.join(this.dbPath, 'services.json');
+    this.usersFile = path.join(this.dbPath, 'users.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -87,6 +88,22 @@ class Database {
     
     if (!fs.existsSync(this.servicesFile)) {
       fs.writeFileSync(this.servicesFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.usersFile)) {
+      // Criar usuário admin padrão
+      const bcrypt = require('bcryptjs');
+      const defaultUsers = [
+        {
+          id: this.generateId(),
+          username: 'admin',
+          password: bcrypt.hashSync('123456', 10),
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      fs.writeFileSync(this.usersFile, JSON.stringify(defaultUsers, null, 2));
     }
   }
 
@@ -482,6 +499,76 @@ class Database {
       fs.writeFileSync(this.servicesFile, JSON.stringify(filteredServices, null, 2));
     } catch (error) {
       throw new Error('Erro ao excluir serviço: ' + error.message);
+    }
+  }
+
+  // Métodos para Usuários
+  getAllUsers() {
+    try {
+      const data = fs.readFileSync(this.usersFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler usuários:', error);
+      return [];
+    }
+  }
+
+  getUserByUsername(username) {
+    try {
+      const users = this.getAllUsers();
+      return users.find(user => user.username === username);
+    } catch (error) {
+      console.error('Erro ao buscar usuário:', error);
+      return null;
+    }
+  }
+
+  saveUser(userData) {
+    try {
+      const users = this.getAllUsers();
+      const newUser = {
+        id: this.generateId(),
+        ...userData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      users.push(newUser);
+      fs.writeFileSync(this.usersFile, JSON.stringify(users, null, 2));
+      return newUser;
+    } catch (error) {
+      throw new Error('Erro ao salvar usuário: ' + error.message);
+    }
+  }
+
+  updateUser(id, updatedData) {
+    try {
+      const users = this.getAllUsers();
+      const index = users.findIndex(u => u.id === id);
+      if (index === -1) {
+        throw new Error('Usuário não encontrado');
+      }
+      users[index] = {
+        ...users[index],
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.usersFile, JSON.stringify(users, null, 2));
+      return users[index];
+    } catch (error) {
+      throw new Error('Erro ao atualizar usuário: ' + error.message);
+    }
+  }
+
+  deleteUser(id) {
+    try {
+      const users = this.getAllUsers();
+      const filteredUsers = users.filter(u => u.id !== id);
+      if (filteredUsers.length === users.length) {
+        throw new Error('Usuário não encontrado');
+      }
+      fs.writeFileSync(this.usersFile, JSON.stringify(filteredUsers, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir usuário: ' + error.message);
     }
   }
 

@@ -4,15 +4,36 @@ const XLSX = require('xlsx');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const Database = require('./database');
 
 const app = express();
 const port = 9001;
 const db = new Database();
+const JWT_SECRET = 'impgeo_secret_key_2024';
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Middleware de autenticação
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token de acesso requerido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    req.user = user;
+    next();
+  });
+};
 
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
@@ -698,12 +719,60 @@ app.delete('/api/products', (req, res) => {
   }
 });
 
+// APIs de Autenticação
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
+    }
+
+    const user = db.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const isValidPassword = bcrypt.compareSync(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/auth/verify', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    user: req.user
+  });
+});
+
 // Rota de teste
 app.get('/api/test', (req, res) => {
   res.json({ 
-    message: 'API funcionando!', 
+    message: 'API funcionando!',
     timestamp: new Date().toISOString(),
     endpoints: [
+      'POST /api/auth/login - Fazer login',
+      'POST /api/auth/verify - Verificar token',
       'GET /api/transactions - Listar transações',
       'POST /api/transactions - Criar transação',
       'PUT /api/transactions/:id - Atualizar transação',
