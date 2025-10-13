@@ -16,6 +16,8 @@ import {
   Map,
   Calculator
 } from 'lucide-react'
+import Reports from './components/Reports'
+// Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
 const API_BASE_URL = 'http://localhost:9001/api'
@@ -66,7 +68,6 @@ function App() {
 
   // Estados para gráficos expandidos
   const [expandedCharts, setExpandedCharts] = useState<string[]>([])
-  const [expandedReportCharts, setExpandedReportCharts] = useState<string[]>([])
   
   // Estados para Metas
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
@@ -149,113 +150,8 @@ function App() {
     )
   }
 
-  // Relatórios
-  const renderReports = () => {
-    const now = new Date()
-    const nomesTrimestres = ['1º Trimestre', '2º Trimestre', '3º Trimestre', '4º Trimestre']
-    const getQuarter = (m: number) => Math.floor(m / 3)
-    const currentQuarter = getQuarter(now.getMonth())
-
-    // Semana: últimos 7 dias
-    const startOfWeek = new Date(now)
-    startOfWeek.setDate(now.getDate() - 6)
-    const isSameWeek = (d: string) => {
-      const dt = new Date(d)
-      return dt >= startOfWeek && dt <= now
-    }
-
-    const sum = (arr: NewTransaction[]) => arr.reduce((s, t) => s + t.value, 0)
-
-    // Semana
-    const semana = transactions.filter(t => isSameWeek(t.date))
-    const receitasSemana = sum(semana.filter(t => t.type === 'Receita'))
-    const despesasSemana = sum(semana.filter(t => t.type === 'Despesa'))
-
-    // Mês
-    const mes = transactions.filter(t => {
-      const d = new Date(t.date)
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    })
-    const receitasMes = sum(mes.filter(t => t.type === 'Receita'))
-    const despesasMes = sum(mes.filter(t => t.type === 'Despesa'))
-
-    // Trimestre
-    const trim = transactions.filter(t => {
-      const d = new Date(t.date)
-      return getQuarter(d.getMonth()) === currentQuarter && d.getFullYear() === now.getFullYear()
-    })
-    const receitasTrim = sum(trim.filter(t => t.type === 'Receita'))
-    const despesasTrim = sum(trim.filter(t => t.type === 'Despesa'))
-
-    // Ano
-    const ano = transactions.filter(t => new Date(t.date).getFullYear() === now.getFullYear())
-    const receitasAno = sum(ano.filter(t => t.type === 'Receita'))
-    const despesasAno = sum(ano.filter(t => t.type === 'Despesa'))
-
-    const section = (
-      titulo: string,
-      id: string,
-      receitas: number,
-      despesas: number
-    ) => (
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-white">{titulo}</h3>
-          <button
-            onClick={() => toggleReportChart(id)}
-            className="text-sm px-3 py-1 rounded-md border border-white/70 text-white hover:bg-white/10 transition"
-          >
-            {expandedReportCharts.includes(id) ? 'Ocultar gráfico' : 'Ver gráfico'}
-          </button>
-        </div>
-        <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-          <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
-            <p className="text-sm font-semibold text-green-700">Receitas</p>
-            <p className="text-2xl font-bold text-green-900 mt-1">R$ {receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
-            <p className="text-sm font-semibold text-red-700">Despesas</p>
-            <p className="text-2xl font-bold text-red-900 mt-1">R$ {despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
-            <p className="text-sm font-semibold text-blue-700">Saldo</p>
-            <p className={`text-2xl font-bold mt-1 ${receitas - despesas >= 0 ? 'text-green-800' : 'text-red-800'}`}>R$ {(receitas - despesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-        {expandedReportCharts.includes(id) && (
-          <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 mt-4">
-            <h4 className="text-lg font-bold text-gray-800 mb-4">Distribuição: Receitas vs Despesas</h4>
-            <div className="text-gray-600 text-sm">(Gráfico simplificado neste layout)</div>
-          </div>
-        )}
-        </div>
-      </div>
-    )
-
-    return (
-      <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4">
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-blue-600" />
-            Relatórios
-          </h1>
-        </div>
-
-        {section('Semana Atual', 'rel-semana', receitasSemana, despesasSemana)}
-        {section('Mês Atual', 'rel-mes', receitasMes, despesasMes)}
-        {section(`Trimestre Atual - ${nomesTrimestres[currentQuarter]}`, 'rel-tri', receitasTrim, despesasTrim)}
-        {section(`Ano ${now.getFullYear()}`, 'rel-ano', receitasAno, despesasAno)}
-      </div>
-    )
-  }
-  const toggleReportChart = (chartId: string) => {
-    setExpandedReportCharts(prev => 
-      prev.includes(chartId)
-        ? prev.filter(id => id !== chartId)
-        : [...prev, chartId]
-    )
-  }
+  // Relatórios renderizados via componente dedicado
+  // (removido: alternância de gráficos específica de Relatórios do Alya)
 
 
   // Função para calcular totais
@@ -401,7 +297,7 @@ function App() {
   )
 
   // Função para renderizar conteúdo do mês
-  const renderMonthContent = (monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
+  const renderMonthContent = (_monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
     // Cálculos para o mês específico
     const currentYear = 2025
     const transacoesDoMes = transactions.filter(t => {
@@ -1720,7 +1616,9 @@ function App() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'metas' && renderMetas()}
-        {activeTab === 'reports' && renderReports()}
+        {activeTab === 'reports' && (
+          <Reports transactions={transactions} />
+        )}
         {activeTab === 'transactions' && (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1748,12 +1646,7 @@ function App() {
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
           </div>
         )}
-        {activeTab === 'reports' && (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-            </div>
-        )}
+        {/* removido placeholder duplicado de Relatórios */}
         {activeTab === 'metas' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Metas</h1>
