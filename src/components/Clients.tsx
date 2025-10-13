@@ -282,8 +282,8 @@ const Clients: React.FC = () => {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4">
-              <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4 min-w-max">
+              <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                 {permissions.canDelete && (
                   <div className="flex justify-center">
                     <input
@@ -318,7 +318,7 @@ const Clients: React.FC = () => {
 
             {filteredAndSorted.map((c, index) => (
               <div key={c.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
-                <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3">
+                <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
                       <input
