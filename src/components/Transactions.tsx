@@ -740,27 +740,30 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
               {/* Importar */}
               <div className="space-y-3">
-                <label className="block w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white cursor-pointer shadow hover:shadow-md transition-shadow text-center">
-                  <div className="px-3 py-3 flex items-center justify-center gap-2">
-                    <Upload className="w-4 h-4 opacity-90" />
-                    <div className="text-center">
-                      <p className="text-lg font-bold leading-tight">Selecionar Arquivo</p>
-                      <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
+                {permissions.canImport && (
+                  <label className="block w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white cursor-pointer shadow hover:shadow-md transition-shadow text-center">
+                    <div className="px-3 py-3 flex items-center justify-center gap-2">
+                      <Upload className="w-4 h-4 opacity-90" />
+                      <div className="text-center">
+                        <p className="text-lg font-bold leading-tight">Selecionar Arquivo</p>
+                        <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
+                      </div>
                     </div>
-                  </div>
-                  <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
-                </label>
+                    <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+                  </label>
+                )}
 
-                {/* Exportar */}
-                <button onClick={handleExport} className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-3 text-center shadow hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-center gap-2">
-                    <Download className="w-4 h-4 opacity-90" />
-                    <div className="text-center">
-                      <p className="text-lg font-bold leading-tight">Exportar</p>
-                      <p className="text-white/90 text-xs">Salvar dados em arquivo</p>
+                {permissions.canExport && (
+                  <button onClick={handleExport} className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-3 text-center shadow hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-center gap-2">
+                      <Download className="w-4 h-4 opacity-90" />
+                      <div className="text-center">
+                        <p className="text-lg font-bold leading-tight">Exportar</p>
+                        <p className="text-white/90 text-xs">Salvar dados em arquivo</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                )}
               </div>
 
               {/* Footer */}

@@ -574,36 +574,40 @@ const Projects: React.FC = () => {
               
               {/* Seção Ações */}
               <div className="space-y-3">
-                <div className="relative">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
+                {permissions.canImport && (
+                  <div className="relative">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <div className="text-center">
+                        <div className="font-bold">Selecionar Arquivo</div>
+                        <div className="text-xs opacity-90 font-normal">Carregar arquivo .xlsx</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+                
+                {permissions.canExport && (
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleExport}
                     className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                   >
-                    <Upload className="w-4 h-4" />
+                    <Download className="w-4 h-4" />
                     <div className="text-center">
-                      <div className="font-bold">Selecionar Arquivo</div>
-                      <div className="text-xs opacity-90 font-normal">Carregar arquivo .xlsx</div>
+                      <div className="font-bold">Exportar</div>
+                      <div className="text-xs opacity-90 font-normal">Salvar dados em arquivo</div>
                     </div>
                   </button>
-                </div>
-                
-                <button
-                  onClick={handleExport}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <div className="text-center">
-                    <div className="font-bold">Exportar</div>
-                    <div className="text-xs opacity-90 font-normal">Salvar dados em arquivo</div>
-                  </div>
-                </button>
+                )}
               </div>
               
               {/* Botão Cancelar */}
