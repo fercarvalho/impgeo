@@ -265,7 +265,8 @@ app.get('/api/modelo/:type', (req, res) => {
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 
-                    type === 'clients' ? 'modelo-clientes.xlsx' : 'modelo-produtos.xlsx';
+                    type === 'clients' ? 'modelo-clientes.xlsx' : 
+                    type === 'projects' ? 'modelo-projetos.xlsx' : 'modelo-produtos.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,

@@ -504,7 +504,10 @@ const Projects: React.FC = () => {
         <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Importar/Exportar Projetos</h2>
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-gray-800">Importar/Exportar Projetos</h2>
+              </div>
               <button onClick={() => setIsImportExportOpen(false)} className="text-gray-500 hover:text-gray-700">
                 <X className="w-5 h-5" />
               </button>
@@ -512,14 +515,21 @@ const Projects: React.FC = () => {
             <p className="text-sm text-gray-600 mb-6">Escolha uma das opções abaixo para gerenciar seus dados:</p>
             
             <div className="space-y-4">
-              <div className="flex flex-col gap-3">
+              {/* Seção Baixar Modelo */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-600 font-semibold text-sm mb-2">Primeiro baixe o modelo, depois importe!</p>
+                <p className="text-xs text-gray-600 mb-3">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
                 <button
                   onClick={downloadModel}
-                  className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors text-center"
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
                 >
+                  <Download className="w-4 h-4" />
                   Baixar Modelo de Projetos
                 </button>
-                
+              </div>
+              
+              {/* Seção Ações */}
+              <div className="space-y-3">
                 <div className="relative">
                   <input
                     ref={fileInputRef}
@@ -530,19 +540,35 @@ const Projects: React.FC = () => {
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-center"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                   >
-                    Selecionar Arquivo
+                    <Upload className="w-4 h-4" />
+                    <div className="text-center">
+                      <div className="font-bold">Selecionar Arquivo</div>
+                      <div className="text-xs opacity-90 font-normal">Carregar arquivo .xlsx</div>
+                    </div>
                   </button>
                 </div>
                 
                 <button
                   onClick={handleExport}
-                  className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors text-center"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                 >
-                  Exportar
+                  <Download className="w-4 h-4" />
+                  <div className="text-center">
+                    <div className="font-bold">Exportar</div>
+                    <div className="text-xs opacity-90 font-normal">Salvar dados em arquivo</div>
+                  </div>
                 </button>
               </div>
+              
+              {/* Botão Cancelar */}
+              <button
+                onClick={() => setIsImportExportOpen(false)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-bold transition-colors"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
