@@ -23,7 +23,7 @@ const Transactions: React.FC = () => {
   const [form, setForm] = useState<{date: string; description: string; value: string; type: TransactionType; category: string; subcategory: string}>({
     date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: ''
   })
-  const [formErrors, setFormErrors] = useState<{[key: string]: boolean}>({})
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [importType, setImportType] = useState<'transactions'>('transactions')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -112,21 +112,25 @@ const Transactions: React.FC = () => {
 
   // CRUD
   const validateForm = () => {
-    const errors: {[key: string]: boolean} = {}
+    const errors: {[key: string]: string} = {}
     
-    if (!form.date) errors.date = true
-    if (!form.description.trim()) errors.description = true
-    if (!form.value || parseFloat(form.value) <= 0) errors.value = true
-    if (!form.type) errors.type = true
-    if (!form.category) errors.category = true
-    if (!form.subcategory.trim()) errors.subcategory = true
+    if (!form.date) errors.date = 'Campo obrigatório'
+    if (!form.description.trim()) errors.description = 'Campo obrigatório'
+    if (!form.value || parseFloat(form.value) <= 0) errors.value = 'Campo obrigatório'
+    if (!form.type) errors.type = 'Campo obrigatório'
+    if (!form.category) errors.category = 'Campo obrigatório'
+    if (!form.subcategory.trim()) errors.subcategory = 'Campo obrigatório'
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
 
   const saveTransaction = async () => {
-    if (!validateForm()) return
+    console.log('saveTransaction chamado', form)
+    if (!validateForm()) {
+      console.log('Validação falhou', formErrors)
+      return
+    }
     
     const payload = {
       id: editing?.id,
@@ -137,6 +141,7 @@ const Transactions: React.FC = () => {
       category: form.category,
       subcategory: form.subcategory
     }
+    console.log('Payload:', payload)
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/transactions/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -146,7 +151,9 @@ const Transactions: React.FC = () => {
         const j = await r.json(); if (j.success) setTransactions(prev => [j.data, ...prev])
       }
       setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({})
-    } catch {}
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+    }
   }
 
   const deleteOne = async (id: string) => {
@@ -210,7 +217,7 @@ const Transactions: React.FC = () => {
             Importar/Exportar
           </button>
           <button
-            onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '' }); setIsModalOpen(true) }}
+            onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
           >
             <Plus className="h-5 w-5" />
@@ -404,7 +411,7 @@ const Transactions: React.FC = () => {
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Data <span className="text-red-500">*</span>
                 </label>
@@ -416,9 +423,14 @@ const Transactions: React.FC = () => {
                     formErrors.date ? 'border-red-500 bg-red-50' : ''
                   }`} 
                 />
-                {formErrors.date && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                {formErrors.date && (
+                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                    {formErrors.date}
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Descrição <span className="text-red-500">*</span>
                 </label>
@@ -430,10 +442,15 @@ const Transactions: React.FC = () => {
                     formErrors.description ? 'border-red-500 bg-red-50' : ''
                   }`} 
                 />
-                {formErrors.description && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                {formErrors.description && (
+                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                    {formErrors.description}
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Valor (R$) <span className="text-red-500">*</span>
                   </label>
@@ -446,9 +463,14 @@ const Transactions: React.FC = () => {
                       formErrors.value ? 'border-red-500 bg-red-50' : ''
                     }`} 
                   />
-                  {formErrors.value && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                  {formErrors.value && (
+                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                      {formErrors.value}
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                    </div>
+                  )}
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Tipo <span className="text-red-500">*</span>
                   </label>
@@ -466,10 +488,15 @@ const Transactions: React.FC = () => {
                     <option value="Receita">Receita</option>
                     <option value="Despesa">Despesa</option>
                   </select>
-                  {formErrors.type && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                  {formErrors.type && (
+                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                      {formErrors.type}
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Categoria <span className="text-red-500">*</span>
                 </label>
@@ -499,9 +526,14 @@ const Transactions: React.FC = () => {
                     </>
                   )}
                 </select>
-                {formErrors.category && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                {formErrors.category && (
+                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                    {formErrors.category}
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Subcategoria <span className="text-red-500">*</span>
                 </label>
@@ -513,7 +545,12 @@ const Transactions: React.FC = () => {
                     formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
                   }`} 
                 />
-                {formErrors.subcategory && <p className="text-red-500 text-xs mt-1">Campo obrigatório</p>}
+                {formErrors.subcategory && (
+                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                    {formErrors.subcategory}
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
