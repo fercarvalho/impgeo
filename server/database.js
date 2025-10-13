@@ -7,6 +7,7 @@ class Database {
     this.transactionsFile = path.join(this.dbPath, 'transactions.json');
     this.productsFile = path.join(this.dbPath, 'products.json');
     this.subcategoriesFile = path.join(this.dbPath, 'subcategories.json');
+    this.clientsFile = path.join(this.dbPath, 'clients.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -72,6 +73,10 @@ class Database {
         'Tráfego/SEO'
       ];
       fs.writeFileSync(this.subcategoriesFile, JSON.stringify(defaultSubcategories, null, 2));
+    }
+    
+    if (!fs.existsSync(this.clientsFile)) {
+      fs.writeFileSync(this.clientsFile, '[]');
     }
   }
 
@@ -261,6 +266,81 @@ class Database {
       return name;
     } catch (error) {
       console.error('Erro ao salvar subcategoria:', error);
+      throw error;
+    }
+  }
+
+  // Métodos para Clientes
+  getAllClients() {
+    try {
+      const data = fs.readFileSync(this.clientsFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler clientes:', error);
+      return [];
+    }
+  }
+
+  saveClient(client) {
+    try {
+      const clients = this.getAllClients();
+      const newClient = {
+        id: this.generateId(),
+        ...client,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      clients.push(newClient);
+      fs.writeFileSync(this.clientsFile, JSON.stringify(clients, null, 2));
+      return newClient;
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error);
+      throw error;
+    }
+  }
+
+  updateClient(id, updatedClient) {
+    try {
+      const clients = this.getAllClients();
+      const index = clients.findIndex(c => c.id === id);
+      if (index === -1) {
+        throw new Error('Cliente não encontrado');
+      }
+      
+      clients[index] = {
+        ...clients[index],
+        ...updatedClient,
+        updatedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(this.clientsFile, JSON.stringify(clients, null, 2));
+      return clients[index];
+    } catch (error) {
+      console.error('Erro ao atualizar cliente:', error);
+      throw error;
+    }
+  }
+
+  deleteClient(id) {
+    try {
+      const clients = this.getAllClients();
+      const filteredClients = clients.filter(c => c.id !== id);
+      fs.writeFileSync(this.clientsFile, JSON.stringify(filteredClients, null, 2));
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar cliente:', error);
+      throw error;
+    }
+  }
+
+  deleteMultipleClients(ids) {
+    try {
+      const clients = this.getAllClients();
+      const filteredClients = clients.filter(c => !ids.includes(c.id));
+      fs.writeFileSync(this.clientsFile, JSON.stringify(filteredClients, null, 2));
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar múltiplos clientes:', error);
       throw error;
     }
   }

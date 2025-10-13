@@ -105,12 +105,42 @@ function processProducts(worksheet) {
   return products;
 }
 
+// Função para processar dados de clientes
+function processClients(worksheet) {
+  const data = XLSX.utils.sheet_to_json(worksheet);
+  const clients = [];
+
+  data.forEach((row, index) => {
+    try {
+      // Mapear colunas do Excel para o formato esperado
+      const client = {
+        id: Date.now() + index,
+        name: row['Nome'] || row['name'] || row['Name'] || '',
+        email: row['Email'] || row['email'] || row['Email'] || '',
+        phone: row['Telefone'] || row['phone'] || row['Phone'] || '',
+        address: row['Endereço'] || row['Endereco'] || row['address'] || row['Address'] || '',
+        cpf: row['CPF'] || row['cpf'] || row['Cpf'] || '',
+        cnpj: row['CNPJ'] || row['cnpj'] || row['Cnpj'] || ''
+      };
+
+      // Validar se tem dados essenciais
+      if (client.name && client.email) {
+        clients.push(client);
+      }
+    } catch (error) {
+      console.log(`Erro ao processar linha ${index + 1}:`, error.message);
+    }
+  });
+
+  return clients;
+}
+
 // Rota para baixar modelo de arquivo
 app.get('/api/modelo/:type', (req, res) => {
   try {
     const { type } = req.params;
-    if (!['transactions', 'products'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions" ou "products"' });
+    if (!['transactions', 'products', 'clients'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products" ou "clients"' });
     }
 
     // Sempre gerar arquivo modelo dinamicamente para garantir colunas atualizadas
@@ -139,6 +169,27 @@ app.get('/api/modelo/:type', (req, res) => {
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Transações');
+    } else if (type === 'clients') {
+      const sampleData = [
+        {
+          'Nome': 'João Silva',
+          'Email': 'joao@email.com',
+          'Telefone': '(11) 99999-9999',
+          'Endereço': 'Rua das Flores, 123',
+          'CPF': '123.456.789-00',
+          'CNPJ': ''
+        },
+        {
+          'Nome': 'Empresa XYZ Ltda',
+          'Email': 'contato@empresa.com',
+          'Telefone': '(11) 88888-8888',
+          'Endereço': 'Av. Principal, 456',
+          'CPF': '',
+          'CNPJ': '12.345.678/0001-90'
+        }
+      ];
+      worksheet = XLSX.utils.json_to_sheet(sampleData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
     } else {
       const headers = [{
         'Nome': '',
@@ -153,7 +204,8 @@ app.get('/api/modelo/:type', (req, res) => {
     }
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 'modelo-produtos.xlsx';
+    const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 
+                    type === 'clients' ? 'modelo-clientes.xlsx' : 'modelo-produtos.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -175,8 +227,8 @@ app.post('/api/import', upload.single('file'), (req, res) => {
 
     const { type } = req.body; // 'transactions' ou 'products'
     
-    if (!type || !['transactions', 'products'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions" ou "products"' });
+    if (!type || !['transactions', 'products', 'clients'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products" ou "clients"' });
     }
 
     console.log(`Processando arquivo: ${req.file.originalname} (${type})`);
@@ -195,6 +247,9 @@ app.post('/api/import', upload.single('file'), (req, res) => {
     } else if (type === 'products') {
       processedData = processProducts(worksheet);
       message = `${processedData.length} produtos importados com sucesso!`;
+    } else if (type === 'clients') {
+      processedData = processClients(worksheet);
+      message = `${processedData.length} clientes importados com sucesso!`;
     }
 
     // Limpar o arquivo temporário
@@ -256,6 +311,18 @@ app.post('/api/export', (req, res) => {
       }));
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
+    } else if (type === 'clients') {
+      // Mapear dados para formato Excel
+      const excelData = data.map(c => ({
+        'Nome': c.name,
+        'Email': c.email,
+        'Telefone': c.phone,
+        'Endereço': c.address,
+        'CPF': c.cpf || '',
+        'CNPJ': c.cnpj || ''
+      }));
+      worksheet = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
     }
 
     // Gerar buffer do arquivo
@@ -351,6 +418,58 @@ app.post('/api/subcategories', (req, res) => {
     
     const subcategory = db.saveSubcategory(name.trim());
     res.json({ success: true, data: subcategory });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// APIs para Clientes
+app.get('/api/clients', (req, res) => {
+  try {
+    const clients = db.getAllClients();
+    res.json({ success: true, data: clients });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/clients', (req, res) => {
+  try {
+    const client = db.saveClient(req.body);
+    res.json({ success: true, data: client });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/clients/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = db.updateClient(id, req.body);
+    res.json({ success: true, data: client });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/clients/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    db.deleteClient(id);
+    res.json({ success: true, message: 'Cliente deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/clients', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
+    }
+    db.deleteMultipleClients(ids);
+    res.json({ success: true, message: `${ids.length} clientes deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

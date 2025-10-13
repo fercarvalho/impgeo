@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import Reports from './components/Reports'
 import TransactionsPage from './components/Transactions'
+import Clients from './components/Clients'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
@@ -826,10 +827,7 @@ function App() {
             </div>
         )}
         {activeTab === 'clients' && (
-    <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-      </div>
+          <Clients />
         )}
         {activeTab === 'dre' && (
       <div className="space-y-6">
