@@ -11,6 +11,17 @@ interface Project {
   status: 'ativo' | 'pausado' | 'concluido'
   value: number
   progress: number
+  services: string[]
+}
+
+interface Service {
+  id: string
+  name: string
+  description: string
+  category: string
+  price: number
+  duration: number
+  status: 'ativo' | 'inativo'
 }
 
 const API_BASE_URL = '/api'
@@ -28,6 +39,7 @@ interface Client {
 const Projects: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
@@ -40,12 +52,14 @@ const Projects: React.FC = () => {
     status: 'ativo' | 'pausado' | 'concluido'
     value: string
     progress: string
+    selectedServices: string[]
   }>({
     name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], 
-    endDate: '', status: 'ativo', value: '', progress: '0'
+    endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: []
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false)
   const [importType, setImportType] = useState<'projects'>('projects')
   const [newProject, setNewProject] = useState('')
   const [newProjectError, setNewProjectError] = useState('')
@@ -88,14 +102,25 @@ const Projects: React.FC = () => {
     loadClients()
   }, [])
 
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/services`)
+        const j = await r.json()
+        if (j.success) setServices(j.data)
+      } catch {}
+    }
+    loadServices()
+  }, [])
+
   // Controla overlay global (classe no body) ao abrir/fechar modais
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen || isServicesModalOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen])
+  }, [isImportExportOpen, isModalOpen, isServicesModalOpen])
 
   const handleSort = (field: keyof Project) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -142,6 +167,13 @@ const Projects: React.FC = () => {
 
   const clearFilters = () => setFilters({ name: '', client: '', status: '' })
 
+  const calculateServicesValue = (selectedServiceIds: string[]) => {
+    return selectedServiceIds.reduce((total, serviceId) => {
+      const service = services.find(s => s.id === serviceId)
+      return total + (service ? service.price : 0)
+    }, 0)
+  }
+
   // CRUD
   const validateForm = () => {
     const errors: {[key: string]: string} = {}
@@ -168,7 +200,8 @@ const Projects: React.FC = () => {
       endDate: form.endDate || null,
       status: form.status,
       value: parseFloat(form.value),
-      progress: parseInt(form.progress)
+      progress: parseInt(form.progress),
+      services: form.selectedServices
     }
     
     try {
@@ -179,7 +212,7 @@ const Projects: React.FC = () => {
         const r = await fetch(`${API_BASE_URL}/projects`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         const j = await r.json(); if (j.success) setProjects(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0' }); setFormErrors({})
+      setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
     } catch (error) {
       console.error('Erro ao salvar:', error)
     }
@@ -300,7 +333,7 @@ const Projects: React.FC = () => {
             Importar/Exportar
           </button>
           <button
-            onClick={() => { setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0' }); setFormErrors({}); setIsModalOpen(true) }}
+            onClick={() => { setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
           >
             <Plus className="h-5 w-5" />
@@ -477,7 +510,7 @@ const Projects: React.FC = () => {
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex justify-center space-x-2">
                       <button 
-                        onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress) }); setIsModalOpen(true) }}
+                        onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress), selectedServices: project.services || [] }); setIsModalOpen(true) }}
                         className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
                         title="Editar projeto"
                       >
@@ -578,7 +611,8 @@ const Projects: React.FC = () => {
       {/* Modal Novo/Editar Projeto */}
       {isModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700">
@@ -739,10 +773,143 @@ const Projects: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Seleção de Serviços */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Serviços Inclusos
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsServicesModalOpen(true)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                  >
+                    {form.selectedServices.length > 0 
+                      ? `${form.selectedServices.length} serviço(s) selecionado(s)`
+                      : 'Selecionar Serviços'
+                    }
+                  </button>
+                  {form.selectedServices.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({ 
+                          ...prev, 
+                          selectedServices: [],
+                          value: '0'
+                        }))
+                      }}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Limpar seleção"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {form.selectedServices.length > 0 && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Valor calculado:</strong> R$ {calculateServicesValue(form.selectedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Você pode editar o valor final do projeto abaixo
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={saveProject} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Seleção de Serviços */}
+      {isServicesModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-[10001] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsServicesModalOpen(false) }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Selecionar Serviços</h2>
+              <button onClick={() => setIsServicesModalOpen(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="max-h-96 overflow-y-auto space-y-3 mb-4">
+              {services.filter(s => s.status === 'ativo').map((service) => (
+                <label key={service.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={form.selectedServices.includes(service.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const newSelectedServices = [...form.selectedServices, service.id]
+                        const calculatedValue = calculateServicesValue(newSelectedServices)
+                        setForm(prev => ({ 
+                          ...prev, 
+                          selectedServices: newSelectedServices,
+                          value: String(calculatedValue)
+                        }))
+                      } else {
+                        const newSelectedServices = form.selectedServices.filter(id => id !== service.id)
+                        const calculatedValue = calculateServicesValue(newSelectedServices)
+                        setForm(prev => ({ 
+                          ...prev, 
+                          selectedServices: newSelectedServices,
+                          value: String(calculatedValue)
+                        }))
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-900">{service.name}</span>
+                      <span className="text-sm text-green-600 font-semibold">
+                        R$ {service.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{service.category} - {service.duration} dias</p>
+                    <p className="text-xs text-gray-600 mt-1">{service.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {form.selectedServices.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Valor total:</strong> R$ {calculateServicesValue(form.selectedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {form.selectedServices.length} serviço(s) selecionado(s)
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => {
+                  setForm(prev => ({ 
+                    ...prev, 
+                    selectedServices: [],
+                    value: '0'
+                  }))
+                }}
+                className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Limpar Tudo
+              </button>
+              <button 
+                onClick={() => setIsServicesModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              >
+                Confirmar
+              </button>
             </div>
           </div>
         </div>
