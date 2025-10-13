@@ -15,6 +15,51 @@ interface Transaction {
 
 const API_BASE_URL = '/api'
 
+const SUBCATEGORIES = [
+  'ALUGUEL + INTERNET',
+  'CONTADOR',
+  'CONSULTOR',
+  'SITE',
+  'ANUIDADE CREA IMP',
+  'ANUIDADE CREA SÓCIOS',
+  'GUIA DAS',
+  'ISS',
+  'MICROSOFT 365',
+  'MÉTRICA TOPO',
+  'RTK (TOPOMIG)',
+  'SEGURO DRONE',
+  'SEGURO RTK',
+  'SALARIO DU - PRO LABORE',
+  'SALARIO VINI - PRO LABORE',
+  'SALARIO RAFAELA APARECIDA',
+  'SALÁRIO THAISA TEIXEIRA BAHIA',
+  'CONFRAS E REFEIÇÕES',
+  'MATERIAL ESCRITÓRIO',
+  'CARTÃO BB (PROJETOS)',
+  'CARTÃO C6',
+  'OUTROS GASTOS DU/VINI',
+  'Tráfego/SEO',
+  'Social Media',
+  'Produção Conteúdo',
+  'Auxiliar de Campo',
+  'Manutenções',
+  'Materiais Extras',
+  'ART',
+  'CONSELHO REG ENG',
+  'ONR',
+  'Sindicato',
+  'FGTS',
+  'CDB',
+  'FEZINHA',
+  'DARF',
+  'Locomoção',
+  'PLUXEE BENEFICIOS',
+  'Reembolso projetos',
+  'Despesa variável de projetos',
+  'CELULAR',
+  'RTK'
+]
+
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
@@ -119,7 +164,7 @@ const Transactions: React.FC = () => {
     if (!form.value || parseFloat(form.value) <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
     if (!form.category) errors.category = 'Campo obrigatório'
-    if (!form.subcategory.trim()) errors.subcategory = 'Campo obrigatório'
+    // Subcategoria é opcional agora
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -479,7 +524,8 @@ const Transactions: React.FC = () => {
                     onChange={(e) => setForm(prev => ({ 
                       ...prev, 
                       type: e.target.value as TransactionType,
-                      category: '' // Limpar categoria quando tipo mudar
+                      category: '', // Limpar categoria quando tipo mudar
+                      subcategory: '' // Limpar subcategoria quando tipo mudar
                     }))} 
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       formErrors.type ? 'border-red-500 bg-red-50' : ''
@@ -533,25 +579,31 @@ const Transactions: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Subcategoria <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={form.subcategory} 
-                  onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
-                  }`} 
-                />
-                {formErrors.subcategory && (
-                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                    {formErrors.subcategory}
-                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                  </div>
-                )}
-              </div>
+              {form.type === 'Despesa' && (
+                <div className="relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Subcategoria
+                  </label>
+                  <select 
+                    value={form.subcategory} 
+                    onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} 
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
+                    }`}
+                  >
+                    <option value="">Selecione uma subcategoria</option>
+                    {SUBCATEGORIES.map((subcat, index) => (
+                      <option key={index} value={subcat}>{subcat}</option>
+                    ))}
+                  </select>
+                  {formErrors.subcategory && (
+                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                      {formErrors.subcategory}
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
