@@ -20,7 +20,7 @@ import Reports from './components/Reports'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
-const API_BASE_URL = 'http://localhost:9001/api'
+const API_BASE_URL = '/api'
 
 // Funções para Transações
 const fetchTransactions = async () => {

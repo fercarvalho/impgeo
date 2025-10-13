@@ -1,9 +1,6 @@
-import React from 'react'
-import { BarChart3 } from 'lucide-react'
+import React, { useState } from 'react'
+import { BarChart3, Plus } from 'lucide-react'
 import {
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -30,6 +27,12 @@ interface ReportsProps {
 }
 
 const Reports: React.FC<ReportsProps> = ({ transactions }) => {
+  const [expandedCharts, setExpandedCharts] = useState<string[]>([])
+
+  const toggleChart = (id: string) => {
+    setExpandedCharts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
   const agora = new Date()
   const inicioSemana = new Date(agora)
   inicioSemana.setDate(agora.getDate() - agora.getDay())
@@ -47,112 +50,363 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const calcularVendasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => { if (t.type === 'Receita') { mapa[t.category] = (mapa[t.category] || 0) + t.value } })
-    const cores = ['#2563eb', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']
+    const cores = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
     return Object.entries(mapa).map(([name, value], i) => ({ name, value, color: cores[i % cores.length] }))
   }
 
   const calcularDespesasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => { if (t.type === 'Despesa') { mapa[t.category] = (mapa[t.category] || 0) + t.value } })
-    const cores = ['#ef4444', '#dc2626', '#f87171', '#fb7185', '#fca5a5']
+    const cores = ['#ef4444', '#f97316', '#84cc16', '#f59e0b', '#8b5cf6']
     return Object.entries(mapa).map(([name, value], i) => ({ name, value, color: cores[i % cores.length] }))
   }
 
   const calcularVendasPorProduto = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => { if (t.type === 'Receita') { const n = t.description || 'Produto'; mapa[n] = (mapa[n] || 0) + t.value } })
-    const cores = ['#6366f1', '#7c3aed', '#22c55e', '#3b82f6', '#06b6d4']
+    const cores = ['#8b5cf6', '#ec4899', '#06b6d4', '#22c55e', '#3b82f6']
     return Object.entries(mapa)
       .sort(([,a], [,b]) => (b as number) - (a as number))
       .slice(0, 5)
       .map(([name, value], i) => ({ name, value: value as number, color: cores[i % cores.length] }))
   }
 
-  const renderDonutChart = (title: string, data: { name: string; value: number; color: string }[]) => (
-    <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
-      <div className="flex items-center mb-4">
-        <span className="text-gray-400 text-lg mr-3">📊</span>
-        <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-      </div>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <RechartsPieChart>
-            <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={90}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-            <Legend />
-          </RechartsPieChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
+  const calcularProdutosPorPeriodo = (ts: Transaction[], tipo: 'dia' | 'semana') => {
+    const produtosPorPeriodo: { [key: string]: { [key: string]: number } } = {}
+    ts.forEach(t => {
+      if (t.type === 'Receita') {
+        const data = new Date(t.date)
+        let chave: string
+        if (tipo === 'dia') {
+          const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+          chave = diasSemana[data.getDay()]
+        } else {
+          const semanaDoMes = Math.ceil(data.getDate() / 7)
+          chave = `Sem ${semanaDoMes}`
+        }
+        if (!produtosPorPeriodo[chave]) produtosPorPeriodo[chave] = {}
+        const nomeProduto = t.description || 'Produto'
+        produtosPorPeriodo[chave][nomeProduto] = (produtosPorPeriodo[chave][nomeProduto] || 0) + 1
+      }
+    })
+    return Object.entries(produtosPorPeriodo).map(([nome, produtos]) => ({ nome, ...produtos }))
+  }
 
-  const renderBarChart = (title: string, data: { name: string; value: number; color: string }[]) => (
-    <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
-      <div className="flex items-center mb-4">
-        <span className="text-gray-400 text-lg mr-3">📦</span>
-        <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-      </div>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#666' }} />
-            <YAxis tickFormatter={(v: number) => `R$ ${v.toLocaleString('pt-BR')}`} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#666' }} />
-            <Tooltip formatter={(v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-            <Bar dataKey="value" radius={[8,8,0,0]}>
-              {data.map((entry, index) => (
-                <Cell key={`bar-${index}`} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
+  // (sem helpers extras)
 
-  const blocoPeriodo = (titulo: string, ts: Transaction[]) => {
-    const vendasPorCategoria = calcularVendasPorCategoria(ts)
-    const despesasPorCategoria = calcularDespesasPorCategoria(ts)
-    const vendasPorProduto = calcularVendasPorProduto(ts)
-
-    const totalReceitas = vendasPorCategoria.reduce((s, i) => s + i.value, 0)
-    const totalDespesas = despesasPorCategoria.reduce((s, i) => s + i.value, 0)
-    const saldo = totalReceitas - totalDespesas
+  const renderSecaoRelatorio = (titulo: string, dados: any, periodo: string) => {
+    const totalVendasCategoria = dados.vendasPorCategoria.reduce((sum: number, item: any) => sum + item.valor, 0)
+    const totalVendasProduto = dados.vendasPorProduto.reduce((sum: number, item: any) => sum + item.valor, 0)
+    const totalDespesas = dados.despesasPorCategoria.reduce((sum: number, item: any) => sum + item.valor, 0)
+    const lucroLiquido = totalVendasCategoria - totalDespesas
 
     return (
       <div className="space-y-6 mb-12">
         <h2 className="text-2xl font-bold text-gray-800">{titulo}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {renderDonutChart('Vendas por Categoria', vendasPorCategoria)}
-          {renderDonutChart('Despesas por Categoria', despesasPorCategoria)}
-        </div>
-        <div className="grid grid-cols-1 gap-6">
-          {renderBarChart('Top Produtos (Receita)', vendasPorProduto)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
-            <p className="text-sm font-semibold text-blue-700">Receitas</p>
-            <p className="text-2xl font-bold text-blue-900 mt-1">R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          {/* Vendas por Categoria */}
+          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+            <div className="mb-8">
+              <div className="flex items-center mb-6">
+                <span className="text-gray-400 text-lg mr-3">📈</span>
+                <h3 className="text-lg font-bold text-gray-800">Vendas por Categoria</h3>
+              </div>
+              <div className="space-y-3">
+                {dados.vendasPorCategoria.map((item: any, index: number) => {
+                  const chartId = `vendas-categoria-${periodo}-${index}`
+                  return (
+                    <div key={index} className="space-y-3">
+                      <div 
+                        className="bg-green-50 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => toggleChart(chartId)}
+                      >
+                        <span className="bg-green-100 text-green-800 font-medium px-4 py-2 rounded-lg min-w-0 flex-shrink-0">
+                          {item.nome}
+                        </span>
+                        <span className="font-bold text-gray-700 ml-4 text-right">
+                          R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {expandedCharts.includes(chartId) && (
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={[{name: item.nome, valor: item.valor}]}> 
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                              <Bar dataKey="valor" fill={item.cor} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="space-y-3">
+                  <div 
+                    className="bg-green-200 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleChart(`total-vendas-categoria-${periodo}`)}
+                  >
+                    <span className="bg-green-300 text-green-800 font-bold px-4 py-2 rounded-lg min-w-0 flex-shrink-0">
+                      Total Vendas por Categoria
+                    </span>
+                    <span className="font-bold text-green-800 text-lg ml-4 text-right">
+                      R$ {totalVendasCategoria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {expandedCharts.includes(`total-vendas-categoria-${periodo}`) && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={dados.vendasPorCategoria}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="nome" />
+                          <YAxis />
+                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                          <Bar dataKey="valor" fill="#22c55e" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Vendas por Produto */}
+            <div>
+              <div className="mb-4">
+                <h4 className="text-md font-bold text-gray-700">Vendas por Produto</h4>
+              </div>
+              <div className="space-y-3">
+                {dados.vendasPorProduto.map((item: any, index: number) => {
+                  const chartId = `vendas-produto-${periodo}-${index}`
+                  return (
+                    <div key={index} className="space-y-3">
+                      <div 
+                        className="bg-blue-50 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => toggleChart(chartId)}
+                      >
+                        <span className="bg-blue-100 text-blue-800 font-medium text-sm px-3 py-2 rounded min-w-0 flex-shrink-0">
+                          {item.nome}
+                        </span>
+                        <span className="font-bold text-blue-900 text-sm ml-3 text-right">
+                          R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {expandedCharts.includes(chartId) && (
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={[{name: item.nome, valor: item.valor}]}> 
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                              <Bar dataKey="valor" fill={item.cor} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <div className="space-y-3">
+                  <div 
+                    className="bg-blue-200 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleChart(`total-vendas-produto-${periodo}`)}
+                  >
+                    <span className="bg-blue-300 text-blue-800 font-bold text-sm px-3 py-2 rounded min-w-0 flex-shrink-0">
+                      Total por Produto
+                    </span>
+                    <span className="font-bold text-blue-800 text-sm ml-3 text-right">
+                      R$ {totalVendasProduto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {expandedCharts.includes(`total-vendas-produto-${periodo}`) && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={dados.vendasPorProduto}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="nome" />
+                          <YAxis />
+                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                          <Bar dataKey="valor" fill="#3b82f6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
-            <p className="text-sm font-semibold text-red-700">Despesas</p>
-            <p className="text-2xl font-bold text-red-900 mt-1">R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          {/* Despesas por Categoria */}
+          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+            <div className="flex items-center mb-6">
+              <span className="text-gray-400 text-lg mr-3">💸</span>
+              <h3 className="text-lg font-bold text-gray-800">Despesas por Categoria</h3>
+            </div>
+            <div className="space-y-3">
+              {dados.despesasPorCategoria.map((item: any, index: number) => {
+                const chartId = `despesas-categoria-${periodo}-${index}`
+                return (
+                  <div key={index} className="space-y-3">
+                    <div 
+                      className="bg-orange-50 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => toggleChart(chartId)}
+                    >
+                      <span className="bg-orange-100 text-orange-700 font-medium px-4 py-2 rounded-lg min-w-0 flex-shrink-0">
+                        {item.nome}
+                      </span>
+                      <span className="font-bold text-gray-700 ml-4 text-right">
+                        R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {expandedCharts.includes(chartId) && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart data={[{name: item.nome, valor: item.valor}]}> 
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                            <Bar dataKey="valor" fill={item.cor} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="space-y-3">
+                <div 
+                  className="bg-orange-200 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => toggleChart(`total-despesas-${periodo}`)}
+                >
+                  <span className="bg-orange-300 text-orange-800 font-bold px-4 py-2 rounded-lg min-w-0 flex-shrink-0">
+                    Total de Despesas
+                  </span>
+                  <span className="font-bold text-orange-800 text-lg ml-4 text-right">
+                    R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {expandedCharts.includes(`total-despesas-${periodo}`) && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={dados.despesasPorCategoria}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="nome" />
+                        <YAxis />
+                        <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                        <Bar dataKey="valor" fill="#f97316" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200">
-            <p className="text-sm font-semibold text-indigo-700">Saldo</p>
-            <p className={`text-2xl font-bold mt-1 ${saldo >= 0 ? 'text-green-800' : 'text-red-800'}`}>R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        </div>
+
+        {/* Produtos por Período */}
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <span className="text-gray-400 text-lg mr-3">📦</span>
+              <h3 className="text-lg font-bold text-gray-800">Produtos Vendidos por {periodo === 'Semana' ? 'Dia' : periodo === 'Mês' ? 'Semana' : periodo === 'Trimestre' ? 'Mês' : 'Trimestre'}</h3>
+            </div>
+            <button 
+              className="text-blue-600 hover:text-blue-800 font-medium"
+              onClick={() => toggleChart(`produtos-${periodo}`)}
+            >
+              {expandedCharts.includes(`produtos-${periodo}`) ? 'Ocultar Gráfico' : 'Ver Gráfico'}
+            </button>
+          </div>
+          {expandedCharts.includes(`produtos-${periodo}`) && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={
+                  periodo === 'Semana' ? dados.produtosPorDia :
+                  periodo === 'Mês' ? dados.produtosPorSemana :
+                  periodo === 'Trimestre' ? dados.produtosPorMes :
+                  dados.produtosPorTrimestre
+                }>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="nome" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="vela_lavanda" fill="#8b5cf6" name="Vela Lavanda" />
+                  <Bar dataKey="vela_vanilla" fill="#ec4899" name="Vela Vanilla" />
+                  <Bar dataKey="kit_romance" fill="#06b6d4" name="Kit Romance" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Resumo */}
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Resumo do {periodo}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="text-center p-4 bg-green-50 rounded-xl">
+              <p className="text-sm font-bold text-green-600 mb-2">Total Vendas</p>
+              <p className="text-xl font-bold text-green-600">R$ {totalVendasCategoria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-xl">
+              <p className="text-sm font-bold text-red-600 mb-2">Total Despesas</p>
+              <p className="text-xl font-bold text-red-600">R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className={`text-center p-4 rounded-xl ${lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+              <p className={`text-sm font-bold mb-2 ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Lucro Líquido</p>
+              <p className={`text-xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className={`mt-2 p-2 rounded-lg ${lucroLiquido >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                <p className={`text-xs font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Margem: {totalVendasCategoria > 0 ? ((lucroLiquido / totalVendasCategoria) * 100).toFixed(1) : '0.0'}%</p>
+              </div>
+            </div>
+            <div className={`text-center p-4 rounded-xl ${lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+              <p className={`text-sm font-bold mb-2 ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Status</p>
+              <div className={`inline-flex items-center px-3 py-2 rounded-lg ${lucroLiquido >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                <span className={`text-sm font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>{lucroLiquido >= 0 ? '📈 Positivo' : '📉 Negativo'}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     )
   }
 
-  const nomesTrimestres = ['1º Trimestre', '2º Trimestre', '3º Trimestre', '4º Trimestre']
-  const trimestreAtual = Math.floor(agora.getMonth() / 3)
+  // (sem variáveis extras)
+
+  const dadosReais = {
+    semana: {
+      vendasPorCategoria: calcularVendasPorCategoria(transacoesSemana).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      vendasPorProduto: calcularVendasPorProduto(transacoesSemana).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      despesasPorCategoria: calcularDespesasPorCategoria(transacoesSemana).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      produtosPorDia: calcularProdutosPorPeriodo(transacoesSemana, 'dia')
+    },
+    mes: {
+      vendasPorCategoria: calcularVendasPorCategoria(transacoesMes).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      vendasPorProduto: calcularVendasPorProduto(transacoesMes).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      despesasPorCategoria: calcularDespesasPorCategoria(transacoesMes).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      produtosPorSemana: calcularProdutosPorPeriodo(transacoesMes, 'semana')
+    },
+    trimestre: {
+      vendasPorCategoria: calcularVendasPorCategoria(transacoesTrimestre).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      vendasPorProduto: calcularVendasPorProduto(transacoesTrimestre).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      despesasPorCategoria: calcularDespesasPorCategoria(transacoesTrimestre).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      produtosPorMes: calcularProdutosPorPeriodo(transacoesTrimestre, 'semana')
+    },
+    ano: {
+      vendasPorCategoria: calcularVendasPorCategoria(transacoesAno).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      vendasPorProduto: calcularVendasPorProduto(transacoesAno).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      despesasPorCategoria: calcularDespesasPorCategoria(transacoesAno).map(i => ({ nome: i.name, valor: i.value, cor: i.color })),
+      produtosPorTrimestre: calcularProdutosPorPeriodo(transacoesAno, 'semana')
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -161,12 +415,19 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
           <BarChart3 className="w-8 h-8 text-blue-600" />
           Relatórios
         </h1>
+        <button
+          onClick={() => alert('Ferramenta em construção')}
+          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+        >
+          <Plus className="h-5 w-5" />
+          Novo Relatório
+        </button>
       </div>
 
-      {blocoPeriodo('Semana Atual', transacoesSemana)}
-      {blocoPeriodo('Mês Atual', transacoesMes)}
-      {blocoPeriodo(`Trimestre Atual - ${nomesTrimestres[trimestreAtual]}`, transacoesTrimestre)}
-      {blocoPeriodo(`Ano ${agora.getFullYear()}`, transacoesAno)}
+      {renderSecaoRelatorio('Relatório Semanal', dadosReais.semana, 'Semana')}
+      {renderSecaoRelatorio('Relatório Mensal', dadosReais.mes, 'Mês')}
+      {renderSecaoRelatorio('Relatório Trimestral', dadosReais.trimestre, 'Trimestre')}
+      {renderSecaoRelatorio('Relatório Anual', dadosReais.ano, 'Ano')}
     </div>
   )
 }
