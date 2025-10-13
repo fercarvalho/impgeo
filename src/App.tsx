@@ -230,7 +230,7 @@ function App() {
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
-              <Calculator className="h-4 w-4 mb-1" />
+              <Calculator className="h-4 w-4 mb-1 mt-2" />
               <span className="text-center leading-tight">Projeção<br />Anual</span>
             </button>
             <button
