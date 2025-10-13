@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Overlay global para modais: cobre 100% inclusive topo fixo */
+.modal-open:before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  z-index: 9998;
+  pointer-events: auto;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

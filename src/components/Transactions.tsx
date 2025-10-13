@@ -45,6 +45,15 @@ const Transactions: React.FC = () => {
     load()
   }, [])
 
+  // Controla overlay global (classe no body) ao abrir/fechar modal de Importar/Exportar
+  useEffect(() => {
+    const body = document?.body
+    if (!body) return
+    if (isImportExportOpen) body.classList.add('modal-open')
+    else body.classList.remove('modal-open')
+    return () => { body.classList.remove('modal-open') }
+  }, [isImportExportOpen])
+
   const handleSort = (field: keyof Transaction) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig.field === field && sortConfig.direction === 'asc') direction = 'desc'
@@ -396,8 +405,8 @@ const Transactions: React.FC = () => {
 
       {/* Modal Importar/Exportar (estrutura Alya com visual IMPGEO) */}
       {isImportExportOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-b from-blue-50 to-white border-b">
               <div className="flex items-center gap-3">
