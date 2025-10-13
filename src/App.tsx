@@ -224,14 +224,14 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('projecao')}
-              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center ${
+              className={`px-3 py-2 rounded-md text-sm font-bold transition-colors flex flex-col items-center justify-center ${
                 activeTab === 'projecao'
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:text-white hover:bg-blue-700'
               }`}
             >
               <Calculator className="h-4 w-4 mb-1" />
-              <span className="text-center">Projeção<br />Anual</span>
+              <span className="text-center leading-tight">Projeção<br />Anual</span>
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
