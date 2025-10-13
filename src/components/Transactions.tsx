@@ -17,7 +17,12 @@ const API_BASE_URL = '/api'
 
 // SUBCATEGORIES agora será carregado do backend
 
-const Transactions: React.FC = () => {
+interface TransactionsProps {
+  showModal?: boolean
+  onCloseModal?: () => void
+}
+
+const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -83,6 +88,22 @@ const Transactions: React.FC = () => {
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen])
+
+  // Controlar modal externamente (apenas se showModal for fornecido)
+  useEffect(() => {
+    if (showModal !== undefined) {
+      setIsModalOpen(showModal)
+    }
+  }, [showModal])
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+    setEditing(null)
+    setFormErrors({})
+    if (onCloseModal) {
+      onCloseModal()
+    }
+  }
 
   const handleSort = (field: keyof Transaction) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -240,7 +261,7 @@ const Transactions: React.FC = () => {
         const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         const j = await r.json(); if (j.success) setTransactions(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({})
+      closeModal(); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' })
     } catch (error) {
       console.error('Erro ao salvar:', error)
     }
@@ -494,11 +515,11 @@ const Transactions: React.FC = () => {
 
       {/* Modal Nova/Editar Transação */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
+        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { closeModal() } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Transação' : 'Nova Transação'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3">
               <div className="relative">
@@ -675,7 +696,7 @@ const Transactions: React.FC = () => {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
+              <button onClick={closeModal} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={saveTransaction} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
             </div>
           </div>
@@ -822,5 +843,6 @@ const Transactions: React.FC = () => {
 }
 
 export default Transactions
+export { Transactions as TransactionsPage }
 
 

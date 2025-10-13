@@ -17,7 +17,7 @@ import {
   Calculator
 } from 'lucide-react'
 import Reports from './components/Reports'
-import TransactionsPage from './components/Transactions'
+import { TransactionsPage } from './components/Transactions'
 import Clients from './components/Clients'
 import DRE from './components/DRE'
 // Gráficos agora são usados pelo componente Reports
@@ -66,6 +66,12 @@ function App() {
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showTransactionModal, setShowTransactionModal] = useState(false)
+
+  // Resetar modal quando trocar de aba
+  useEffect(() => {
+    setShowTransactionModal(false)
+  }, [activeTab])
   
 
 
@@ -467,7 +473,7 @@ function App() {
             Dashboard IMPGEO
           </h1>
         <button 
-            onClick={() => setActiveTab('transactions')}
+            onClick={() => setShowTransactionModal(true)}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
         >
             <Plus className="h-5 w-5" />
@@ -794,7 +800,17 @@ function App() {
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
-        {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'dashboard' && (
+          <>
+            {renderDashboard()}
+            {showTransactionModal && (
+              <TransactionsPage 
+                showModal={true}
+                onCloseModal={() => setShowTransactionModal(false)}
+              />
+            )}
+          </>
+        )}
         {activeTab === 'metas' && renderMetas()}
         {activeTab === 'reports' && (
           <Reports transactions={transactions} />
