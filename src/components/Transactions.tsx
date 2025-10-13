@@ -73,6 +73,7 @@ const Transactions: React.FC = () => {
   const [importType, setImportType] = useState<'transactions'>('transactions')
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [newSubcategory, setNewSubcategory] = useState('')
+  const [newSubcategoryError, setNewSubcategoryError] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -159,12 +160,21 @@ const Transactions: React.FC = () => {
 
   // Função para adicionar nova subcategoria
   const addNewSubcategory = () => {
-    if (newSubcategory.trim() && !SUBCATEGORIES.includes(newSubcategory.trim())) {
-      SUBCATEGORIES.push(newSubcategory.trim())
-      setForm(prev => ({ ...prev, subcategory: newSubcategory.trim() }))
-      setNewSubcategory('')
-      setIsAddSubcategoryOpen(false)
+    if (!newSubcategory.trim()) {
+      setNewSubcategoryError('Campo obrigatório')
+      return
     }
+    
+    if (SUBCATEGORIES.includes(newSubcategory.trim())) {
+      setNewSubcategoryError('Esta subcategoria já existe')
+      return
+    }
+    
+    SUBCATEGORIES.push(newSubcategory.trim())
+    setForm(prev => ({ ...prev, subcategory: newSubcategory.trim() }))
+    setNewSubcategory('')
+    setNewSubcategoryError('')
+    setIsAddSubcategoryOpen(false)
   }
 
   // CRUD
@@ -712,29 +722,40 @@ const Transactions: React.FC = () => {
 
       {/* Modal Adicionar Nova Subcategoria */}
       {isAddSubcategoryOpen && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsAddSubcategoryOpen(false) }}>
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Adicionar Nova Subcategoria</h2>
-              <button onClick={() => setIsAddSubcategoryOpen(false)} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Nome da Subcategoria
+                  Nome da Subcategoria <span className="text-red-500">*</span>
                 </label>
                 <input 
                   type="text" 
                   value={newSubcategory} 
-                  onChange={(e) => setNewSubcategory(e.target.value)} 
+                  onChange={(e) => {
+                    setNewSubcategory(e.target.value)
+                    if (newSubcategoryError) setNewSubcategoryError('') // Limpa erro ao digitar
+                  }} 
                   placeholder="Digite o nome da nova subcategoria"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    newSubcategoryError ? 'border-red-500 bg-red-50' : ''
+                  }`}
                   onKeyPress={(e) => e.key === 'Enter' && addNewSubcategory()}
                 />
+                {newSubcategoryError && (
+                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                    {newSubcategoryError}
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setIsAddSubcategoryOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={addNewSubcategory} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Adicionar</button>
             </div>
           </div>
