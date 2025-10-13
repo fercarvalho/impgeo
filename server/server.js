@@ -144,6 +144,9 @@ function processProjects(worksheet) {
   data.forEach((row, index) => {
     try {
       // Mapear colunas do Excel para o formato esperado
+      const servicesString = row['Serviços'] || row['servicos'] || row['services'] || row['Services'] || '';
+      const services = servicesString ? servicesString.split(',').map(s => s.trim()).filter(s => s) : [];
+      
       const project = {
         id: Date.now() + index,
         name: row['Nome'] || row['name'] || row['Name'] || '',
@@ -153,7 +156,8 @@ function processProjects(worksheet) {
         endDate: row['Data Fim'] || row['data_fim'] || row['endDate'] || row['EndDate'] || '',
         status: row['Status'] || row['status'] || row['Status'] || 'ativo',
         value: parseFloat(row['Valor'] || row['valor'] || row['value'] || row['Value'] || 0),
-        progress: parseInt(row['Progresso'] || row['progresso'] || row['progress'] || row['Progress'] || 0)
+        progress: parseInt(row['Progresso'] || row['progresso'] || row['progress'] || row['Progress'] || 0),
+        services: services
       };
 
       // Validar se tem dados essenciais
@@ -235,7 +239,8 @@ app.get('/api/modelo/:type', (req, res) => {
           'Data Fim': '2024-03-15',
           'Status': 'ativo',
           'Valor': 15000.00,
-          'Progresso': 60
+          'Progresso': 60,
+          'Serviços': 'servico1,servico2'
         },
         {
           'Nome': 'Projeto Georreferenciamento',
@@ -245,7 +250,8 @@ app.get('/api/modelo/:type', (req, res) => {
           'Data Fim': '2024-02-28',
           'Status': 'concluido',
           'Valor': 8500.00,
-          'Progresso': 100
+          'Progresso': 100,
+          'Serviços': 'servico3'
         }
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
