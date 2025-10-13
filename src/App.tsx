@@ -66,6 +66,25 @@ function App() {
 
   // Estados para gráficos expandidos
   const [expandedCharts, setExpandedCharts] = useState<string[]>([])
+  
+  // Estados para Metas
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
+  
+  // Definição das metas mensais (centralizada)
+  const mesesMetas = [
+    { nome: 'JANEIRO', indice: 0, meta: 18500.00 },
+    { nome: 'FEVEREIRO', indice: 1, meta: 19200.00 },
+    { nome: 'MARÇO', indice: 2, meta: 20100.00 },
+    { nome: 'ABRIL', indice: 3, meta: 19800.00 },
+    { nome: 'MAIO', indice: 4, meta: 20500.00 },
+    { nome: 'JUNHO', indice: 5, meta: 21000.00 },
+    { nome: 'JULHO', indice: 6, meta: 21500.00 },
+    { nome: 'AGOSTO', indice: 7, meta: 22000.00 },
+    { nome: 'SETEMBRO', indice: 8, meta: 21889.17 },
+    { nome: 'OUTUBRO', indice: 9, meta: 23000.00 },
+    { nome: 'NOVEMBRO', indice: 10, meta: 25000.00 },
+    { nome: 'DEZEMBRO', indice: 11, meta: 28000.00 }
+  ]
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -271,6 +290,322 @@ function App() {
       </div>
     </nav>
   )
+
+  // Função para renderizar conteúdo do mês
+  const renderMonthContent = (monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
+    // Cálculos para o mês específico
+    const currentYear = 2025
+    const transacoesDoMes = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+    })
+
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+
+    return (
+      <div className="space-y-6">
+        {/* 1. RESULTADO */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <PieChart className="w-6 h-6 text-gray-600" />
+            Resultado
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quadrante Financeiro */}
+            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+              <div className="space-y-3">
+                {/* REFORÇO DE CAIXA */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-gray-700">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-gray-800">R$ 0,00</span>
+                </div>
+                
+                {/* SAÍDA DE CAIXA */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-gray-700">SAÍDA DE CAIXA</span>
+                  <span className="font-bold text-gray-800">R$ 0,00</span>
+                </div>
+                
+                {/* RECEITA */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-emerald-700">RECEITA</span>
+                  <span className="font-bold text-emerald-800">
+                    R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* DESPESA */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-red-700">DESPESA</span>
+                  <span className="font-bold text-red-800">
+                    -R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* SALDO FINAL */}
+                <div className="flex justify-between items-center py-2 bg-blue-50 rounded-lg px-3">
+                  <span className="font-bold text-blue-800">SALDO FINAL</span>
+                  <span className="font-bold text-blue-900">
+                    R$ {(saldoInicial + totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quadrante de Metas */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-blue-200">
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-blue-800 text-center mb-4">META DO MÊS</h3>
+                
+                {/* META ESTABELECIDA */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
+                  <span className="font-bold text-blue-800 text-lg">META ESTABELECIDA</span>
+                  <span className="font-bold text-blue-900 text-lg">
+                    R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* RESULTADO REAL */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
+                  <span className="font-bold text-blue-800 text-lg">RESULTADO REAL</span>
+                  <span className={`font-bold text-lg ${(totalReceitas - totalDespesas) >= metaValue ? 'text-green-600' : 'text-red-600'}`}>
+                    R$ {(totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* DIFERENÇA */}
+                <div className="flex justify-between items-center py-3 bg-blue-100 rounded-lg px-3">
+                  <span className="font-bold text-blue-900 text-lg">DIFERENÇA</span>
+                  <span className={`font-bold text-lg ${(totalReceitas - totalDespesas) >= metaValue ? 'text-green-600' : 'text-red-600'}`}>
+                    {((totalReceitas - totalDespesas) >= metaValue ? '+' : '')}
+                    R$ {((totalReceitas - totalDespesas) - metaValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* STATUS */}
+                <div className="text-center py-2">
+                  <span className={`inline-block px-4 py-2 rounded-full font-bold text-sm ${
+                    (totalReceitas - totalDespesas) >= metaValue 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {(totalReceitas - totalDespesas) >= metaValue ? '✅ META ATINGIDA' : '❌ META NÃO ATINGIDA'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Função para renderizar um mês completo
+  const renderMonth = (monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
+    return (
+      <div key={monthName} className="space-y-6 mb-12">
+        {/* Título Principal do Mês */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg">
+          <h2 className="text-3xl font-bold text-white text-center uppercase tracking-wider">
+            {monthName} - 2025
+          </h2>
+        </div>
+        
+        {/* Conteúdo do Mês */}
+        {renderMonthContent(monthName, monthIndex, metaValue, saldoInicial)}
+      </div>
+    )
+  }
+
+  // Função para renderizar o total do ano
+  const renderTotalAno = () => {
+    const currentYear = 2025
+    
+    // Cálculos totais do ano
+    const transacoesDoAno = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() === currentYear
+    })
+
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+
+    // Metas totais do ano
+    const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
+    const saldoInicialAno = 31970.50
+
+    return (
+      <div className="space-y-6 mb-12">
+        {/* Título Principal do Ano */}
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-8 rounded-2xl shadow-xl">
+          <h2 className="text-4xl font-bold text-white text-center uppercase tracking-wider">
+            TOTAL DO ANO - 2025
+          </h2>
+        </div>
+
+        {/* 1. RESULTADO ANUAL */}
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold text-purple-800 flex items-center gap-3">
+            <PieChart className="w-8 h-8 text-purple-600" />
+            Resultado Anual
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quadrante Financeiro Anual */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-purple-200">
+              <div className="space-y-4">
+                {/* REFORÇO DE CAIXA */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                  <span className="font-bold text-purple-800 text-lg">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
+                </div>
+                
+                {/* SAÍDA DE CAIXA */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                  <span className="font-bold text-purple-800 text-lg">SAÍDA DE CAIXA</span>
+                  <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
+                </div>
+                
+                {/* RECEITA ANUAL */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                  <span className="font-bold text-purple-800 text-lg">RECEITA ANUAL</span>
+                  <span className="font-bold text-purple-900 text-lg">
+                    R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* DESPESA ANUAL */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                  <span className="font-bold text-purple-800 text-lg">DESPESA ANUAL</span>
+                  <span className="font-bold text-purple-900 text-lg">
+                    -R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* SALDO FINAL ANUAL */}
+                <div className="flex justify-between items-center py-3 bg-purple-100 rounded-lg px-3">
+                  <span className="font-bold text-purple-900 text-lg">SALDO FINAL ANUAL</span>
+                  <span className="font-bold text-purple-900 text-lg">
+                    R$ {(saldoInicialAno + totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quadrante de Metas Anuais */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-blue-200">
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-blue-800 text-center mb-4">META ANUAL</h3>
+                
+                {/* META ESTABELECIDA ANUAL */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
+                  <span className="font-bold text-blue-800 text-lg">META ESTABELECIDA</span>
+                  <span className="font-bold text-blue-900 text-lg">
+                    R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* RESULTADO REAL ANUAL */}
+                <div className="flex justify-between items-center py-3 border-b-2 border-blue-200">
+                  <span className="font-bold text-blue-800 text-lg">RESULTADO REAL</span>
+                  <span className={`font-bold text-lg ${(totalReceitasAno - totalDespesasAno) >= metaTotalAno ? 'text-green-600' : 'text-red-600'}`}>
+                    R$ {(totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* DIFERENÇA ANUAL */}
+                <div className="flex justify-between items-center py-3 bg-blue-100 rounded-lg px-3">
+                  <span className="font-bold text-blue-900 text-lg">DIFERENÇA</span>
+                  <span className={`font-bold text-lg ${(totalReceitasAno - totalDespesasAno) >= metaTotalAno ? 'text-green-600' : 'text-red-600'}`}>
+                    {((totalReceitasAno - totalDespesasAno) >= metaTotalAno ? '+' : '')}
+                    R$ {((totalReceitasAno - totalDespesasAno) - metaTotalAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {/* STATUS ANUAL */}
+                <div className="text-center py-2">
+                  <span className={`inline-block px-4 py-2 rounded-full font-bold text-sm ${
+                    (totalReceitasAno - totalDespesasAno) >= metaTotalAno 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {(totalReceitasAno - totalDespesasAno) >= metaTotalAno ? '✅ META ANUAL ATINGIDA' : '❌ META ANUAL NÃO ATINGIDA'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render Metas
+  const renderMetas = () => {
+    // Encontrar o mês selecionado na lista
+    const mesSelecionado = mesesMetas.find(mes => mes.indice === selectedMonth)
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Target className="w-8 h-8 text-blue-600" />
+            Metas
+          </h1>
+          <button
+            onClick={() => alert("Ferramenta em construção")}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Plus className="h-5 w-5" />
+            Nova Meta
+          </button>
+        </div>
+
+        {/* Seletor de Mês */}
+        {mesSelecionado && (
+          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Selecionar Mês</h2>
+              <div className="relative">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="appearance-none bg-white border-2 border-blue-300 rounded-lg px-4 py-3 pr-10 text-gray-800 font-semibold text-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 shadow-sm hover:shadow-md"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.2em 1.2em',
+                    paddingRight: '3rem'
+                  }}
+                >
+                  {mesesMetas.map((mes) => (
+                    <option key={mes.indice} value={mes.indice} className="text-gray-800 bg-white normal-case text-lg font-normal">
+                      {mes.nome} - 2025
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* Conteúdo do Mês */}
+            {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice, mesSelecionado.meta, 31970.50)}
+          </div>
+        )}
+
+        {/* Renderizar Total do Ano */}
+        {renderTotalAno()}
+
+        {/* Renderizar todos os 12 meses em ordem normal */}
+        {mesesMetas.map((mes) => 
+          renderMonth(mes.nome, mes.indice, mes.meta, 31970.50)
+        )}
+      </div>
+    )
+  }
 
   // Render Dashboard
   const renderDashboard = () => {
@@ -703,6 +1038,7 @@ function App() {
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
         {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'metas' && renderMetas()}
         {activeTab === 'transactions' && (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
