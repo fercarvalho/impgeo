@@ -867,17 +867,86 @@ function App() {
               <div className="text-3xl font-bold text-emerald-900 mb-4">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
+              {/* Barra de Progresso Anual */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-emerald-800 mb-1">
+                  <span>Meta Anual</span>
+                  <span>{((totalReceitasAno / (30000 * 12)) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-emerald-300 rounded-full h-3 relative">
+                  {/* Barra base (0-100%) */}
+                  <div 
+                    className="bg-gradient-to-r from-emerald-600 to-emerald-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((totalReceitasAno / (30000 * 12)) * 100))}%` }}
+                  ></div>
+                  {/* Barra de excesso (>100%) */}
+                  {((totalReceitasAno / (30000 * 12)) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-emerald-800 to-emerald-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((totalReceitasAno / (30000 * 12)) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              {/* Valores Alcançado/Restante */}
+              <div className="text-sm text-emerald-800 font-medium">
+                R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (30000 * 12) - totalReceitasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="bg-gradient-to-br from-green-100 to-green-200 p-8 rounded-2xl border-2 border-green-300 shadow-xl">
               <h3 className="text-xl font-bold text-green-900 mb-6">Faturamento Varejo Anual</h3>
               <div className="text-3xl font-bold text-green-900 mb-4">
                 R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
+              {/* Barra de Progresso Anual */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-green-800 mb-1">
+                  <span>Meta Anual</span>
+                  <span>{((((totalReceitasAno * 0.6)) / (18000 * 12)) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-green-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-green-600 to-green-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.6)) / (18000 * 12)) * 100))}%` }}
+                  ></div>
+                  {((((totalReceitasAno * 0.6)) / (18000 * 12)) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-green-800 to-green-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((((totalReceitasAno * 0.6)) / (18000 * 12)) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-green-800 font-medium">
+                R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (18000 * 12) - (totalReceitasAno * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="bg-gradient-to-br from-teal-100 to-teal-200 p-8 rounded-2xl border-2 border-teal-300 shadow-xl">
               <h3 className="text-xl font-bold text-teal-900 mb-6">Faturamento Atacado Anual</h3>
               <div className="text-3xl font-bold text-teal-900 mb-4">
                 R$ {(totalReceitasAno * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              {/* Barra de Progresso Anual */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-teal-800 mb-1">
+                  <span>Meta Anual</span>
+                  <span>{((((totalReceitasAno * 0.3)) / (12000 * 12)) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-teal-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-teal-600 to-teal-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.3)) / (12000 * 12)) * 100))}%` }}
+                  ></div>
+                  {((((totalReceitasAno * 0.3)) / (12000 * 12)) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-teal-800 to-teal-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((((totalReceitasAno * 0.3)) / (12000 * 12)) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-teal-800 font-medium">
+                R$ {(totalReceitasAno * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (12000 * 12) - (totalReceitasAno * 0.3)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -896,17 +965,82 @@ function App() {
               <div className="text-3xl font-bold text-red-900 mb-4">
                 R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
+              {/* Barra de Progresso Anual */}
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-red-800 mb-1">
+                  <span>Limite Anual</span>
+                  <span>{((totalDespesasAno / 180000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-red-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((totalDespesasAno / 180000) * 100))}%` }}
+                  ></div>
+                  {((totalDespesasAno / 180000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-red-800 to-red-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (((totalDespesasAno / 180000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              {/* Valores Usado/Restante */}
+              <div className="text-sm text-red-800 font-medium">
+                R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 180000 - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="bg-gradient-to-br from-orange-100 to-orange-200 p-8 rounded-2xl border-2 border-orange-300 shadow-xl">
               <h3 className="text-xl font-bold text-orange-900 mb-6">Despesas Variáveis Anuais</h3>
               <div className="text-3xl font-bold text-orange-900 mb-4">
                 R$ {(totalDespesasAno * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-orange-800 mb-1">
+                  <span>Limite Anual</span>
+                  <span>{(((totalDespesasAno * 0.7) / 126000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-orange-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-orange-600 to-orange-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.7) / 126000) * 100))}%` }}
+                  ></div>
+                  {(((totalDespesasAno * 0.7) / 126000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-orange-800 to-orange-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.7) / 126000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-orange-800 font-medium">
+                R$ {(totalDespesasAno * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 126000 - (totalDespesasAno * 0.7)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-8 rounded-2xl border-2 border-amber-300 shadow-xl">
               <h3 className="text-xl font-bold text-amber-900 mb-6">Despesas Fixas Anuais</h3>
               <div className="text-3xl font-bold text-amber-900 mb-4">
                 R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-amber-800 mb-1">
+                  <span>Limite Anual</span>
+                  <span>{(((totalDespesasAno * 0.25) / 54000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-amber-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.25) / 54000) * 100))}%` }}
+                  ></div>
+                  {(((totalDespesasAno * 0.25) / 54000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-amber-800 to-amber-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.25) / 54000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-amber-800 font-medium">
+                R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 54000 - (totalDespesasAno * 0.25)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -925,11 +1059,53 @@ function App() {
               <div className="text-3xl font-bold text-blue-900 mb-4">
                 R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-blue-800 mb-1">
+                  <span>Meta Anual</span>
+                  <span>{(((totalDespesasAno * 0.05) / 24000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-blue-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.05) / 24000) * 100))}%` }}
+                  ></div>
+                  {(((totalDespesasAno * 0.05) / 24000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-blue-800 to-blue-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.05) / 24000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-blue-800 font-medium">
+                R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 24000 - (totalDespesasAno * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="bg-gradient-to-br from-purple-100 to-purple-200 p-8 rounded-2xl border-2 border-purple-300 shadow-xl">
               <h3 className="text-xl font-bold text-purple-900 mb-6">Investimentos MKT Anuais</h3>
               <div className="text-3xl font-bold text-purple-900 mb-4">
                 R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="mb-3">
+                <div className="flex justify-between text-sm font-medium text-purple-800 mb-1">
+                  <span>Meta Anual</span>
+                  <span>{(((totalReceitasAno * 0.1) / 36000) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-purple-300 rounded-full h-3 relative">
+                  <div 
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.1) / 36000) * 100))}%` }}
+                  ></div>
+                  {(((totalReceitasAno * 0.1) / 36000) * 100) > 100 && (
+                    <div 
+                      className="absolute top-0 left-0 bg-gradient-to-r from-purple-800 to-purple-900 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.1) / 36000) * 100) - 100))}%` }}
+                    ></div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-purple-800 font-medium">
+                R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 36000 - (totalReceitasAno * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
