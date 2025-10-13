@@ -28,5 +28,16 @@
     "category": "Variavel",
     "createdAt": "2025-10-13T14:35:54.049Z",
     "updatedAt": "2025-10-13T14:35:54.049Z"
+  },
+  {
+    "id": "mgpacy2uqcssmvu5id",
+    "date": "2025-10-13",
+    "description": "teste novo",
+    "value": 100.5,
+    "type": "Receita",
+    "category": "teste",
+    "subcategory": "teste A",
+    "createdAt": "2025-10-13T15:26:22.086Z",
+    "updatedAt": "2025-10-13T15:26:22.086Z"
   }
 ]

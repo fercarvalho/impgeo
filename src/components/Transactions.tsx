@@ -46,14 +46,14 @@ const Transactions: React.FC = () => {
     load()
   }, [])
 
-  // Controla overlay global (classe no body) ao abrir/fechar modal de Importar/Exportar
+  // Controla overlay global (classe no body) ao abrir/fechar modais
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen])
+  }, [isImportExportOpen, isModalOpen])
 
   const handleSort = (field: keyof Transaction) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -381,7 +381,7 @@ const Transactions: React.FC = () => {
 
       {/* Modal Nova/Editar Transação */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null) } }}>
+        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null) } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Transação' : 'Nova Transação'}</h2>
