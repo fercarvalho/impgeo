@@ -323,7 +323,7 @@ const Transactions: React.FC = () => {
                     <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.category}</span>
                   </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
-                    <p className={`text-xs sm:text-sm md:text-lg font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
+                    <p className={`text-xs sm:text-xs md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
                       {t.type === 'Receita' ? '+' : '-'}R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
