@@ -592,6 +592,45 @@ app.delete('/api/projects', (req, res) => {
   }
 });
 
+// APIs para Serviços
+app.get('/api/services', (req, res) => {
+  try {
+    const services = db.getAllServices();
+    res.json({ success: true, data: services });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/services', (req, res) => {
+  try {
+    const service = db.saveService(req.body);
+    res.json({ success: true, data: service });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/services/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedService = db.updateService(id, req.body);
+    res.json({ success: true, data: updatedService });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/services/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    db.deleteService(id);
+    res.json({ success: true, message: 'Serviço excluído com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // APIs para Produtos
 app.get('/api/products', (req, res) => {
   try {

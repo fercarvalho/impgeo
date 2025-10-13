@@ -21,6 +21,7 @@ import { TransactionsPage } from './components/Transactions'
 import Clients from './components/Clients'
 import DRE from './components/DRE'
 import Projects from './components/Projects'
+import Services from './components/Services'
 // Gráficos agora são usados pelo componente Reports
 
 // Funções para comunicação com a API
@@ -823,10 +824,7 @@ function App() {
           <Projects />
         )}
         {activeTab === 'services' && (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Serviços</h1>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-          </div>
+          <Services />
         )}
         {/* removido placeholder duplicado de Relatórios */}
         {activeTab === 'metas' && (

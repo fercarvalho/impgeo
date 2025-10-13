@@ -9,6 +9,7 @@ class Database {
     this.subcategoriesFile = path.join(this.dbPath, 'subcategories.json');
     this.clientsFile = path.join(this.dbPath, 'clients.json');
     this.projectsFile = path.join(this.dbPath, 'projects.json');
+    this.servicesFile = path.join(this.dbPath, 'services.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -82,6 +83,10 @@ class Database {
     
     if (!fs.existsSync(this.projectsFile)) {
       fs.writeFileSync(this.projectsFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.servicesFile)) {
+      fs.writeFileSync(this.servicesFile, '[]');
     }
   }
 
@@ -417,6 +422,66 @@ class Database {
       fs.writeFileSync(this.projectsFile, JSON.stringify(filteredProjects, null, 2));
     } catch (error) {
       throw new Error('Erro ao excluir projetos: ' + error.message);
+    }
+  }
+
+  // Métodos para Serviços
+  getAllServices() {
+    try {
+      const data = fs.readFileSync(this.servicesFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler serviços:', error);
+      return [];
+    }
+  }
+
+  saveService(serviceData) {
+    try {
+      const services = this.getAllServices();
+      const newService = {
+        id: this.generateId(),
+        ...serviceData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      services.push(newService);
+      fs.writeFileSync(this.servicesFile, JSON.stringify(services, null, 2));
+      return newService;
+    } catch (error) {
+      throw new Error('Erro ao salvar serviço: ' + error.message);
+    }
+  }
+
+  updateService(id, updatedData) {
+    try {
+      const services = this.getAllServices();
+      const index = services.findIndex(s => s.id === id);
+      if (index === -1) {
+        throw new Error('Serviço não encontrado');
+      }
+      services[index] = {
+        ...services[index],
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.servicesFile, JSON.stringify(services, null, 2));
+      return services[index];
+    } catch (error) {
+      throw new Error('Erro ao atualizar serviço: ' + error.message);
+    }
+  }
+
+  deleteService(id) {
+    try {
+      const services = this.getAllServices();
+      const filteredServices = services.filter(s => s.id !== id);
+      if (filteredServices.length === services.length) {
+        throw new Error('Serviço não encontrado');
+      }
+      fs.writeFileSync(this.servicesFile, JSON.stringify(filteredServices, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir serviço: ' + error.message);
     }
   }
 
