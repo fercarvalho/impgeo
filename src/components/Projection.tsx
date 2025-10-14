@@ -392,13 +392,13 @@ const Projection: React.FC = () => {
 
   const calcularMediaMes = (monthIndex: number) => {
     // Média = Previsto + 10%
-    const previsto = fixedExpensesData.previsto[monthIndex] || 0
+    const previsto = calcularPrevistoMes(monthIndex)
     return previsto * 1.1
   }
 
   const calcularMaximoMes = (monthIndex: number) => {
     // Máximo = Média + 10%
-    const media = fixedExpensesData.media[monthIndex] || 0
+    const media = calcularMediaMes(monthIndex)
     return media * 1.1
   }
 
