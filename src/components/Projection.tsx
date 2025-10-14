@@ -111,15 +111,23 @@ const Projection: React.FC = () => {
     return () => clearInterval(interval)
   }, [token, data, isSaving])
 
-  // Atualizar automaticamente o valor de Janeiro das despesas fixas
+  // Atualizar automaticamente todos os valores das despesas fixas
   useEffect(() => {
-    const novoValorJaneiro = calcularPrevistoJaneiro()
-    if (fixedExpensesData.previsto[0] !== novoValorJaneiro) {
+    let precisaAtualizar = false
+    const novosValores = [...fixedExpensesData.previsto]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoValor = calcularPrevistoMes(i)
+      if (novosValores[i] !== novoValor) {
+        novosValores[i] = novoValor
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
       const novosDados = {
         ...fixedExpensesData,
-        previsto: fixedExpensesData.previsto.map((valor, index) => 
-          index === 0 ? novoValorJaneiro : valor
-        )
+        previsto: novosValores
       }
       setFixedExpensesData(novosDados)
       if (token) {
@@ -346,6 +354,40 @@ const Projection: React.FC = () => {
     // Janeiro = Dezembro da primeira tabela + 10%
     const dezembroDespesasFixas = data.despesasFixas[11] || 0
     return dezembroDespesasFixas * 1.1
+  }
+
+  const calcularPrevistoMes = (monthIndex: number) => {
+    if (monthIndex === 0) {
+      // Janeiro = Dezembro da primeira tabela + 10%
+      return calcularPrevistoJaneiro()
+    } else if (monthIndex === 1 || monthIndex === 2) {
+      // Fevereiro e Março = Janeiro
+      return fixedExpensesData.previsto[0] || 0
+    } else if (monthIndex === 3) {
+      // Abril = Março + 10%
+      const marco = fixedExpensesData.previsto[2] || 0
+      return marco * 1.1
+    } else if (monthIndex === 4 || monthIndex === 5) {
+      // Maio e Junho = Abril
+      return fixedExpensesData.previsto[3] || 0
+    } else if (monthIndex === 6) {
+      // Julho = Junho + 10%
+      const junho = fixedExpensesData.previsto[5] || 0
+      return junho * 1.1
+    } else if (monthIndex === 7 || monthIndex === 8) {
+      // Agosto e Setembro = Julho
+      return fixedExpensesData.previsto[6] || 0
+    } else if (monthIndex === 9) {
+      // Outubro = Setembro + 10%
+      const setembro = fixedExpensesData.previsto[8] || 0
+      return setembro * 1.1
+    } else if (monthIndex === 10 || monthIndex === 11) {
+      // Novembro e Dezembro = Outubro
+      return fixedExpensesData.previsto[9] || 0
+    } else {
+      // Fallback (não deveria acontecer)
+      return 0
+    }
   }
 
   const calcularMediaMes = (monthIndex: number) => {
@@ -1581,12 +1623,12 @@ const Projection: React.FC = () => {
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index] || 0}
+                        value={calcularPrevistoMes(index)}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index, value)}
                         category="previsto"
                         monthIndex={index}
@@ -1594,12 +1636,12 @@ const Projection: React.FC = () => {
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 3] || 0}
+                        value={calcularPrevistoMes(index + 3)}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 3, value)}
                         category="previsto"
                         monthIndex={index + 3}
@@ -1607,12 +1649,12 @@ const Projection: React.FC = () => {
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 6] || 0}
+                        value={calcularPrevistoMes(index + 6)}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 6, value)}
                         category="previsto"
                         monthIndex={index + 6}
@@ -1620,12 +1662,12 @@ const Projection: React.FC = () => {
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 9] || 0}
+                        value={calcularPrevistoMes(index + 9)}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 9, value)}
                         category="previsto"
                         monthIndex={index + 9}
@@ -1633,10 +1675,10 @@ const Projection: React.FC = () => {
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoMes(i))} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoMes(i))} />
                   </td>
                 </tr>
 
