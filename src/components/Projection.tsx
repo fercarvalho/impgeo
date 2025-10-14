@@ -445,7 +445,7 @@ const Projection: React.FC = () => {
             {/* Cabeçalho */}
             <thead className="bg-gray-800 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">DESCRIÇÃO</th>
+                <th className="px-4 py-3 text-left font-bold">RESULTADO DO ANO ANTERIOR</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
