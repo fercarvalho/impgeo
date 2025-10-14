@@ -36,6 +36,12 @@ interface VariableExpensesData {
   maximo: number[]
 }
 
+interface FaturamentoData {
+  previsto: number[]
+  medio: number[]
+  maximo: number[]
+}
+
 const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
@@ -70,6 +76,37 @@ const Projection: React.FC = () => {
     maximo: new Array(12).fill(0)
   })
 
+  // Estados para tabelas de faturamento
+  const [faturamentoReurbData, setFaturamentoReurbData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
+  const [faturamentoGeoData, setFaturamentoGeoData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
+  const [faturamentoPlanData, setFaturamentoPlanData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
+  const [faturamentoRegData, setFaturamentoRegData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
+  const [faturamentoNnData, setFaturamentoNnData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -97,6 +134,11 @@ const Projection: React.FC = () => {
     loadFixedExpensesData()
     loadVariableExpensesData()
     loadMktData()
+    loadFaturamentoReurbData()
+    loadFaturamentoGeoData()
+    loadFaturamentoPlanData()
+    loadFaturamentoRegData()
+    loadFaturamentoNnData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -176,6 +218,206 @@ const Projection: React.FC = () => {
       }
     }
   }, [data.despesasVariaveis, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
+
+  // Atualização automática do faturamento REURB quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    let precisaAtualizar = false
+    const novosPrevisto = [...faturamentoReurbData.previsto]
+    const novosMedio = [...faturamentoReurbData.medio]
+    const novosMaximo = [...faturamentoReurbData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoReurbMes(i)
+      const novoMedio = calcularMedioReurbMes(i)
+      const novoMaximo = calcularMaximoReurbMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...faturamentoReurbData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setFaturamentoReurbData(novosDados)
+      if (token) {
+        saveFaturamentoReurbToServer(novosDados)
+      }
+    }
+  }, [data.faturamentoReurb, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+
+  // Atualização automática do faturamento GEO quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    let precisaAtualizar = false
+    const novosPrevisto = [...faturamentoGeoData.previsto]
+    const novosMedio = [...faturamentoGeoData.medio]
+    const novosMaximo = [...faturamentoGeoData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoGeoMes(i)
+      const novoMedio = calcularMedioGeoMes(i)
+      const novoMaximo = calcularMaximoGeoMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...faturamentoGeoData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setFaturamentoGeoData(novosDados)
+      if (token) {
+        saveFaturamentoGeoToServer(novosDados)
+      }
+    }
+  }, [data.faturamentoGeo, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+
+  // Atualização automática do faturamento PLAN quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    let precisaAtualizar = false
+    const novosPrevisto = [...faturamentoPlanData.previsto]
+    const novosMedio = [...faturamentoPlanData.medio]
+    const novosMaximo = [...faturamentoPlanData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoPlanMes(i)
+      const novoMedio = calcularMedioPlanMes(i)
+      const novoMaximo = calcularMaximoPlanMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...faturamentoPlanData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setFaturamentoPlanData(novosDados)
+      if (token) {
+        saveFaturamentoPlanToServer(novosDados)
+      }
+    }
+  }, [data.faturamentoPlan, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+
+  // Atualização automática do faturamento REG quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    let precisaAtualizar = false
+    const novosPrevisto = [...faturamentoRegData.previsto]
+    const novosMedio = [...faturamentoRegData.medio]
+    const novosMaximo = [...faturamentoRegData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoRegMes(i)
+      const novoMedio = calcularMedioRegMes(i)
+      const novoMaximo = calcularMaximoRegMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...faturamentoRegData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setFaturamentoRegData(novosDados)
+      if (token) {
+        saveFaturamentoRegToServer(novosDados)
+      }
+    }
+  }, [data.faturamentoReg, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+
+  // Atualização automática do faturamento NN quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    let precisaAtualizar = false
+    const novosPrevisto = [...faturamentoNnData.previsto]
+    const novosMedio = [...faturamentoNnData.medio]
+    const novosMaximo = [...faturamentoNnData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoNnMes(i)
+      const novoMedio = calcularMedioNnMes(i)
+      const novoMaximo = calcularMaximoNnMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...faturamentoNnData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setFaturamentoNnData(novosDados)
+      if (token) {
+        saveFaturamentoNnToServer(novosDados)
+      }
+    }
+  }, [data.faturamentoNn, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
 
   // Atualização automática dos investimentos quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -335,6 +577,71 @@ const Projection: React.FC = () => {
     }
   }
 
+  // Carregar dados de faturamento REURB
+  const loadFaturamentoReurbData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-reurb`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoReurbData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento REURB:', error)
+    }
+  }
+
+  // Carregar dados de faturamento GEO
+  const loadFaturamentoGeoData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-geo`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoGeoData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento GEO:', error)
+    }
+  }
+
+  // Carregar dados de faturamento PLAN
+  const loadFaturamentoPlanData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-plan`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoPlanData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento PLAN:', error)
+    }
+  }
+
+  // Carregar dados de faturamento REG
+  const loadFaturamentoRegData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-reg`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoRegData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento REG:', error)
+    }
+  }
+
+  // Carregar dados de faturamento NN
+  const loadFaturamentoNnData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-nn`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoNnData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento NN:', error)
+    }
+  }
+
   // Carregar dados de MKT
   const loadMktData = async () => {
     try {
@@ -371,6 +678,141 @@ const Projection: React.FC = () => {
       console.log('Dados de despesas variáveis salvos com sucesso!')
     } catch (error) {
       console.error('Erro ao salvar despesas variáveis:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento REURB
+  const saveFaturamentoReurbToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-reurb`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento REURB')
+      }
+      
+      console.log('Dados de faturamento REURB salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento REURB:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento GEO
+  const saveFaturamentoGeoToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-geo`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento GEO')
+      }
+      
+      console.log('Dados de faturamento GEO salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento GEO:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento PLAN
+  const saveFaturamentoPlanToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-plan`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento PLAN')
+      }
+      
+      console.log('Dados de faturamento PLAN salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento PLAN:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento REG
+  const saveFaturamentoRegToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-reg`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento REG')
+      }
+      
+      console.log('Dados de faturamento REG salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento REG:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento NN
+  const saveFaturamentoNnToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-nn`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento NN')
+      }
+      
+      console.log('Dados de faturamento NN salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento NN:', error)
     } finally {
       setIsSaving(false)
     }
@@ -529,6 +971,116 @@ const Projection: React.FC = () => {
     const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
     return formatNumber(despesasVariaveis + (despesasVariaveis * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento REURB
+  const calcularPrevistoReurbMes = (monthIndex: number) => {
+    // Previsto = Faturamento REURB (tabela principal) + Percentual Mínimo
+    const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(faturamentoReurb + (faturamentoReurb * percentualMinimo / 100))
+  }
+
+  const calcularMedioReurbMes = (monthIndex: number) => {
+    // Médio = Faturamento REURB (tabela principal) + Percentual Médio
+    const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(faturamentoReurb + (faturamentoReurb * percentualMedio / 100))
+  }
+
+  const calcularMaximoReurbMes = (monthIndex: number) => {
+    // Máximo = Faturamento REURB (tabela principal) + Percentual Máximo
+    const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(faturamentoReurb + (faturamentoReurb * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento GEO
+  const calcularPrevistoGeoMes = (monthIndex: number) => {
+    // Previsto = Faturamento GEO (tabela principal) + Percentual Mínimo
+    const faturamentoGeo = data.faturamentoGeo[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(faturamentoGeo + (faturamentoGeo * percentualMinimo / 100))
+  }
+
+  const calcularMedioGeoMes = (monthIndex: number) => {
+    // Médio = Faturamento GEO (tabela principal) + Percentual Médio
+    const faturamentoGeo = data.faturamentoGeo[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(faturamentoGeo + (faturamentoGeo * percentualMedio / 100))
+  }
+
+  const calcularMaximoGeoMes = (monthIndex: number) => {
+    // Máximo = Faturamento GEO (tabela principal) + Percentual Máximo
+    const faturamentoGeo = data.faturamentoGeo[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(faturamentoGeo + (faturamentoGeo * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento PLAN
+  const calcularPrevistoPlanMes = (monthIndex: number) => {
+    // Previsto = Faturamento PLAN (tabela principal) + Percentual Mínimo
+    const faturamentoPlan = data.faturamentoPlan[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(faturamentoPlan + (faturamentoPlan * percentualMinimo / 100))
+  }
+
+  const calcularMedioPlanMes = (monthIndex: number) => {
+    // Médio = Faturamento PLAN (tabela principal) + Percentual Médio
+    const faturamentoPlan = data.faturamentoPlan[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(faturamentoPlan + (faturamentoPlan * percentualMedio / 100))
+  }
+
+  const calcularMaximoPlanMes = (monthIndex: number) => {
+    // Máximo = Faturamento PLAN (tabela principal) + Percentual Máximo
+    const faturamentoPlan = data.faturamentoPlan[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(faturamentoPlan + (faturamentoPlan * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento REG
+  const calcularPrevistoRegMes = (monthIndex: number) => {
+    // Previsto = Faturamento REG (tabela principal) + Percentual Mínimo
+    const faturamentoReg = data.faturamentoReg[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(faturamentoReg + (faturamentoReg * percentualMinimo / 100))
+  }
+
+  const calcularMedioRegMes = (monthIndex: number) => {
+    // Médio = Faturamento REG (tabela principal) + Percentual Médio
+    const faturamentoReg = data.faturamentoReg[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(faturamentoReg + (faturamentoReg * percentualMedio / 100))
+  }
+
+  const calcularMaximoRegMes = (monthIndex: number) => {
+    // Máximo = Faturamento REG (tabela principal) + Percentual Máximo
+    const faturamentoReg = data.faturamentoReg[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(faturamentoReg + (faturamentoReg * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento NN
+  const calcularPrevistoNnMes = (monthIndex: number) => {
+    // Previsto = Faturamento NN (tabela principal) + Percentual Mínimo
+    const faturamentoNn = data.faturamentoNn[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(faturamentoNn + (faturamentoNn * percentualMinimo / 100))
+  }
+
+  const calcularMedioNnMes = (monthIndex: number) => {
+    // Médio = Faturamento NN (tabela principal) + Percentual Médio
+    const faturamentoNn = data.faturamentoNn[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(faturamentoNn + (faturamentoNn * percentualMedio / 100))
+  }
+
+  const calcularMaximoNnMes = (monthIndex: number) => {
+    // Máximo = Faturamento NN (tabela principal) + Percentual Máximo
+    const faturamentoNn = data.faturamentoNn[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(faturamentoNn + (faturamentoNn * percentualMaximo / 100))
   }
 
   // Funções específicas para despesas fixas + variáveis (não editáveis)
@@ -2960,6 +3512,1411 @@ const Projection: React.FC = () => {
                 </td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela Faturamento REURB */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-red-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">FATURAMENTO REURB</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoReurbMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.previsto[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.previsto[index] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoReurbMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.previsto[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.previsto[index + 3] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoReurbMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.previsto[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.previsto[index + 6] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoReurbMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.previsto[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoReurbMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoReurbMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioReurbMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.medio[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.medio[index] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioReurbMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.medio[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.medio[index + 3] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioReurbMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.medio[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.medio[index + 6] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioReurbMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.medio[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.medio[index + 9] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioReurbMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioReurbMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoReurbMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.maximo[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.maximo[index] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoReurbMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.maximo[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.maximo[index + 3] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoReurbMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.maximo[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.maximo[index + 6] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoReurbMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoReurbData.maximo[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoReurbData}
+                        newData.maximo[index + 9] = value
+                        setFaturamentoReurbData(newData)
+                        saveFaturamentoReurbToServer(newData)
+                      }}
+                      category="faturamentoReurb"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoReurbMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoReurbMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela Faturamento GEO */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-green-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">FATURAMENTO GEO</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoGeoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.previsto[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.previsto[index] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoGeoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.previsto[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.previsto[index + 3] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoGeoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.previsto[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.previsto[index + 6] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoGeoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.previsto[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoGeoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoGeoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioGeoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.medio[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.medio[index] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioGeoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.medio[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.medio[index + 3] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioGeoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.medio[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.medio[index + 6] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioGeoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.medio[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.medio[index + 9] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioGeoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioGeoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoGeoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.maximo[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.maximo[index] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoGeoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.maximo[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.maximo[index + 3] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoGeoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.maximo[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.maximo[index + 6] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoGeoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoGeoData.maximo[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoGeoData}
+                        newData.maximo[index + 9] = value
+                        setFaturamentoGeoData(newData)
+                        saveFaturamentoGeoToServer(newData)
+                      }}
+                      category="faturamentoGeo"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoGeoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoGeoMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela Faturamento PLAN */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-blue-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">FATURAMENTO PLAN</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoPlanMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.previsto[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.previsto[index] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoPlanMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.previsto[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.previsto[index + 3] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoPlanMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.previsto[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.previsto[index + 6] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoPlanMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.previsto[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoPlanMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoPlanMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioPlanMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.medio[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.medio[index] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioPlanMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.medio[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.medio[index + 3] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioPlanMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.medio[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.medio[index + 6] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioPlanMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.medio[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.medio[index + 9] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioPlanMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioPlanMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoPlanMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.maximo[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.maximo[index] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoPlanMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.maximo[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.maximo[index + 3] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoPlanMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.maximo[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.maximo[index + 6] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoPlanMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoPlanData.maximo[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoPlanData}
+                        newData.maximo[index + 9] = value
+                        setFaturamentoPlanData(newData)
+                        saveFaturamentoPlanToServer(newData)
+                      }}
+                      category="faturamentoPlan"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoPlanMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoPlanMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela Faturamento REG */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-yellow-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">FATURAMENTO REG</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoRegMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.previsto[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.previsto[index] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoRegMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.previsto[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.previsto[index + 3] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoRegMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.previsto[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.previsto[index + 6] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoRegMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.previsto[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoRegMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoRegMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioRegMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.medio[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.medio[index] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioRegMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.medio[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.medio[index + 3] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioRegMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.medio[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.medio[index + 6] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioRegMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.medio[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.medio[index + 9] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioRegMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioRegMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoRegMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.maximo[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.maximo[index] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoRegMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.maximo[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.maximo[index + 3] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoRegMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.maximo[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.maximo[index + 6] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoRegMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoRegData.maximo[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoRegData}
+                        newData.maximo[index + 9] = value
+                        setFaturamentoRegData(newData)
+                        saveFaturamentoRegToServer(newData)
+                      }}
+                      category="faturamentoReg"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoRegMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoRegMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela Faturamento NN */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-gray-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">FATURAMENTO NN</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoNnMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.previsto[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.previsto[index] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoNnMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.previsto[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.previsto[index + 3] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoNnMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.previsto[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.previsto[index + 6] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoNnMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.previsto[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoNnMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoNnMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioNnMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.medio[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.medio[index] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioNnMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.medio[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.medio[index + 3] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioNnMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.medio[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.medio[index + 6] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioNnMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.medio[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.medio[index + 9] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioNnMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioNnMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoNnMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.maximo[index]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.maximo[index] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoNnMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.maximo[index + 3]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.maximo[index + 3] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoNnMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.maximo[index + 6]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.maximo[index + 6] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoNnMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <InputCell 
+                      value={faturamentoNnData.maximo[index + 9]} 
+                      onBlur={(value: number) => {
+                        const newData = {...faturamentoNnData}
+                        newData.maximo[index + 9] = value
+                        setFaturamentoNnData(newData)
+                        saveFaturamentoNnToServer(newData)
+                      }}
+                      category="faturamentoNn"
+                      monthIndex={index}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoNnMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoNnMes(i))} />
                 </td>
               </tr>
             </tbody>

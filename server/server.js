@@ -857,6 +857,121 @@ app.put('/api/investments', authenticateToken, (req, res) => {
   }
 });
 
+// APIs de Faturamento REURB
+app.get('/api/faturamento-reurb', (req, res) => {
+  try {
+    const faturamentoReurbData = db.getFaturamentoReurbData();
+    if (!faturamentoReurbData) {
+      return res.status(404).json({ error: 'Dados de faturamento REURB não encontrados' });
+    }
+    res.json(faturamentoReurbData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-reurb', authenticateToken, (req, res) => {
+  try {
+    const faturamentoReurbData = req.body;
+    const updatedData = db.updateFaturamentoReurbData(faturamentoReurbData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Faturamento GEO
+app.get('/api/faturamento-geo', (req, res) => {
+  try {
+    const faturamentoGeoData = db.getFaturamentoGeoData();
+    if (!faturamentoGeoData) {
+      return res.status(404).json({ error: 'Dados de faturamento GEO não encontrados' });
+    }
+    res.json(faturamentoGeoData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-geo', authenticateToken, (req, res) => {
+  try {
+    const faturamentoGeoData = req.body;
+    const updatedData = db.updateFaturamentoGeoData(faturamentoGeoData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Faturamento PLAN
+app.get('/api/faturamento-plan', (req, res) => {
+  try {
+    const faturamentoPlanData = db.getFaturamentoPlanData();
+    if (!faturamentoPlanData) {
+      return res.status(404).json({ error: 'Dados de faturamento PLAN não encontrados' });
+    }
+    res.json(faturamentoPlanData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-plan', authenticateToken, (req, res) => {
+  try {
+    const faturamentoPlanData = req.body;
+    const updatedData = db.updateFaturamentoPlanData(faturamentoPlanData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Faturamento REG
+app.get('/api/faturamento-reg', (req, res) => {
+  try {
+    const faturamentoRegData = db.getFaturamentoRegData();
+    if (!faturamentoRegData) {
+      return res.status(404).json({ error: 'Dados de faturamento REG não encontrados' });
+    }
+    res.json(faturamentoRegData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-reg', authenticateToken, (req, res) => {
+  try {
+    const faturamentoRegData = req.body;
+    const updatedData = db.updateFaturamentoRegData(faturamentoRegData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Faturamento NN
+app.get('/api/faturamento-nn', (req, res) => {
+  try {
+    const faturamentoNnData = db.getFaturamentoNnData();
+    if (!faturamentoNnData) {
+      return res.status(404).json({ error: 'Dados de faturamento NN não encontrados' });
+    }
+    res.json(faturamentoNnData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-nn', authenticateToken, (req, res) => {
+  try {
+    const faturamentoNnData = req.body;
+    const updatedData = db.updateFaturamentoNnData(faturamentoNnData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -935,6 +1050,16 @@ app.get('/api/test', (req, res) => {
       'PUT /api/budget - Atualizar dados de orçamento',
       'GET /api/investments - Obter dados de investimentos',
       'PUT /api/investments - Atualizar dados de investimentos',
+      'GET /api/faturamento-reurb - Obter dados de faturamento REURB',
+      'PUT /api/faturamento-reurb - Atualizar dados de faturamento REURB',
+      'GET /api/faturamento-geo - Obter dados de faturamento GEO',
+      'PUT /api/faturamento-geo - Atualizar dados de faturamento GEO',
+      'GET /api/faturamento-plan - Obter dados de faturamento PLAN',
+      'PUT /api/faturamento-plan - Atualizar dados de faturamento PLAN',
+      'GET /api/faturamento-reg - Obter dados de faturamento REG',
+      'PUT /api/faturamento-reg - Atualizar dados de faturamento REG',
+      'GET /api/faturamento-nn - Obter dados de faturamento NN',
+      'PUT /api/faturamento-nn - Atualizar dados de faturamento NN',
       'GET /api/test - Testar API'
     ]
   });

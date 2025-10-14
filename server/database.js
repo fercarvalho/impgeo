@@ -17,6 +17,11 @@ class Database {
     this.mktFile = path.join(this.dbPath, 'mkt.json');
     this.budgetFile = path.join(this.dbPath, 'budget.json');
     this.investmentsFile = path.join(this.dbPath, 'investments.json');
+    this.faturamentoReurbFile = path.join(this.dbPath, 'faturamentoReurb.json');
+    this.faturamentoGeoFile = path.join(this.dbPath, 'faturamentoGeo.json');
+    this.faturamentoPlanFile = path.join(this.dbPath, 'faturamentoPlan.json');
+    this.faturamentoRegFile = path.join(this.dbPath, 'faturamentoReg.json');
+    this.faturamentoNnFile = path.join(this.dbPath, 'faturamentoNn.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -216,6 +221,66 @@ class Database {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.investmentsFile, JSON.stringify(defaultInvestments, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoReurbFile)) {
+      // Criar dados de faturamento REURB padrão
+      const defaultFaturamentoReurb = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoReurbFile, JSON.stringify(defaultFaturamentoReurb, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoGeoFile)) {
+      // Criar dados de faturamento GEO padrão
+      const defaultFaturamentoGeo = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoGeoFile, JSON.stringify(defaultFaturamentoGeo, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoPlanFile)) {
+      // Criar dados de faturamento PLAN padrão
+      const defaultFaturamentoPlan = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoPlanFile, JSON.stringify(defaultFaturamentoPlan, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoRegFile)) {
+      // Criar dados de faturamento REG padrão
+      const defaultFaturamentoReg = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoRegFile, JSON.stringify(defaultFaturamentoReg, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoNnFile)) {
+      // Criar dados de faturamento NN padrão
+      const defaultFaturamentoNn = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoNnFile, JSON.stringify(defaultFaturamentoNn, null, 2));
     }
   }
 
@@ -731,6 +796,126 @@ class Database {
       return data;
     } catch (error) {
       throw new Error('Erro ao salvar dados de investimentos: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento REURB
+  getFaturamentoReurbData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoReurbFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento REURB:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoReurbData(faturamentoReurbData) {
+    try {
+      const data = {
+        ...faturamentoReurbData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoReurbFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento REURB: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento GEO
+  getFaturamentoGeoData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoGeoFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento GEO:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoGeoData(faturamentoGeoData) {
+    try {
+      const data = {
+        ...faturamentoGeoData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoGeoFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento GEO: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento PLAN
+  getFaturamentoPlanData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoPlanFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento PLAN:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoPlanData(faturamentoPlanData) {
+    try {
+      const data = {
+        ...faturamentoPlanData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoPlanFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento PLAN: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento REG
+  getFaturamentoRegData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoRegFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento REG:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoRegData(faturamentoRegData) {
+    try {
+      const data = {
+        ...faturamentoRegData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoRegFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento REG: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento NN
+  getFaturamentoNnData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoNnFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento NN:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoNnData(faturamentoNnData) {
+    try {
+      const data = {
+        ...faturamentoNnData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoNnFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento NN: ' + error.message);
     }
   }
 
