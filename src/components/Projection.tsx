@@ -315,21 +315,23 @@ const Projection: React.FC = () => {
 
   // Fórmulas calculadas
   const calcularDespesasTotais = (monthIndex: number) => {
-    return data.despesasVariaveis[monthIndex] + data.despesasFixas[monthIndex]
+    return formatNumber(data.despesasVariaveis[monthIndex] + data.despesasFixas[monthIndex])
   }
 
   const calcularFaturamentoTotal = (monthIndex: number) => {
-    return data.faturamentoReurb[monthIndex] + 
-           data.faturamentoGeo[monthIndex] + 
-           data.faturamentoPlan[monthIndex] + 
-           data.faturamentoReg[monthIndex] + 
-           data.faturamentoNn[monthIndex]
+    return formatNumber(
+      data.faturamentoReurb[monthIndex] + 
+      data.faturamentoGeo[monthIndex] + 
+      data.faturamentoPlan[monthIndex] + 
+      data.faturamentoReg[monthIndex] + 
+      data.faturamentoNn[monthIndex]
+    )
   }
 
   const calcularResultado = (monthIndex: number) => {
     const faturamentoTotal = calcularFaturamentoTotal(monthIndex)
     const despesasTotais = calcularDespesasTotais(monthIndex)
-    return faturamentoTotal - (data.mkt[monthIndex] + data.investimentos[monthIndex] + despesasTotais)
+    return formatNumber(faturamentoTotal - (data.mkt[monthIndex] + data.investimentos[monthIndex] + despesasTotais))
   }
 
   // Cálculos por trimestre
@@ -338,22 +340,22 @@ const Projection: React.FC = () => {
     for (let i = startMonth; i <= endMonth; i++) {
       total += calculator(i)
     }
-    return total
+    return formatNumber(total)
   }
 
   const calcularTotalGeral = (calculator: (monthIndex: number) => number) => {
-    return calcularTrimestre(0, 11, calculator)
+    return formatNumber(calcularTrimestre(0, 11, calculator))
   }
 
   const calcularMedia = (calculator: (monthIndex: number) => number) => {
-    return calcularTotalGeral(calculator) / 12
+    return formatNumber(calcularTotalGeral(calculator) / 12)
   }
 
   // Funções específicas para despesas fixas
   const calcularPrevistoJaneiro = () => {
     // Janeiro = Dezembro da primeira tabela + 10%
     const dezembroDespesasFixas = data.despesasFixas[11] || 0
-    return dezembroDespesasFixas * 1.1
+    return formatNumber(dezembroDespesasFixas * 1.1)
   }
 
   const calcularPrevistoMes = (monthIndex: number) => {
@@ -362,28 +364,28 @@ const Projection: React.FC = () => {
       return calcularPrevistoJaneiro()
     } else if (monthIndex === 1 || monthIndex === 2) {
       // Fevereiro e Março = Janeiro
-      return fixedExpensesData.previsto[0] || 0
+      return formatNumber(fixedExpensesData.previsto[0] || 0)
     } else if (monthIndex === 3) {
       // Abril = Março + 10%
       const marco = fixedExpensesData.previsto[2] || 0
-      return marco * 1.1
+      return formatNumber(marco * 1.1)
     } else if (monthIndex === 4 || monthIndex === 5) {
       // Maio e Junho = Abril
-      return fixedExpensesData.previsto[3] || 0
+      return formatNumber(fixedExpensesData.previsto[3] || 0)
     } else if (monthIndex === 6) {
       // Julho = Junho + 10%
       const junho = fixedExpensesData.previsto[5] || 0
-      return junho * 1.1
+      return formatNumber(junho * 1.1)
     } else if (monthIndex === 7 || monthIndex === 8) {
       // Agosto e Setembro = Julho
-      return fixedExpensesData.previsto[6] || 0
+      return formatNumber(fixedExpensesData.previsto[6] || 0)
     } else if (monthIndex === 9) {
       // Outubro = Setembro + 10%
       const setembro = fixedExpensesData.previsto[8] || 0
-      return setembro * 1.1
+      return formatNumber(setembro * 1.1)
     } else if (monthIndex === 10 || monthIndex === 11) {
       // Novembro e Dezembro = Outubro
-      return fixedExpensesData.previsto[9] || 0
+      return formatNumber(fixedExpensesData.previsto[9] || 0)
     } else {
       // Fallback (não deveria acontecer)
       return 0
@@ -393,20 +395,24 @@ const Projection: React.FC = () => {
   const calcularMediaMes = (monthIndex: number) => {
     // Média = Previsto + 10%
     const previsto = calcularPrevistoMes(monthIndex)
-    return previsto * 1.1
+    return formatNumber(previsto * 1.1)
   }
 
   const calcularMaximoMes = (monthIndex: number) => {
     // Máximo = Média + 10%
     const media = calcularMediaMes(monthIndex)
-    return media * 1.1
+    return formatNumber(media * 1.1)
   }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value)
+    }).format(Math.round(value * 100) / 100)
+  }
+
+  const formatNumber = (value: number) => {
+    return Math.round(value * 100) / 100
   }
 
   const InputCell: React.FC<{

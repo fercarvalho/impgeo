@@ -299,9 +299,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-gray-200"><span className="font-semibold text-gray-700">RECEITA</span><span className="font-bold text-emerald-800">R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-200"><span className="font-semibold text-red-700">DESPESA</span><span className="font-bold text-red-800">-R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                <div className="flex justify-between items-center py-4 bg-gray-50 px-4 rounded-lg border-2 border-gray-300 mt-4"><span className="font-bold text-gray-900 text-lg">Total geral</span><span className={`font-bold text-xl ${(saldoInicial + totalReceitas - totalDespesas) >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>R$ {(saldoInicial + totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200"><span className="font-semibold text-gray-700">RECEITA</span><span className="font-bold text-emerald-800">R$ {(Math.round(totalReceitas * 100) / 100).toFixed(2)}</span></div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200"><span className="font-semibold text-red-700">DESPESA</span><span className="font-bold text-red-800">-R$ {(Math.round(totalDespesas * 100) / 100).toFixed(2)}</span></div>
+                <div className="flex justify-between items-center py-4 bg-gray-50 px-4 rounded-lg border-2 border-gray-300 mt-4"><span className="font-bold text-gray-900 text-lg">Total geral</span><span className={`font-bold text-xl ${(saldoInicial + totalReceitas - totalDespesas) >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>R$ {(Math.round((saldoInicial + totalReceitas - totalDespesas) * 100) / 100).toFixed(2)}</span></div>
               </div>
             </div>
             <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
@@ -311,7 +311,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   <div className="text-center"><span className="font-bold text-gray-800 text-xl">R$</span></div>
                   <div className="text-center"><span className="font-bold text-gray-800 text-xl">%</span></div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-200"><div className="font-bold text-gray-800 italic">META</div><div className="text-center font-bold text-gray-800">R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div><div className="text-center font-bold text-gray-800">100%</div></div>
+                <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-200"><div className="font-bold text-gray-800 italic">META</div><div className="text-center font-bold text-gray-800">R$ {(Math.round(metaValue * 100) / 100).toFixed(2)}</div><div className="text-center font-bold text-gray-800">100%</div></div>
               </div>
             </div>
           </div>
@@ -337,9 +337,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-purple-200">
               <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200"><span className="font-bold text-emerald-700 text-lg">RECEITA ANUAL</span><span className="font-bold text-emerald-800 text-lg">R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200"><span className="font-bold text-red-700 text-lg">DESPESA ANUAL</span><span className="font-bold text-red-800 text-lg">-R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                <div className="flex justify-between items-center py-3 bg-purple-100 rounded-lg px-3"><span className="font-bold text-purple-900 text-lg">SALDO FINAL ANUAL</span><span className="font-bold text-purple-900 text-lg">R$ {(saldoInicialAno + totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200"><span className="font-bold text-emerald-700 text-lg">RECEITA ANUAL</span><span className="font-bold text-emerald-800 text-lg">R$ {(Math.round(totalReceitasAno * 100) / 100).toFixed(2)}</span></div>
+                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200"><span className="font-bold text-red-700 text-lg">DESPESA ANUAL</span><span className="font-bold text-red-800 text-lg">-R$ {(Math.round(totalDespesasAno * 100) / 100).toFixed(2)}</span></div>
+                <div className="flex justify-between items-center py-3 bg-purple-100 rounded-lg px-3"><span className="font-bold text-purple-900 text-lg">SALDO FINAL ANUAL</span><span className="font-bold text-purple-900 text-lg">R$ {(Math.round((saldoInicialAno + totalReceitasAno - totalDespesasAno) * 100) / 100).toFixed(2)}</span></div>
               </div>
             </div>
           </div>
@@ -496,7 +496,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-800 mb-2">
-                {hasData ? `R$ ${data[0].value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem dados'}
+                {hasData ? `R$ ${(Math.round(data[0].value * 100) / 100).toFixed(2)}` : 'Sem dados'}
               </div>
               <div className="text-sm text-gray-600">
                 {hasData ? data[0].name : 'Nenhuma transação encontrada'}
@@ -550,7 +550,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalReceitasMes * 100) / 100).toFixed(2)}
               </p>
             </div>
           </div>
@@ -571,7 +571,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalDespesasMes * 100) / 100).toFixed(2)}
               </p>
             </div>
           </div>
@@ -596,7 +596,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoMes >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(lucroLiquidoMes * 100) / 100).toFixed(2)}
               </p>
             </div>
           </div>
@@ -632,7 +632,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalReceitasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalReceitasTrimestre * 100) / 100).toFixed(2)}
                       </p>
             </div>
             </div>
@@ -653,7 +653,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalDespesasTrimestre * 100) / 100).toFixed(2)}
                 </p>
           </div>
         </div>
@@ -678,7 +678,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoTrimestre >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {lucroLiquidoTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(lucroLiquidoTrimestre * 100) / 100).toFixed(2)}
               </p>
                         </div>
                       </div>
@@ -711,7 +711,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalReceitasAno * 100) / 100).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -732,7 +732,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-sm font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas Anuais</p>
                       <p className="text-2xl font-bold text-white mt-1">
-                        R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(totalDespesasAno * 100) / 100).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -757,7 +757,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-2xl font-bold mt-1 ${
                         lucroLiquidoAno >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(lucroLiquidoAno * 100) / 100).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -799,7 +799,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                         <p className={`font-bold ${
                           transacao.type === 'Receita' ? 'text-emerald-600' : 'text-red-600'
                         }`}>
-                          {transacao.type === 'Receita' ? '+' : '-'}R$ {transacao.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {transacao.type === 'Receita' ? '+' : '-'}R$ {(Math.round(transacao.value * 100) / 100).toFixed(2)}
                         </p>
                         <p className="text-sm text-gray-500">
                           {new Date(transacao.date).toLocaleDateString('pt-BR')}

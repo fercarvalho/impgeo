@@ -124,7 +124,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           {item.nome}
                         </span>
                         <span className="font-bold text-gray-700 ml-4 text-right">
-                          R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {(Math.round(item.valor * 100) / 100).toFixed(2)}
                         </span>
                       </div>
                       {expandedCharts.includes(chartId) && (
@@ -134,7 +134,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
                               <YAxis />
-                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
+                              <Tooltip formatter={(value: any) => [`R$ ${(Math.round(value * 100) / 100).toFixed(2)}`, 'Projeto']} />
                               <Bar dataKey="valor" fill={item.cor} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -154,7 +154,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                       Total Vendas por Projeto
                     </span>
                     <span className="font-bold text-green-800 text-lg ml-4 text-right">
-                      R$ {totalVendasCategoria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(Math.round(totalVendasCategoria * 100) / 100).toFixed(2)}
                     </span>
                   </div>
                   {expandedCharts.includes(`total-vendas-categoria-${periodo}`) && (
@@ -191,7 +191,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           {item.nome}
                         </span>
                         <span className="font-bold text-blue-900 text-sm ml-3 text-right">
-                          R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {(Math.round(item.valor * 100) / 100).toFixed(2)}
                         </span>
                       </div>
                       {expandedCharts.includes(chartId) && (
@@ -201,7 +201,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
                               <YAxis />
-                              <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
+                              <Tooltip formatter={(value: any) => [`R$ ${(Math.round(value * 100) / 100).toFixed(2)}`, 'Serviço']} />
                               <Bar dataKey="valor" fill={item.cor} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -221,7 +221,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                       Total por Serviço
                     </span>
                     <span className="font-bold text-blue-800 text-sm ml-3 text-right">
-                      R$ {totalVendasProduto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(Math.round(totalVendasProduto * 100) / 100).toFixed(2)}
                     </span>
                   </div>
                   {expandedCharts.includes(`total-vendas-produto-${periodo}`) && (
@@ -231,7 +231,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="nome" />
                           <YAxis />
-                          <Tooltip formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
+                          <Tooltip formatter={(value: any) => [`R$ ${(Math.round(value * 100) / 100).toFixed(2)}`, 'Serviço']} />
                           <Bar dataKey="valor" fill="#3b82f6" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -290,7 +290,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                     Total de Despesas
                   </span>
                   <span className="font-bold text-orange-800 text-lg ml-4 text-right">
-                    R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {(Math.round(totalDespesas * 100) / 100).toFixed(2)}
                   </span>
                 </div>
                 {expandedCharts.includes(`total-despesas-${periodo}`) && (
@@ -358,13 +358,13 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
             </div>
             <div className="text-center p-4 bg-red-50 rounded-xl">
               <p className="text-sm font-bold text-red-600 mb-2">Total Despesas</p>
-              <p className="text-xl font-bold text-red-600">R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-red-600">R$ {(Math.round(totalDespesas * 100) / 100).toFixed(2)}</p>
             </div>
             <div className={`text-center p-4 rounded-xl ${lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
               <p className={`text-sm font-bold mb-2 ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Lucro Líquido</p>
-              <p className={`text-xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className={`text-xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {(Math.round(lucroLiquido * 100) / 100).toFixed(2)}</p>
               <div className={`mt-2 p-2 rounded-lg ${lucroLiquido >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                <p className={`text-xs font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Margem: {totalVendasCategoria > 0 ? ((lucroLiquido / totalVendasCategoria) * 100).toFixed(1) : '0.0'}%</p>
+                <p className={`text-xs font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>Margem: {totalVendasCategoria > 0 ? (Math.round((lucroLiquido / totalVendasCategoria) * 10000) / 100).toFixed(2) : '0.00'}%</p>
               </div>
             </div>
             <div className={`text-center p-4 rounded-xl ${lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>

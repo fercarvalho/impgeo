@@ -503,7 +503,7 @@ const Projects: React.FC = () => {
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <span className="text-sm font-medium text-gray-900">
-                      R$ {project.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(Math.round(project.value * 100) / 100).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -828,7 +828,7 @@ const Projects: React.FC = () => {
                 {form.selectedServices.length > 0 && (
                   <div className="mt-2 p-2 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Valor calculado:</strong> R$ {calculateServicesValue(form.selectedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <strong>Valor calculado:</strong> R$ {(Math.round(calculateServicesValue(form.selectedServices) * 100) / 100).toFixed(2)}
                     </p>
                     <p className="text-xs text-blue-600 mt-1">
                       Você pode editar o valor final do projeto abaixo
@@ -888,7 +888,7 @@ const Projects: React.FC = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-900">{service.name}</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        R$ {service.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(Math.round(service.price * 100) / 100).toFixed(2)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500">{service.category} - {service.duration} dias</p>
@@ -901,7 +901,7 @@ const Projects: React.FC = () => {
             {form.selectedServices.length > 0 && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Valor total:</strong> R$ {calculateServicesValue(form.selectedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <strong>Valor total:</strong> R$ {(Math.round(calculateServicesValue(form.selectedServices) * 100) / 100).toFixed(2)}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   {form.selectedServices.length} serviço(s) selecionado(s)

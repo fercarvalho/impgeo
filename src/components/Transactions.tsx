@@ -491,7 +491,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
                     <p className={`text-xs sm:text-xs md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
-                      {t.type === 'Receita' ? '+' : '-'}R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {t.type === 'Receita' ? '+' : '-'}R$ {Math.round(t.value * 100) / 100}
                     </p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
