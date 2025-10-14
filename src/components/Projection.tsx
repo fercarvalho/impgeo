@@ -164,12 +164,25 @@ const Projection: React.FC = () => {
   // Atualizar automaticamente todos os valores das despesas fixas
   useEffect(() => {
     let precisaAtualizar = false
-    const novosValores = [...fixedExpensesData.previsto]
+    const novosPrevisto = [...fixedExpensesData.previsto]
+    const novosMedia = [...fixedExpensesData.media]
+    const novosMaximo = [...fixedExpensesData.maximo]
     
     for (let i = 0; i < 12; i++) {
-      const novoValor = calcularPrevistoMes(i)
-      if (novosValores[i] !== novoValor) {
-        novosValores[i] = novoValor
+      const novoPrevisto = calcularPrevistoMes(i)
+      const novaMedia = calcularMediaMes(i)
+      const novoMaximo = calcularMaximoMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedia[i] !== novaMedia) {
+        novosMedia[i] = novaMedia
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
         precisaAtualizar = true
       }
     }
@@ -177,14 +190,16 @@ const Projection: React.FC = () => {
     if (precisaAtualizar) {
       const novosDados = {
         ...fixedExpensesData,
-        previsto: novosValores
+        previsto: novosPrevisto,
+        media: novosMedia,
+        maximo: novosMaximo
       }
       setFixedExpensesData(novosDados)
       if (token) {
         saveFixedExpensesToServer(novosDados)
       }
     }
-  }, [data.despesasFixas[11]]) // Depende do valor de dezembro da primeira tabela
+  }, [data.despesasFixas]) // Depende de todos os valores de despesas fixas da tabela principal
 
   // Atualização automática das despesas variáveis quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -465,7 +480,7 @@ const Projection: React.FC = () => {
       setFaturamentoTotalData(novosDados)
       saveFaturamentoTotalToServer(novosDados)
     }
-  }, [data.faturamentoReurb, data.faturamentoGeo, data.faturamentoPlan, data.faturamentoReg, data.faturamentoNn, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+  }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData])
 
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
