@@ -24,6 +24,12 @@ interface ProjectionData {
   }
 }
 
+interface FixedExpensesData {
+  previsto: number[]
+  media: number[]
+  maximo: number[]
+}
+
 const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
@@ -47,6 +53,11 @@ const Projection: React.FC = () => {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
+    previsto: new Array(12).fill(0),
+    media: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
 
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -72,6 +83,7 @@ const Projection: React.FC = () => {
     }
     
     loadData()
+    loadFixedExpensesData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -86,6 +98,23 @@ const Projection: React.FC = () => {
 
     return () => clearInterval(interval)
   }, [token, data, isSaving])
+
+  // Atualizar automaticamente o valor de Janeiro das despesas fixas
+  useEffect(() => {
+    const novoValorJaneiro = calcularPrevistoJaneiro()
+    if (fixedExpensesData.previsto[0] !== novoValorJaneiro) {
+      const novosDados = {
+        ...fixedExpensesData,
+        previsto: fixedExpensesData.previsto.map((valor, index) => 
+          index === 0 ? novoValorJaneiro : valor
+        )
+      }
+      setFixedExpensesData(novosDados)
+      if (token) {
+        saveFixedExpensesToServer(novosDados)
+      }
+    }
+  }, [data.despesasFixas[11]]) // Depende do valor de dezembro da primeira tabela
 
   // Salvar dados no servidor
   const saveToServer = async (newData: ProjectionData) => {
@@ -152,6 +181,61 @@ const Projection: React.FC = () => {
     }
   }
 
+  // Carregar dados de despesas fixas
+  const loadFixedExpensesData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/fixed-expenses`)
+      if (response.ok) {
+        const fixedData = await response.json()
+        setFixedExpensesData(fixedData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar despesas fixas:', error)
+    }
+  }
+
+  // Salvar dados de despesas fixas
+  const saveFixedExpensesToServer = async (newData: FixedExpensesData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/fixed-expenses`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de despesas fixas')
+      }
+      
+      console.log('Dados de despesas fixas salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar despesas fixas:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Atualizar despesas fixas e salvar
+  const updateFixedExpensesAndSave = (category: keyof FixedExpensesData, monthIndex: number, value: number) => {
+    const newData = {
+      ...fixedExpensesData,
+      [category]: fixedExpensesData[category].map((val, index) => 
+        index === monthIndex ? value : val
+      )
+    }
+    setFixedExpensesData(newData)
+    
+    if (token) {
+      saveFixedExpensesToServer(newData)
+    }
+  }
+
   // Fórmulas calculadas
   const calcularDespesasTotais = (monthIndex: number) => {
     return data.despesasVariaveis[monthIndex] + data.despesasFixas[monthIndex]
@@ -186,6 +270,39 @@ const Projection: React.FC = () => {
 
   const calcularMedia = (calculator: (monthIndex: number) => number) => {
     return calcularTotalGeral(calculator) / 12
+  }
+
+  // Funções específicas para despesas fixas
+  const calcularPrevistoJaneiro = () => {
+    // Janeiro = Dezembro da primeira tabela + 10%
+    const dezembroDespesasFixas = data.despesasFixas[11] || 0
+    return dezembroDespesasFixas * 1.1
+  }
+
+  const calcularPrevistoMes = (monthIndex: number) => {
+    if (monthIndex === 0) {
+      // Janeiro é calculado automaticamente
+      return calcularPrevistoJaneiro()
+    } else if (monthIndex === 1 || monthIndex === 2) {
+      // Fevereiro e Março = Janeiro
+      return fixedExpensesData.previsto[0] || 0
+    } else {
+      // Abril em diante = mês anterior + 10%
+      const mesAnterior = fixedExpensesData.previsto[monthIndex - 1] || 0
+      return mesAnterior * 1.1
+    }
+  }
+
+  const calcularMediaMes = (monthIndex: number) => {
+    // Média = Previsto + 10%
+    const previsto = fixedExpensesData.previsto[monthIndex] || 0
+    return previsto * 1.1
+  }
+
+  const calcularMaximoMes = (monthIndex: number) => {
+    // Máximo = Média + 10%
+    const media = fixedExpensesData.media[monthIndex] || 0
+    return media * 1.1
   }
 
   const formatCurrency = (value: number) => {
@@ -1334,6 +1451,190 @@ const Projection: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Despesas Fixas */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1200px]">
+              <thead className="bg-blue-700 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">DESPESAS Fixas</th>
+                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  {meses.slice(0, 3).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  {meses.slice(3, 6).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  {meses.slice(6, 9).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  {meses.slice(9, 12).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-200">
+                {/* Linha Previsto */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <InputCell
+                        value={fixedExpensesData.previsto[index] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index, value)}
+                        category="previsto"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <InputCell
+                        value={fixedExpensesData.previsto[index + 3] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 3, value)}
+                        category="previsto"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <InputCell
+                        value={fixedExpensesData.previsto[index + 6] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 6, value)}
+                        category="previsto"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <InputCell
+                        value={fixedExpensesData.previsto[index + 9] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 9, value)}
+                        category="previsto"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.previsto[i] || 0)} />
+                  </td>
+                </tr>
+
+                {/* Linha Média */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Média</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <CalculatedCell value={calcularMediaMes(index)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <CalculatedCell value={calcularMediaMes(index + 3)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <CalculatedCell value={calcularMediaMes(index + 6)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <CalculatedCell value={calcularMediaMes(index + 9)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMediaMes(i))} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularMediaMes(i))} />
+                  </td>
+                </tr>
+
+                {/* Linha Máximo */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <CalculatedCell value={calcularMaximoMes(index)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <CalculatedCell value={calcularMaximoMes(index + 3)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <CalculatedCell value={calcularMaximoMes(index + 6)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <CalculatedCell value={calcularMaximoMes(index + 9)} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMes(i))} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoMes(i))} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
     </div>
   )

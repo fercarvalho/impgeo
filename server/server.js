@@ -742,6 +742,29 @@ app.put('/api/projection', authenticateToken, (req, res) => {
   }
 });
 
+// APIs de Despesas Fixas
+app.get('/api/fixed-expenses', (req, res) => {
+  try {
+    const fixedExpensesData = db.getFixedExpensesData();
+    if (!fixedExpensesData) {
+      return res.status(404).json({ error: 'Dados de despesas fixas não encontrados' });
+    }
+    res.json(fixedExpensesData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/fixed-expenses', authenticateToken, (req, res) => {
+  try {
+    const fixedExpensesData = req.body;
+    const updatedData = db.updateFixedExpensesData(fixedExpensesData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -810,6 +833,8 @@ app.get('/api/test', (req, res) => {
       'POST /api/export - Exportar dados para Excel',
       'GET /api/projection - Obter dados de projeção',
       'PUT /api/projection - Atualizar dados de projeção',
+      'GET /api/fixed-expenses - Obter dados de despesas fixas',
+      'PUT /api/fixed-expenses - Atualizar dados de despesas fixas',
       'GET /api/test - Testar API'
     ]
   });

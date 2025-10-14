@@ -12,6 +12,7 @@ class Database {
     this.servicesFile = path.join(this.dbPath, 'services.json');
     this.usersFile = path.join(this.dbPath, 'users.json');
     this.projectionFile = path.join(this.dbPath, 'projection.json');
+    this.fixedExpensesFile = path.join(this.dbPath, 'fixedExpenses.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -151,6 +152,18 @@ class Database {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.projectionFile, JSON.stringify(defaultProjection, null, 2));
+    }
+    
+    if (!fs.existsSync(this.fixedExpensesFile)) {
+      // Criar dados de despesas fixas padrão
+      const defaultFixedExpenses = {
+        previsto: new Array(12).fill(0),
+        media: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.fixedExpensesFile, JSON.stringify(defaultFixedExpenses, null, 2));
     }
   }
 
@@ -570,6 +583,30 @@ class Database {
       return data;
     } catch (error) {
       throw new Error('Erro ao salvar dados de projeção: ' + error.message);
+    }
+  }
+
+  // Métodos para Despesas Fixas
+  getFixedExpensesData() {
+    try {
+      const data = fs.readFileSync(this.fixedExpensesFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de despesas fixas:', error);
+      return null;
+    }
+  }
+
+  updateFixedExpensesData(fixedExpensesData) {
+    try {
+      const data = {
+        ...fixedExpensesData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.fixedExpensesFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de despesas fixas: ' + error.message);
     }
   }
 
