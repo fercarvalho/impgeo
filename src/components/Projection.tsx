@@ -176,6 +176,12 @@ const Projection: React.FC = () => {
     }
   }, [data.despesasVariaveis, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
 
+  // Atualização automática dos investimentos quando dados da tabela principal ou percentual mudarem
+  useEffect(() => {
+    // Os investimentos são calculados automaticamente, mas não são salvos em banco separado
+    // Eles são calculados em tempo real baseados nos dados da tabela principal
+  }, [data.investimentos, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
+
   // Salvar dados no servidor
   const saveToServer = async (newData: ProjectionData) => {
     if (!token) return
@@ -486,6 +492,28 @@ const Projection: React.FC = () => {
     const despesasFixasMaximo = calcularMaximoMes(monthIndex)
     const despesasVariaveisMaximo = calcularMaximoVariableMes(monthIndex)
     return formatNumber(despesasFixasMaximo + despesasVariaveisMaximo)
+  }
+
+  // Funções específicas para investimentos (mesma lógica das despesas variáveis)
+  const calcularPrevistoInvestimentoMes = (monthIndex: number) => {
+    // Previsto = Investimentos (tabela principal) + Percentual Mínimo
+    const investimentos = data.investimentos[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(investimentos + (investimentos * percentualMinimo / 100))
+  }
+
+  const calcularMedioInvestimentoMes = (monthIndex: number) => {
+    // Médio = Investimentos (tabela principal) + Percentual Médio
+    const investimentos = data.investimentos[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(investimentos + (investimentos * percentualMedio / 100))
+  }
+
+  const calcularMaximoInvestimentoMes = (monthIndex: number) => {
+    // Máximo = Investimentos (tabela principal) + Percentual Máximo
+    const investimentos = data.investimentos[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(investimentos + (investimentos * percentualMaximo / 100))
   }
 
   const formatCurrency = (value: number) => {
@@ -2243,6 +2271,266 @@ const Projection: React.FC = () => {
                   </td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => calcularMaximoFixoVariavelMes(i))} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Investimentos */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1200px]">
+              <thead className="bg-purple-700 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">INVESTIMENTOS</th>
+                  <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                  {meses.slice(0, 3).map(mes => (
+                    <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                  ))}
+                  <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                  {meses.slice(3, 6).map(mes => (
+                    <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                  ))}
+                  <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                  {meses.slice(6, 9).map(mes => (
+                    <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                  ))}
+                  <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                  {meses.slice(9, 12).map(mes => (
+                    <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                  ))}
+                  <th className="px-3 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-3 py-3 text-center font-bold">Média</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-200">
+                {/* Linha Previsto */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularPrevistoInvestimentoMes(index)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="previsto-inv"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularPrevistoInvestimentoMes(index + 3)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="previsto-inv"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularPrevistoInvestimentoMes(index + 6)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="previsto-inv"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularPrevistoInvestimentoMes(index + 9)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="previsto-inv"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoInvestimentoMes(i))} />
+                  </td>
+                </tr>
+
+                {/* Linha Médio */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMedioInvestimentoMes(index)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="medio-inv"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMedioInvestimentoMes(index + 3)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="medio-inv"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMedioInvestimentoMes(index + 6)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="medio-inv"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMedioInvestimentoMes(index + 9)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="medio-inv"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularMedioInvestimentoMes(i))} />
+                  </td>
+                </tr>
+
+                {/* Linha Máximo */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMaximoInvestimentoMes(index)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="maximo-inv"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMaximoInvestimentoMes(index + 3)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="maximo-inv"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMaximoInvestimentoMes(index + 6)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="maximo-inv"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoInvestimentoMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                      <InputCell
+                        value={calcularMaximoInvestimentoMes(index + 9)}
+                        onBlur={() => {
+                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
+                          // O valor editado não é persistido, apenas visual
+                        }}
+                        category="maximo-inv"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoInvestimentoMes(i))} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoInvestimentoMes(i))} />
                   </td>
                 </tr>
               </tbody>
