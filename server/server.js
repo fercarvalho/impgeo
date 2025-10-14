@@ -765,6 +765,29 @@ app.put('/api/fixed-expenses', authenticateToken, (req, res) => {
   }
 });
 
+// APIs de Despesas Variáveis
+app.get('/api/variable-expenses', (req, res) => {
+  try {
+    const variableExpensesData = db.getVariableExpensesData();
+    if (!variableExpensesData) {
+      return res.status(404).json({ error: 'Dados de despesas variáveis não encontrados' });
+    }
+    res.json(variableExpensesData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/variable-expenses', authenticateToken, (req, res) => {
+  try {
+    const variableExpensesData = req.body;
+    const updatedData = db.updateVariableExpensesData(variableExpensesData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -835,6 +858,8 @@ app.get('/api/test', (req, res) => {
       'PUT /api/projection - Atualizar dados de projeção',
       'GET /api/fixed-expenses - Obter dados de despesas fixas',
       'PUT /api/fixed-expenses - Atualizar dados de despesas fixas',
+      'GET /api/variable-expenses - Obter dados de despesas variáveis',
+      'PUT /api/variable-expenses - Atualizar dados de despesas variáveis',
       'GET /api/test - Testar API'
     ]
   });

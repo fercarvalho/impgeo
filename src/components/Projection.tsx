@@ -30,6 +30,12 @@ interface FixedExpensesData {
   maximo: number[]
 }
 
+interface VariableExpensesData {
+  previsto: number[]
+  medio: number[]
+  maximo: number[]
+}
+
 const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
@@ -58,6 +64,11 @@ const Projection: React.FC = () => {
     media: new Array(12).fill(0),
     maximo: new Array(12).fill(0)
   })
+  const [variableExpensesData, setVariableExpensesData] = useState<VariableExpensesData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
 
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -84,6 +95,7 @@ const Projection: React.FC = () => {
     
     loadData()
     loadFixedExpensesData()
+    loadVariableExpensesData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -236,6 +248,61 @@ const Projection: React.FC = () => {
     }
   }
 
+  // Carregar dados de despesas variáveis
+  const loadVariableExpensesData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/variable-expenses`)
+      if (response.ok) {
+        const variableData = await response.json()
+        setVariableExpensesData(variableData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar despesas variáveis:', error)
+    }
+  }
+
+  // Salvar dados de despesas variáveis
+  const saveVariableExpensesToServer = async (newData: VariableExpensesData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/variable-expenses`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de despesas variáveis')
+      }
+      
+      console.log('Dados de despesas variáveis salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar despesas variáveis:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Atualizar despesas variáveis e salvar
+  const updateVariableExpensesAndSave = (category: keyof VariableExpensesData, monthIndex: number, value: number) => {
+    const newData = {
+      ...variableExpensesData,
+      [category]: variableExpensesData[category].map((val, index) => 
+        index === monthIndex ? value : val
+      )
+    }
+    setVariableExpensesData(newData)
+    
+    if (token) {
+      saveVariableExpensesToServer(newData)
+    }
+  }
+
   // Fórmulas calculadas
   const calcularDespesasTotais = (monthIndex: number) => {
     return data.despesasVariaveis[monthIndex] + data.despesasFixas[monthIndex]
@@ -303,6 +370,28 @@ const Projection: React.FC = () => {
     // Máximo = Média + 10%
     const media = fixedExpensesData.media[monthIndex] || 0
     return media * 1.1
+  }
+
+  // Funções específicas para despesas variáveis
+  const calcularPrevistoVariableMes = (monthIndex: number) => {
+    // Previsto = Despesas Variáveis + % Mínimo
+    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return despesasVariaveis * (1 + percentualMinimo / 100)
+  }
+
+  const calcularMedioVariableMes = (monthIndex: number) => {
+    // Médio = Despesas Variáveis + % Médio
+    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return despesasVariaveis * (1 + percentualMedio / 100)
+  }
+
+  const calcularMaximoVariableMes = (monthIndex: number) => {
+    // Máximo = Despesas Variáveis + % Máximo
+    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return despesasVariaveis * (1 + percentualMaximo / 100)
   }
 
   const formatCurrency = (value: number) => {
@@ -1628,6 +1717,230 @@ const Projection: React.FC = () => {
                   </td>
                   <td className="px-2 py-2">
                     <CalculatedCell value={calcularMedia((i) => calcularMaximoMes(i))} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Despesas Variáveis */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1200px]">
+              <thead className="bg-blue-700 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">DESPESAS Variáveis</th>
+                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  {meses.slice(0, 3).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  {meses.slice(3, 6).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  {meses.slice(6, 9).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  {meses.slice(9, 12).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-200">
+                {/* Linha Previsto */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.previsto[index] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index, value)}
+                        category="previsto-var"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.previsto[index + 3] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 3, value)}
+                        category="previsto-var"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.previsto[index + 6] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 6, value)}
+                        category="previsto-var"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.previsto[index + 9] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 9, value)}
+                        category="previsto-var"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoVariableMes(i))} />
+                  </td>
+                </tr>
+
+                {/* Linha Médio */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.medio[index] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('medio', index, value)}
+                        category="medio-var"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.medio[index + 3] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 3, value)}
+                        category="medio-var"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.medio[index + 6] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 6, value)}
+                        category="medio-var"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.medio[index + 9] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 9, value)}
+                        category="medio-var"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => variableExpensesData.medio[i] || 0)} />
+                  </td>
+                </tr>
+
+                {/* Linha Máximo */}
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => variableExpensesData.maximo[i] || 0)} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.maximo[index] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index, value)}
+                        category="maximo-var"
+                        monthIndex={index}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => variableExpensesData.maximo[i] || 0)} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.maximo[index + 3] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 3, value)}
+                        category="maximo-var"
+                        monthIndex={index + 3}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => variableExpensesData.maximo[i] || 0)} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.maximo[index + 6] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 6, value)}
+                        category="maximo-var"
+                        monthIndex={index + 6}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => variableExpensesData.maximo[i] || 0)} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <InputCell
+                        value={variableExpensesData.maximo[index + 9] || 0}
+                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 9, value)}
+                        category="maximo-var"
+                        monthIndex={index + 9}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => variableExpensesData.maximo[i] || 0)} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularMedia((i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                 </tr>
               </tbody>

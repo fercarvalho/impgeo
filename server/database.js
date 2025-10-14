@@ -13,6 +13,7 @@ class Database {
     this.usersFile = path.join(this.dbPath, 'users.json');
     this.projectionFile = path.join(this.dbPath, 'projection.json');
     this.fixedExpensesFile = path.join(this.dbPath, 'fixedExpenses.json');
+    this.variableExpensesFile = path.join(this.dbPath, 'variableExpenses.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -164,6 +165,18 @@ class Database {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.fixedExpensesFile, JSON.stringify(defaultFixedExpenses, null, 2));
+    }
+    
+    if (!fs.existsSync(this.variableExpensesFile)) {
+      // Criar dados de despesas variáveis padrão
+      const defaultVariableExpenses = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.variableExpensesFile, JSON.stringify(defaultVariableExpenses, null, 2));
     }
   }
 
@@ -607,6 +620,30 @@ class Database {
       return data;
     } catch (error) {
       throw new Error('Erro ao salvar dados de despesas fixas: ' + error.message);
+    }
+  }
+
+  // Métodos para Despesas Variáveis
+  getVariableExpensesData() {
+    try {
+      const data = fs.readFileSync(this.variableExpensesFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de despesas variáveis:', error);
+      return null;
+    }
+  }
+
+  updateVariableExpensesData(variableExpensesData) {
+    try {
+      const data = {
+        ...variableExpensesData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.variableExpensesFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de despesas variáveis: ' + error.message);
     }
   }
 
