@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Calculator, TrendingUp, DollarSign } from 'lucide-react'
+import { Calculator } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -159,9 +159,11 @@ const Projection: React.FC = () => {
     console.log('updateDataAndSave chamado:', category, monthIndex, value)
     const newData = {
       ...data,
-      [category]: data[category].map((val, index) => 
-        index === monthIndex ? value : val
-      )
+      [category]: Array.isArray(data[category]) 
+        ? (data[category] as number[]).map((val, index) => 
+            index === monthIndex ? value : val
+          )
+        : data[category]
     }
     setData(newData)
     
@@ -346,20 +348,6 @@ const Projection: React.FC = () => {
     return dezembroDespesasFixas * 1.1
   }
 
-  const calcularPrevistoMes = (monthIndex: number) => {
-    if (monthIndex === 0) {
-      // Janeiro é calculado automaticamente
-      return calcularPrevistoJaneiro()
-    } else if (monthIndex === 1 || monthIndex === 2) {
-      // Fevereiro e Março = Janeiro
-      return fixedExpensesData.previsto[0] || 0
-    } else {
-      // Abril em diante = mês anterior + 10%
-      const mesAnterior = fixedExpensesData.previsto[monthIndex - 1] || 0
-      return mesAnterior * 1.1
-    }
-  }
-
   const calcularMediaMes = (monthIndex: number) => {
     // Média = Previsto + 10%
     const previsto = fixedExpensesData.previsto[monthIndex] || 0
@@ -370,28 +358,6 @@ const Projection: React.FC = () => {
     // Máximo = Média + 10%
     const media = fixedExpensesData.media[monthIndex] || 0
     return media * 1.1
-  }
-
-  // Funções específicas para despesas variáveis
-  const calcularPrevistoVariableMes = (monthIndex: number) => {
-    // Previsto = Despesas Variáveis + % Mínimo
-    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
-    const percentualMinimo = data.growth?.minimo || 0
-    return despesasVariaveis * (1 + percentualMinimo / 100)
-  }
-
-  const calcularMedioVariableMes = (monthIndex: number) => {
-    // Médio = Despesas Variáveis + % Médio
-    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
-    const percentualMedio = data.growth?.medio || 0
-    return despesasVariaveis * (1 + percentualMedio / 100)
-  }
-
-  const calcularMaximoVariableMes = (monthIndex: number) => {
-    // Máximo = Despesas Variáveis + % Máximo
-    const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
-    const percentualMaximo = data.growth?.maximo || 0
-    return despesasVariaveis * (1 + percentualMaximo / 100)
   }
 
   const formatCurrency = (value: number) => {
@@ -418,7 +384,7 @@ const Projection: React.FC = () => {
     
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === 'Tab') {
-        const numericValue = parseFloat(e.target.value) || 0
+        const numericValue = parseFloat((e.target as HTMLInputElement).value) || 0
         console.log('Tecla Enter/Tab pressionada, salvando:', numericValue)
         onBlur(numericValue)
       }
@@ -432,7 +398,7 @@ const Projection: React.FC = () => {
         defaultValue={value || ''}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className={`w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${className}`}
+        className={`w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${className}`}
         placeholder="0,00"
       />
     )
@@ -442,7 +408,7 @@ const Projection: React.FC = () => {
     value: number
     className?: string
   }> = ({ value, className = '' }) => (
-    <div className={`px-2 py-1 text-sm font-semibold text-center ${className}`}>
+    <div className={`px-3 py-1 text-sm font-semibold text-center ${className}`}>
       {formatCurrency(value)}
     </div>
   )
@@ -480,24 +446,24 @@ const Projection: React.FC = () => {
             <thead className="bg-gray-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-left font-bold">DESCRIÇÃO</th>
-                <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
-                  <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                 ))}
-                <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
                 {meses.slice(3, 6).map(mes => (
-                  <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                 ))}
-                <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
                 {meses.slice(6, 9).map(mes => (
-                  <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                 ))}
-                <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
                 {meses.slice(9, 12).map(mes => (
-                  <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                 ))}
-                <th className="px-2 py-3 text-center font-bold">Total Geral</th>
-                <th className="px-2 py-3 text-center font-bold">Média</th>
+                <th className="px-3 py-3 text-center font-bold">Total Geral</th>
+                <th className="px-3 py-3 text-center font-bold">Média</th>
               </tr>
             </thead>
 
@@ -505,42 +471,42 @@ const Projection: React.FC = () => {
               {/* Despesas Totais */}
               <tr className="bg-gray-100">
                 <td className="px-4 py-3 font-semibold text-gray-800">Despesas Totais</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularDespesasTotais)} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <CalculatedCell value={calcularDespesasTotais(index)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, calcularDespesasTotais)} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <CalculatedCell value={calcularDespesasTotais(index + 3)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, calcularDespesasTotais)} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <CalculatedCell value={calcularDespesasTotais(index + 6)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, calcularDespesasTotais)} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <CalculatedCell value={calcularDespesasTotais(index + 9)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral(calcularDespesasTotais)} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia(calcularDespesasTotais)} />
                 </td>
               </tr>
@@ -548,11 +514,11 @@ const Projection: React.FC = () => {
               {/* Despesas Variáveis */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Despesas Variáveis</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index]} 
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index, value)}
@@ -561,11 +527,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 3]} 
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 3, value)}
@@ -574,11 +540,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 6]} 
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 6, value)}
@@ -587,11 +553,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 9]} 
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 9, value)}
@@ -600,10 +566,10 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.despesasVariaveis[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.despesasVariaveis[i])} />
                 </td>
               </tr>
@@ -611,11 +577,11 @@ const Projection: React.FC = () => {
               {/* Despesas Fixas */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Despesas Fixas</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasFixas[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasFixas[index]} 
                       onBlur={(value) => updateDataAndSave('despesasFixas', index, value)}
@@ -625,11 +591,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasFixas[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 3]} 
                       onBlur={(value) => updateDataAndSave('despesasFixas', index + 3, value)}
@@ -638,11 +604,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasFixas[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 6]} 
                       onBlur={(value) => updateDataAndSave('despesasFixas', index + 6, value)}
@@ -652,11 +618,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasFixas[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 9]} 
                       onBlur={(value) => updateDataAndSave('despesasFixas', index + 9, value)}
@@ -666,10 +632,10 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.despesasFixas[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.despesasFixas[i])} />
                 </td>
               </tr>
@@ -677,11 +643,11 @@ const Projection: React.FC = () => {
               {/* Investimentos */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Investimentos</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.investimentos[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.investimentos[index]} 
                       onBlur={(value) => updateDataAndSave('investimentos', index, value)}
@@ -691,11 +657,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.investimentos[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.investimentos[index + 3]} 
                       onBlur={(value) => updateDataAndSave('investimentos', index + 3, value)}
@@ -705,11 +671,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.investimentos[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.investimentos[index + 6]} 
                       onBlur={(value) => updateDataAndSave('investimentos', index + 6, value)}
@@ -719,11 +685,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.investimentos[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.investimentos[index + 9]} 
                       onBlur={(value) => updateDataAndSave('investimentos', index + 9, value)}
@@ -733,10 +699,10 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.investimentos[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.investimentos[i])} />
                 </td>
               </tr>
@@ -744,11 +710,11 @@ const Projection: React.FC = () => {
               {/* Mkt */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Mkt</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.mkt[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.mkt[index]} 
                       onBlur={(value) => updateDataAndSave('mkt', index, value)}
@@ -758,11 +724,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.mkt[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.mkt[index + 3]} 
                       onBlur={(value) => updateDataAndSave('mkt', index + 3, value)}
@@ -772,11 +738,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.mkt[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.mkt[index + 6]} 
                       onBlur={(value) => updateDataAndSave('mkt', index + 6, value)}
@@ -786,11 +752,11 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.mkt[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.mkt[index + 9]} 
                       onBlur={(value) => updateDataAndSave('mkt', index + 9, value)}
@@ -800,10 +766,10 @@ const Projection: React.FC = () => {
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.mkt[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.mkt[i])} />
                 </td>
               </tr>
@@ -811,42 +777,42 @@ const Projection: React.FC = () => {
               {/* Faturamento Total */}
               <tr className="bg-blue-50">
                 <td className="px-4 py-3 font-semibold text-blue-800">Faturamento Total</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularFaturamentoTotal)} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <CalculatedCell value={calcularFaturamentoTotal(index)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, calcularFaturamentoTotal)} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <CalculatedCell value={calcularFaturamentoTotal(index + 3)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, calcularFaturamentoTotal)} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <CalculatedCell value={calcularFaturamentoTotal(index + 6)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, calcularFaturamentoTotal)} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <CalculatedCell value={calcularFaturamentoTotal(index + 9)} />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral(calcularFaturamentoTotal)} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia(calcularFaturamentoTotal)} />
                 </td>
               </tr>
@@ -854,58 +820,66 @@ const Projection: React.FC = () => {
               {/* Faturamento REURB */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Faturamento REURB</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReurb[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReurb', index, value)}
+                      category="faturamentoReurb"
+                      monthIndex={index}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReurb[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 3]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 3, value)}
+                      category="faturamentoReurb"
+                      monthIndex={index + 3}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReurb[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 6]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 6, value)}
+                      category="faturamentoReurb"
+                      monthIndex={index + 6}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReurb[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 9]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 9, value)}
+                      category="faturamentoReurb"
+                      monthIndex={index + 9}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReurb[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.faturamentoReurb[i])} />
                 </td>
               </tr>
@@ -913,58 +887,66 @@ const Projection: React.FC = () => {
               {/* Faturamento GEO */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Faturamento GEO</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoGeo[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index]} 
                       onBlur={(value) => updateDataAndSave('faturamentoGeo', index, value)}
+                      category="faturamentoGeo"
+                      monthIndex={index}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoGeo[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 3]} 
                       onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 3, value)}
+                      category="faturamentoGeo"
+                      monthIndex={index + 3}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoGeo[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 6]} 
                       onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 6, value)}
+                      category="faturamentoGeo"
+                      monthIndex={index + 6}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoGeo[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 9]} 
                       onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 9, value)}
+                      category="faturamentoGeo"
+                      monthIndex={index + 9}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoGeo[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.faturamentoGeo[i])} />
                 </td>
               </tr>
@@ -972,58 +954,66 @@ const Projection: React.FC = () => {
               {/* Faturamento PLAN */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Faturamento PLAN</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoPlan[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index]} 
                       onBlur={(value) => updateDataAndSave('faturamentoPlan', index, value)}
+                      category="faturamentoPlan"
+                      monthIndex={index}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoPlan[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 3]} 
                       onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 3, value)}
+                      category="faturamentoPlan"
+                      monthIndex={index + 3}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoPlan[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 6]} 
                       onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 6, value)}
+                      category="faturamentoPlan"
+                      monthIndex={index + 6}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoPlan[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 9]} 
                       onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 9, value)}
+                      category="faturamentoPlan"
+                      monthIndex={index + 9}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoPlan[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.faturamentoPlan[i])} />
                 </td>
               </tr>
@@ -1031,58 +1021,66 @@ const Projection: React.FC = () => {
               {/* Faturamento REG */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Faturamento REG</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReg[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReg', index, value)}
+                      category="faturamentoReg"
+                      monthIndex={index}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReg[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 3]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReg', index + 3, value)}
+                      category="faturamentoReg"
+                      monthIndex={index + 3}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReg[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 6]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReg', index + 6, value)}
+                      category="faturamentoReg"
+                      monthIndex={index + 6}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReg[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 9]} 
                       onBlur={(value) => updateDataAndSave('faturamentoReg', index + 9, value)}
+                      category="faturamentoReg"
+                      monthIndex={index + 9}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReg[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.faturamentoReg[i])} />
                 </td>
               </tr>
@@ -1090,58 +1088,66 @@ const Projection: React.FC = () => {
               {/* Faturamento NN */}
               <tr>
                 <td className="px-4 py-3 text-gray-700">Faturamento NN</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoNn[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index]} 
                       onBlur={(value) => updateDataAndSave('faturamentoNn', index, value)}
+                      category="faturamentoNn"
+                      monthIndex={index}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoNn[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 3]} 
                       onBlur={(value) => updateDataAndSave('faturamentoNn', index + 3, value)}
+                      category="faturamentoNn"
+                      monthIndex={index + 3}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoNn[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 6]} 
                       onBlur={(value) => updateDataAndSave('faturamentoNn', index + 6, value)}
+                      category="faturamentoNn"
+                      monthIndex={index + 6}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoNn[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 9]} 
                       onBlur={(value) => updateDataAndSave('faturamentoNn', index + 9, value)}
+                      category="faturamentoNn"
+                      monthIndex={index + 9}
                       className="bg-blue-100"
                     />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoNn[i])} />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => data.faturamentoNn[i])} />
                 </td>
               </tr>
@@ -1149,42 +1155,42 @@ const Projection: React.FC = () => {
               {/* Resultado */}
               <tr className="bg-gray-800 text-white">
                 <td className="px-4 py-3 font-bold">Resultado</td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularResultado)} className="text-white" />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-2 py-2">
+                  <td key={index} className="px-3 py-2">
                     <CalculatedCell value={calcularResultado(index)} className="text-white" />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(3, 5, calcularResultado)} className="text-white" />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-2 py-2">
+                  <td key={index + 3} className="px-3 py-2">
                     <CalculatedCell value={calcularResultado(index + 3)} className="text-white" />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(6, 8, calcularResultado)} className="text-white" />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-2 py-2">
+                  <td key={index + 6} className="px-3 py-2">
                     <CalculatedCell value={calcularResultado(index + 6)} className="text-white" />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(9, 11, calcularResultado)} className="text-white" />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-2 py-2">
+                  <td key={index + 9} className="px-3 py-2">
                     <CalculatedCell value={calcularResultado(index + 9)} className="text-white" />
                   </td>
                 ))}
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularTotalGeral(calcularResultado)} className="text-white" />
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia(calcularResultado)} className="text-white" />
                 </td>
               </tr>
@@ -1293,24 +1299,24 @@ const Projection: React.FC = () => {
               <thead className="bg-blue-700 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold">Composição MKT</th>
-                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">2 TRI</th>
                   {meses.slice(3, 6).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">3 TRI</th>
                   {meses.slice(6, 9).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">4 TRI</th>
                   {meses.slice(9, 12).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
-                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                  <th className="px-3 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-3 py-3 text-center font-bold">Média</th>
                 </tr>
               </thead>
 
@@ -1322,11 +1328,11 @@ const Projection: React.FC = () => {
                 ].map((row) => (
                   <tr key={row.key}>
                     <td className="px-4 py-3 text-gray-700">{row.label}</td>
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={calcularTrimestre(0, 2, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
                     </td>
                     {meses.slice(0, 3).map((_, index) => (
-                      <td key={index} className="px-2 py-2">
+                      <td key={index} className="px-3 py-2">
                         <InputCell
                           value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index] || 0}
                           onBlur={(value) => {
@@ -1346,11 +1352,11 @@ const Projection: React.FC = () => {
                         />
                       </td>
                     ))}
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={calcularTrimestre(3, 5, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
                     </td>
                     {meses.slice(3, 6).map((_, index) => (
-                      <td key={index + 3} className="px-2 py-2">
+                      <td key={index + 3} className="px-3 py-2">
                         <InputCell
                           value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 3] || 0}
                           onBlur={(value) => {
@@ -1370,11 +1376,11 @@ const Projection: React.FC = () => {
                         />
                       </td>
                     ))}
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={calcularTrimestre(6, 8, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
                     </td>
                     {meses.slice(6, 9).map((_, index) => (
-                      <td key={index + 6} className="px-2 py-2">
+                      <td key={index + 6} className="px-3 py-2">
                         <InputCell
                           value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 6] || 0}
                           onBlur={(value) => {
@@ -1394,11 +1400,11 @@ const Projection: React.FC = () => {
                         />
                       </td>
                     ))}
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={calcularTrimestre(9, 11, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
                     </td>
                     {meses.slice(9, 12).map((_, index) => (
-                      <td key={index + 9} className="px-2 py-2">
+                      <td key={index + 9} className="px-3 py-2">
                         <InputCell
                           value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 9] || 0}
                           onBlur={(value) => {
@@ -1418,13 +1424,13 @@ const Projection: React.FC = () => {
                         />
                       </td>
                     ))}
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
                         return arr.reduce((sum, v) => sum + (v || 0), 0)
                       })()} />
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
                         const total = arr.reduce((sum, v) => sum + (v || 0), 0)
@@ -1437,7 +1443,7 @@ const Projection: React.FC = () => {
                 {/* TOTAL (soma das linhas) */}
                 <tr className="bg-gray-100">
                   <td className="px-4 py-3 font-semibold text-gray-800">TOTAL</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1445,7 +1451,7 @@ const Projection: React.FC = () => {
                     })} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const c = data.mktComponents
                         if (!c) return 0
@@ -1453,7 +1459,7 @@ const Projection: React.FC = () => {
                       })()} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1461,7 +1467,7 @@ const Projection: React.FC = () => {
                     })} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const i = index + 3
                         const c = data.mktComponents
@@ -1470,7 +1476,7 @@ const Projection: React.FC = () => {
                       })()} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1478,7 +1484,7 @@ const Projection: React.FC = () => {
                     })} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const i = index + 6
                         const c = data.mktComponents
@@ -1487,7 +1493,7 @@ const Projection: React.FC = () => {
                       })()} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1495,7 +1501,7 @@ const Projection: React.FC = () => {
                     })} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const i = index + 9
                         const c = data.mktComponents
@@ -1504,7 +1510,7 @@ const Projection: React.FC = () => {
                       })()} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={(() => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1512,7 +1518,7 @@ const Projection: React.FC = () => {
                       return sum
                     })()} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={(() => {
                       const c = data.mktComponents
                       if (!c) return 0
@@ -1549,24 +1555,24 @@ const Projection: React.FC = () => {
               <thead className="bg-blue-700 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold">DESPESAS Fixas</th>
-                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">2 TRI</th>
                   {meses.slice(3, 6).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">3 TRI</th>
                   {meses.slice(6, 9).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">4 TRI</th>
                   {meses.slice(9, 12).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
-                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                  <th className="px-3 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-3 py-3 text-center font-bold">Média</th>
                 </tr>
               </thead>
 
@@ -1574,11 +1580,11 @@ const Projection: React.FC = () => {
                 {/* Linha Previsto */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Previsto</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <InputCell
                         value={fixedExpensesData.previsto[index] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index, value)}
@@ -1587,11 +1593,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <InputCell
                         value={fixedExpensesData.previsto[index + 3] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 3, value)}
@@ -1600,11 +1606,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <InputCell
                         value={fixedExpensesData.previsto[index + 6] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 6, value)}
@@ -1613,11 +1619,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <InputCell
                         value={fixedExpensesData.previsto[index + 9] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 9, value)}
@@ -1626,10 +1632,10 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                 </tr>
@@ -1637,42 +1643,42 @@ const Projection: React.FC = () => {
                 {/* Linha Média */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Média</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <CalculatedCell value={calcularMediaMes(index)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <CalculatedCell value={calcularMediaMes(index + 3)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <CalculatedCell value={calcularMediaMes(index + 6)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <CalculatedCell value={calcularMediaMes(index + 9)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTotalGeral((i) => calcularMediaMes(i))} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => calcularMediaMes(i))} />
                   </td>
                 </tr>
@@ -1680,42 +1686,42 @@ const Projection: React.FC = () => {
                 {/* Linha Máximo */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Máximo</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <CalculatedCell value={calcularMaximoMes(index)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <CalculatedCell value={calcularMaximoMes(index + 3)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <CalculatedCell value={calcularMaximoMes(index + 6)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <CalculatedCell value={calcularMaximoMes(index + 9)} />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMes(i))} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => calcularMaximoMes(i))} />
                   </td>
                 </tr>
@@ -1733,24 +1739,24 @@ const Projection: React.FC = () => {
               <thead className="bg-blue-700 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold">DESPESAS Variáveis</th>
-                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">2 TRI</th>
                   {meses.slice(3, 6).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">3 TRI</th>
                   {meses.slice(6, 9).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  <th className="px-3 py-3 text-center font-bold">4 TRI</th>
                   {meses.slice(9, 12).map(mes => (
-                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                    <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
                   ))}
-                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
-                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                  <th className="px-3 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-3 py-3 text-center font-bold">Média</th>
                 </tr>
               </thead>
 
@@ -1758,11 +1764,11 @@ const Projection: React.FC = () => {
                 {/* Linha Previsto */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Previsto</td>
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.previsto[index] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('previsto', index, value)}
@@ -1771,11 +1777,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.previsto[index + 3] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 3, value)}
@@ -1784,11 +1790,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.previsto[index + 6] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 6, value)}
@@ -1797,11 +1803,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.previsto[index + 9] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 9, value)}
@@ -1810,22 +1816,22 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularTotalGeral((i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
-                  <td className="px-2 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoVariableMes(i))} />
+                  <td className="px-3 py-2">
+                    <CalculatedCell value={calcularMedia((i) => variableExpensesData.previsto[i] || 0)} />
                   </td>
                 </tr>
 
                 {/* Linha Médio */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Médio</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => variableExpensesData.medio[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.medio[index] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('medio', index, value)}
@@ -1834,11 +1840,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => variableExpensesData.medio[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.medio[index + 3] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('medio', index + 3, value)}
@@ -1847,11 +1853,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => variableExpensesData.medio[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.medio[index + 6] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('medio', index + 6, value)}
@@ -1860,11 +1866,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => variableExpensesData.medio[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.medio[index + 9] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('medio', index + 9, value)}
@@ -1873,10 +1879,10 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTotalGeral((i) => variableExpensesData.medio[i] || 0)} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => variableExpensesData.medio[i] || 0)} />
                   </td>
                 </tr>
@@ -1884,11 +1890,11 @@ const Projection: React.FC = () => {
                 {/* Linha Máximo */}
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Máximo</td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
-                    <td key={index} className="px-2 py-2">
+                    <td key={index} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.maximo[index] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('maximo', index, value)}
@@ -1897,11 +1903,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(3, 5, (i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
-                    <td key={index + 3} className="px-2 py-2">
+                    <td key={index + 3} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.maximo[index + 3] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 3, value)}
@@ -1910,11 +1916,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(6, 8, (i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
-                    <td key={index + 6} className="px-2 py-2">
+                    <td key={index + 6} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.maximo[index + 6] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 6, value)}
@@ -1923,11 +1929,11 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(9, 11, (i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
-                    <td key={index + 9} className="px-2 py-2">
+                    <td key={index + 9} className="px-3 py-2">
                       <InputCell
                         value={variableExpensesData.maximo[index + 9] || 0}
                         onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 9, value)}
@@ -1936,10 +1942,10 @@ const Projection: React.FC = () => {
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularTotalGeral((i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-3 py-2">
                     <CalculatedCell value={calcularMedia((i) => variableExpensesData.maximo[i] || 0)} />
                   </td>
                 </tr>
