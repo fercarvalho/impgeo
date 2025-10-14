@@ -1569,6 +1569,167 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Tabela RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
+      <div className="mb-8">
+        <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
+                <th className="px-6 py-4 text-left text-lg font-bold">🎯 RESULTADO FINANCEIRO</th>
+                <th className="px-4 py-4 text-center font-semibold">1º TRI</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Março</th>
+                <th className="px-4 py-4 text-center font-semibold">2º TRI</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Abril</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Maio</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Junho</th>
+                <th className="px-4 py-4 text-center font-semibold">3º TRI</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Julho</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Agosto</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Setembro</th>
+                <th className="px-4 py-4 text-center font-semibold">4º TRI</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Outubro</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Novembro</th>
+                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Dezembro</th>
+                <th className="px-4 py-4 text-center font-semibold">Total Geral</th>
+                <th className="px-4 py-4 text-center font-semibold">Média</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr className="hover:bg-blue-50 transition-colors">
+                <td className="px-6 py-4 text-gray-800 font-semibold">📊 Cenário Previsto</td>
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoResultadoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr className="hover:bg-blue-50 transition-colors">
+                <td className="px-6 py-4 text-gray-800 font-semibold">📈 Cenário Médio</td>
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioResultadoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioResultadoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioResultadoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioResultadoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioResultadoMes(i))} />
+                </td>
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioResultadoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr className="hover:bg-blue-50 transition-colors">
+                <td className="px-6 py-4 text-gray-800 font-semibold">🚀 Cenário Máximo</td>
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoResultadoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoResultadoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoResultadoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoResultadoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoResultadoMes(i))} />
+                </td>
+                <td className="px-3 py-3 font-semibold">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoResultadoMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -5403,166 +5564,6 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabela RESULTADO - A mais importante */}
-      <div className="mb-8">
-        <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
-                <th className="px-6 py-4 text-left text-lg font-bold">🎯 RESULTADO FINANCEIRO</th>
-                <th className="px-4 py-4 text-center font-semibold">1º TRI</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Março</th>
-                <th className="px-4 py-4 text-center font-semibold">2º TRI</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Abril</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Maio</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Junho</th>
-                <th className="px-4 py-4 text-center font-semibold">3º TRI</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Julho</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Agosto</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Setembro</th>
-                <th className="px-4 py-4 text-center font-semibold">4º TRI</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Outubro</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Novembro</th>
-                <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Dezembro</th>
-                <th className="px-4 py-4 text-center font-semibold">Total Geral</th>
-                <th className="px-4 py-4 text-center font-semibold">Média</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Linha Previsto */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">📊 Cenário Previsto</td>
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-                {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-                {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-                {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-                {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoResultadoMes(i))} />
-                </td>
-              </tr>
-
-              {/* Linha Médio */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">📈 Cenário Médio</td>
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
-                </td>
-                {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioResultadoMes(i))} />
-                </td>
-                {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 3)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioResultadoMes(i))} />
-                </td>
-                {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 6)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioResultadoMes(i))} />
-                </td>
-                {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 9)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioResultadoMes(i))} />
-                </td>
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioResultadoMes(i))} />
-                </td>
-              </tr>
-
-              {/* Linha Máximo */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">🚀 Cenário Máximo</td>
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
-                </td>
-                {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoResultadoMes(i))} />
-                </td>
-                {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 3)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoResultadoMes(i))} />
-                </td>
-                {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 6)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoResultadoMes(i))} />
-                </td>
-                {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 9)} />
-                  </td>
-                ))}
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoResultadoMes(i))} />
-                </td>
-                <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoResultadoMes(i))} />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
     </div>
   )
