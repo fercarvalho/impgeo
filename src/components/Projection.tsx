@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Calculator, TrendingUp, DollarSign } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -58,6 +58,19 @@ const Projection: React.FC = () => {
     loadData()
   }, [])
 
+  // Salvamento automático a cada 5 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (token && !isSaving) {
+        console.log('Salvamento automático executado')
+        setIsSaving(true)
+        saveToServer(data)
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [token, data, isSaving])
+
   // Salvar dados no servidor
   const saveToServer = async (newData: ProjectionData) => {
     if (!token) return
@@ -86,6 +99,7 @@ const Projection: React.FC = () => {
   }
 
   const updateDataAndSave = (category: keyof ProjectionData, monthIndex: number, value: number) => {
+    console.log('updateDataAndSave chamado:', category, monthIndex, value)
     const newData = {
       ...data,
       [category]: data[category].map((val, index) => 
@@ -96,8 +110,11 @@ const Projection: React.FC = () => {
     
     // Salvar imediatamente
     if (token) {
+      console.log('Salvando no servidor...')
       setIsSaving(true)
       saveToServer(newData)
+    } else {
+      console.log('Token não encontrado, não salvando')
     }
   }
 
@@ -148,30 +165,33 @@ const Projection: React.FC = () => {
     value: number
     onBlur: (value: number) => void
     className?: string
-  }> = ({ value, onBlur, className = '' }) => {
-    const [localValue, setLocalValue] = useState(value || '')
+    category: string
+    monthIndex: number
+  }> = ({ value, onBlur, className = '', category, monthIndex }) => {
+    const inputRef = useRef<HTMLInputElement>(null)
     
-    // Sincronizar com o valor externo quando ele mudar
-    useEffect(() => {
-      setLocalValue(value || '')
-    }, [value])
-    
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setLocalValue(e.target.value)
-      // Não chama nenhuma função externa, só atualiza o estado local
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      const numericValue = parseFloat(e.target.value) || 0
+      console.log('handleBlur chamado com valor:', numericValue)
+      onBlur(numericValue)
     }
     
-    const handleBlur = () => {
-      const numericValue = parseFloat(localValue) || 0
-      onBlur(numericValue)
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        const numericValue = parseFloat(e.target.value) || 0
+        console.log('Tecla Enter/Tab pressionada, salvando:', numericValue)
+        onBlur(numericValue)
+      }
     }
     
     return (
       <input
+        ref={inputRef}
+        key={`${category}-${monthIndex}-${value}`}
         type="number"
-        value={localValue}
-        onChange={handleChange}
+        defaultValue={value || ''}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         className={`w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${className}`}
         placeholder="0,00"
       />
@@ -296,6 +316,8 @@ const Projection: React.FC = () => {
                     <InputCell 
                       value={data.despesasVariaveis[index]} 
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index, value)}
+                      category="despesasVariaveis"
+                      monthIndex={index}
                     />
                   </td>
                 ))}
@@ -306,7 +328,9 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 3]} 
-                      onChange={(value) => updateData('despesasVariaveis', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 3, value)}
+                      category="despesasVariaveis"
+                      monthIndex={index + 3}
                     />
                   </td>
                 ))}
@@ -317,7 +341,9 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 6]} 
-                      onChange={(value) => updateData('despesasVariaveis', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 6, value)}
+                      category="despesasVariaveis"
+                      monthIndex={index + 6}
                     />
                   </td>
                 ))}
@@ -328,7 +354,9 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasVariaveis[index + 9]} 
-                      onChange={(value) => updateData('despesasVariaveis', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 9, value)}
+                      category="despesasVariaveis"
+                      monthIndex={index + 9}
                     />
                   </td>
                 ))}
@@ -351,6 +379,9 @@ const Projection: React.FC = () => {
                     <InputCell 
                       value={data.despesasFixas[index]} 
                       onBlur={(value) => updateDataAndSave('despesasFixas', index, value)}
+                    
+                      category="despesasFixas"
+                      monthIndex={index}
                     />
                   </td>
                 ))}
@@ -361,7 +392,9 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 3]} 
-                      onChange={(value) => updateData('despesasFixas', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('despesasFixas', index + 3, value)}
+                      category="despesasFixas"
+                      monthIndex={index + 3}
                     />
                   </td>
                 ))}
@@ -372,7 +405,10 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 6]} 
-                      onChange={(value) => updateData('despesasFixas', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('despesasFixas', index + 6, value)}
+                    
+                      category="despesasFixas"
+                      monthIndex={index + 6}
                     />
                   </td>
                 ))}
@@ -383,7 +419,10 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.despesasFixas[index + 9]} 
-                      onChange={(value) => updateData('despesasFixas', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('despesasFixas', index + 9, value)}
+                    
+                      category="despesasFixas"
+                      monthIndex={index + 9}
                     />
                   </td>
                 ))}
@@ -406,6 +445,9 @@ const Projection: React.FC = () => {
                     <InputCell 
                       value={data.investimentos[index]} 
                       onBlur={(value) => updateDataAndSave('investimentos', index, value)}
+                    
+                      category="investimentos"
+                      monthIndex={index}
                     />
                   </td>
                 ))}
@@ -416,7 +458,10 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.investimentos[index + 3]} 
-                      onChange={(value) => updateData('investimentos', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('investimentos', index + 3, value)}
+                    
+                      category="investimentos"
+                      monthIndex={index + 3}
                     />
                   </td>
                 ))}
@@ -427,7 +472,10 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.investimentos[index + 6]} 
-                      onChange={(value) => updateData('investimentos', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('investimentos', index + 6, value)}
+                    
+                      category="investimentos"
+                      monthIndex={index + 6}
                     />
                   </td>
                 ))}
@@ -438,7 +486,10 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.investimentos[index + 9]} 
-                      onChange={(value) => updateData('investimentos', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('investimentos', index + 9, value)}
+                    
+                      category="investimentos"
+                      monthIndex={index + 9}
                     />
                   </td>
                 ))}
@@ -461,6 +512,9 @@ const Projection: React.FC = () => {
                     <InputCell 
                       value={data.mkt[index]} 
                       onBlur={(value) => updateDataAndSave('mkt', index, value)}
+                    
+                      category="mkt"
+                      monthIndex={index}
                     />
                   </td>
                 ))}
@@ -471,7 +525,10 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.mkt[index + 3]} 
-                      onChange={(value) => updateData('mkt', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('mkt', index + 3, value)}
+                    
+                      category="mkt"
+                      monthIndex={index + 3}
                     />
                   </td>
                 ))}
@@ -482,7 +539,10 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.mkt[index + 6]} 
-                      onChange={(value) => updateData('mkt', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('mkt', index + 6, value)}
+                    
+                      category="mkt"
+                      monthIndex={index + 6}
                     />
                   </td>
                 ))}
@@ -493,7 +553,10 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.mkt[index + 9]} 
-                      onChange={(value) => updateData('mkt', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('mkt', index + 9, value)}
+                    
+                      category="mkt"
+                      monthIndex={index + 9}
                     />
                   </td>
                 ))}
@@ -570,7 +633,7 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 3]} 
-                      onChange={(value) => updateData('faturamentoReurb', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 3, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -582,7 +645,7 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 6]} 
-                      onChange={(value) => updateData('faturamentoReurb', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 6, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -594,7 +657,7 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReurb[index + 9]} 
-                      onChange={(value) => updateData('faturamentoReurb', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReurb', index + 9, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -629,7 +692,7 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 3]} 
-                      onChange={(value) => updateData('faturamentoGeo', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 3, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -641,7 +704,7 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 6]} 
-                      onChange={(value) => updateData('faturamentoGeo', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 6, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -653,7 +716,7 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoGeo[index + 9]} 
-                      onChange={(value) => updateData('faturamentoGeo', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoGeo', index + 9, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -688,7 +751,7 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 3]} 
-                      onChange={(value) => updateData('faturamentoPlan', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 3, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -700,7 +763,7 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 6]} 
-                      onChange={(value) => updateData('faturamentoPlan', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 6, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -712,7 +775,7 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoPlan[index + 9]} 
-                      onChange={(value) => updateData('faturamentoPlan', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoPlan', index + 9, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -747,7 +810,7 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 3]} 
-                      onChange={(value) => updateData('faturamentoReg', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReg', index + 3, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -759,7 +822,7 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 6]} 
-                      onChange={(value) => updateData('faturamentoReg', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReg', index + 6, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -771,7 +834,7 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoReg[index + 9]} 
-                      onChange={(value) => updateData('faturamentoReg', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoReg', index + 9, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -806,7 +869,7 @@ const Projection: React.FC = () => {
                   <td key={index + 3} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 3]} 
-                      onChange={(value) => updateData('faturamentoNn', index + 3, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoNn', index + 3, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -818,7 +881,7 @@ const Projection: React.FC = () => {
                   <td key={index + 6} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 6]} 
-                      onChange={(value) => updateData('faturamentoNn', index + 6, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoNn', index + 6, value)}
                       className="bg-blue-100"
                     />
                   </td>
@@ -830,7 +893,7 @@ const Projection: React.FC = () => {
                   <td key={index + 9} className="px-2 py-2">
                     <InputCell 
                       value={data.faturamentoNn[index + 9]} 
-                      onChange={(value) => updateData('faturamentoNn', index + 9, value)}
+                      onBlur={(value) => updateDataAndSave('faturamentoNn', index + 9, value)}
                       className="bg-blue-100"
                     />
                   </td>
