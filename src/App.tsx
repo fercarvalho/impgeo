@@ -24,6 +24,7 @@ import DRE from './components/DRE'
 import Projects from './components/Projects'
 import Services from './components/Services'
 import Login from './components/Login'
+import Projection from './components/Projection'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -875,10 +876,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
         )}
         {activeTab === 'projecao' && (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Projeção Anual</h1>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-            </div>
+          <Projection />
         )}
         {activeTab === 'clients' && (
           <Clients />
