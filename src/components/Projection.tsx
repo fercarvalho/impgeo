@@ -12,6 +12,16 @@ interface ProjectionData {
   faturamentoPlan: number[]
   faturamentoReg: number[]
   faturamentoNn: number[]
+  growth?: {
+    minimo: number
+    medio: number
+    maximo: number
+  }
+  mktComponents?: {
+    trafego: number[]
+    socialMedia: number[]
+    producaoConteudo: number[]
+  }
 }
 
 const API_BASE_URL = '/api'
@@ -27,7 +37,13 @@ const Projection: React.FC = () => {
     faturamentoGeo: new Array(12).fill(0),
     faturamentoPlan: new Array(12).fill(0),
     faturamentoReg: new Array(12).fill(0),
-    faturamentoNn: new Array(12).fill(0)
+    faturamentoNn: new Array(12).fill(0),
+    growth: { minimo: 0, medio: 0, maximo: 0 },
+    mktComponents: {
+      trafego: new Array(12).fill(0),
+      socialMedia: new Array(12).fill(0),
+      producaoConteudo: new Array(12).fill(0)
+    }
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -115,6 +131,24 @@ const Projection: React.FC = () => {
       saveToServer(newData)
     } else {
       console.log('Token não encontrado, não salvando')
+    }
+  }
+
+  // Atualiza blocos "growth" (não mensais)
+  const updateGrowthAndSave = (key: 'minimo' | 'medio' | 'maximo', value: number) => {
+    const newData: ProjectionData = {
+      ...data,
+      growth: {
+        minimo: data.growth?.minimo ?? 0,
+        medio: data.growth?.medio ?? 0,
+        maximo: data.growth?.maximo ?? 0,
+        [key]: value
+      }
+    }
+    setData(newData)
+    if (token) {
+      setIsSaving(true)
+      saveToServer(newData)
     }
   }
 
@@ -953,8 +987,10 @@ const Projection: React.FC = () => {
         </div>
         </div>
       )}
+      
 
-      {/* Legenda */}
+      
+      {/* Legenda (abaixo da tabela inicial) */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="font-semibold text-blue-800 mb-2">Legenda:</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
@@ -965,12 +1001,340 @@ const Projection: React.FC = () => {
           </div>
           <div>
             <p><span className="font-semibold">Fórmulas:</span></p>
-            <p>• Despesas Totais = Despesas Variáveis + Despesas Fixas</p>
-            <p>• Faturamento Total = REURB + GEO + PLAN + REG + NN</p>
-            <p>• Resultado = Faturamento Total - (Mkt + Investimentos + Despesas Totais)</p>
+            <ul className="list-disc pl-5">
+              <li>Despesas Totais = Despesas Variáveis + Despesas Fixas</li>
+              <li>Faturamento Total = REURB + GEO + PLAN + REG + NN</li>
+              <li>Resultado = Faturamento Total - (Mkt + Investimentos + Despesas Totais)</li>
+            </ul>
           </div>
         </div>
       </div>
+
+      {/* Percentual de Crescimento Anual */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px]">
+              <thead className="bg-gray-800 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">PERCENTUAL DE CRESCIMENTO ANUAL</th>
+                  <th className="px-4 py-3 text-center font-bold">%</th>
+                </tr>
+              </thead>
+              <tbody className="bg-blue-50 divide-y divide-blue-100">
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Mínimo</td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="number"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                      defaultValue={data.growth?.minimo ?? 0}
+                      onBlur={(e) => updateGrowthAndSave('minimo', parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          const target = e.target as HTMLInputElement
+                          updateGrowthAndSave('minimo', parseFloat(target.value) || 0)
+                        }
+                      }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="number"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                      defaultValue={data.growth?.medio ?? 0}
+                      onBlur={(e) => updateGrowthAndSave('medio', parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          const target = e.target as HTMLInputElement
+                          updateGrowthAndSave('medio', parseFloat(target.value) || 0)
+                        }
+                      }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="number"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                      defaultValue={data.growth?.maximo ?? 0}
+                      onBlur={(e) => updateGrowthAndSave('maximo', parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          const target = e.target as HTMLInputElement
+                          updateGrowthAndSave('maximo', parseFloat(target.value) || 0)
+                        }
+                      }}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Composição MKT */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1200px]">
+              <thead className="bg-blue-700 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">Composição MKT</th>
+                  <th className="px-2 py-3 text-center font-bold">1 TRI</th>
+                  {meses.slice(0, 3).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">2 TRI</th>
+                  {meses.slice(3, 6).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">3 TRI</th>
+                  {meses.slice(6, 9).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">4 TRI</th>
+                  {meses.slice(9, 12).map(mes => (
+                    <th key={mes} className="px-2 py-3 text-center font-bold">{mes}</th>
+                  ))}
+                  <th className="px-2 py-3 text-center font-bold">Total Geral</th>
+                  <th className="px-2 py-3 text-center font-bold">Média</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-200">
+                {[
+                  { key: 'trafego', label: 'Tráfego' },
+                  { key: 'socialMedia', label: 'Social Media' },
+                  { key: 'producaoConteudo', label: 'Produção Conteúdo' }
+                ].map((row) => (
+                  <tr key={row.key}>
+                    <td className="px-4 py-3 text-gray-700">{row.label}</td>
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={calcularTrimestre(0, 2, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                    </td>
+                    {meses.slice(0, 3).map((_, index) => (
+                      <td key={index} className="px-2 py-2">
+                        <InputCell
+                          value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index] || 0}
+                          onBlur={(value) => {
+                            const current = data.mktComponents || { trafego: new Array(12).fill(0), socialMedia: new Array(12).fill(0), producaoConteudo: new Array(12).fill(0) }
+                            const updated = {
+                              ...data,
+                              mktComponents: {
+                                ...current,
+                                [row.key]: (current[row.key as keyof typeof current] as number[]).map((v, i) => i === index ? value : v)
+                              }
+                            }
+                            setData(updated)
+                            if (token) saveToServer(updated)
+                          }}
+                          category={`mkt-${row.key}`}
+                          monthIndex={index}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={calcularTrimestre(3, 5, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                    </td>
+                    {meses.slice(3, 6).map((_, index) => (
+                      <td key={index + 3} className="px-2 py-2">
+                        <InputCell
+                          value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 3] || 0}
+                          onBlur={(value) => {
+                            const current = data.mktComponents || { trafego: new Array(12).fill(0), socialMedia: new Array(12).fill(0), producaoConteudo: new Array(12).fill(0) }
+                            const updated = {
+                              ...data,
+                              mktComponents: {
+                                ...current,
+                                [row.key]: (current[row.key as keyof typeof current] as number[]).map((v, i) => i === (index + 3) ? value : v)
+                              }
+                            }
+                            setData(updated)
+                            if (token) saveToServer(updated)
+                          }}
+                          category={`mkt-${row.key}`}
+                          monthIndex={index + 3}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={calcularTrimestre(6, 8, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                    </td>
+                    {meses.slice(6, 9).map((_, index) => (
+                      <td key={index + 6} className="px-2 py-2">
+                        <InputCell
+                          value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 6] || 0}
+                          onBlur={(value) => {
+                            const current = data.mktComponents || { trafego: new Array(12).fill(0), socialMedia: new Array(12).fill(0), producaoConteudo: new Array(12).fill(0) }
+                            const updated = {
+                              ...data,
+                              mktComponents: {
+                                ...current,
+                                [row.key]: (current[row.key as keyof typeof current] as number[]).map((v, i) => i === (index + 6) ? value : v)
+                              }
+                            }
+                            setData(updated)
+                            if (token) saveToServer(updated)
+                          }}
+                          category={`mkt-${row.key}`}
+                          monthIndex={index + 6}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={calcularTrimestre(9, 11, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                    </td>
+                    {meses.slice(9, 12).map((_, index) => (
+                      <td key={index + 9} className="px-2 py-2">
+                        <InputCell
+                          value={(data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[index + 9] || 0}
+                          onBlur={(value) => {
+                            const current = data.mktComponents || { trafego: new Array(12).fill(0), socialMedia: new Array(12).fill(0), producaoConteudo: new Array(12).fill(0) }
+                            const updated = {
+                              ...data,
+                              mktComponents: {
+                                ...current,
+                                [row.key]: (current[row.key as keyof typeof current] as number[]).map((v, i) => i === (index + 9) ? value : v)
+                              }
+                            }
+                            setData(updated)
+                            if (token) saveToServer(updated)
+                          }}
+                          category={`mkt-${row.key}`}
+                          monthIndex={index + 9}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
+                        return arr.reduce((sum, v) => sum + (v || 0), 0)
+                      })()} />
+                    </td>
+                    <td className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
+                        const total = arr.reduce((sum, v) => sum + (v || 0), 0)
+                        return total / 12
+                      })()} />
+                    </td>
+                  </tr>
+                ))}
+
+                {/* TOTAL (soma das linhas) */}
+                <tr className="bg-gray-100">
+                  <td className="px-4 py-3 font-semibold text-gray-800">TOTAL</td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                    })} />
+                  </td>
+                  {meses.slice(0, 3).map((_, index) => (
+                    <td key={index} className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const c = data.mktComponents
+                        if (!c) return 0
+                        return (c.trafego[index]||0) + (c.socialMedia[index]||0) + (c.producaoConteudo[index]||0)
+                      })()} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                    })} />
+                  </td>
+                  {meses.slice(3, 6).map((_, index) => (
+                    <td key={index + 3} className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const i = index + 3
+                        const c = data.mktComponents
+                        if (!c) return 0
+                        return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                      })()} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                    })} />
+                  </td>
+                  {meses.slice(6, 9).map((_, index) => (
+                    <td key={index + 6} className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const i = index + 6
+                        const c = data.mktComponents
+                        if (!c) return 0
+                        return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                      })()} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                    })} />
+                  </td>
+                  {meses.slice(9, 12).map((_, index) => (
+                    <td key={index + 9} className="px-2 py-2">
+                      <CalculatedCell value={(() => {
+                        const i = index + 9
+                        const c = data.mktComponents
+                        if (!c) return 0
+                        return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
+                      })()} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={(() => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      const sum = [...Array(12).keys()].reduce((acc, i) => acc + (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0), 0)
+                      return sum
+                    })()} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CalculatedCell value={(() => {
+                      const c = data.mktComponents
+                      if (!c) return 0
+                      const sum = [...Array(12).keys()].reduce((acc, i) => acc + (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0), 0)
+                      return sum / 12
+                    })()} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Legenda MKT (logo abaixo da Composição MKT) */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Produção de Conteúdo:</span> criação de campanhas com estratégia</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Social Media:</span> gestão e posts orgânicos</p>
+            <p><span className="font-semibold">Tráfego Pago:</span> anúncios/impulsionamentos</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   )
 }

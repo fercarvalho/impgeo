@@ -135,6 +135,18 @@ class Database {
         faturamentoPlan: new Array(12).fill(0),
         faturamentoReg: new Array(12).fill(0),
         faturamentoNn: new Array(12).fill(0),
+        // Composição de MKT
+        mktComponents: {
+          trafego: new Array(12).fill(0),
+          socialMedia: new Array(12).fill(0),
+          producaoConteudo: new Array(12).fill(0)
+        },
+        // Tabela adicional: Percentual de Crescimento Anual
+        growth: {
+          minimo: 0,
+          medio: 0,
+          maximo: 0
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
