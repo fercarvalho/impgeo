@@ -995,6 +995,29 @@ app.put('/api/faturamento-total', authenticateToken, (req, res) => {
   }
 });
 
+// APIs para Resultado
+app.get('/api/resultado', (req, res) => {
+  try {
+    const resultadoData = db.getResultadoData();
+    if (!resultadoData) {
+      return res.status(404).json({ error: 'Dados de resultado não encontrados' });
+    }
+    res.json(resultadoData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/resultado', authenticateToken, (req, res) => {
+  try {
+    const resultadoData = req.body;
+    const updatedData = db.updateResultadoData(resultadoData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -1085,6 +1108,8 @@ app.get('/api/test', (req, res) => {
       'PUT /api/faturamento-nn - Atualizar dados de faturamento NN',
       'GET /api/faturamento-total - Obter dados de faturamento total',
       'PUT /api/faturamento-total - Atualizar dados de faturamento total',
+      'GET /api/resultado - Obter dados de resultado',
+      'PUT /api/resultado - Atualizar dados de resultado',
       'GET /api/test - Testar API'
     ]
   });
