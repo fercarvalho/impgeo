@@ -96,6 +96,7 @@ const Projection: React.FC = () => {
     loadData()
     loadFixedExpensesData()
     loadVariableExpensesData()
+    loadMktData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -181,6 +182,23 @@ const Projection: React.FC = () => {
     // Os investimentos são calculados automaticamente, mas não são salvos em banco separado
     // Eles são calculados em tempo real baseados nos dados da tabela principal
   }, [data.investimentos, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
+
+  // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
+  useEffect(() => {
+    const novosPrevisto = meses.map((_, monthIndex) => calcularPrevistoMktMes(monthIndex))
+    const novosMedio = meses.map((_, monthIndex) => calcularMedioMktMes(monthIndex))
+    const novosMaximo = meses.map((_, monthIndex) => calcularMaximoMktMes(monthIndex))
+    
+    const novosDados = {
+      previsto: novosPrevisto,
+      medio: novosMedio,
+      maximo: novosMaximo
+    }
+    // Os dados são calculados automaticamente e salvos no servidor
+    if (token) {
+      saveMktToServer(novosDados)
+    }
+  }, [data.mktComponents?.trafego, data.mktComponents?.socialMedia, data.mktComponents?.producaoConteudo, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos componentes de MKT e percentuais
 
   // Salvar dados no servidor
   const saveToServer = async (newData: ProjectionData) => {
@@ -317,6 +335,20 @@ const Projection: React.FC = () => {
     }
   }
 
+  // Carregar dados de MKT
+  const loadMktData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mkt`)
+      if (response.ok) {
+        // Os dados são carregados mas não armazenados em estado local
+        // pois são calculados automaticamente baseados na tabela principal
+        console.log('Dados de MKT carregados com sucesso')
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de MKT:', error)
+    }
+  }
+
   // Salvar dados de despesas variáveis
   const saveVariableExpensesToServer = async (newData: VariableExpensesData) => {
     if (!token) return
@@ -339,6 +371,33 @@ const Projection: React.FC = () => {
       console.log('Dados de despesas variáveis salvos com sucesso!')
     } catch (error) {
       console.error('Erro ao salvar despesas variáveis:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de MKT
+  const saveMktToServer = async (newData: VariableExpensesData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/mkt`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de MKT')
+      }
+      
+      console.log('Dados de MKT salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar dados de MKT:', error)
     } finally {
       setIsSaving(false)
     }
@@ -514,6 +573,53 @@ const Projection: React.FC = () => {
     const investimentos = data.investimentos[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
     return formatNumber(investimentos + (investimentos * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para MKT baseadas na linha TOTAL da Composição MKT
+  const calcularPrevistoMktMes = (monthIndex: number) => {
+    const totalMkt = (data.mktComponents?.trafego[monthIndex] || 0) + 
+                    (data.mktComponents?.socialMedia[monthIndex] || 0) + 
+                    (data.mktComponents?.producaoConteudo[monthIndex] || 0)
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(totalMkt + (totalMkt * percentualMinimo / 100))
+  }
+
+  const calcularMedioMktMes = (monthIndex: number) => {
+    const totalMkt = (data.mktComponents?.trafego[monthIndex] || 0) + 
+                    (data.mktComponents?.socialMedia[monthIndex] || 0) + 
+                    (data.mktComponents?.producaoConteudo[monthIndex] || 0)
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(totalMkt + (totalMkt * percentualMedio / 100))
+  }
+
+  const calcularMaximoMktMes = (monthIndex: number) => {
+    const totalMkt = (data.mktComponents?.trafego[monthIndex] || 0) + 
+                    (data.mktComponents?.socialMedia[monthIndex] || 0) + 
+                    (data.mktComponents?.producaoConteudo[monthIndex] || 0)
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(totalMkt + (totalMkt * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Orçamento: (Despesas Fixas + Variáveis) + MKT + Investimentos
+  const calcularPrevistoOrcamentoMes = (monthIndex: number) => {
+    const despesasFixoVariavel = calcularPrevistoFixoVariavelMes(monthIndex)
+    const mkt = calcularPrevistoMktMes(monthIndex)
+    const investimentos = calcularPrevistoInvestimentoMes(monthIndex)
+    return formatNumber(despesasFixoVariavel + mkt + investimentos)
+  }
+
+  const calcularMedioOrcamentoMes = (monthIndex: number) => {
+    const despesasFixoVariavel = calcularMedioFixoVariavelMes(monthIndex)
+    const mkt = calcularMedioMktMes(monthIndex)
+    const investimentos = calcularMedioInvestimentoMes(monthIndex)
+    return formatNumber(despesasFixoVariavel + mkt + investimentos)
+  }
+
+  const calcularMaximoOrcamentoMes = (monthIndex: number) => {
+    const despesasFixoVariavel = calcularMaximoFixoVariavelMes(monthIndex)
+    const mkt = calcularMaximoMktMes(monthIndex)
+    const investimentos = calcularMaximoInvestimentoMes(monthIndex)
+    return formatNumber(despesasFixoVariavel + mkt + investimentos)
   }
 
   const formatCurrency = (value: number) => {
@@ -1707,6 +1813,167 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Tabela MKT */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-orange-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">MKT</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMktMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoMktMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoMktMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoMktMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoMktMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoMktMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoMktMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioMktMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioMktMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioMktMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioMktMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioMktMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioMktMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioMktMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioMktMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioMktMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioMktMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMktMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoMktMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMktMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoMktMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMktMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoMktMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMktMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoMktMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMktMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoMktMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Despesas Fixas */}
       {!isLoading && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -2538,6 +2805,167 @@ const Projection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Tabela Orçamento */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px]">
+            <thead className="bg-indigo-700 text-white">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold">ORÇAMENTO</th>
+                <th className="px-3 py-3 text-center font-bold">1 TRI</th>
+                {meses.slice(0, 3).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">2 TRI</th>
+                {meses.slice(3, 6).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">3 TRI</th>
+                {meses.slice(6, 9).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">4 TRI</th>
+                {meses.slice(9, 12).map(mes => (
+                  <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
+                ))}
+                <th className="px-3 py-3 text-center font-bold">TOTAL GERAL</th>
+                <th className="px-3 py-3 text-center font-bold">MÉDIA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoOrcamentoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioOrcamentoMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoOrcamentoMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
   )

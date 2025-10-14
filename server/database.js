@@ -14,6 +14,9 @@ class Database {
     this.projectionFile = path.join(this.dbPath, 'projection.json');
     this.fixedExpensesFile = path.join(this.dbPath, 'fixedExpenses.json');
     this.variableExpensesFile = path.join(this.dbPath, 'variableExpenses.json');
+    this.mktFile = path.join(this.dbPath, 'mkt.json');
+    this.budgetFile = path.join(this.dbPath, 'budget.json');
+    this.investmentsFile = path.join(this.dbPath, 'investments.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -177,6 +180,42 @@ class Database {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.variableExpensesFile, JSON.stringify(defaultVariableExpenses, null, 2));
+    }
+    
+    if (!fs.existsSync(this.mktFile)) {
+      // Criar dados de MKT padrão
+      const defaultMkt = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.mktFile, JSON.stringify(defaultMkt, null, 2));
+    }
+    
+    if (!fs.existsSync(this.budgetFile)) {
+      // Criar dados de orçamento padrão
+      const defaultBudget = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.budgetFile, JSON.stringify(defaultBudget, null, 2));
+    }
+    
+    if (!fs.existsSync(this.investmentsFile)) {
+      // Criar dados de investimentos padrão
+      const defaultInvestments = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.investmentsFile, JSON.stringify(defaultInvestments, null, 2));
     }
   }
 
@@ -623,27 +662,75 @@ class Database {
     }
   }
 
-  // Métodos para Despesas Variáveis
-  getVariableExpensesData() {
+  // Métodos para MKT
+  getMktData() {
     try {
-      const data = fs.readFileSync(this.variableExpensesFile, 'utf8');
+      const data = fs.readFileSync(this.mktFile, 'utf8');
       return JSON.parse(data);
     } catch (error) {
-      console.error('Erro ao ler dados de despesas variáveis:', error);
+      console.error('Erro ao ler dados de MKT:', error);
       return null;
     }
   }
 
-  updateVariableExpensesData(variableExpensesData) {
+  updateMktData(mktData) {
     try {
       const data = {
-        ...variableExpensesData,
+        ...mktData,
         updatedAt: new Date().toISOString()
       };
-      fs.writeFileSync(this.variableExpensesFile, JSON.stringify(data, null, 2));
+      fs.writeFileSync(this.mktFile, JSON.stringify(data, null, 2));
       return data;
     } catch (error) {
-      throw new Error('Erro ao salvar dados de despesas variáveis: ' + error.message);
+      throw new Error('Erro ao salvar dados de MKT: ' + error.message);
+    }
+  }
+
+  // Métodos para Orçamento
+  getBudgetData() {
+    try {
+      const data = fs.readFileSync(this.budgetFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de orçamento:', error);
+      return null;
+    }
+  }
+
+  updateBudgetData(budgetData) {
+    try {
+      const data = {
+        ...budgetData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.budgetFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de orçamento: ' + error.message);
+    }
+  }
+
+  // Métodos para Investimentos
+  getInvestmentsData() {
+    try {
+      const data = fs.readFileSync(this.investmentsFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de investimentos:', error);
+      return null;
+    }
+  }
+
+  updateInvestmentsData(investmentsData) {
+    try {
+      const data = {
+        ...investmentsData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.investmentsFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de investimentos: ' + error.message);
     }
   }
 

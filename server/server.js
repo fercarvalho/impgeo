@@ -788,6 +788,75 @@ app.put('/api/variable-expenses', authenticateToken, (req, res) => {
   }
 });
 
+// APIs de MKT
+app.get('/api/mkt', (req, res) => {
+  try {
+    const mktData = db.getMktData();
+    if (!mktData) {
+      return res.status(404).json({ error: 'Dados de MKT não encontrados' });
+    }
+    res.json(mktData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/mkt', authenticateToken, (req, res) => {
+  try {
+    const mktData = req.body;
+    const updatedData = db.updateMktData(mktData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Orçamento
+app.get('/api/budget', (req, res) => {
+  try {
+    const budgetData = db.getBudgetData();
+    if (!budgetData) {
+      return res.status(404).json({ error: 'Dados de orçamento não encontrados' });
+    }
+    res.json(budgetData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/budget', authenticateToken, (req, res) => {
+  try {
+    const budgetData = req.body;
+    const updatedData = db.updateBudgetData(budgetData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs de Investimentos
+app.get('/api/investments', (req, res) => {
+  try {
+    const investmentsData = db.getInvestmentsData();
+    if (!investmentsData) {
+      return res.status(404).json({ error: 'Dados de investimentos não encontrados' });
+    }
+    res.json(investmentsData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/investments', authenticateToken, (req, res) => {
+  try {
+    const investmentsData = req.body;
+    const updatedData = db.updateInvestmentsData(investmentsData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -860,6 +929,12 @@ app.get('/api/test', (req, res) => {
       'PUT /api/fixed-expenses - Atualizar dados de despesas fixas',
       'GET /api/variable-expenses - Obter dados de despesas variáveis',
       'PUT /api/variable-expenses - Atualizar dados de despesas variáveis',
+      'GET /api/mkt - Obter dados de MKT',
+      'PUT /api/mkt - Atualizar dados de MKT',
+      'GET /api/budget - Obter dados de orçamento',
+      'PUT /api/budget - Atualizar dados de orçamento',
+      'GET /api/investments - Obter dados de investimentos',
+      'PUT /api/investments - Atualizar dados de investimentos',
       'GET /api/test - Testar API'
     ]
   });
