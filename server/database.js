@@ -11,6 +11,7 @@ class Database {
     this.projectsFile = path.join(this.dbPath, 'projects.json');
     this.servicesFile = path.join(this.dbPath, 'services.json');
     this.usersFile = path.join(this.dbPath, 'users.json');
+    this.projectionFile = path.join(this.dbPath, 'projection.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -120,6 +121,24 @@ class Database {
         }
       ];
       fs.writeFileSync(this.usersFile, JSON.stringify(defaultUsers, null, 2));
+    }
+    
+    if (!fs.existsSync(this.projectionFile)) {
+      // Criar dados de projeção padrão
+      const defaultProjection = {
+        despesasVariaveis: new Array(12).fill(0),
+        despesasFixas: new Array(12).fill(0),
+        investimentos: new Array(12).fill(0),
+        mkt: new Array(12).fill(0),
+        faturamentoReurb: new Array(12).fill(0),
+        faturamentoGeo: new Array(12).fill(0),
+        faturamentoPlan: new Array(12).fill(0),
+        faturamentoReg: new Array(12).fill(0),
+        faturamentoNn: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.projectionFile, JSON.stringify(defaultProjection, null, 2));
     }
   }
 
@@ -515,6 +534,30 @@ class Database {
       fs.writeFileSync(this.servicesFile, JSON.stringify(filteredServices, null, 2));
     } catch (error) {
       throw new Error('Erro ao excluir serviço: ' + error.message);
+    }
+  }
+
+  // Métodos para Projeção
+  getProjectionData() {
+    try {
+      const data = fs.readFileSync(this.projectionFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de projeção:', error);
+      return null;
+    }
+  }
+
+  updateProjectionData(projectionData) {
+    try {
+      const data = {
+        ...projectionData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.projectionFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de projeção: ' + error.message);
     }
   }
 

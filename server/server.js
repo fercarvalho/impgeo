@@ -719,6 +719,29 @@ app.delete('/api/products', (req, res) => {
   }
 });
 
+// APIs de Projeção
+app.get('/api/projection', (req, res) => {
+  try {
+    const projectionData = db.getProjectionData();
+    if (!projectionData) {
+      return res.status(404).json({ error: 'Dados de projeção não encontrados' });
+    }
+    res.json(projectionData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/projection', authenticateToken, (req, res) => {
+  try {
+    const projectionData = req.body;
+    const updatedData = db.updateProjectionData(projectionData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -785,6 +808,8 @@ app.get('/api/test', (req, res) => {
       'DELETE /api/products - Deletar múltiplos produtos',
       'POST /api/import - Importar arquivos Excel',
       'POST /api/export - Exportar dados para Excel',
+      'GET /api/projection - Obter dados de projeção',
+      'PUT /api/projection - Atualizar dados de projeção',
       'GET /api/test - Testar API'
     ]
   });

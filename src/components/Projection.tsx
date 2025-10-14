@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Calculator, TrendingUp, DollarSign } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
   despesasVariaveis: number[]
@@ -13,7 +14,10 @@ interface ProjectionData {
   faturamentoNn: number[]
 }
 
+const API_BASE_URL = '/api'
+
 const Projection: React.FC = () => {
+  const { token } = useAuth()
   const [data, setData] = useState<ProjectionData>({
     despesasVariaveis: new Array(12).fill(0),
     despesasFixas: new Array(12).fill(0),
@@ -25,32 +29,75 @@ const Projection: React.FC = () => {
     faturamentoReg: new Array(12).fill(0),
     faturamentoNn: new Array(12).fill(0)
   })
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ]
 
-  // Carregar dados do localStorage
+  // Carregar dados do servidor
   useEffect(() => {
-    const savedData = localStorage.getItem('impgeo-projection')
-    if (savedData) {
-      setData(JSON.parse(savedData))
+    const loadData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/projection`)
+        if (response.ok) {
+          const serverData = await response.json()
+          setData(serverData)
+        } else {
+          console.error('Erro ao carregar dados de projeção')
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
+    
+    loadData()
   }, [])
 
-  // Salvar dados no localStorage
-  useEffect(() => {
-    localStorage.setItem('impgeo-projection', JSON.stringify(data))
-  }, [data])
+  // Salvar dados no servidor
+  const saveToServer = async (newData: ProjectionData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/projection`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados')
+      }
+      
+      console.log('Dados salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const updateData = (category: keyof ProjectionData, monthIndex: number, value: number) => {
-    setData(prev => ({
-      ...prev,
-      [category]: prev[category].map((val, index) => 
+    const newData = {
+      ...data,
+      [category]: data[category].map((val, index) => 
         index === monthIndex ? value : val
       )
-    }))
+    }
+    setData(newData)
+    
+    // Salvar no servidor após um pequeno delay para evitar muitas requisições
+    setTimeout(() => {
+      saveToServer(newData)
+    }, 500)
   }
 
   // Fórmulas calculadas
@@ -126,12 +173,26 @@ const Projection: React.FC = () => {
           <Calculator className="w-8 h-8 text-blue-600" />
           Projeção Anual
         </h1>
-        <div className="text-sm text-gray-600">
-          <p>Preencha apenas os valores mensais - os cálculos são automáticos</p>
+        <div className="flex items-center gap-4">
+          {isSaving && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              Salvando...
+            </div>
+          )}
+          <div className="text-sm text-gray-600">
+            <p>Preencha apenas os valores mensais - os cálculos são automáticos</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-gray-600">Carregando dados...</span>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             {/* Cabeçalho */}
@@ -806,7 +867,8 @@ const Projection: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Legenda */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -815,6 +877,7 @@ const Projection: React.FC = () => {
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Apenas os valores mensais</p>
             <p><span className="font-semibold">Campos calculados:</span> Trimestres, Total Geral e Média</p>
+            <p><span className="font-semibold">Salvamento:</span> Automático no servidor</p>
           </div>
           <div>
             <p><span className="font-semibold">Fórmulas:</span></p>
