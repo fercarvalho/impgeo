@@ -107,6 +107,12 @@ const Projection: React.FC = () => {
     maximo: new Array(12).fill(0)
   })
 
+  const [faturamentoTotalData, setFaturamentoTotalData] = useState<FaturamentoData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -139,6 +145,7 @@ const Projection: React.FC = () => {
     loadFaturamentoPlanData()
     loadFaturamentoRegData()
     loadFaturamentoNnData()
+    loadFaturamentoTotalData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -425,6 +432,41 @@ const Projection: React.FC = () => {
     // Eles são calculados em tempo real baseados nos dados da tabela principal
   }, [data.investimentos, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
 
+  // Atualização automática do faturamento total quando qualquer faturamento mudar
+  useEffect(() => {
+    if (token) {
+      const novosPrevisto = [...faturamentoTotalData.previsto]
+      const novosMedio = [...faturamentoTotalData.medio]
+      const novosMaximo = [...faturamentoTotalData.maximo]
+      
+      for (let i = 0; i < 12; i++) {
+        const novoPrevisto = calcularPrevistoTotalMes(i)
+        const novoMedio = calcularMedioTotalMes(i)
+        const novoMaximo = calcularMaximoTotalMes(i)
+        
+        if (novosPrevisto[i] !== novoPrevisto) {
+          novosPrevisto[i] = novoPrevisto
+        }
+        if (novosMedio[i] !== novoMedio) {
+          novosMedio[i] = novoMedio
+        }
+        if (novosMaximo[i] !== novoMaximo) {
+          novosMaximo[i] = novoMaximo
+        }
+      }
+      
+      const novosDados = {
+        ...faturamentoTotalData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      
+      setFaturamentoTotalData(novosDados)
+      saveFaturamentoTotalToServer(novosDados)
+    }
+  }, [data.faturamentoReurb, data.faturamentoGeo, data.faturamentoPlan, data.faturamentoReg, data.faturamentoNn, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
+
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
     const novosPrevisto = meses.map((_, monthIndex) => calcularPrevistoMktMes(monthIndex))
@@ -642,6 +684,18 @@ const Projection: React.FC = () => {
     }
   }
 
+  const loadFaturamentoTotalData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-total`)
+      if (response.ok) {
+        const faturamentoData = await response.json()
+        setFaturamentoTotalData(faturamentoData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar faturamento total:', error)
+    }
+  }
+
   // Carregar dados de MKT
   const loadMktData = async () => {
     try {
@@ -813,6 +867,33 @@ const Projection: React.FC = () => {
       console.log('Dados de faturamento NN salvos com sucesso!')
     } catch (error) {
       console.error('Erro ao salvar faturamento NN:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de faturamento total
+  const saveFaturamentoTotalToServer = async (newData: FaturamentoData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/faturamento-total`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de faturamento total')
+      }
+      
+      console.log('Dados de faturamento total salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar faturamento total:', error)
     } finally {
       setIsSaving(false)
     }
@@ -1081,6 +1162,37 @@ const Projection: React.FC = () => {
     const faturamentoNn = data.faturamentoNn[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
     return formatNumber(faturamentoNn + (faturamentoNn * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Faturamento Total
+  const calcularPrevistoTotalMes = (monthIndex: number) => {
+    // Previsto = Soma de todos os faturamentos (Previsto)
+    const reurbPrevisto = calcularPrevistoReurbMes(monthIndex)
+    const geoPrevisto = calcularPrevistoGeoMes(monthIndex)
+    const planPrevisto = calcularPrevistoPlanMes(monthIndex)
+    const regPrevisto = calcularPrevistoRegMes(monthIndex)
+    const nnPrevisto = calcularPrevistoNnMes(monthIndex)
+    return formatNumber(reurbPrevisto + geoPrevisto + planPrevisto + regPrevisto + nnPrevisto)
+  }
+
+  const calcularMedioTotalMes = (monthIndex: number) => {
+    // Médio = Soma de todos os faturamentos (Médio)
+    const reurbMedio = calcularMedioReurbMes(monthIndex)
+    const geoMedio = calcularMedioGeoMes(monthIndex)
+    const planMedio = calcularMedioPlanMes(monthIndex)
+    const regMedio = calcularMedioRegMes(monthIndex)
+    const nnMedio = calcularMedioNnMes(monthIndex)
+    return formatNumber(reurbMedio + geoMedio + planMedio + regMedio + nnMedio)
+  }
+
+  const calcularMaximoTotalMes = (monthIndex: number) => {
+    // Máximo = Soma de todos os faturamentos (Máximo)
+    const reurbMaximo = calcularMaximoReurbMes(monthIndex)
+    const geoMaximo = calcularMaximoGeoMes(monthIndex)
+    const planMaximo = calcularMaximoPlanMes(monthIndex)
+    const regMaximo = calcularMaximoRegMes(monthIndex)
+    const nnMaximo = calcularMaximoNnMes(monthIndex)
+    return formatNumber(reurbMaximo + geoMaximo + planMaximo + regMaximo + nnMaximo)
   }
 
   // Funções específicas para despesas fixas + variáveis (não editáveis)
@@ -4917,6 +5029,167 @@ const Projection: React.FC = () => {
                 </td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularMedia((i) => calcularMaximoNnMes(i))} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabela FATURAMENTO TOTAL */}
+      <div className="mb-8">
+        <div className="overflow-x-auto rounded-lg bg-white shadow-lg">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
+                <th className="px-4 py-3 text-left">FATURAMENTO TOTAL</th>
+                <th className="px-3 py-3 text-center">1º TRI</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Março</th>
+                <th className="px-3 py-3 text-center">2º TRI</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Abril</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Maio</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Junho</th>
+                <th className="px-3 py-3 text-center">3º TRI</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Julho</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Agosto</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Setembro</th>
+                <th className="px-3 py-3 text-center">4º TRI</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Outubro</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Novembro</th>
+                <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Dezembro</th>
+                <th className="px-3 py-3 text-center">Total Geral</th>
+                <th className="px-3 py-3 text-center">Média</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Linha Previsto */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoTotalMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoTotalMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoTotalMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoTotalMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoTotalMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoTotalMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoTotalMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularPrevistoTotalMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoTotalMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoTotalMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Médio */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioTotalMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioTotalMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioTotalMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioTotalMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioTotalMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioTotalMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioTotalMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMedioTotalMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioTotalMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioTotalMes(i))} />
+                </td>
+              </tr>
+
+              {/* Linha Máximo */}
+              <tr>
+                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoTotalMes(i))} />
+                </td>
+                {meses.slice(0, 3).map((_, index) => (
+                  <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoTotalMes(index)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoTotalMes(i))} />
+                </td>
+                {meses.slice(3, 6).map((_, index) => (
+                  <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoTotalMes(index + 3)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoTotalMes(i))} />
+                </td>
+                {meses.slice(6, 9).map((_, index) => (
+                  <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoTotalMes(index + 6)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoTotalMes(i))} />
+                </td>
+                {meses.slice(9, 12).map((_, index) => (
+                  <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
+                    <CalculatedCell value={calcularMaximoTotalMes(index + 9)} />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoTotalMes(i))} />
+                </td>
+                <td className="px-3 py-2">
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoTotalMes(i))} />
                 </td>
               </tr>
             </tbody>

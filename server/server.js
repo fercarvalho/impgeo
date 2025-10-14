@@ -972,6 +972,29 @@ app.put('/api/faturamento-nn', authenticateToken, (req, res) => {
   }
 });
 
+// APIs para Faturamento Total
+app.get('/api/faturamento-total', (req, res) => {
+  try {
+    const faturamentoTotalData = db.getFaturamentoTotalData();
+    if (!faturamentoTotalData) {
+      return res.status(404).json({ error: 'Dados de faturamento total não encontrados' });
+    }
+    res.json(faturamentoTotalData);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/faturamento-total', authenticateToken, (req, res) => {
+  try {
+    const faturamentoTotalData = req.body;
+    const updatedData = db.updateFaturamentoTotalData(faturamentoTotalData);
+    res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Autenticação
 app.post('/api/auth/login', (req, res) => {
   try {
@@ -1060,6 +1083,8 @@ app.get('/api/test', (req, res) => {
       'PUT /api/faturamento-reg - Atualizar dados de faturamento REG',
       'GET /api/faturamento-nn - Obter dados de faturamento NN',
       'PUT /api/faturamento-nn - Atualizar dados de faturamento NN',
+      'GET /api/faturamento-total - Obter dados de faturamento total',
+      'PUT /api/faturamento-total - Atualizar dados de faturamento total',
       'GET /api/test - Testar API'
     ]
   });

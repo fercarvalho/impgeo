@@ -22,6 +22,7 @@ class Database {
     this.faturamentoPlanFile = path.join(this.dbPath, 'faturamentoPlan.json');
     this.faturamentoRegFile = path.join(this.dbPath, 'faturamentoReg.json');
     this.faturamentoNnFile = path.join(this.dbPath, 'faturamentoNn.json');
+    this.faturamentoTotalFile = path.join(this.dbPath, 'faturamentoTotal.json');
     
     // Garantir que os arquivos existam
     this.ensureFilesExist();
@@ -281,6 +282,18 @@ class Database {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.faturamentoNnFile, JSON.stringify(defaultFaturamentoNn, null, 2));
+    }
+    
+    if (!fs.existsSync(this.faturamentoTotalFile)) {
+      // Criar dados de faturamento total padrão
+      const defaultFaturamentoTotal = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoTotalFile, JSON.stringify(defaultFaturamentoTotal, null, 2));
     }
   }
 
@@ -916,6 +929,30 @@ class Database {
       return data;
     } catch (error) {
       throw new Error('Erro ao salvar dados de faturamento NN: ' + error.message);
+    }
+  }
+
+  // Métodos para Faturamento Total
+  getFaturamentoTotalData() {
+    try {
+      const data = fs.readFileSync(this.faturamentoTotalFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de faturamento total:', error);
+      return null;
+    }
+  }
+
+  updateFaturamentoTotalData(faturamentoTotalData) {
+    try {
+      const data = {
+        ...faturamentoTotalData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.faturamentoTotalFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      throw new Error('Erro ao salvar dados de faturamento total: ' + error.message);
     }
   }
 
