@@ -113,6 +113,12 @@ const Projection: React.FC = () => {
     maximo: new Array(12).fill(0)
   })
 
+  const [budgetData, setBudgetData] = useState<VariableExpensesData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -146,6 +152,7 @@ const Projection: React.FC = () => {
     loadFaturamentoRegData()
     loadFaturamentoNnData()
     loadFaturamentoTotalData()
+    loadBudgetData()
   }, [])
 
   // Salvamento automático a cada 5 segundos
@@ -482,6 +489,41 @@ const Projection: React.FC = () => {
     }
   }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData])
 
+  // Atualização automática do orçamento quando despesas fixas, variáveis, MKT ou investimentos mudarem
+  useEffect(() => {
+    if (token) {
+      const novosPrevisto = [...budgetData.previsto]
+      const novosMedio = [...budgetData.medio]
+      const novosMaximo = [...budgetData.maximo]
+      
+      for (let i = 0; i < 12; i++) {
+        const novoPrevisto = calcularPrevistoOrcamentoMes(i)
+        const novoMedio = calcularMedioOrcamentoMes(i)
+        const novoMaximo = calcularMaximoOrcamentoMes(i)
+        
+        if (novosPrevisto[i] !== novoPrevisto) {
+          novosPrevisto[i] = novoPrevisto
+        }
+        if (novosMedio[i] !== novoMedio) {
+          novosMedio[i] = novoMedio
+        }
+        if (novosMaximo[i] !== novoMaximo) {
+          novosMaximo[i] = novoMaximo
+        }
+      }
+      
+      const novosDados = {
+        ...budgetData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      
+      setBudgetData(novosDados)
+      saveBudgetToServer(novosDados)
+    }
+  }, [fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
+
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
     const novosPrevisto = meses.map((_, monthIndex) => calcularPrevistoMktMes(monthIndex))
@@ -711,6 +753,18 @@ const Projection: React.FC = () => {
     }
   }
 
+  const loadBudgetData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/budget`)
+      if (response.ok) {
+        const budgetData = await response.json()
+        setBudgetData(budgetData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de orçamento:', error)
+    }
+  }
+
   // Carregar dados de MKT
   const loadMktData = async () => {
     try {
@@ -909,6 +963,33 @@ const Projection: React.FC = () => {
       console.log('Dados de faturamento total salvos com sucesso!')
     } catch (error) {
       console.error('Erro ao salvar faturamento total:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Salvar dados de orçamento
+  const saveBudgetToServer = async (newData: VariableExpensesData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/budget`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de orçamento')
+      }
+      
+      console.log('Dados de orçamento salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar orçamento:', error)
     } finally {
       setIsSaving(false)
     }
