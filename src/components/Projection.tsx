@@ -1730,6 +1730,21 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Legenda Resultado Financeiro */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Resultado Financeiro:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos calculados:</span> Não editável, cálculo automático</p>
+            <p><span className="font-semibold">Fórmula:</span> Faturamento Total - Orçamento</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Função:</span> Resultado líquido (lucro/prejuízo)</p>
+            <p><span className="font-semibold">Cores:</span> Verde para positivo, vermelho para negativo</p>
+          </div>
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -2588,6 +2603,21 @@ const Projection: React.FC = () => {
         </div>
       )}
 
+      {/* Legenda Percentual de Crescimento Anual */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Percentual de Crescimento Anual:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Mínimo, Médio e Máximo</p>
+            <p><span className="font-semibold">Função:</span> Define percentuais de crescimento para cálculos automáticos</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Uso:</span> Utilizado pelas tabelas de Despesas Variáveis, Investimentos e Faturamentos</p>
+            <p><span className="font-semibold">Cálculo:</span> Valor base + (Valor base × Percentual ÷ 100)</p>
+          </div>
+        </div>
+      </div>
+
       {/* Composição MKT */}
       {!isLoading && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -3005,6 +3035,21 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Legenda MKT */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
+            <p><span className="font-semibold">Fonte:</span> Linha "TOTAL" da tabela Composição MKT</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Componentes:</span> Tráfego + Social Media + Produção Conteúdo</p>
+            <p><span className="font-semibold">Uso:</span> Componente do cálculo do Orçamento</p>
+          </div>
+        </div>
+      </div>
+
       {/* Despesas Fixas */}
       {!isLoading && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -3188,6 +3233,21 @@ const Projection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Legenda Despesas Fixas */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Apenas linha "Previsto"</p>
+            <p><span className="font-semibold">Campos calculados:</span> Média (+10%) e Máximo (+10%)</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Lógica:</span> Janeiro = Dezembro anterior + 10%</p>
+            <p><span className="font-semibold">Cópia:</span> Fev/Mar copiam Jan, Mai/Jun copiam Abr, etc.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Despesas Variáveis */}
       {!isLoading && (
@@ -3413,6 +3473,21 @@ const Projection: React.FC = () => {
         </div>
       )}
 
+      {/* Legenda Despesas Variáveis */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Variáveis:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> Despesas Variáveis da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Percentuais:</span> Previsto (Mínimo), Médio, Máximo</p>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+          </div>
+        </div>
+      </div>
+
       {/* Despesas Fixas + Variáveis */}
       {!isLoading && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -3576,6 +3651,21 @@ const Projection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Legenda Despesas Fixas + Variáveis */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas + Variáveis:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos calculados:</span> Soma automática das duas tabelas</p>
+            <p><span className="font-semibold">Função:</span> Não editável, apenas visualização</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Cálculo:</span> Despesas Fixas + Despesas Variáveis</p>
+            <p><span className="font-semibold">Uso:</span> Componente do cálculo do Orçamento</p>
+          </div>
+        </div>
+      </div>
 
       {/* Investimentos */}
       {!isLoading && (
@@ -3837,6 +3927,21 @@ const Projection: React.FC = () => {
         </div>
       )}
 
+      {/* Legenda Investimentos */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Investimentos:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> Investimentos da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados não são salvos</p>
+            <p><span className="font-semibold">Uso:</span> Componente do cálculo do Orçamento</p>
+          </div>
+        </div>
+      </div>
+
       {/* Tabela Orçamento */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -3995,6 +4100,21 @@ const Projection: React.FC = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Legenda Orçamento */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Orçamento:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
+            <p><span className="font-semibold">Componentes:</span> Despesas Fixas + Variáveis + MKT + Investimentos</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Função:</span> Total de gastos previstos</p>
+            <p><span className="font-semibold">Uso:</span> Comparação com Faturamento Total</p>
+          </div>
         </div>
       </div>
 
@@ -4279,6 +4399,21 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Legenda Faturamento REURB */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REURB:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> REURB da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+            <p><span className="font-semibold">Uso:</span> Componente do Faturamento Total</p>
+          </div>
+        </div>
+      </div>
+
       {/* Tabela Faturamento GEO */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -4557,6 +4692,21 @@ const Projection: React.FC = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Legenda Faturamento GEO */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento GEO:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> GEO da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+            <p><span className="font-semibold">Uso:</span> Componente do Faturamento Total</p>
+          </div>
         </div>
       </div>
 
@@ -4841,6 +4991,21 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Legenda Faturamento PLAN */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento PLAN:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> PLAN da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+            <p><span className="font-semibold">Uso:</span> Componente do Faturamento Total</p>
+          </div>
+        </div>
+      </div>
+
       {/* Tabela Faturamento REG */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -5119,6 +5284,21 @@ const Projection: React.FC = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Legenda Faturamento REG */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REG:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> REG da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+            <p><span className="font-semibold">Uso:</span> Componente do Faturamento Total</p>
+          </div>
         </div>
       </div>
 
@@ -5403,6 +5583,21 @@ const Projection: React.FC = () => {
         </div>
       </div>
 
+      {/* Legenda Faturamento NN */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento NN:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
+            <p><span className="font-semibold">Cálculo base:</span> NN da tabela principal + Percentual</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
+            <p><span className="font-semibold">Uso:</span> Componente do Faturamento Total</p>
+          </div>
+        </div>
+      </div>
+
       {/* Tabela FATURAMENTO TOTAL */}
       <div className="mb-8">
         <div className="overflow-x-auto rounded-lg bg-white shadow-lg">
@@ -5561,6 +5756,21 @@ const Projection: React.FC = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Legenda Faturamento Total */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento Total:</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <div>
+            <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
+            <p><span className="font-semibold">Componentes:</span> REURB + GEO + PLAN + REG + NN</p>
+          </div>
+          <div>
+            <p><span className="font-semibold">Função:</span> Total de receitas previstas</p>
+            <p><span className="font-semibold">Uso:</span> Comparação com Orçamento para Resultado</p>
+          </div>
         </div>
       </div>
 
