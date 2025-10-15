@@ -4150,7 +4150,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[0] + faturamentoReurbData.previsto[1] + faturamentoReurbData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4168,7 +4168,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[3] + faturamentoReurbData.previsto[4] + faturamentoReurbData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4186,7 +4186,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[6] + faturamentoReurbData.previsto[7] + faturamentoReurbData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4204,7 +4204,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[9] + faturamentoReurbData.previsto[10] + faturamentoReurbData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4233,7 +4233,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.medio[0] + faturamentoReurbData.medio[1] + faturamentoReurbData.medio[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4251,7 +4251,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.medio[3] + faturamentoReurbData.medio[4] + faturamentoReurbData.medio[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4269,7 +4269,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.medio[6] + faturamentoReurbData.medio[7] + faturamentoReurbData.medio[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4287,7 +4287,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.medio[9] + faturamentoReurbData.medio[10] + faturamentoReurbData.medio[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4316,7 +4316,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.maximo[0] + faturamentoReurbData.maximo[1] + faturamentoReurbData.maximo[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4334,7 +4334,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.maximo[3] + faturamentoReurbData.maximo[4] + faturamentoReurbData.maximo[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4352,7 +4352,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.maximo[6] + faturamentoReurbData.maximo[7] + faturamentoReurbData.maximo[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4370,7 +4370,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={faturamentoReurbData.maximo[9] + faturamentoReurbData.maximo[10] + faturamentoReurbData.maximo[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4446,7 +4446,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[0] + faturamentoGeoData.previsto[1] + faturamentoGeoData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4464,7 +4464,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[3] + faturamentoGeoData.previsto[4] + faturamentoGeoData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4482,7 +4482,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[6] + faturamentoGeoData.previsto[7] + faturamentoGeoData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4500,7 +4500,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[9] + faturamentoGeoData.previsto[10] + faturamentoGeoData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4529,7 +4529,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.medio[0] + faturamentoGeoData.medio[1] + faturamentoGeoData.medio[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4547,7 +4547,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.medio[3] + faturamentoGeoData.medio[4] + faturamentoGeoData.medio[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4565,7 +4565,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.medio[6] + faturamentoGeoData.medio[7] + faturamentoGeoData.medio[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4583,7 +4583,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.medio[9] + faturamentoGeoData.medio[10] + faturamentoGeoData.medio[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4612,7 +4612,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.maximo[0] + faturamentoGeoData.maximo[1] + faturamentoGeoData.maximo[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4630,7 +4630,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.maximo[3] + faturamentoGeoData.maximo[4] + faturamentoGeoData.maximo[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4648,7 +4648,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.maximo[6] + faturamentoGeoData.maximo[7] + faturamentoGeoData.maximo[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4666,7 +4666,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={faturamentoGeoData.maximo[9] + faturamentoGeoData.maximo[10] + faturamentoGeoData.maximo[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4742,7 +4742,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[0] + faturamentoPlanData.previsto[1] + faturamentoPlanData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4760,7 +4760,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[3] + faturamentoPlanData.previsto[4] + faturamentoPlanData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4778,7 +4778,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[6] + faturamentoPlanData.previsto[7] + faturamentoPlanData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4796,7 +4796,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[9] + faturamentoPlanData.previsto[10] + faturamentoPlanData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4825,7 +4825,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.medio[0] + faturamentoPlanData.medio[1] + faturamentoPlanData.medio[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4843,7 +4843,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.medio[3] + faturamentoPlanData.medio[4] + faturamentoPlanData.medio[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4861,7 +4861,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.medio[6] + faturamentoPlanData.medio[7] + faturamentoPlanData.medio[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4879,7 +4879,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.medio[9] + faturamentoPlanData.medio[10] + faturamentoPlanData.medio[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4908,7 +4908,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.maximo[0] + faturamentoPlanData.maximo[1] + faturamentoPlanData.maximo[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4926,7 +4926,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.maximo[3] + faturamentoPlanData.maximo[4] + faturamentoPlanData.maximo[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4944,7 +4944,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.maximo[6] + faturamentoPlanData.maximo[7] + faturamentoPlanData.maximo[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4962,7 +4962,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={faturamentoPlanData.maximo[9] + faturamentoPlanData.maximo[10] + faturamentoPlanData.maximo[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5038,7 +5038,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.previsto[0] + faturamentoRegData.previsto[1] + faturamentoRegData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5056,7 +5056,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.previsto[3] + faturamentoRegData.previsto[4] + faturamentoRegData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5074,7 +5074,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.previsto[6] + faturamentoRegData.previsto[7] + faturamentoRegData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5092,7 +5092,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.previsto[9] + faturamentoRegData.previsto[10] + faturamentoRegData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5121,7 +5121,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.medio[0] + faturamentoRegData.medio[1] + faturamentoRegData.medio[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5139,7 +5139,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.medio[3] + faturamentoRegData.medio[4] + faturamentoRegData.medio[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5157,7 +5157,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.medio[6] + faturamentoRegData.medio[7] + faturamentoRegData.medio[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5175,7 +5175,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.medio[9] + faturamentoRegData.medio[10] + faturamentoRegData.medio[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5204,7 +5204,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.maximo[0] + faturamentoRegData.maximo[1] + faturamentoRegData.maximo[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5222,7 +5222,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.maximo[3] + faturamentoRegData.maximo[4] + faturamentoRegData.maximo[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5240,7 +5240,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.maximo[6] + faturamentoRegData.maximo[7] + faturamentoRegData.maximo[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5258,7 +5258,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={faturamentoRegData.maximo[9] + faturamentoRegData.maximo[10] + faturamentoRegData.maximo[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5334,7 +5334,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.previsto[0] + faturamentoNnData.previsto[1] + faturamentoNnData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5352,7 +5352,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.previsto[3] + faturamentoNnData.previsto[4] + faturamentoNnData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5370,7 +5370,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.previsto[6] + faturamentoNnData.previsto[7] + faturamentoNnData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5388,7 +5388,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.previsto[9] + faturamentoNnData.previsto[10] + faturamentoNnData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5417,7 +5417,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.medio[0] + faturamentoNnData.medio[1] + faturamentoNnData.medio[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5435,7 +5435,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.medio[3] + faturamentoNnData.medio[4] + faturamentoNnData.medio[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5453,7 +5453,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.medio[6] + faturamentoNnData.medio[7] + faturamentoNnData.medio[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5471,7 +5471,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.medio[9] + faturamentoNnData.medio[10] + faturamentoNnData.medio[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5500,7 +5500,7 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.maximo[0] + faturamentoNnData.maximo[1] + faturamentoNnData.maximo[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5518,7 +5518,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.maximo[3] + faturamentoNnData.maximo[4] + faturamentoNnData.maximo[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5536,7 +5536,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.maximo[6] + faturamentoNnData.maximo[7] + faturamentoNnData.maximo[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5554,7 +5554,7 @@ const Projection: React.FC = () => {
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={faturamentoNnData.maximo[9] + faturamentoNnData.maximo[10] + faturamentoNnData.maximo[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
