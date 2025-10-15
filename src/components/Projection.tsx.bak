@@ -360,11 +360,9 @@ const Projection: React.FC = () => {
   }, [data.faturamentoGeo, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
   */
 
-  // Atualização automática do faturamento PLAN - DESABILITADO TEMPORARIAMENTE
+  // Atualização automática do faturamento PLAN quando dados da tabela principal ou percentual mudarem - DESABILITADO TEMPORARIAMENTE
+  /*
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoPlanData.previsto]
     const novosMedio = [...faturamentoPlanData.medio]
@@ -405,9 +403,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento REG quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoRegData.previsto]
     const novosMedio = [...faturamentoRegData.medio]
@@ -448,9 +443,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento NN quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoNnData.previsto]
     const novosMedio = [...faturamentoNnData.medio]
@@ -497,9 +489,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento total quando qualquer faturamento mudar
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     if (token) {
       const novosPrevisto = [...faturamentoTotalData.previsto]
       const novosMedio = [...faturamentoTotalData.medio]
@@ -570,9 +559,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do resultado quando faturamento total ou orçamento mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     if (token) {
       const novosPrevisto = [...resultadoData.previsto]
       const novosMedio = [...resultadoData.medio]
