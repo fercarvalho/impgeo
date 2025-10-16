@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Calculator } from 'lucide-react'
+import { Calculator, RotateCcw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -1710,19 +1710,20 @@ const Projection: React.FC = () => {
               Salvando...
             </div>
           )}
+          <div className="text-sm text-gray-600">
+            <p>Preencha apenas os valores mensais - os cálculos são automáticos</p>
+          </div>
           <button
             onClick={() => {
               setManualEdits({})
               console.log('Edições manuais resetadas - cálculos automáticos reativados')
             }}
-            className="px-3 py-1 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             title="Resetar edições manuais e permitir cálculos automáticos"
           >
-            🔄 Resetar Cálculos
+            <RotateCcw className="h-5 w-5" />
+            Resetar Cálculos
           </button>
-          <div className="text-sm text-gray-600">
-            <p>Preencha apenas os valores mensais - os cálculos são automáticos</p>
-          </div>
         </div>
       </div>
 
