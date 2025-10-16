@@ -1753,7 +1753,7 @@ const Projection: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
-                <th className="px-6 py-4 text-left text-lg font-bold">🎯 RESULTADO FINANCEIRO</th>
+                <th className="px-6 py-4 text-left text-lg font-bold sticky left-0 z-10 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800">🎯 RESULTADO FINANCEIRO</th>
                 <th className="px-4 py-4 text-center font-semibold">1º TRI</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
@@ -1777,7 +1777,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">📊 Cenário Previsto</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">📊 Cenário Previsto</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
@@ -1820,7 +1820,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">📈 Cenário Médio</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">📈 Cenário Médio</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
                 </td>
@@ -1863,7 +1863,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold">🚀 Cenário Máximo</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">🚀 Cenário Máximo</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
                 </td>
@@ -1935,7 +1935,7 @@ const Projection: React.FC = () => {
             {/* Cabeçalho */}
             <thead className="bg-gray-800 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">RESULTADO DO ANO ANTERIOR</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-gray-800">RESULTADO DO ANO ANTERIOR</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold">{mes}</th>
@@ -1960,7 +1960,7 @@ const Projection: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {/* Despesas Totais */}
               <tr className="bg-gray-100">
-                <td className="px-4 py-3 font-semibold text-gray-800">Despesas Totais</td>
+                <td className="px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10 bg-white">Despesas Totais</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularDespesasTotais)} />
                 </td>
@@ -2003,7 +2003,7 @@ const Projection: React.FC = () => {
 
               {/* Despesas Variáveis */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Despesas Variáveis</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Despesas Variáveis</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
                 </td>
@@ -2090,7 +2090,7 @@ const Projection: React.FC = () => {
 
               {/* Despesas Fixas */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Despesas Fixas</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Despesas Fixas</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasFixas[i])} />
                 </td>
@@ -2156,7 +2156,7 @@ const Projection: React.FC = () => {
 
               {/* Investimentos */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Investimentos</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Investimentos</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.investimentos[i])} />
                 </td>
@@ -2223,7 +2223,7 @@ const Projection: React.FC = () => {
 
               {/* Mkt */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Mkt</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Mkt</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.mkt[i])} />
                 </td>
@@ -2290,7 +2290,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento Total */}
               <tr className="bg-blue-50">
-                <td className="px-4 py-3 font-semibold text-blue-800">Faturamento Total</td>
+                <td className="px-4 py-3 font-semibold text-blue-800 sticky left-0 z-10 bg-white">Faturamento Total</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularFaturamentoTotal)} />
                 </td>
@@ -2333,7 +2333,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento REURB */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Faturamento REURB</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento REURB</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReurb[i])} />
                 </td>
@@ -2400,7 +2400,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento GEO */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Faturamento GEO</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento GEO</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoGeo[i])} />
                 </td>
@@ -2467,7 +2467,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento PLAN */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Faturamento PLAN</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento PLAN</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoPlan[i])} />
                 </td>
@@ -2534,7 +2534,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento REG */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Faturamento REG</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento REG</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReg[i])} />
                 </td>
@@ -2601,7 +2601,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento NN */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Faturamento NN</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento NN</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoNn[i])} />
                 </td>
@@ -2743,13 +2743,13 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[480px]">
               <thead className="bg-gray-800 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">PERCENTUAL DE CRESCIMENTO ANUAL</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-gray-800">PERCENTUAL DE CRESCIMENTO ANUAL</th>
                   <th className="px-4 py-3 text-center font-bold">%</th>
                 </tr>
               </thead>
               <tbody className="bg-blue-50 divide-y divide-blue-100">
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Mínimo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Mínimo</td>
                   <td className="px-4 py-2">
                     <input
                       type="number"
@@ -2766,7 +2766,7 @@ const Projection: React.FC = () => {
                   </td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-4 py-2">
                     <input
                       type="number"
@@ -2783,7 +2783,7 @@ const Projection: React.FC = () => {
                   </td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-4 py-2">
                     <input
                       type="number"
@@ -2827,7 +2827,7 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">Composição MKT</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-blue-700">Composição MKT</th>
                   <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
                     <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -2856,7 +2856,7 @@ const Projection: React.FC = () => {
                   { key: 'producaoConteudo', label: 'Produção Conteúdo' }
                 ].map((row) => (
                   <tr key={row.key}>
-                    <td className="px-4 py-3 text-gray-700">{row.label}</td>
+                    <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">{row.label}</td>
                     <td className="px-3 py-2">
                       <CalculatedCell value={calcularTrimestre(0, 2, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
                     </td>
@@ -2971,7 +2971,7 @@ const Projection: React.FC = () => {
 
                 {/* TOTAL (soma das linhas) */}
                 <tr className="bg-gray-100">
-                  <td className="px-4 py-3 font-semibold text-gray-800">TOTAL</td>
+                  <td className="px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10 bg-white">TOTAL</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => {
                       const c = data.mktComponents
@@ -3082,7 +3082,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-orange-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">MKT</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-orange-700">MKT</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -3106,7 +3106,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMktMes(i))} />
                 </td>
@@ -3149,7 +3149,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioMktMes(i))} />
                 </td>
@@ -3192,7 +3192,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMktMes(i))} />
                 </td>
@@ -3259,7 +3259,7 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">DESPESAS Fixas</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-blue-700">DESPESAS Fixas</th>
                   <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
                     <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -3284,7 +3284,7 @@ const Projection: React.FC = () => {
               <tbody className="divide-y divide-gray-200">
                 {/* Linha Previsto */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
@@ -3347,7 +3347,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Média */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Média</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Média</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.media[i] || 0)} />
                   </td>
@@ -3410,7 +3410,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Máximo */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
@@ -3498,7 +3498,7 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">DESPESAS Variáveis</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-blue-700">DESPESAS Variáveis</th>
                   <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
                     <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -3523,7 +3523,7 @@ const Projection: React.FC = () => {
               <tbody className="divide-y divide-gray-200">
                 {/* Linha Previsto */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
                   </td>
@@ -3610,7 +3610,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Médio */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioVariableMes(i))} />
                   </td>
@@ -3697,7 +3697,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Máximo */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoVariableMes(i))} />
                   </td>
@@ -3809,7 +3809,7 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-green-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">DESPESAS FIXAS + VARIÁVEIS</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-green-700">DESPESAS FIXAS + VARIÁVEIS</th>
                   <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
                     <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -3834,7 +3834,7 @@ const Projection: React.FC = () => {
               <tbody className="divide-y divide-gray-200">
                 {/* Linha Previsto */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixoVariavelMes(i))} />
                   </td>
@@ -3877,7 +3877,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Médio */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioFixoVariavelMes(i))} />
                   </td>
@@ -3920,7 +3920,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Máximo */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixoVariavelMes(i))} />
                   </td>
@@ -3988,7 +3988,7 @@ const Projection: React.FC = () => {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-purple-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left font-bold">INVESTIMENTOS</th>
+                  <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-purple-700">INVESTIMENTOS</th>
                   <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                   {meses.slice(0, 3).map(mes => (
                     <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -4013,7 +4013,7 @@ const Projection: React.FC = () => {
               <tbody className="divide-y divide-gray-200">
                 {/* Linha Previsto */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Previsto</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoInvestimentoMes(i))} />
                   </td>
@@ -4100,7 +4100,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Médio */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Médio</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioInvestimentoMes(i))} />
                   </td>
@@ -4187,7 +4187,7 @@ const Projection: React.FC = () => {
 
                 {/* Linha Máximo */}
                 <tr>
-                  <td className="px-4 py-3 text-gray-700">Máximo</td>
+                  <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoInvestimentoMes(i))} />
                   </td>
@@ -4298,7 +4298,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-indigo-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">ORÇAMENTO</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-indigo-700">ORÇAMENTO</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -4322,7 +4322,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoOrcamentoMes(i))} />
                 </td>
@@ -4365,7 +4365,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioOrcamentoMes(i))} />
                 </td>
@@ -4408,7 +4408,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoOrcamentoMes(i))} />
                 </td>
@@ -4474,7 +4474,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-red-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">FATURAMENTO REURB</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-red-700">FATURAMENTO REURB</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -4498,7 +4498,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoReurbData.previsto[0] + faturamentoReurbData.previsto[1] + faturamentoReurbData.previsto[2]} />
                 </td>
@@ -4581,7 +4581,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoReurbData.medio[0] + faturamentoReurbData.medio[1] + faturamentoReurbData.medio[2]} />
                 </td>
@@ -4664,7 +4664,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoReurbData.maximo[0] + faturamentoReurbData.maximo[1] + faturamentoReurbData.maximo[2]} />
                 </td>
@@ -4770,7 +4770,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-green-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">FATURAMENTO GEO</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-green-700">FATURAMENTO GEO</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -4794,7 +4794,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoGeoData.previsto[0] + faturamentoGeoData.previsto[1] + faturamentoGeoData.previsto[2]} />
                 </td>
@@ -4877,7 +4877,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoGeoData.medio[0] + faturamentoGeoData.medio[1] + faturamentoGeoData.medio[2]} />
                 </td>
@@ -4960,7 +4960,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoGeoData.maximo[0] + faturamentoGeoData.maximo[1] + faturamentoGeoData.maximo[2]} />
                 </td>
@@ -5066,7 +5066,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-blue-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">FATURAMENTO PLAN</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-blue-700">FATURAMENTO PLAN</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -5090,7 +5090,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoPlanData.previsto[0] + faturamentoPlanData.previsto[1] + faturamentoPlanData.previsto[2]} />
                 </td>
@@ -5173,7 +5173,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoPlanData.medio[0] + faturamentoPlanData.medio[1] + faturamentoPlanData.medio[2]} />
                 </td>
@@ -5256,7 +5256,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoPlanData.maximo[0] + faturamentoPlanData.maximo[1] + faturamentoPlanData.maximo[2]} />
                 </td>
@@ -5362,7 +5362,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-yellow-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">FATURAMENTO REG</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-yellow-700">FATURAMENTO REG</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -5386,7 +5386,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoRegData.previsto[0] + faturamentoRegData.previsto[1] + faturamentoRegData.previsto[2]} />
                 </td>
@@ -5469,7 +5469,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoRegData.medio[0] + faturamentoRegData.medio[1] + faturamentoRegData.medio[2]} />
                 </td>
@@ -5552,7 +5552,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoRegData.maximo[0] + faturamentoRegData.maximo[1] + faturamentoRegData.maximo[2]} />
                 </td>
@@ -5658,7 +5658,7 @@ const Projection: React.FC = () => {
           <table className="w-full min-w-[1200px]">
             <thead className="bg-gray-700 text-white">
               <tr>
-                <th className="px-4 py-3 text-left font-bold">FATURAMENTO NN</th>
+                <th className="px-4 py-3 text-left font-bold sticky left-0 z-10 bg-gray-700">FATURAMENTO NN</th>
                 <th className="px-3 py-3 text-center font-bold">1 TRI</th>
                 {meses.slice(0, 3).map(mes => (
                   <th key={mes} className="px-3 py-3 text-center font-bold" style={{width: '100px', minWidth: '100px'}}>{mes}</th>
@@ -5682,7 +5682,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoNnData.previsto[0] + faturamentoNnData.previsto[1] + faturamentoNnData.previsto[2]} />
                 </td>
@@ -5765,7 +5765,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoNnData.medio[0] + faturamentoNnData.medio[1] + faturamentoNnData.medio[2]} />
                 </td>
@@ -5848,7 +5848,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={faturamentoNnData.maximo[0] + faturamentoNnData.maximo[1] + faturamentoNnData.maximo[2]} />
                 </td>
@@ -5954,7 +5954,7 @@ const Projection: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-                <th className="px-4 py-3 text-left">FATURAMENTO TOTAL</th>
+                <th className="px-4 py-3 text-left sticky left-0 z-10 bg-gradient-to-r from-purple-600 to-purple-800">FATURAMENTO TOTAL</th>
                 <th className="px-3 py-3 text-center">1º TRI</th>
                 <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
                 <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
@@ -5978,7 +5978,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Previsto</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
@@ -6061,7 +6061,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Médio</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
@@ -6144,7 +6144,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr>
-                <td className="px-4 py-3 text-gray-700">Máximo</td>
+                <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
