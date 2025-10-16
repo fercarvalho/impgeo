@@ -9,6 +9,9 @@ interface ProjectionData {
   investimentosPrevistoManual?: (number | null)[]
   investimentosMedioManual?: (number | null)[]
   investimentosMaximoManual?: (number | null)[]
+  variablePrevistoManual?: (number | null)[]
+  variableMedioManual?: (number | null)[]
+  variableMaximoManual?: (number | null)[]
   mkt: number[]
   faturamentoReurb: number[]
   faturamentoGeo: number[]
@@ -1338,6 +1341,8 @@ const Projection: React.FC = () => {
 
   // Funções específicas para despesas variáveis
   const calcularPrevistoVariableMes = (monthIndex: number) => {
+    const override = data.variablePrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Previsto = Despesas Variáveis (tabela principal) + Percentual Mínimo
     const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1345,6 +1350,8 @@ const Projection: React.FC = () => {
   }
 
   const calcularMedioVariableMes = (monthIndex: number) => {
+    const override = data.variableMedioManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Médio = Despesas Variáveis (tabela principal) + Percentual Médio
     const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
     const percentualMedio = data.growth?.medio || 0
@@ -1352,6 +1359,8 @@ const Projection: React.FC = () => {
   }
 
   const calcularMaximoVariableMes = (monthIndex: number) => {
+    const override = data.variableMaximoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Máximo = Despesas Variáveis (tabela principal) + Percentual Máximo
     const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
@@ -1995,53 +2004,77 @@ const Projection: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 text-gray-700">Despesas Variáveis</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
                     <InputCell 
-                      value={data.despesasVariaveis[index]} 
-                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index, value)}
-                      category="despesasVariaveis"
+                      value={calcularPrevistoVariableMes(index)} 
+                      onBlur={(value) => {
+                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, variablePrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
+                      }}
+                      category="variable-previsto"
                       monthIndex={index}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
                     <InputCell 
-                      value={data.despesasVariaveis[index + 3]} 
-                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 3, value)}
-                      category="despesasVariaveis"
+                      value={calcularPrevistoVariableMes(index + 3)} 
+                      onBlur={(value) => {
+                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, variablePrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
+                      }}
+                      category="variable-previsto"
                       monthIndex={index + 3}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
                     <InputCell 
-                      value={data.despesasVariaveis[index + 6]} 
-                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 6, value)}
-                      category="despesasVariaveis"
+                      value={calcularPrevistoVariableMes(index + 6)} 
+                      onBlur={(value) => {
+                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, variablePrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
+                      }}
+                      category="variable-previsto"
                       monthIndex={index + 6}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
                     <InputCell 
-                      value={data.despesasVariaveis[index + 9]} 
-                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 9, value)}
-                      category="despesasVariaveis"
+                      value={calcularPrevistoVariableMes(index + 9)} 
+                      onBlur={(value) => {
+                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, variablePrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
+                      }}
+                      category="variable-previsto"
                       monthIndex={index + 9}
                     />
                   </td>
@@ -3457,7 +3490,13 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoVariableMes(index)}
-                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, variablePrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="previsto-var"
                         monthIndex={index}
                       />
@@ -3470,7 +3509,13 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoVariableMes(index + 3)}
-                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 3, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, variablePrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="previsto-var"
                         monthIndex={index + 3}
                       />
@@ -3483,7 +3528,13 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoVariableMes(index + 6)}
-                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 6, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, variablePrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="previsto-var"
                         monthIndex={index + 6}
                       />
@@ -3496,7 +3547,13 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoVariableMes(index + 9)}
-                        onBlur={(value) => updateVariableExpensesAndSave('previsto', index + 9, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, variablePrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="previsto-var"
                         monthIndex={index + 9}
                       />
@@ -3520,7 +3577,13 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioVariableMes(index)}
-                        onBlur={(value) => updateVariableExpensesAndSave('medio', index, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMedioManual && data.variableMedioManual.length === 12) ? [...data.variableMedioManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, variableMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="medio-var"
                         monthIndex={index}
                       />
@@ -3533,7 +3596,13 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioVariableMes(index + 3)}
-                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 3, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMedioManual && data.variableMedioManual.length === 12) ? [...data.variableMedioManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, variableMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="medio-var"
                         monthIndex={index + 3}
                       />
@@ -3546,7 +3615,13 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioVariableMes(index + 6)}
-                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 6, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMedioManual && data.variableMedioManual.length === 12) ? [...data.variableMedioManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, variableMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="medio-var"
                         monthIndex={index + 6}
                       />
@@ -3559,7 +3634,13 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioVariableMes(index + 9)}
-                        onBlur={(value) => updateVariableExpensesAndSave('medio', index + 9, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMedioManual && data.variableMedioManual.length === 12) ? [...data.variableMedioManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, variableMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="medio-var"
                         monthIndex={index + 9}
                       />
@@ -3583,7 +3664,13 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoVariableMes(index)}
-                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMaximoManual && data.variableMaximoManual.length === 12) ? [...data.variableMaximoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, variableMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="maximo-var"
                         monthIndex={index}
                       />
@@ -3596,7 +3683,13 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoVariableMes(index + 3)}
-                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 3, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMaximoManual && data.variableMaximoManual.length === 12) ? [...data.variableMaximoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, variableMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="maximo-var"
                         monthIndex={index + 3}
                       />
@@ -3609,7 +3702,13 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoVariableMes(index + 6)}
-                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 6, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMaximoManual && data.variableMaximoManual.length === 12) ? [...data.variableMaximoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, variableMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="maximo-var"
                         monthIndex={index + 6}
                       />
@@ -3622,7 +3721,13 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoVariableMes(index + 9)}
-                        onBlur={(value) => updateVariableExpensesAndSave('maximo', index + 9, value)}
+                        onBlur={(value) => {
+                          const arr = (data.variableMaximoManual && data.variableMaximoManual.length === 12) ? [...data.variableMaximoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, variableMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
                         category="maximo-var"
                         monthIndex={index + 9}
                       />
