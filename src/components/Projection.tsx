@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Calculator, RotateCcw } from 'lucide-react'
+import { FaBullseye, FaChartLine, FaChartBar, FaRocket } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -1227,28 +1228,6 @@ const Projection: React.FC = () => {
     }
   }
 
-  // Atualizar despesas variáveis e salvar
-  const updateVariableExpensesAndSave = (category: keyof VariableExpensesData, monthIndex: number, value: number) => {
-    const newData = {
-      ...variableExpensesData,
-      [category]: variableExpensesData[category].map((val, index) => 
-        index === monthIndex ? value : val
-      )
-    }
-    setVariableExpensesData(newData)
-    
-    // Marcar como edição manual
-    const editKey = `variableExpenses-${category}-${monthIndex}`
-    setManualEdits(prev => ({
-      ...prev,
-      [editKey]: true
-    }))
-    
-    if (token) {
-      saveVariableExpensesToServer(newData)
-    }
-  }
-
   // Fórmulas calculadas
   const calcularDespesasTotais = (monthIndex: number) => {
     return formatNumber(data.despesasVariaveis[monthIndex] + data.despesasFixas[monthIndex])
@@ -1753,7 +1732,7 @@ const Projection: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
-                <th className="px-6 py-4 text-left text-lg font-bold sticky left-0 z-10" style={{backgroundColor: '#355ee0'}}>🎯 RESULTADO FINANCEIRO</th>
+                <th className="px-6 py-4 text-left text-lg font-bold sticky left-0 z-10" style={{backgroundColor: '#355ee0'}}><FaBullseye className="inline mr-2" /> RESULTADO FINANCEIRO</th>
                 <th className="px-4 py-4 text-center font-semibold">1º TRI</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
@@ -1777,7 +1756,7 @@ const Projection: React.FC = () => {
             <tbody>
               {/* Linha Previsto */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">📊 Cenário Previsto</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
@@ -1820,7 +1799,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Médio */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">📈 Cenário Médio</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaChartLine className="inline mr-2" /> Cenário Médio</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
                 </td>
@@ -1863,7 +1842,7 @@ const Projection: React.FC = () => {
 
               {/* Linha Máximo */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white">🚀 Cenário Máximo</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaRocket className="inline mr-2" /> Cenário Máximo</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
                 </td>
