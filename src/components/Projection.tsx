@@ -186,51 +186,52 @@ const Projection: React.FC = () => {
   //   return () => clearInterval(interval)
   // }, [token, data, isSaving])
 
-  // Atualizar automaticamente todos os valores das despesas fixas
+  // Popular automaticamente despesas fixas APENAS quando base existir e arrays estiverem vazios
   useEffect(() => {
-    let precisaAtualizar = false
-    const novosPrevisto = [...fixedExpensesData.previsto]
-    const novosMedia = [...fixedExpensesData.media]
-    const novosMaximo = [...fixedExpensesData.maximo]
-    
-    for (let i = 0; i < 12; i++) {
-      // Verificar se foi editado manualmente antes de recalcular
-      const previstoEditKey = `fixedExpenses-previsto-${i}`
-      const mediaEditKey = `fixedExpenses-media-${i}`
-      const maximoEditKey = `fixedExpenses-maximo-${i}`
-      
-      const novoPrevisto = calcularPrevistoMes(i)
-      const novaMedia = calcularMediaMes(i)
-      const novoMaximo = calcularMaximoMes(i)
-      
-      // Só recalcular se não foi editado manualmente
-      if (!manualEdits[previstoEditKey] && novosPrevisto[i] !== novoPrevisto) {
-        novosPrevisto[i] = novoPrevisto
-        precisaAtualizar = true
-      }
-      if (!manualEdits[mediaEditKey] && novosMedia[i] !== novaMedia) {
-        novosMedia[i] = novaMedia
-        precisaAtualizar = true
-      }
-      if (!manualEdits[maximoEditKey] && novosMaximo[i] !== novoMaximo) {
-        novosMaximo[i] = novoMaximo
-        precisaAtualizar = true
-      }
+    const isEmptyArray = (arr: number[]) => arr.length !== 12 || arr.every(v => !v || v === 0)
+    const baseDezembro = data?.despesasFixas?.[11] || 0
+    // Só roda quando temos base (dezembro > 0) e arrays estão vazios
+    if (!baseDezembro || (!isEmptyArray(fixedExpensesData.previsto) && !isEmptyArray(fixedExpensesData.media) && !isEmptyArray(fixedExpensesData.maximo))) {
+      return
     }
-    
-    if (precisaAtualizar) {
-      const novosDados = {
-        ...fixedExpensesData,
-        previsto: novosPrevisto,
-        media: novosMedia,
-        maximo: novosMaximo
-      }
-      setFixedExpensesData(novosDados)
-      if (token) {
-        saveFixedExpensesToServer(novosDados)
-      }
+
+    // Calcula seguindo a regra, sem sobrescrever edições manuais
+    const p: number[] = new Array(12).fill(0)
+    // Janeiro = Dezembro da tabela principal + 10%
+    p[0] = formatNumber(baseDezembro * 1.1)
+    // Fev/Mar = Jan
+    p[1] = p[0]
+    p[2] = p[0]
+    // Abril = Mar + 10%
+    p[3] = formatNumber(p[2] * 1.1)
+    // Maio/Junho = Abril
+    p[4] = p[3]
+    p[5] = p[3]
+    // Julho = Junho + 10%
+    p[6] = formatNumber(p[5] * 1.1)
+    // Agosto/Setembro = Julho
+    p[7] = p[6]
+    p[8] = p[6]
+    // Outubro = Setembro + 10%
+    p[9] = formatNumber(p[8] * 1.1)
+    // Novembro/Dezembro = Outubro
+    p[10] = p[9]
+    p[11] = p[9]
+
+    const m: number[] = p.map(v => formatNumber(v * 1.1))
+    const x: number[] = m.map(v => formatNumber(v * 1.1))
+
+    const novosDados = {
+      ...fixedExpensesData,
+      previsto: p,
+      media: m,
+      maximo: x
     }
-  }, [data.despesasFixas, manualEdits]) // Depende de todos os valores de despesas fixas da tabela principal
+    setFixedExpensesData(novosDados)
+    if (token) {
+      saveFixedExpensesToServer(novosDados)
+    }
+  }, [data.despesasFixas])
 
   // Atualização automática das despesas variáveis quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -3285,62 +3286,62 @@ const Projection: React.FC = () => {
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoMes(index)}
+                        value={fixedExpensesData.previsto[index] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index, value)}
-                        category="previsto"
+                        category="fixedExpenses-previsto"
                         monthIndex={index}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoMes(index + 3)}
+                        value={fixedExpensesData.previsto[index + 3] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 3, value)}
-                        category="previsto"
+                        category="fixedExpenses-previsto"
                         monthIndex={index + 3}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoMes(index + 6)}
+                        value={fixedExpensesData.previsto[index + 6] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 6, value)}
-                        category="previsto"
+                        category="fixedExpenses-previsto"
                         monthIndex={index + 6}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoMes(index + 9)}
+                        value={fixedExpensesData.previsto[index + 9] || 0}
                         onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 9, value)}
-                        category="previsto"
+                        category="fixedExpenses-previsto"
                         monthIndex={index + 9}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.previsto[i] || 0)} />
                   </td>
                 </tr>
 
@@ -3348,42 +3349,62 @@ const Projection: React.FC = () => {
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Média</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMediaMes(index)} />
+                      <InputCell
+                        value={fixedExpensesData.media[index] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('media', index, value)}
+                        category="fixedExpenses-media"
+                        monthIndex={index}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMediaMes(index + 3)} />
+                      <InputCell
+                        value={fixedExpensesData.media[index + 3] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 3, value)}
+                        category="fixedExpenses-media"
+                        monthIndex={index + 3}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMediaMes(index + 6)} />
+                      <InputCell
+                        value={fixedExpensesData.media[index + 6] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 6, value)}
+                        category="fixedExpenses-media"
+                        monthIndex={index + 6}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMediaMes(index + 9)} />
+                      <InputCell
+                        value={fixedExpensesData.media[index + 9] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 9, value)}
+                        category="fixedExpenses-media"
+                        monthIndex={index + 9}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMediaMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.media[i] || 0)} />
                   </td>
                 </tr>
 
@@ -3391,42 +3412,62 @@ const Projection: React.FC = () => {
                 <tr>
                   <td className="px-4 py-3 text-gray-700">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoMes(index)} />
+                      <InputCell
+                        value={fixedExpensesData.maximo[index] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index, value)}
+                        category="fixedExpenses-maximo"
+                        monthIndex={index}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoMes(index + 3)} />
+                      <InputCell
+                        value={fixedExpensesData.maximo[index + 3] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 3, value)}
+                        category="fixedExpenses-maximo"
+                        monthIndex={index + 3}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoMes(index + 6)} />
+                      <InputCell
+                        value={fixedExpensesData.maximo[index + 6] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 6, value)}
+                        category="fixedExpenses-maximo"
+                        monthIndex={index + 6}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoMes(index + 9)} />
+                      <InputCell
+                        value={fixedExpensesData.maximo[index + 9] || 0}
+                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 9, value)}
+                        category="fixedExpenses-maximo"
+                        monthIndex={index + 9}
+                      />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMaximoMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.maximo[i] || 0)} />
                   </td>
                 </tr>
               </tbody>
