@@ -221,16 +221,16 @@ const Projection: React.FC = () => {
     const m: number[] = p.map(v => formatNumber(v * 1.1))
     const x: number[] = m.map(v => formatNumber(v * 1.1))
 
-    const novosDados = {
-      ...fixedExpensesData,
+      const novosDados = {
+        ...fixedExpensesData,
       previsto: p,
       media: m,
       maximo: x
-    }
-    setFixedExpensesData(novosDados)
-    if (token) {
-      saveFixedExpensesToServer(novosDados)
-    }
+      }
+      setFixedExpensesData(novosDados)
+      if (token) {
+        saveFixedExpensesToServer(novosDados)
+      }
   }, [data.despesasFixas])
 
   // Atualização automática das despesas variáveis quando dados da tabela principal ou percentual mudarem
@@ -1684,17 +1684,17 @@ const Projection: React.FC = () => {
     
     return (
       <div className="relative">
-        <input
-          ref={inputRef}
-          key={`${category}-${monthIndex}-${value}`}
-          type="number"
-          defaultValue={value || ''}
-          onBlur={handleBlur}
+      <input
+        ref={inputRef}
+        key={`${category}-${monthIndex}-${value}`}
+        type="number"
+        defaultValue={value || ''}
+        onBlur={handleBlur}
           onChange={handleChange}
-          onKeyDown={handleKeyDown}
+        onKeyDown={handleKeyDown}
           className={`w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${textColor} ${className} ${isManuallyEdited ? 'bg-yellow-50 border-yellow-300' : ''}`}
-          placeholder="0,00"
-        />
+        placeholder="0,00"
+      />
         {isManuallyEdited && (
           <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full" title="Editado manualmente - protegido de cálculos automáticos"></div>
         )}
@@ -1753,7 +1753,7 @@ const Projection: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
-                <th className="px-6 py-4 text-left text-lg font-bold sticky left-0 z-10 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800">🎯 RESULTADO FINANCEIRO</th>
+                <th className="px-6 py-4 text-left text-lg font-bold sticky left-0 z-10" style={{backgroundColor: '#355ee0'}}>🎯 RESULTADO FINANCEIRO</th>
                 <th className="px-4 py-4 text-center font-semibold">1º TRI</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
                 <th className="px-3 py-3 text-center font-semibold" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
@@ -5954,7 +5954,7 @@ const Projection: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-                <th className="px-4 py-3 text-left sticky left-0 z-10 bg-gradient-to-r from-purple-600 to-purple-800">FATURAMENTO TOTAL</th>
+                <th className="px-4 py-3 text-left sticky left-0 z-10" style={{backgroundColor: '#8639DE'}}>FATURAMENTO TOTAL</th>
                 <th className="px-3 py-3 text-center">1º TRI</th>
                 <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Janeiro</th>
                 <th className="px-3 py-2 text-center" style={{width: '100px', minWidth: '100px'}}>Fevereiro</th>
