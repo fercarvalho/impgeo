@@ -6,6 +6,9 @@ interface ProjectionData {
   despesasVariaveis: number[]
   despesasFixas: number[]
   investimentos: number[]
+  investimentosPrevistoManual?: (number | null)[]
+  investimentosMedioManual?: (number | null)[]
+  investimentosMaximoManual?: (number | null)[]
   mkt: number[]
   faturamentoReurb: number[]
   faturamentoGeo: number[]
@@ -1520,6 +1523,9 @@ const Projection: React.FC = () => {
 
   // Funções específicas para investimentos (mesma lógica das despesas variáveis)
   const calcularPrevistoInvestimentoMes = (monthIndex: number) => {
+    // Usa override manual se existir
+    const override = data.investimentosPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Previsto = Investimentos (tabela principal) + Percentual Mínimo
     const investimentos = data.investimentos[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1527,6 +1533,8 @@ const Projection: React.FC = () => {
   }
 
   const calcularMedioInvestimentoMes = (monthIndex: number) => {
+    const override = data.investimentosMedioManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Médio = Investimentos (tabela principal) + Percentual Médio
     const investimentos = data.investimentos[monthIndex] || 0
     const percentualMedio = data.growth?.medio || 0
@@ -1534,6 +1542,8 @@ const Projection: React.FC = () => {
   }
 
   const calcularMaximoInvestimentoMes = (monthIndex: number) => {
+    const override = data.investimentosMaximoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
     // Máximo = Investimentos (tabela principal) + Percentual Máximo
     const investimentos = data.investimentos[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
@@ -3865,9 +3875,12 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoInvestimentoMes(index)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosPrevistoManual && data.investimentosPrevistoManual.length === 12) ? [...data.investimentosPrevistoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, investimentosPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="previsto-inv"
                         monthIndex={index}
@@ -3881,9 +3894,12 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoInvestimentoMes(index + 3)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosPrevistoManual && data.investimentosPrevistoManual.length === 12) ? [...data.investimentosPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, investimentosPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 3}
@@ -3897,9 +3913,12 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoInvestimentoMes(index + 6)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosPrevistoManual && data.investimentosPrevistoManual.length === 12) ? [...data.investimentosPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, investimentosPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 6}
@@ -3913,9 +3932,12 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularPrevistoInvestimentoMes(index + 9)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosPrevistoManual && data.investimentosPrevistoManual.length === 12) ? [...data.investimentosPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, investimentosPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 9}
@@ -3940,9 +3962,12 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioInvestimentoMes(index)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMedioManual && data.investimentosMedioManual.length === 12) ? [...data.investimentosMedioManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, investimentosMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="medio-inv"
                         monthIndex={index}
@@ -3956,9 +3981,12 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioInvestimentoMes(index + 3)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMedioManual && data.investimentosMedioManual.length === 12) ? [...data.investimentosMedioManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, investimentosMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="medio-inv"
                         monthIndex={index + 3}
@@ -3972,9 +4000,12 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioInvestimentoMes(index + 6)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMedioManual && data.investimentosMedioManual.length === 12) ? [...data.investimentosMedioManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, investimentosMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="medio-inv"
                         monthIndex={index + 6}
@@ -3988,9 +4019,12 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMedioInvestimentoMes(index + 9)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMedioManual && data.investimentosMedioManual.length === 12) ? [...data.investimentosMedioManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, investimentosMedioManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="medio-inv"
                         monthIndex={index + 9}
@@ -4015,9 +4049,12 @@ const Projection: React.FC = () => {
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoInvestimentoMes(index)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMaximoManual && data.investimentosMaximoManual.length === 12) ? [...data.investimentosMaximoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, investimentosMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="maximo-inv"
                         monthIndex={index}
@@ -4031,9 +4068,12 @@ const Projection: React.FC = () => {
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoInvestimentoMes(index + 3)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMaximoManual && data.investimentosMaximoManual.length === 12) ? [...data.investimentosMaximoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, investimentosMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 3}
@@ -4047,9 +4087,12 @@ const Projection: React.FC = () => {
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoInvestimentoMes(index + 6)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMaximoManual && data.investimentosMaximoManual.length === 12) ? [...data.investimentosMaximoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, investimentosMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 6}
@@ -4063,9 +4106,12 @@ const Projection: React.FC = () => {
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
                         value={calcularMaximoInvestimentoMes(index + 9)}
-                        onBlur={() => {
-                          // Não salva em banco separado, apenas recalcula baseado na tabela principal
-                          // O valor editado não é persistido, apenas visual
+                        onBlur={(value) => {
+                          const arr = (data.investimentosMaximoManual && data.investimentosMaximoManual.length === 12) ? [...data.investimentosMaximoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, investimentosMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 9}
