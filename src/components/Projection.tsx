@@ -2290,7 +2290,7 @@ const Projection: React.FC = () => {
 
               {/* Faturamento Total */}
               <tr className="bg-blue-50">
-                <td className="px-4 py-3 font-semibold text-blue-800 sticky left-0 z-10 bg-blue-50">Faturamento Total</td>
+                <td className="px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10 bg-blue-50">Faturamento Total</td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={calcularTrimestre(0, 2, calcularFaturamentoTotal)} />
                 </td>
