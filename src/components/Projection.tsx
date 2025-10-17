@@ -1904,7 +1904,7 @@ Continuar mesmo assim?`)
             <tbody>
               {/* Linha Previsto */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
@@ -1947,7 +1947,7 @@ Continuar mesmo assim?`)
 
               {/* Linha Médio */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaChartLine className="inline mr-2" /> Cenário Médio</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaChartLine className="inline mr-2" /> Cenário Médio</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
                 </td>
@@ -1990,7 +1990,7 @@ Continuar mesmo assim?`)
 
               {/* Linha Máximo */}
               <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10 bg-white"><FaRocket className="inline mr-2" /> Cenário Máximo</td>
+                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaRocket className="inline mr-2" /> Cenário Máximo</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
                 </td>
