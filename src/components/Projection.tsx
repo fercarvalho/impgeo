@@ -378,9 +378,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento PLAN - DESABILITADO TEMPORARIAMENTE
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoPlanData.previsto]
     const novosMedio = [...faturamentoPlanData.medio]
@@ -421,9 +418,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento REG quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoRegData.previsto]
     const novosMedio = [...faturamentoRegData.medio]
@@ -464,9 +458,6 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento NN quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoNnData.previsto]
     const novosMedio = [...faturamentoNnData.medio]
@@ -6254,9 +6245,7 @@ Continuar mesmo assim?`)
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={
-                      (faturamentoReurbData.previsto[index] + faturamentoGeoData.previsto[index] + faturamentoPlanData.previsto[index] + faturamentoRegData.previsto[index] + faturamentoNnData.previsto[index])
-                    } />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -6270,9 +6259,7 @@ Continuar mesmo assim?`)
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={
-                      (faturamentoReurbData.previsto[index + 3] + faturamentoGeoData.previsto[index + 3] + faturamentoPlanData.previsto[index + 3] + faturamentoRegData.previsto[index + 3] + faturamentoNnData.previsto[index + 3])
-                    } />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 3]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -6286,9 +6273,7 @@ Continuar mesmo assim?`)
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={
-                      (faturamentoReurbData.previsto[index + 6] + faturamentoGeoData.previsto[index + 6] + faturamentoPlanData.previsto[index + 6] + faturamentoRegData.previsto[index + 6] + faturamentoNnData.previsto[index + 6])
-                    } />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 6]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -6302,24 +6287,14 @@ Continuar mesmo assim?`)
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={
-                      (faturamentoReurbData.previsto[index + 9] + faturamentoGeoData.previsto[index + 9] + faturamentoPlanData.previsto[index + 9] + faturamentoRegData.previsto[index + 9] + faturamentoNnData.previsto[index + 9])
-                    } />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 9]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
-                      faturamentoReurbData.previsto[i] + faturamentoGeoData.previsto[i] + faturamentoPlanData.previsto[i] + faturamentoRegData.previsto[i] + faturamentoNnData.previsto[i]
-                    ), 0)
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0)} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
-                      faturamentoReurbData.previsto[i] + faturamentoGeoData.previsto[i] + faturamentoPlanData.previsto[i] + faturamentoRegData.previsto[i] + faturamentoNnData.previsto[i]
-                    ), 0) / 12)
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0) / 12} />
                 </td>
               </tr>
 
@@ -6329,78 +6304,76 @@ Continuar mesmo assim?`)
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.medio[0] + faturamentoGeoData.medio[0] + faturamentoPlanData.medio[0] + faturamentoRegData.medio[0] + faturamentoNnData.medio[0]) +
-                      (faturamentoReurbData.medio[1] + faturamentoGeoData.medio[1] + faturamentoPlanData.medio[1] + faturamentoRegData.medio[1] + faturamentoNnData.medio[1]) +
-                      (faturamentoReurbData.medio[2] + faturamentoGeoData.medio[2] + faturamentoPlanData.medio[2] + faturamentoRegData.medio[2] + faturamentoNnData.medio[2])
+                      (faturamentoTotalData.medio[0]) +
+                      (faturamentoTotalData.medio[1]) +
+                      (faturamentoTotalData.medio[2])
                     )
                   } />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={
-                      (faturamentoReurbData.medio[index] + faturamentoGeoData.medio[index] + faturamentoPlanData.medio[index] + faturamentoRegData.medio[index] + faturamentoNnData.medio[index])
-                    } />
+                    <CalculatedCell value={faturamentoTotalData.medio[index]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.medio[3] + faturamentoGeoData.medio[3] + faturamentoPlanData.medio[3] + faturamentoRegData.medio[3] + faturamentoNnData.medio[3]) +
-                      (faturamentoReurbData.medio[4] + faturamentoGeoData.medio[4] + faturamentoPlanData.medio[4] + faturamentoRegData.medio[4] + faturamentoNnData.medio[4]) +
-                      (faturamentoReurbData.medio[5] + faturamentoGeoData.medio[5] + faturamentoPlanData.medio[5] + faturamentoRegData.medio[5] + faturamentoNnData.medio[5])
+                      (faturamentoTotalData.medio[3]) +
+                      (faturamentoTotalData.medio[4]) +
+                      (faturamentoTotalData.medio[5])
                     )
                   } />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.medio[index + 3] + faturamentoGeoData.medio[index + 3] + faturamentoPlanData.medio[index + 3] + faturamentoRegData.medio[index + 3] + faturamentoNnData.medio[index + 3])
+                      (faturamentoTotalData.medio[index + 3])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.medio[6] + faturamentoGeoData.medio[6] + faturamentoPlanData.medio[6] + faturamentoRegData.medio[6] + faturamentoNnData.medio[6]) +
-                      (faturamentoReurbData.medio[7] + faturamentoGeoData.medio[7] + faturamentoPlanData.medio[7] + faturamentoRegData.medio[7] + faturamentoNnData.medio[7]) +
-                      (faturamentoReurbData.medio[8] + faturamentoGeoData.medio[8] + faturamentoPlanData.medio[8] + faturamentoRegData.medio[8] + faturamentoNnData.medio[8])
+                      (faturamentoTotalData.medio[6]) +
+                      (faturamentoTotalData.medio[7]) +
+                      (faturamentoTotalData.medio[8])
                     )
                   } />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.medio[index + 6] + faturamentoGeoData.medio[index + 6] + faturamentoPlanData.medio[index + 6] + faturamentoRegData.medio[index + 6] + faturamentoNnData.medio[index + 6])
+                      (faturamentoTotalData.medio[index + 6])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.medio[9] + faturamentoGeoData.medio[9] + faturamentoPlanData.medio[9] + faturamentoRegData.medio[9] + faturamentoNnData.medio[9]) +
-                      (faturamentoReurbData.medio[10] + faturamentoGeoData.medio[10] + faturamentoPlanData.medio[10] + faturamentoRegData.medio[10] + faturamentoNnData.medio[10]) +
-                      (faturamentoReurbData.medio[11] + faturamentoGeoData.medio[11] + faturamentoPlanData.medio[11] + faturamentoRegData.medio[11] + faturamentoNnData.medio[11])
+                      (faturamentoTotalData.medio[9]) +
+                      (faturamentoTotalData.medio[10]) +
+                      (faturamentoTotalData.medio[11])
                     )
                   } />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.medio[index + 9] + faturamentoGeoData.medio[index + 9] + faturamentoPlanData.medio[index + 9] + faturamentoRegData.medio[index + 9] + faturamentoNnData.medio[index + 9])
+                      (faturamentoTotalData.medio[index + 9])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
-                      faturamentoReurbData.medio[i] + faturamentoGeoData.medio[i] + faturamentoPlanData.medio[i] + faturamentoRegData.medio[i] + faturamentoNnData.medio[i]
+                      faturamentoTotalData.medio[i]
                     ), 0)
                   } />
                 </td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
-                      faturamentoReurbData.medio[i] + faturamentoGeoData.medio[i] + faturamentoPlanData.medio[i] + faturamentoRegData.medio[i] + faturamentoNnData.medio[i]
+                      faturamentoTotalData.medio[i]
                     ), 0) / 12)
                   } />
                 </td>
@@ -6412,57 +6385,57 @@ Continuar mesmo assim?`)
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.maximo[0] + faturamentoGeoData.maximo[0] + faturamentoPlanData.maximo[0] + faturamentoRegData.maximo[0] + faturamentoNnData.maximo[0]) +
-                      (faturamentoReurbData.maximo[1] + faturamentoGeoData.maximo[1] + faturamentoPlanData.maximo[1] + faturamentoRegData.maximo[1] + faturamentoNnData.maximo[1]) +
-                      (faturamentoReurbData.maximo[2] + faturamentoGeoData.maximo[2] + faturamentoPlanData.maximo[2] + faturamentoRegData.maximo[2] + faturamentoNnData.maximo[2])
+                      (faturamentoTotalData.maximo[0]) +
+                      (faturamentoTotalData.maximo[1]) +
+                      (faturamentoTotalData.maximo[2])
                     )
                   } />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.maximo[index] + faturamentoGeoData.maximo[index] + faturamentoPlanData.maximo[index] + faturamentoRegData.maximo[index] + faturamentoNnData.maximo[index])
+                      (faturamentoTotalData.maximo[index])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.maximo[3] + faturamentoGeoData.maximo[3] + faturamentoPlanData.maximo[3] + faturamentoRegData.maximo[3] + faturamentoNnData.maximo[3]) +
-                      (faturamentoReurbData.maximo[4] + faturamentoGeoData.maximo[4] + faturamentoPlanData.maximo[4] + faturamentoRegData.maximo[4] + faturamentoNnData.maximo[4]) +
-                      (faturamentoReurbData.maximo[5] + faturamentoGeoData.maximo[5] + faturamentoPlanData.maximo[5] + faturamentoRegData.maximo[5] + faturamentoNnData.maximo[5])
+                      (faturamentoTotalData.maximo[3]) +
+                      (faturamentoTotalData.maximo[4]) +
+                      (faturamentoTotalData.maximo[5])
                     )
                   } />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.maximo[index + 3] + faturamentoGeoData.maximo[index + 3] + faturamentoPlanData.maximo[index + 3] + faturamentoRegData.maximo[index + 3] + faturamentoNnData.maximo[index + 3])
+                      (faturamentoTotalData.maximo[index + 3])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.maximo[6] + faturamentoGeoData.maximo[6] + faturamentoPlanData.maximo[6] + faturamentoRegData.maximo[6] + faturamentoNnData.maximo[6]) +
-                      (faturamentoReurbData.maximo[7] + faturamentoGeoData.maximo[7] + faturamentoPlanData.maximo[7] + faturamentoRegData.maximo[7] + faturamentoNnData.maximo[7]) +
-                      (faturamentoReurbData.maximo[8] + faturamentoGeoData.maximo[8] + faturamentoPlanData.maximo[8] + faturamentoRegData.maximo[8] + faturamentoNnData.maximo[8])
+                      (faturamentoTotalData.maximo[6]) +
+                      (faturamentoTotalData.maximo[7]) +
+                      (faturamentoTotalData.maximo[8])
                     )
                   } />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
-                      (faturamentoReurbData.maximo[index + 6] + faturamentoGeoData.maximo[index + 6] + faturamentoPlanData.maximo[index + 6] + faturamentoRegData.maximo[index + 6] + faturamentoNnData.maximo[index + 6])
+                      (faturamentoTotalData.maximo[index + 6])
                     } />
                   </td>
                 ))}
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (
-                      (faturamentoReurbData.maximo[9] + faturamentoGeoData.maximo[9] + faturamentoPlanData.maximo[9] + faturamentoRegData.maximo[9] + faturamentoNnData.maximo[9]) +
-                      (faturamentoReurbData.maximo[10] + faturamentoGeoData.maximo[10] + faturamentoPlanData.maximo[10] + faturamentoRegData.maximo[10] + faturamentoNnData.maximo[10]) +
-                      (faturamentoReurbData.maximo[11] + faturamentoGeoData.maximo[11] + faturamentoPlanData.maximo[11] + faturamentoRegData.maximo[11] + faturamentoNnData.maximo[11])
+                      (faturamentoTotalData.maximo[9]) +
+                      (faturamentoTotalData.maximo[10]) +
+                      (faturamentoTotalData.maximo[11])
                     )
                   } />
                 </td>
