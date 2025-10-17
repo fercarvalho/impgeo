@@ -2132,77 +2132,53 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Despesas Variáveis</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
                     <InputCell 
-                      value={calcularPrevistoVariableMes(index)} 
-                      onBlur={(value) => {
-                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
-                        arr[index] = value
-                        const updated = { ...data, variablePrevistoManual: arr }
-                        setData(updated)
-                        if (token) saveToServer(updated)
-                      }}
-                      category="variable-previsto"
+                      value={data.despesasVariaveis[index]} 
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index, value)}
+                      category="despesasVariaveis"
                       monthIndex={index}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
                     <InputCell 
-                      value={calcularPrevistoVariableMes(index + 3)} 
-                      onBlur={(value) => {
-                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
-                        arr[index + 3] = value
-                        const updated = { ...data, variablePrevistoManual: arr }
-                        setData(updated)
-                        if (token) saveToServer(updated)
-                      }}
-                      category="variable-previsto"
+                      value={data.despesasVariaveis[index + 3]} 
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 3, value)}
+                      category="despesasVariaveis"
                       monthIndex={index + 3}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
                     <InputCell 
-                      value={calcularPrevistoVariableMes(index + 6)} 
-                      onBlur={(value) => {
-                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
-                        arr[index + 6] = value
-                        const updated = { ...data, variablePrevistoManual: arr }
-                        setData(updated)
-                        if (token) saveToServer(updated)
-                      }}
-                      category="variable-previsto"
+                      value={data.despesasVariaveis[index + 6]} 
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 6, value)}
+                      category="despesasVariaveis"
                       monthIndex={index + 6}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
                     <InputCell 
-                      value={calcularPrevistoVariableMes(index + 9)} 
-                      onBlur={(value) => {
-                        const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
-                        arr[index + 9] = value
-                        const updated = { ...data, variablePrevistoManual: arr }
-                        setData(updated)
-                        if (token) saveToServer(updated)
-                      }}
-                      category="variable-previsto"
+                      value={data.despesasVariaveis[index + 9]} 
+                      onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 9, value)}
+                      category="despesasVariaveis"
                       monthIndex={index + 9}
                     />
                   </td>
@@ -3690,12 +3666,12 @@ Continuar mesmo assim?`)
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoVariableMes(index + 6)}
+                        value={data.despesasVariaveis[index + 6]}
                         onBlur={(value) => {
                           const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
                           arr[index + 6] = value
@@ -3709,12 +3685,12 @@ Continuar mesmo assim?`)
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={calcularPrevistoVariableMes(index + 9)}
+                        value={data.despesasVariaveis[index + 9]}
                         onBlur={(value) => {
                           const arr = (data.variablePrevistoManual && data.variablePrevistoManual.length === 12) ? [...data.variablePrevistoManual] : new Array(12).fill(null)
                           arr[index + 9] = value
