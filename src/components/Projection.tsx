@@ -1849,15 +1849,6 @@ Continuar mesmo assim?`)
           Projeção Anual
         </h1>
         <div className="flex items-center gap-4">
-          {isSaving && (
-            <div className="flex items-center gap-2 text-sm text-blue-600">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              Salvando...
-            </div>
-          )}
-          <div className="text-sm text-gray-600">
-            <p>Preencha apenas os valores mensais - os cálculos são automáticos</p>
-          </div>
           <button
             onClick={() => {
               setManualEdits({})
@@ -1881,6 +1872,17 @@ Continuar mesmo assim?`)
           </button>
           
         </div>
+      </div>
+
+      {/* Frase informativa */}
+      <div className="flex items-center gap-2">
+        <p className="text-sm text-gray-600">Preencha apenas os valores mensais - os cálculos são automáticos</p>
+        {isSaving && (
+          <div className="flex items-center gap-2 text-sm text-blue-600">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            salvando
+          </div>
+        )}
       </div>
 
       {/* Tabela RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
