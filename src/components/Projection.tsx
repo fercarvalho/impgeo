@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Calculator, RotateCcw } from 'lucide-react'
+import { Calculator, RotateCcw, Trash2 } from 'lucide-react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -148,35 +148,38 @@ const Projection: React.FC = () => {
   ]
 
   // Carregar dados do servidor
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/projection`)
-        if (response.ok) {
-          const serverData = await response.json()
-          setData(serverData)
-        } else {
-          console.error('Erro ao carregar dados de projeção')
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error)
-      } finally {
-        setIsLoading(false)
+  const loadData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/projection`)
+      if (response.ok) {
+        const serverData = await response.json()
+        setData(serverData)
+      } else {
+        console.error('Erro ao carregar dados de projeção')
       }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+    }
+  }
+
+  useEffect(() => {
+    const loadDataAsync = async () => {
+      await loadData()
+      await loadFixedExpensesData()
+      await loadVariableExpensesData()
+      await loadMktData()
+      await loadFaturamentoReurbData()
+      await loadFaturamentoGeoData()
+      await loadFaturamentoPlanData()
+      await loadFaturamentoRegData()
+      await loadFaturamentoNnData()
+      await loadFaturamentoTotalData()
+      await loadBudgetData()
+      await loadResultadoData()
+      setIsLoading(false)
     }
     
-    loadData()
-    loadFixedExpensesData()
-    loadVariableExpensesData()
-    loadMktData()
-    loadFaturamentoReurbData()
-    loadFaturamentoGeoData()
-    loadFaturamentoPlanData()
-    loadFaturamentoRegData()
-    loadFaturamentoNnData()
-    loadFaturamentoTotalData()
-    loadBudgetData()
-    loadResultadoData()
+    loadDataAsync()
   }, [])
 
   // Salvamento automático a cada 5 segundos - DESABILITADO TEMPORARIAMENTE
@@ -938,6 +941,93 @@ const Projection: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro ao carregar dados de MKT:', error)
+    }
+  }
+
+  // Limpar todos os dados de projeção
+  const clearAllProjectionData = async () => {
+    if (!token) {
+      alert('Você precisa estar logado para limpar os dados!')
+      return
+    }
+
+    const confirmMessage = `⚠️ ATENÇÃO! ⚠️
+
+Esta ação irá APAGAR TODOS os dados de projeção, incluindo:
+• Todos os valores de faturamento
+• Todas as despesas fixas e variáveis
+• Todos os investimentos e MKT
+• Todos os percentuais de crescimento
+• Todos os dados salvos no banco de dados
+
+Esta ação NÃO PODE ser desfeita!
+
+Tem certeza que deseja continuar?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    const doubleConfirm = confirm(`🚨 CONFIRMAÇÃO FINAL 🚨
+
+Você está prestes a APAGAR TODOS os dados de projeção permanentemente.
+
+Esta é sua última chance de cancelar.
+
+Continuar mesmo assim?`)
+
+    if (!doubleConfirm) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      console.log('Iniciando limpeza de todos os dados...')
+      
+      const response = await fetch(`${API_BASE_URL}/clear-all-projection-data`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Dados limpos com sucesso:', result.message)
+        
+        // Recarregar todos os dados
+        await loadData()
+        await loadFixedExpensesData()
+        await loadVariableExpensesData()
+        await loadMktData()
+        await loadFaturamentoReurbData()
+        await loadFaturamentoGeoData()
+        await loadFaturamentoPlanData()
+        await loadFaturamentoRegData()
+        await loadFaturamentoNnData()
+        await loadFaturamentoTotalData()
+        await loadBudgetData()
+        await loadResultadoData()
+        
+        // Limpar edições manuais
+        setManualEdits({})
+        
+        alert('✅ Todos os dados foram limpos com sucesso!\n\nA página será recarregada para aplicar as mudanças.')
+        
+        // Recarregar a página
+        window.location.reload()
+        
+      } else {
+        const error = await response.json()
+        console.error('Erro ao limpar dados:', error.message)
+        alert(`❌ Erro ao limpar dados: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Erro ao limpar dados:', error)
+      alert(`❌ Erro ao limpar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1778,6 +1868,16 @@ const Projection: React.FC = () => {
           >
             <RotateCcw className="h-5 w-5" />
             Resetar Cálculos
+          </button>
+          
+          <button
+            onClick={clearAllProjectionData}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="⚠️ APAGAR TODOS os dados de projeção permanentemente"
+            disabled={isSaving}
+          >
+            <Trash2 className="h-5 w-5" />
+            {isSaving ? 'Limpando...' : 'Limpar Todos os Dados'}
           </button>
           
         </div>

@@ -1126,6 +1126,32 @@ app.use((error, req, res, next) => {
   res.status(400).json({ error: error.message });
 });
 
+// Limpar todos os dados de projeção
+app.delete('/api/clear-all-projection-data', authenticateToken, (req, res) => {
+  try {
+    console.log('Endpoint de limpeza de dados chamado')
+    const result = db.clearAllProjectionData()
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'Todos os dados de projeção foram limpos com sucesso!' 
+      })
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: result.message 
+      })
+    }
+  } catch (error) {
+    console.error('Erro no endpoint de limpeza:', error)
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro interno do servidor ao limpar dados' 
+    })
+  }
+})
+
 // Iniciar servidor
 app.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);

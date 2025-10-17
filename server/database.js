@@ -1067,6 +1067,73 @@ class Database {
   generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
+
+  // Limpar todos os dados de projeção
+  clearAllProjectionData() {
+    try {
+      console.log('Iniciando limpeza de todos os dados de projeção...')
+      
+      // Limpar dados principais de projeção
+      const defaultProjectionData = {
+        despesasVariaveis: new Array(12).fill(0),
+        despesasFixas: new Array(12).fill(0),
+        investimentos: new Array(12).fill(0),
+        mkt: new Array(12).fill(0),
+        faturamentoReurb: new Array(12).fill(0),
+        faturamentoGeo: new Array(12).fill(0),
+        faturamentoPlan: new Array(12).fill(0),
+        faturamentoReg: new Array(12).fill(0),
+        faturamentoNn: new Array(12).fill(0),
+        growth: { minimo: 0, medio: 0, maximo: 0 },
+        mktComponents: {
+          trafego: new Array(12).fill(0),
+          socialMedia: new Array(12).fill(0),
+          producaoConteudo: new Array(12).fill(0)
+        }
+      }
+      
+      // Limpar dados de tabelas específicas
+      const defaultFaturamentoData = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0)
+      }
+      
+      const defaultExpensesData = {
+        previsto: new Array(12).fill(0),
+        medio: new Array(12).fill(0),
+        maximo: new Array(12).fill(0)
+      }
+      
+      const defaultFixedExpensesData = {
+        previsto: new Array(12).fill(0),
+        media: new Array(12).fill(0),
+        maximo: new Array(12).fill(0)
+      }
+      
+      // Salvar dados limpos
+      fs.writeFileSync(this.projectionFile, JSON.stringify(defaultProjectionData, null, 2))
+      fs.writeFileSync(this.fixedExpensesFile, JSON.stringify(defaultFixedExpensesData, null, 2))
+      fs.writeFileSync(this.variableExpensesFile, JSON.stringify(defaultExpensesData, null, 2))
+      fs.writeFileSync(this.mktFile, JSON.stringify(defaultExpensesData, null, 2))
+      fs.writeFileSync(this.budgetFile, JSON.stringify(defaultExpensesData, null, 2))
+      fs.writeFileSync(this.investmentsFile, JSON.stringify(defaultExpensesData, null, 2))
+      fs.writeFileSync(this.faturamentoReurbFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.faturamentoGeoFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.faturamentoPlanFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.faturamentoRegFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.faturamentoNnFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.faturamentoTotalFile, JSON.stringify(defaultFaturamentoData, null, 2))
+      fs.writeFileSync(this.resultadoFile, JSON.stringify(defaultExpensesData, null, 2))
+      
+      console.log('Todos os dados de projeção foram limpos com sucesso!')
+      return { success: true, message: 'Todos os dados de projeção foram limpos com sucesso!' }
+      
+    } catch (error) {
+      console.error('Erro ao limpar dados de projeção:', error)
+      return { success: false, message: 'Erro ao limpar dados de projeção: ' + error.message }
+    }
+  }
 }
 
 module.exports = Database;
