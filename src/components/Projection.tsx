@@ -15,10 +15,15 @@ interface ProjectionData {
   variableMaximoManual?: (number | null)[]
   mkt: number[]
   faturamentoReurb: number[]
+  faturamentoReurbPrevistoManual?: (number | null)[]
   faturamentoGeo: number[]
+  faturamentoGeoPrevistoManual?: (number | null)[]
   faturamentoPlan: number[]
+  faturamentoPlanPrevistoManual?: (number | null)[]
   faturamentoReg: number[]
+  faturamentoRegPrevistoManual?: (number | null)[]
   faturamentoNn: number[]
+  faturamentoNnPrevistoManual?: (number | null)[]
   growth?: {
     minimo: number
     medio: number
@@ -77,6 +82,7 @@ const Projection: React.FC = () => {
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
   }>({})
+  const [forceUpdate, setForceUpdate] = useState(0)
   const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
     previsto: new Array(12).fill(0),
     media: new Array(12).fill(0),
@@ -505,9 +511,7 @@ const Projection: React.FC = () => {
 
   // Atualização automática do faturamento total quando qualquer faturamento mudar
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
+    console.log('useEffect faturamento total executado')
     if (token) {
       const novosPrevisto = [...faturamentoTotalData.previsto]
       const novosMedio = [...faturamentoTotalData.medio]
@@ -536,6 +540,7 @@ const Projection: React.FC = () => {
         maximo: novosMaximo
       }
       
+      console.log('Novos dados de faturamento total:', novosDados)
       setFaturamentoTotalData(novosDados)
       saveFaturamentoTotalToServer(novosDados)
     }
@@ -578,13 +583,12 @@ const Projection: React.FC = () => {
 
   // Atualização automática do resultado quando faturamento total ou orçamento mudarem
   useEffect(() => {
-    // DESABILITADO TEMPORARIAMENTE - remover a linha abaixo para reativar
-    return;
-    
+    console.log('useEffect resultado executado')
     if (token) {
       const novosPrevisto = [...resultadoData.previsto]
       const novosMedio = [...resultadoData.medio]
       const novosMaximo = [...resultadoData.maximo]
+      let precisaAtualizar = false
       
       for (let i = 0; i < 12; i++) {
         const novoPrevisto = calcularPrevistoResultadoMes(i)
@@ -593,26 +597,32 @@ const Projection: React.FC = () => {
         
         if (novosPrevisto[i] !== novoPrevisto) {
           novosPrevisto[i] = novoPrevisto
+          precisaAtualizar = true
         }
         if (novosMedio[i] !== novoMedio) {
           novosMedio[i] = novoMedio
+          precisaAtualizar = true
         }
         if (novosMaximo[i] !== novoMaximo) {
           novosMaximo[i] = novoMaximo
+          precisaAtualizar = true
         }
       }
       
-      const novosDados = {
-        ...resultadoData,
-        previsto: novosPrevisto,
-        medio: novosMedio,
-        maximo: novosMaximo
+      if (precisaAtualizar) {
+        const novosDados = {
+          ...resultadoData,
+          previsto: novosPrevisto,
+          medio: novosMedio,
+          maximo: novosMaximo
+        }
+        
+        console.log('Novos dados de resultado:', novosDados)
+        setResultadoData(novosDados)
+        saveResultadoToServer(novosDados)
       }
-      
-      setResultadoData(novosDados)
-      saveResultadoToServer(novosDados)
     }
-  }, [faturamentoTotalData, budgetData])
+  }, [data, fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
 
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
@@ -907,11 +917,53 @@ const Projection: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/resultado`)
       if (response.ok) {
         const resultadoData = await response.json()
-        setResultadoData(resultadoData)
+        console.log('Dados de resultado carregados do servidor:', resultadoData)
+        // Não vamos sobrescrever os valores calculados com dados salvos
+        // setResultadoData(resultadoData)
       }
     } catch (error) {
       console.error('Erro ao carregar dados de resultado:', error)
     }
+  }
+
+  // Função para forçar recálculo do resultado financeiro
+  const forcarRecalculoResultado = () => {
+    console.log('=== FORÇANDO RECÁLCULO DO RESULTADO FINANCEIRO ===')
+    console.log('Dados atuais:', data)
+    console.log('Fixed Expenses Data:', fixedExpensesData)
+    console.log('Variable Expenses Data:', variableExpensesData)
+    console.log('MKT Components:', data.mktComponents)
+    console.log('Investimentos:', data.investimentos)
+    
+    const novosPrevisto = []
+    const novosMedio = []
+    const novosMaximo = []
+    
+    for (let i = 0; i < 12; i++) {
+      console.log(`\n--- Calculando mês ${i} ---`)
+      novosPrevisto[i] = calcularPrevistoResultadoMes(i)
+      novosMedio[i] = calcularMedioResultadoMes(i)
+      novosMaximo[i] = calcularMaximoResultadoMes(i)
+    }
+    
+    const novosDados = {
+      previsto: novosPrevisto,
+      medio: novosMedio,
+      maximo: novosMaximo
+    }
+    
+    console.log('=== NOVOS DADOS CALCULADOS ===')
+    console.log('Previsto:', novosPrevisto)
+    console.log('Médio:', novosMedio)
+    console.log('Máximo:', novosMaximo)
+    
+    setResultadoData(novosDados)
+    setForceUpdate(prev => prev + 1)
+    if (token) {
+      saveResultadoToServer(novosDados)
+    }
+    
+    console.log('=== RECÁLCULO CONCLUÍDO ===')
   }
 
   // Carregar dados de MKT
@@ -1349,10 +1401,19 @@ const Projection: React.FC = () => {
 
   // Funções de cálculo para Faturamento REURB
   const calcularPrevistoReurbMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoReurbPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`REURB Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Previsto = Faturamento REURB (tabela principal) + Percentual Mínimo
     const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
-    return formatNumber(faturamentoReurb + (faturamentoReurb * percentualMinimo / 100))
+    const resultado = formatNumber(faturamentoReurb + (faturamentoReurb * percentualMinimo / 100))
+    console.log(`REURB Mês ${monthIndex}: Base=${faturamentoReurb}, Percentual=${percentualMinimo}%, Resultado=${resultado}`)
+    return resultado
   }
 
   const calcularMedioReurbMes = (monthIndex: number) => {
@@ -1371,6 +1432,13 @@ const Projection: React.FC = () => {
 
   // Funções de cálculo para Faturamento GEO
   const calcularPrevistoGeoMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoGeoPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`GEO Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Previsto = Faturamento GEO (tabela principal) + Percentual Mínimo
     const faturamentoGeo = data.faturamentoGeo[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1393,6 +1461,13 @@ const Projection: React.FC = () => {
 
   // Funções de cálculo para Faturamento PLAN
   const calcularPrevistoPlanMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoPlanPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`PLAN Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Previsto = Faturamento PLAN (tabela principal) + Percentual Mínimo
     const faturamentoPlan = data.faturamentoPlan[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1415,6 +1490,13 @@ const Projection: React.FC = () => {
 
   // Funções de cálculo para Faturamento REG
   const calcularPrevistoRegMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoRegPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`REG Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Previsto = Faturamento REG (tabela principal) + Percentual Mínimo
     const faturamentoReg = data.faturamentoReg[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1437,6 +1519,13 @@ const Projection: React.FC = () => {
 
   // Funções de cálculo para Faturamento NN
   const calcularPrevistoNnMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoNnPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`NN Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Previsto = Faturamento NN (tabela principal) + Percentual Mínimo
     const faturamentoNn = data.faturamentoNn[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
@@ -1465,7 +1554,9 @@ const Projection: React.FC = () => {
     const planPrevisto = calcularPrevistoPlanMes(monthIndex)
     const regPrevisto = calcularPrevistoRegMes(monthIndex)
     const nnPrevisto = calcularPrevistoNnMes(monthIndex)
-    return formatNumber(reurbPrevisto + geoPrevisto + planPrevisto + regPrevisto + nnPrevisto)
+    const total = formatNumber(reurbPrevisto + geoPrevisto + planPrevisto + regPrevisto + nnPrevisto)
+    console.log(`Faturamento Total Mês ${monthIndex}: REURB=${reurbPrevisto}, GEO=${geoPrevisto}, PLAN=${planPrevisto}, REG=${regPrevisto}, NN=${nnPrevisto}, Total=${total}`)
+    return total
   }
 
   const calcularMedioTotalMes = (monthIndex: number) => {
@@ -1569,7 +1660,9 @@ const Projection: React.FC = () => {
     const despesasFixoVariavel = calcularPrevistoFixoVariavelMes(monthIndex)
     const mkt = calcularPrevistoMktMes(monthIndex)
     const investimentos = calcularPrevistoInvestimentoMes(monthIndex)
-    return formatNumber(despesasFixoVariavel + mkt + investimentos)
+    const total = formatNumber(despesasFixoVariavel + mkt + investimentos)
+    console.log(`Orçamento Mês ${monthIndex}: Despesas=${despesasFixoVariavel}, MKT=${mkt}, Investimentos=${investimentos}, Total=${total}`)
+    return total
   }
 
   const calcularMedioOrcamentoMes = (monthIndex: number) => {
@@ -1591,7 +1684,9 @@ const Projection: React.FC = () => {
     // Resultado = Faturamento Total (Previsto) - Orçamento (Previsto)
     const faturamentoTotalPrevisto = calcularPrevistoTotalMes(monthIndex)
     const orcamentoPrevisto = calcularPrevistoOrcamentoMes(monthIndex)
-    return formatNumber(faturamentoTotalPrevisto - orcamentoPrevisto)
+    const resultado = formatNumber(faturamentoTotalPrevisto - orcamentoPrevisto)
+    console.log(`Mês ${monthIndex}: Faturamento=${faturamentoTotalPrevisto}, Orçamento=${orcamentoPrevisto}, Resultado=${resultado}`)
+    return resultado
   }
 
   const calcularMedioResultadoMes = (monthIndex: number) => {
@@ -1723,6 +1818,106 @@ const Projection: React.FC = () => {
             <RotateCcw className="h-5 w-5" />
             Resetar Cálculos
           </button>
+          
+          <button
+            onClick={forcarRecalculoResultado}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Forçar recálculo do resultado financeiro"
+          >
+            <Calculator className="h-5 w-5" />
+            Recalcular Resultado
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('=== TESTE DIRETO DOS VALORES ===')
+              console.log('Janeiro Previsto - Faturamento Total:', calcularPrevistoTotalMes(0))
+              console.log('Janeiro Previsto - Orçamento:', calcularPrevistoOrcamentoMes(0))
+              console.log('Janeiro Previsto - Resultado:', calcularPrevistoResultadoMes(0))
+              console.log('Valor esperado: 24568 - 2410 =', 24568 - 2410)
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-violet-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Testar valores calculados diretamente"
+          >
+            <Calculator className="h-5 w-5" />
+            Testar Valores
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('=== TESTE SIMPLES ===')
+              console.log('Botão clicado!')
+              alert('Botão funcionando!')
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Teste simples para verificar se os botões funcionam"
+          >
+            <Calculator className="h-5 w-5" />
+            Teste Simples
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('=== VERIFICANDO ESTADO ===')
+              console.log('data:', data)
+              console.log('resultadoData:', resultadoData)
+              console.log('forceUpdate:', forceUpdate)
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold rounded-xl hover:from-indigo-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Verificar estado dos dados"
+          >
+            <Calculator className="h-5 w-5" />
+            Verificar Estado
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('=== TESTE DE FUNÇÕES ===')
+              try {
+                console.log('Testando função formatNumber...')
+                const testValue = formatNumber(1000)
+                console.log('formatNumber(1000) =', testValue)
+                
+                console.log('Testando função calcularPrevistoTotalMes...')
+                const faturamento = calcularPrevistoTotalMes(0)
+                console.log('calcularPrevistoTotalMes(0) =', faturamento)
+                
+                console.log('Testando função calcularPrevistoOrcamentoMes...')
+                const orcamento = calcularPrevistoOrcamentoMes(0)
+                console.log('calcularPrevistoOrcamentoMes(0) =', orcamento)
+                
+                console.log('Testando função calcularPrevistoResultadoMes...')
+                const resultado = calcularPrevistoResultadoMes(0)
+                console.log('calcularPrevistoResultadoMes(0) =', resultado)
+                
+              } catch (error) {
+                console.error('Erro ao executar funções:', error)
+              }
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-semibold rounded-xl hover:from-yellow-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Testar funções de cálculo com try/catch"
+          >
+            <Calculator className="h-5 w-5" />
+            Testar Funções
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('=== VERIFICANDO DADOS DE ENTRADA ===')
+              console.log('data.faturamentoReurb[0]:', data.faturamentoReurb[0])
+              console.log('data.faturamentoGeo[0]:', data.faturamentoGeo[0])
+              console.log('data.faturamentoPlan[0]:', data.faturamentoPlan[0])
+              console.log('data.faturamentoReg[0]:', data.faturamentoReg[0])
+              console.log('data.faturamentoNn[0]:', data.faturamentoNn[0])
+              console.log('data.growth:', data.growth)
+              console.log('data.growth.minimo:', data.growth?.minimo)
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-semibold rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Verificar dados de entrada dos faturamentos"
+          >
+            <Calculator className="h-5 w-5" />
+            Verificar Dados
+          </button>
         </div>
       </div>
 
@@ -1761,7 +1956,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={`${index}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
                   </td>
                 ))}
@@ -1769,7 +1964,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={`${index + 3}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)} />
                   </td>
                 ))}
@@ -1777,7 +1972,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={`${index + 6}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)} />
                   </td>
                 ))}
@@ -1785,7 +1980,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={`${index + 9}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)} />
                   </td>
                 ))}
@@ -5674,6 +5869,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index] = value
                         setFaturamentoNnData(newData)
                         saveFaturamentoNnToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoNnPrevistoManual && data.faturamentoNnPrevistoManual.length === 12) ? [...data.faturamentoNnPrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoNnPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
@@ -5692,6 +5894,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 3] = value
                         setFaturamentoNnData(newData)
                         saveFaturamentoNnToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoNnPrevistoManual && data.faturamentoNnPrevistoManual.length === 12) ? [...data.faturamentoNnPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoNnPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
