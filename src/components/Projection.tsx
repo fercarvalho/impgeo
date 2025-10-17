@@ -334,8 +334,7 @@ const Projection: React.FC = () => {
     }
   }, [data.faturamentoReurb, data.growth?.minimo, data.growth?.medio, data.growth?.maximo, manualEdits])
 
-  // Atualização automática do faturamento GEO quando dados da tabela principal ou percentual mudarem - DESABILITADO TEMPORARIAMENTE
-  /*
+  // Atualização automática do faturamento GEO quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
     let precisaAtualizar = false
     const novosPrevisto = [...faturamentoGeoData.previsto]
@@ -374,7 +373,6 @@ const Projection: React.FC = () => {
       }
     }
   }, [data.faturamentoGeo, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
-  */
 
   // Atualização automática do faturamento PLAN - DESABILITADO TEMPORARIAMENTE
   useEffect(() => {
