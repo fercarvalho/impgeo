@@ -740,6 +740,16 @@ class Database {
     }
   }
 
+  getVariableExpensesData() {
+    try {
+      const data = fs.readFileSync(this.variableExpensesFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler dados de despesas variáveis:', error);
+      return null;
+    }
+  }
+
   updateFixedExpensesData(fixedExpensesData) {
     try {
       const data = {
