@@ -82,7 +82,6 @@ const Projection: React.FC = () => {
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
   }>({})
-  const [forceUpdate, setForceUpdate] = useState(0)
   const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
     previsto: new Array(12).fill(0),
     media: new Array(12).fill(0),
@@ -927,44 +926,6 @@ const Projection: React.FC = () => {
   }
 
   // Função para forçar recálculo do resultado financeiro
-  const forcarRecalculoResultado = () => {
-    console.log('=== FORÇANDO RECÁLCULO DO RESULTADO FINANCEIRO ===')
-    console.log('Dados atuais:', data)
-    console.log('Fixed Expenses Data:', fixedExpensesData)
-    console.log('Variable Expenses Data:', variableExpensesData)
-    console.log('MKT Components:', data.mktComponents)
-    console.log('Investimentos:', data.investimentos)
-    
-    const novosPrevisto = []
-    const novosMedio = []
-    const novosMaximo = []
-    
-    for (let i = 0; i < 12; i++) {
-      console.log(`\n--- Calculando mês ${i} ---`)
-      novosPrevisto[i] = calcularPrevistoResultadoMes(i)
-      novosMedio[i] = calcularMedioResultadoMes(i)
-      novosMaximo[i] = calcularMaximoResultadoMes(i)
-    }
-    
-    const novosDados = {
-      previsto: novosPrevisto,
-      medio: novosMedio,
-      maximo: novosMaximo
-    }
-    
-    console.log('=== NOVOS DADOS CALCULADOS ===')
-    console.log('Previsto:', novosPrevisto)
-    console.log('Médio:', novosMedio)
-    console.log('Máximo:', novosMaximo)
-    
-    setResultadoData(novosDados)
-    setForceUpdate(prev => prev + 1)
-    if (token) {
-      saveResultadoToServer(novosDados)
-    }
-    
-    console.log('=== RECÁLCULO CONCLUÍDO ===')
-  }
 
   // Carregar dados de MKT
   const loadMktData = async () => {
@@ -1819,105 +1780,6 @@ const Projection: React.FC = () => {
             Resetar Cálculos
           </button>
           
-          <button
-            onClick={forcarRecalculoResultado}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Forçar recálculo do resultado financeiro"
-          >
-            <Calculator className="h-5 w-5" />
-            Recalcular Resultado
-          </button>
-          
-          <button
-            onClick={() => {
-              console.log('=== TESTE DIRETO DOS VALORES ===')
-              console.log('Janeiro Previsto - Faturamento Total:', calcularPrevistoTotalMes(0))
-              console.log('Janeiro Previsto - Orçamento:', calcularPrevistoOrcamentoMes(0))
-              console.log('Janeiro Previsto - Resultado:', calcularPrevistoResultadoMes(0))
-              console.log('Valor esperado: 24568 - 2410 =', 24568 - 2410)
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-violet-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Testar valores calculados diretamente"
-          >
-            <Calculator className="h-5 w-5" />
-            Testar Valores
-          </button>
-          
-          <button
-            onClick={() => {
-              console.log('=== TESTE SIMPLES ===')
-              console.log('Botão clicado!')
-              alert('Botão funcionando!')
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Teste simples para verificar se os botões funcionam"
-          >
-            <Calculator className="h-5 w-5" />
-            Teste Simples
-          </button>
-          
-          <button
-            onClick={() => {
-              console.log('=== VERIFICANDO ESTADO ===')
-              console.log('data:', data)
-              console.log('resultadoData:', resultadoData)
-              console.log('forceUpdate:', forceUpdate)
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold rounded-xl hover:from-indigo-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Verificar estado dos dados"
-          >
-            <Calculator className="h-5 w-5" />
-            Verificar Estado
-          </button>
-          
-          <button
-            onClick={() => {
-              console.log('=== TESTE DE FUNÇÕES ===')
-              try {
-                console.log('Testando função formatNumber...')
-                const testValue = formatNumber(1000)
-                console.log('formatNumber(1000) =', testValue)
-                
-                console.log('Testando função calcularPrevistoTotalMes...')
-                const faturamento = calcularPrevistoTotalMes(0)
-                console.log('calcularPrevistoTotalMes(0) =', faturamento)
-                
-                console.log('Testando função calcularPrevistoOrcamentoMes...')
-                const orcamento = calcularPrevistoOrcamentoMes(0)
-                console.log('calcularPrevistoOrcamentoMes(0) =', orcamento)
-                
-                console.log('Testando função calcularPrevistoResultadoMes...')
-                const resultado = calcularPrevistoResultadoMes(0)
-                console.log('calcularPrevistoResultadoMes(0) =', resultado)
-                
-              } catch (error) {
-                console.error('Erro ao executar funções:', error)
-              }
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-semibold rounded-xl hover:from-yellow-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Testar funções de cálculo com try/catch"
-          >
-            <Calculator className="h-5 w-5" />
-            Testar Funções
-          </button>
-          
-          <button
-            onClick={() => {
-              console.log('=== VERIFICANDO DADOS DE ENTRADA ===')
-              console.log('data.faturamentoReurb[0]:', data.faturamentoReurb[0])
-              console.log('data.faturamentoGeo[0]:', data.faturamentoGeo[0])
-              console.log('data.faturamentoPlan[0]:', data.faturamentoPlan[0])
-              console.log('data.faturamentoReg[0]:', data.faturamentoReg[0])
-              console.log('data.faturamentoNn[0]:', data.faturamentoNn[0])
-              console.log('data.growth:', data.growth)
-              console.log('data.growth.minimo:', data.growth?.minimo)
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-semibold rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Verificar dados de entrada dos faturamentos"
-          >
-            <Calculator className="h-5 w-5" />
-            Verificar Dados
-          </button>
         </div>
       </div>
 
@@ -1956,15 +1818,15 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
-                  <td key={`${index}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
-                  </td>
+                <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
+                </td>
                 ))}
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
-                  <td key={`${index + 3}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)} />
                   </td>
                 ))}
@@ -1972,7 +1834,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
-                  <td key={`${index + 6}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)} />
                   </td>
                 ))}
@@ -1980,7 +1842,7 @@ const Projection: React.FC = () => {
                   <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
-                  <td key={`${index + 9}-${forceUpdate}`} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
+                  <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)} />
                   </td>
                 ))}
@@ -4685,6 +4547,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoReurbPrevistoManual && data.faturamentoReurbPrevistoManual.length === 12) ? [...data.faturamentoReurbPrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoReurbPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4703,6 +4572,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 3] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoReurbPrevistoManual && data.faturamentoReurbPrevistoManual.length === 12) ? [...data.faturamentoReurbPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoReurbPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4721,6 +4597,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 6] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoReurbPrevistoManual && data.faturamentoReurbPrevistoManual.length === 12) ? [...data.faturamentoReurbPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoReurbPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4739,6 +4622,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 9] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoReurbPrevistoManual && data.faturamentoReurbPrevistoManual.length === 12) ? [...data.faturamentoReurbPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoReurbPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4981,6 +4871,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoGeoPrevistoManual && data.faturamentoGeoPrevistoManual.length === 12) ? [...data.faturamentoGeoPrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoGeoPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
@@ -4999,6 +4896,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 3] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoGeoPrevistoManual && data.faturamentoGeoPrevistoManual.length === 12) ? [...data.faturamentoGeoPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoGeoPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
@@ -5017,6 +4921,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 6] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoGeoPrevistoManual && data.faturamentoGeoPrevistoManual.length === 12) ? [...data.faturamentoGeoPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoGeoPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
@@ -5035,6 +4946,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 9] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoGeoPrevistoManual && data.faturamentoGeoPrevistoManual.length === 12) ? [...data.faturamentoGeoPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoGeoPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
@@ -5277,6 +5195,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoPlanPrevistoManual && data.faturamentoPlanPrevistoManual.length === 12) ? [...data.faturamentoPlanPrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoPlanPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
@@ -5295,6 +5220,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 3] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoPlanPrevistoManual && data.faturamentoPlanPrevistoManual.length === 12) ? [...data.faturamentoPlanPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoPlanPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
@@ -5313,6 +5245,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 6] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoPlanPrevistoManual && data.faturamentoPlanPrevistoManual.length === 12) ? [...data.faturamentoPlanPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoPlanPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
@@ -5331,6 +5270,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 9] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoPlanPrevistoManual && data.faturamentoPlanPrevistoManual.length === 12) ? [...data.faturamentoPlanPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoPlanPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
@@ -5573,6 +5519,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoRegPrevistoManual && data.faturamentoRegPrevistoManual.length === 12) ? [...data.faturamentoRegPrevistoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoRegPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
@@ -5591,6 +5544,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 3] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoRegPrevistoManual && data.faturamentoRegPrevistoManual.length === 12) ? [...data.faturamentoRegPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoRegPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
@@ -5609,6 +5569,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 6] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoRegPrevistoManual && data.faturamentoRegPrevistoManual.length === 12) ? [...data.faturamentoRegPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoRegPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
@@ -5627,6 +5594,13 @@ const Projection: React.FC = () => {
                         newData.previsto[index + 9] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
+                        
+                        // Salvar também no estado principal para override manual
+                        const arr = (data.faturamentoRegPrevistoManual && data.faturamentoRegPrevistoManual.length === 12) ? [...data.faturamentoRegPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoRegPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
