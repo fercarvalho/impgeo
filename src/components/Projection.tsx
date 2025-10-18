@@ -19,6 +19,8 @@ interface ProjectionData {
   mkt: number[]
   faturamentoReurb: number[]
   faturamentoReurbPrevistoManual?: (number | null)[]
+  faturamentoReurbMedioManual?: (number | null)[]
+  faturamentoReurbMaximoManual?: (number | null)[]
   faturamentoGeo: number[]
   faturamentoGeoPrevistoManual?: (number | null)[]
   faturamentoPlan: number[]
@@ -1420,6 +1422,13 @@ Continuar mesmo assim?`)
   }
 
   const calcularMedioReurbMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoReurbMedioManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`REURB Médio Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Médio = Faturamento REURB (tabela principal) + Percentual Médio
     const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
     const percentualMedio = data.growth?.medio || 0
@@ -1427,6 +1436,13 @@ Continuar mesmo assim?`)
   }
 
   const calcularMaximoReurbMes = (monthIndex: number) => {
+    // Verificar se há override manual primeiro
+    const override = data.faturamentoReurbMaximoManual?.[monthIndex]
+    if (override !== undefined && override !== null) {
+      console.log(`REURB Máximo Mês ${monthIndex}: Usando valor manual=${override}`)
+      return formatNumber(override)
+    }
+    
     // Máximo = Faturamento REURB (tabela principal) + Percentual Máximo
     const faturamentoReurb = data.faturamentoReurb[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
@@ -1823,6 +1839,8 @@ Continuar mesmo assim?`)
                 investimentosMaximoManual: undefined,
                 // Limpar edições manuais de faturamentos
                 faturamentoReurbPrevistoManual: undefined,
+                faturamentoReurbMedioManual: undefined,
+                faturamentoReurbMaximoManual: undefined,
                 faturamentoGeoPrevistoManual: undefined,
                 faturamentoPlanPrevistoManual: undefined,
                 faturamentoRegPrevistoManual: undefined,
@@ -4782,17 +4800,18 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio[0] + faturamentoReurbData.medio[1] + faturamentoReurbData.medio[2]} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioReurbMes(i))} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.medio[index]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.medio[index] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMedioReurbMes(index)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMedioManual && data.faturamentoReurbMedioManual.length === 12) ? [...data.faturamentoReurbMedioManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoReurbMedioManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4800,17 +4819,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio[3] + faturamentoReurbData.medio[4] + faturamentoReurbData.medio[5]} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioReurbMes(i))} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.medio[index + 3]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.medio[index + 3] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMedioReurbMes(index + 3)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMedioManual && data.faturamentoReurbMedioManual.length === 12) ? [...data.faturamentoReurbMedioManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoReurbMedioManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4818,17 +4838,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio[6] + faturamentoReurbData.medio[7] + faturamentoReurbData.medio[8]} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioReurbMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.medio[index + 6]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.medio[index + 6] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMedioReurbMes(index + 6)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMedioManual && data.faturamentoReurbMedioManual.length === 12) ? [...data.faturamentoReurbMedioManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoReurbMedioManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4836,17 +4857,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio[9] + faturamentoReurbData.medio[10] + faturamentoReurbData.medio[11]} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioReurbMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.medio[index + 9]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.medio[index + 9] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMedioReurbMes(index + 9)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMedioManual && data.faturamentoReurbMedioManual.length === 12) ? [...data.faturamentoReurbMedioManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoReurbMedioManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4854,10 +4876,10 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioReurbMes(i))} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.medio.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioReurbMes(i))} />
                 </td>
               </tr>
 
@@ -4865,17 +4887,18 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo[0] + faturamentoReurbData.maximo[1] + faturamentoReurbData.maximo[2]} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoReurbMes(i))} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.maximo[index]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.maximo[index] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMaximoReurbMes(index)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMaximoManual && data.faturamentoReurbMaximoManual.length === 12) ? [...data.faturamentoReurbMaximoManual] : new Array(12).fill(null)
+                        arr[index] = value
+                        const updated = { ...data, faturamentoReurbMaximoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4883,17 +4906,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo[3] + faturamentoReurbData.maximo[4] + faturamentoReurbData.maximo[5]} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoReurbMes(i))} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.maximo[index + 3]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.maximo[index + 3] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMaximoReurbMes(index + 3)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMaximoManual && data.faturamentoReurbMaximoManual.length === 12) ? [...data.faturamentoReurbMaximoManual] : new Array(12).fill(null)
+                        arr[index + 3] = value
+                        const updated = { ...data, faturamentoReurbMaximoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4901,17 +4925,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo[6] + faturamentoReurbData.maximo[7] + faturamentoReurbData.maximo[8]} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoReurbMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.maximo[index + 6]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.maximo[index + 6] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMaximoReurbMes(index + 6)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMaximoManual && data.faturamentoReurbMaximoManual.length === 12) ? [...data.faturamentoReurbMaximoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoReurbMaximoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4919,17 +4944,18 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo[9] + faturamentoReurbData.maximo[10] + faturamentoReurbData.maximo[11]} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoReurbMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoReurbData.maximo[index + 9]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
-                        newData.maximo[index + 9] = value
-                        setFaturamentoReurbData(newData)
-                        saveFaturamentoReurbToServer(newData)
+                      value={calcularMaximoReurbMes(index + 9)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoReurbMaximoManual && data.faturamentoReurbMaximoManual.length === 12) ? [...data.faturamentoReurbMaximoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoReurbMaximoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
@@ -4937,10 +4963,10 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoReurbMes(i))} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.maximo.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoReurbMes(i))} />
                 </td>
               </tr>
             </tbody>
