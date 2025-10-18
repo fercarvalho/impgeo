@@ -989,7 +989,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             Investimentos
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div 
               className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openInvestimentosChart(monthIndex, mesesMetas[monthIndex].nome)}
@@ -1669,7 +1669,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             Investimentos Anuais
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div 
               className="bg-gradient-to-br from-blue-100 to-blue-200 p-8 rounded-2xl border-2 border-blue-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
               onClick={() => openInvestimentosAnualChart()}
