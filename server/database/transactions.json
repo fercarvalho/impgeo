@@ -39,5 +39,60 @@
     "subcategory": "teste A",
     "createdAt": "2025-10-13T15:26:22.086Z",
     "updatedAt": "2025-10-13T15:26:22.086Z"
+  },
+  {
+    "id": "mgwjwizb6wgluclkdb5",
+    "date": "2025-10-18",
+    "description": "TESTE 11",
+    "value": 1000,
+    "type": "Receita",
+    "category": "NN",
+    "subcategory": "",
+    "createdAt": "2025-10-18T17:27:55.415Z",
+    "updatedAt": "2025-10-18T17:27:55.415Z"
+  },
+  {
+    "id": "mgwjy2aoc7leo95k6ld",
+    "date": "2025-10-18",
+    "description": "TESTE Inv",
+    "value": 1500,
+    "type": "Despesa",
+    "category": "Investimento",
+    "subcategory": "Materiais Extras",
+    "createdAt": "2025-10-18T17:29:07.104Z",
+    "updatedAt": "2025-10-18T17:29:07.105Z"
+  },
+  {
+    "id": "mgwjzny00wsgt2jkhxa",
+    "date": "2025-09-18",
+    "description": "Teste iii",
+    "value": 1500,
+    "type": "Despesa",
+    "category": "Mkt",
+    "subcategory": "Auxiliar de Campo",
+    "createdAt": "2025-10-18T17:30:21.816Z",
+    "updatedAt": "2025-10-18T17:30:21.817Z"
+  },
+  {
+    "id": "mgwk1mzcv2q8dxq001",
+    "date": "2025-07-18",
+    "description": "Test bbbbb",
+    "value": 1500,
+    "type": "Despesa",
+    "category": "Investimento",
+    "subcategory": "Social Media",
+    "createdAt": "2025-10-18T17:31:53.880Z",
+    "updatedAt": "2025-10-18T17:31:53.880Z"
+  },
+  {
+    "id": "mgwk6c6u5oj2yghf67h",
+    "date": "2025-10-18",
+    "description": "Teste ooooo",
+    "value": 1200,
+    "type": "Despesa",
+    "category": "Mkt",
+    "subcategory": "CARTÃO C6",
+    "createdAt": "2025-10-18T17:35:33.174Z",
+    "updatedAt": "2025-10-18T17:35:33.174Z"
   }
 ]

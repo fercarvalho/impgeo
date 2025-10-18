@@ -489,6 +489,23 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
 
+    // Debug: Log das transações para verificar se estão sendo carregadas
+    console.log(`📊 MÊS ${monthIndex} (${_monthName}):`, {
+      totalTransacoes: transactions.length,
+      transacoesDoMes: transacoesDoMes.length,
+      totalReceitas,
+      totalDespesas,
+      metaValue,
+      progressoPercentual: metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(1) : 0
+    })
+
+    // Status da meta
+    const metaAtingida = totalReceitas >= metaValue
+    const progressoPercentual = metaValue > 0 ? ((totalReceitas / metaValue) * 100) : 0
+    const statusCor = metaAtingida ? 'text-emerald-600' : progressoPercentual >= 80 ? 'text-yellow-600' : 'text-red-600'
+    const statusIcon = metaAtingida ? '✅' : progressoPercentual >= 80 ? '⚠️' : '❌'
+    const statusTexto = metaAtingida ? 'META ATINGIDA!' : progressoPercentual >= 80 ? 'QUASE LÁ!' : 'EM ANDAMENTO'
+
     return (
       <div className="space-y-6">
         {/* 1. RESULTADO */}
@@ -551,6 +568,17 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             {/* Quadrante META DO MÊS */}
             <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
               <div className="space-y-4">
+                {/* Status da Meta */}
+                <div className={`text-center p-3 rounded-lg border-2 ${metaAtingida ? 'bg-emerald-50 border-emerald-200' : progressoPercentual >= 80 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className={`text-lg font-bold ${statusCor} flex items-center justify-center gap-2`}>
+                    <span>{statusIcon}</span>
+                    <span>{statusTexto}</span>
+                  </div>
+                  <div className={`text-sm font-medium ${statusCor}`}>
+                    {progressoPercentual.toFixed(1)}% da meta atingida
+                  </div>
+                </div>
+                
                 {/* Cabeçalho com colunas R$ e % */}
                 <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-gray-300">
                   <div className="text-center">
@@ -1019,6 +1047,23 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
     const saldoInicialAno = 31970.50
 
+    // Debug: Log das transações anuais
+    console.log(`📊 ANO ${currentYear}:`, {
+      totalTransacoes: transactions.length,
+      transacoesDoAno: transacoesDoAno.length,
+      totalReceitasAno,
+      totalDespesasAno,
+      metaTotalAno,
+      progressoPercentualAnual: metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(1) : 0
+    })
+
+    // Status da meta anual
+    const metaAnualAtingida = totalReceitasAno >= metaTotalAno
+    const progressoPercentualAnual = metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100) : 0
+    const statusCorAnual = metaAnualAtingida ? 'text-emerald-600' : progressoPercentualAnual >= 80 ? 'text-yellow-600' : 'text-red-600'
+    const statusIconAnual = metaAnualAtingida ? '✅' : progressoPercentualAnual >= 80 ? '⚠️' : '❌'
+    const statusTextoAnual = metaAnualAtingida ? 'META ANUAL ATINGIDA!' : progressoPercentualAnual >= 80 ? 'QUASE LÁ!' : 'EM ANDAMENTO'
+
     return (
       <div className="space-y-6 mb-12">
         {/* Título Principal do Ano */}
@@ -1088,6 +1133,17 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             {/* Quadrante META ANUAL */}
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-purple-200">
               <div className="space-y-4">
+                {/* Status da Meta Anual */}
+                <div className={`text-center p-4 rounded-lg border-2 ${metaAnualAtingida ? 'bg-emerald-50 border-emerald-200' : progressoPercentualAnual >= 80 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className={`text-xl font-bold ${statusCorAnual} flex items-center justify-center gap-2`}>
+                    <span>{statusIconAnual}</span>
+                    <span>{statusTextoAnual}</span>
+                  </div>
+                  <div className={`text-sm font-medium ${statusCorAnual}`}>
+                    {progressoPercentualAnual.toFixed(1)}% da meta anual atingida
+                  </div>
+                </div>
+                
                 {/* Cabeçalho com colunas R$ e % */}
                 <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-purple-300">
                   <div className="text-center">

@@ -241,7 +241,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     }
     
     const payload = {
-      id: editing?.id,
+      ...(editing?.id && { id: editing.id }),
       date: form.date,
       description: form.description,
       value: parseFloat(form.value),
@@ -249,7 +249,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       category: form.category,
       subcategory: form.subcategory
     }
-    console.log('Payload:', payload)
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/transactions/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
