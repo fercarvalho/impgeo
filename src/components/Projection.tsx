@@ -6139,46 +6139,48 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto[6] + faturamentoNnData.previsto[7] + faturamentoNnData.previsto[8]} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoNnMes(i))} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoNnData.previsto[index + 6]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoNnData}
-                        newData.previsto[index + 6] = value
-                        setFaturamentoNnData(newData)
-                        saveFaturamentoNnToServer(newData)
+                      value={calcularPrevistoNnMes(index + 6)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoNnPrevistoManual && data.faturamentoNnPrevistoManual.length === 12) ? [...data.faturamentoNnPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 6] = value
+                        const updated = { ...data, faturamentoNnPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 6}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto[9] + faturamentoNnData.previsto[10] + faturamentoNnData.previsto[11]} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoNnMes(i))} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
-                      value={faturamentoNnData.previsto[index + 9]} 
-                      onBlur={(value: number) => {
-                        const newData = {...faturamentoNnData}
-                        newData.previsto[index + 9] = value
-                        setFaturamentoNnData(newData)
-                        saveFaturamentoNnToServer(newData)
+                      value={calcularPrevistoNnMes(index + 9)} 
+                      onBlur={(value) => {
+                        const arr = (data.faturamentoNnPrevistoManual && data.faturamentoNnPrevistoManual.length === 12) ? [...data.faturamentoNnPrevistoManual] : new Array(12).fill(null)
+                        arr[index + 9] = value
+                        const updated = { ...data, faturamentoNnPrevistoManual: arr }
+                        setData(updated)
+                        if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 9}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoNnMes(i))} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoNnMes(i))} />
                 </td>
               </tr>
 
