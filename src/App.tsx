@@ -1079,7 +1079,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               className="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-pink-800 mb-3">Distribuição de Receitas</h3>
+              <h3 className="text-base font-bold text-rose-800 mb-3">Distribuição de Receitas</h3>
               <div className="flex items-center justify-center h-48">
                 <div className="relative w-32 h-32">
                   {/* Círculo base */}
@@ -1095,36 +1095,36 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Texto central */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-xl font-bold text-pink-800">
+                      <div className="text-xl font-bold text-rose-800">
                         {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(0) : 0}%
                       </div>
-                      <div className="text-xs text-pink-600 font-medium">Alcançado</div>
+                      <div className="text-xs text-rose-600 font-medium">Alcançado</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="text-center text-xs text-pink-700 font-medium">
+              <div className="text-center text-xs text-rose-700 font-medium">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
             {/* Barra de Progresso Linear */}
             <div 
-              className="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-sky-50 to-blue-50 p-4 rounded-2xl border border-sky-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-cyan-800 mb-3">Progresso Linear</h3>
+              <h3 className="text-base font-bold text-sky-800 mb-3">Progresso Linear</h3>
               <div className="space-y-4">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-900 mb-3">
+                  <div className="text-3xl font-bold text-sky-900 mb-3">
                     {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(1) : 0}%
                   </div>
-                  <div className="text-xs text-cyan-700">Meta Alcançada</div>
+                  <div className="text-xs text-sky-700">Meta Alcançada</div>
                 </div>
                 
-                <div className="w-full bg-cyan-200 rounded-full h-4 relative overflow-hidden">
+                <div className="w-full bg-sky-200 rounded-full h-4 relative overflow-hidden">
                   <div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full transition-all duration-500 relative"
+                    className="bg-gradient-to-r from-sky-500 to-blue-500 h-4 rounded-full transition-all duration-500 relative"
                     style={{ width: `${Math.min(100, ((totalReceitas / metaValue) * 100))}%` }}
                   >
                     {/* Efeito de brilho */}
