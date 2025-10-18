@@ -166,6 +166,13 @@ const Projection: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/projection`)
       if (response.ok) {
         const serverData = await response.json()
+        console.log('📊 DADOS CARREGADOS DO BANCO:', {
+          despesasVariaveis: serverData.despesasVariaveis,
+          despesasFixas: serverData.despesasFixas,
+          faturamentoNn: serverData.faturamentoNn,
+          faturamentoNnPrevistoManual: serverData.faturamentoNnPrevistoManual,
+          growth: serverData.growth
+        })
         setData(serverData)
       } else {
         console.error('Erro ao carregar dados de projeção')
@@ -1598,7 +1605,9 @@ Continuar mesmo assim?`)
     // Previsto = Faturamento NN (tabela principal) + Percentual Mínimo
     const faturamentoNn = data.faturamentoNn[monthIndex] || 0
     const percentualMinimo = data.growth?.minimo || 0
-    return formatNumber(faturamentoNn + (faturamentoNn * percentualMinimo / 100))
+    const valorCalculado = faturamentoNn + (faturamentoNn * percentualMinimo / 100)
+    console.log(`NN Mês ${monthIndex}: Calculado automaticamente=${valorCalculado} (base=${faturamentoNn} + ${percentualMinimo}%)`)
+    return formatNumber(valorCalculado)
   }
 
   const calcularMedioNnMes = (monthIndex: number) => {
@@ -1873,6 +1882,145 @@ Continuar mesmo assim?`)
     )
   }
 
+  // Função para verificar sincronização entre banco e interface
+  const verificarSincronizacao = async () => {
+    try {
+      console.log('🔍 INICIANDO VERIFICAÇÃO DE SINCRONIZAÇÃO...')
+      
+      // Carregar dados do banco
+      const response = await fetch(`${API_BASE_URL}/projection`)
+      if (!response.ok) {
+        console.error('❌ Erro ao carregar dados do banco')
+        return
+      }
+      
+      const dadosBanco = await response.json()
+      console.log('📊 DADOS DO BANCO:', dadosBanco)
+      
+      // Verificar cada categoria
+      const verificacoes = {
+        despesasVariaveis: verificarArray(dadosBanco.despesasVariaveis, data.despesasVariaveis, 'Despesas Variáveis'),
+        despesasFixas: verificarArray(dadosBanco.despesasFixas, data.despesasFixas, 'Despesas Fixas'),
+        investimentos: verificarArray(dadosBanco.investimentos, data.investimentos, 'Investimentos'),
+        mkt: verificarArray(dadosBanco.mkt, data.mkt, 'MKT'),
+        faturamentoReurb: verificarArray(dadosBanco.faturamentoReurb, data.faturamentoReurb, 'Faturamento REURB'),
+        faturamentoGeo: verificarArray(dadosBanco.faturamentoGeo, data.faturamentoGeo, 'Faturamento GEO'),
+        faturamentoPlan: verificarArray(dadosBanco.faturamentoPlan, data.faturamentoPlan, 'Faturamento PLAN'),
+        faturamentoReg: verificarArray(dadosBanco.faturamentoReg, data.faturamentoReg, 'Faturamento REG'),
+        faturamentoNn: verificarArray(dadosBanco.faturamentoNn, data.faturamentoNn, 'Faturamento NN'),
+        growth: verificarGrowth(dadosBanco.growth, data.growth, 'Growth'),
+        mktComponents: verificarMktComponents(dadosBanco.mktComponents, data.mktComponents, 'MKT Components')
+      }
+      
+      // Verificar valores manuais
+      const verificacoesManuais = {
+        fixedPrevistoManual: verificarArray(dadosBanco.fixedPrevistoManual || [], data.fixedPrevistoManual || [], 'Fixed Previsto Manual'),
+        variablePrevistoManual: verificarArray(dadosBanco.variablePrevistoManual || [], data.variablePrevistoManual || [], 'Variable Previsto Manual'),
+        faturamentoNnPrevistoManual: verificarArray(dadosBanco.faturamentoNnPrevistoManual || [], data.faturamentoNnPrevistoManual || [], 'Faturamento NN Previsto Manual')
+      }
+      
+      // Resumo final
+      const totalVerificacoes = Object.values(verificacoes).length + Object.values(verificacoesManuais).length
+      const verificacoesPassaram = Object.values(verificacoes).filter(v => v.sincronizado).length + 
+                                 Object.values(verificacoesManuais).filter(v => v.sincronizado).length
+      
+      console.log('📋 RESUMO DA VERIFICAÇÃO:')
+      console.log(`✅ Verificações que passaram: ${verificacoesPassaram}/${totalVerificacoes}`)
+      console.log(`❌ Verificações que falharam: ${totalVerificacoes - verificacoesPassaram}/${totalVerificacoes}`)
+      
+      if (verificacoesPassaram === totalVerificacoes) {
+        console.log('🎉 TODAS AS VERIFICAÇÕES PASSARAM! Os dados estão sincronizados.')
+        alert('🎉 VERIFICAÇÃO CONCLUÍDA!\n\n✅ Todos os dados estão sincronizados entre banco e interface.')
+      } else {
+        console.log('⚠️ ALGUMAS VERIFICAÇÕES FALHARAM! Há discrepâncias entre banco e interface.')
+        alert('⚠️ VERIFICAÇÃO CONCLUÍDA!\n\n❌ Algumas discrepâncias foram encontradas.\n\nVerifique o console para detalhes.')
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro durante verificação:', error)
+      alert('❌ ERRO!\n\nErro durante a verificação. Verifique o console para detalhes.')
+    }
+  }
+  
+  // Função auxiliar para verificar arrays
+  const verificarArray = (banco: any[], dadosInterface: any[], nome: string) => {
+    if (!banco || !dadosInterface) {
+      console.log(`❌ ${nome}: Dados ausentes (banco: ${!!banco}, interface: ${!!dadosInterface})`)
+      return { sincronizado: false, nome, detalhes: 'Dados ausentes' }
+    }
+    
+    if (banco.length !== dadosInterface.length) {
+      console.log(`❌ ${nome}: Tamanhos diferentes (banco: ${banco.length}, interface: ${dadosInterface.length})`)
+      return { sincronizado: false, nome, detalhes: 'Tamanhos diferentes' }
+    }
+    
+    const diferencas = []
+    for (let i = 0; i < banco.length; i++) {
+      if (banco[i] !== dadosInterface[i]) {
+        diferencas.push({ indice: i, banco: banco[i], interface: dadosInterface[i] })
+      }
+    }
+    
+    if (diferencas.length > 0) {
+      console.log(`❌ ${nome}: ${diferencas.length} diferenças encontradas:`, diferencas)
+      return { sincronizado: false, nome, detalhes: `${diferencas.length} diferenças`, diferencas }
+    } else {
+      console.log(`✅ ${nome}: Sincronizado (${banco.length} valores)`)
+      return { sincronizado: true, nome, detalhes: `${banco.length} valores sincronizados` }
+    }
+  }
+  
+  // Função auxiliar para verificar growth
+  const verificarGrowth = (banco: any, dadosInterface: any, nome: string) => {
+    if (!banco || !dadosInterface) {
+      console.log(`❌ ${nome}: Dados ausentes`)
+      return { sincronizado: false, nome, detalhes: 'Dados ausentes' }
+    }
+    
+    const campos = ['minimo', 'medio', 'maximo']
+    const diferencas = []
+    
+    for (const campo of campos) {
+      if (banco[campo] !== dadosInterface[campo]) {
+        diferencas.push({ campo, banco: banco[campo], interface: dadosInterface[campo] })
+      }
+    }
+    
+    if (diferencas.length > 0) {
+      console.log(`❌ ${nome}: ${diferencas.length} diferenças encontradas:`, diferencas)
+      return { sincronizado: false, nome, detalhes: `${diferencas.length} diferenças`, diferencas }
+    } else {
+      console.log(`✅ ${nome}: Sincronizado`)
+      return { sincronizado: true, nome, detalhes: 'Sincronizado' }
+    }
+  }
+  
+  // Função auxiliar para verificar mktComponents
+  const verificarMktComponents = (banco: any, dadosInterface: any, nome: string) => {
+    if (!banco || !dadosInterface) {
+      console.log(`❌ ${nome}: Dados ausentes`)
+      return { sincronizado: false, nome, detalhes: 'Dados ausentes' }
+    }
+    
+    const componentes = ['trafego', 'socialMedia', 'producaoConteudo']
+    const diferencas = []
+    
+    for (const componente of componentes) {
+      const verificacao = verificarArray(banco[componente], dadosInterface[componente], `${nome}.${componente}`)
+      if (!verificacao.sincronizado) {
+        diferencas.push({ componente, detalhes: verificacao.detalhes })
+      }
+    }
+    
+    if (diferencas.length > 0) {
+      console.log(`❌ ${nome}: ${diferencas.length} componentes com diferenças:`, diferencas)
+      return { sincronizado: false, nome, detalhes: `${diferencas.length} componentes com diferenças`, diferencas }
+    } else {
+      console.log(`✅ ${nome}: Sincronizado`)
+      return { sincronizado: true, nome, detalhes: 'Sincronizado' }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1934,6 +2082,14 @@ Continuar mesmo assim?`)
           >
             <RotateCcw className="h-5 w-5" />
             Resetar Cálculos
+          </button>
+          
+          <button
+            onClick={verificarSincronizacao}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
+          >
+            🔍 Verificar Sincronização
           </button>
           
           <button
