@@ -95,6 +95,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
+  const [projectionData, setProjectionData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
 
@@ -141,6 +142,28 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     { nome: 'DEZEMBRO', indice: 11, meta: 28000.00 }
   ]
 
+  // Sincronizar com mudanças na projeção
+  useEffect(() => {
+    if (projectionData) {
+      console.log('🔄 Dados da projeção atualizados, recalculando metas...')
+      // Forçar re-render dos componentes que dependem dos dados da projeção
+    }
+  }, [projectionData])
+
+  // Carregar dados da projeção
+  const loadProjectionData = async () => {
+    try {
+      const response = await fetch('/api/projection')
+      if (response.ok) {
+        const data = await response.json()
+        setProjectionData(data)
+        console.log('📊 Dados da projeção carregados:', data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados da projeção:', error)
+    }
+  }
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -151,6 +174,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         ])
         
         setTransactions(transactionsData)
+        await loadProjectionData()
         
         // Criar metas padrão para IMPGEO
         const defaultMetas: Meta[] = [
@@ -236,9 +260,17 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     })
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     
-    // Meta de faturamento para o mês (baseada na meta mensal)
-    const metasDoMes = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
-    const metaFaturamento = metasDoMes[monthIndex]
+    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    const metasDoMes = projectionData ? [
+      projectionData.faturamentoReurb?.[monthIndex] || 0,
+      projectionData.faturamentoGeo?.[monthIndex] || 0,
+      projectionData.faturamentoPlan?.[monthIndex] || 0,
+      projectionData.faturamentoReg?.[monthIndex] || 0,
+      projectionData.faturamentoNn?.[monthIndex] || 0
+    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
+    // Meta total do mês (soma de todos os faturamentos)
+    const metaFaturamento = metasDoMes.reduce((sum, meta) => sum + meta, 0)
     
     const data = [
       { name: 'Alcançado', value: totalReceitas, color: '#10b981' },
@@ -299,8 +331,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const metasDoMes = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
-    const metaValue = metasDoMes[monthIndex]
+    
+    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    const metasDoMes = projectionData ? [
+      projectionData.faturamentoReurb?.[monthIndex] || 0,
+      projectionData.faturamentoGeo?.[monthIndex] || 0,
+      projectionData.faturamentoPlan?.[monthIndex] || 0,
+      projectionData.faturamentoReg?.[monthIndex] || 0,
+      projectionData.faturamentoNn?.[monthIndex] || 0
+    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
+    // Meta total do mês (soma de todos os faturamentos)
+    const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
     
     const data = [
       { name: 'Meta Alcançada', value: totalReceitas, color: '#ec4899' },
@@ -464,7 +506,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   )
 
   // Função para renderizar um mês completo (stub para manter referências)
-  const renderMonth = (monthName: string, monthIndex: number, metaValue: number) => {
+  const renderMonth = (monthName: string, monthIndex: number) => {
     return (
       <div key={monthName} className="space-y-6 mb-32">
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
@@ -472,13 +514,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             {monthName} - 2025
           </h2>
         </div>
-        {renderMonthContent(monthName, monthIndex, metaValue)}
+        {renderMonthContent(monthName, monthIndex)}
       </div>
     )
   }
 
   // Conteúdo do mês (stub alinhado com referências existentes)
-  const renderMonthContent = (_monthName: string, monthIndex: number, metaValue: number) => {
+  const renderMonthContent = (_monthName: string, monthIndex: number) => {
     // Cálculos para o mês específico
     const currentYear = 2025
     const transacoesDoMes = transactions.filter(t => {
@@ -488,6 +530,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    const metasDoMes = projectionData ? [
+      projectionData.faturamentoReurb?.[monthIndex] || 0,
+      projectionData.faturamentoGeo?.[monthIndex] || 0,
+      projectionData.faturamentoPlan?.[monthIndex] || 0,
+      projectionData.faturamentoReg?.[monthIndex] || 0,
+      projectionData.faturamentoNn?.[monthIndex] || 0
+    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
+    // Meta total do mês (soma de todos os faturamentos)
+    const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
     
     // Calcular saldo inicial baseado em todas as transações anteriores ao mês atual
     const transacoesAnteriores = transactions.filter(t => {
@@ -1185,8 +1239,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
 
-    // Metas totais do ano
-    const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    // Metas totais do ano (baseadas na projeção - linha Previsto)
+    const metasDoAno = projectionData ? Array.from({ length: 12 }, (_, monthIndex) => {
+      const metasDoMes = [
+        projectionData.faturamentoReurb?.[monthIndex] || 0,
+        projectionData.faturamentoGeo?.[monthIndex] || 0,
+        projectionData.faturamentoPlan?.[monthIndex] || 0,
+        projectionData.faturamentoReg?.[monthIndex] || 0,
+        projectionData.faturamentoNn?.[monthIndex] || 0
+      ]
+      return metasDoMes.reduce((sum, meta) => sum + meta, 0)
+    }) : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
     const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
     
     // Calcular saldo inicial anual (todas as transações de anos anteriores)
@@ -1910,7 +1974,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
             {/* Conteúdo do Mês */}
-            {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice, mesSelecionado.meta)}
+            {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice)}
               </div>
         )}
 
@@ -1919,7 +1983,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* Renderizar todos os 12 meses em ordem normal */}
         {mesesMetas.map((mes) => 
-          renderMonth(mes.nome, mes.indice, mes.meta)
+          renderMonth(mes.nome, mes.indice)
         )}
               </div>
     )
