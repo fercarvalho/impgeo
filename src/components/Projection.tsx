@@ -13,6 +13,9 @@ interface ProjectionData {
   variablePrevistoManual?: (number | null)[]
   variableMedioManual?: (number | null)[]
   variableMaximoManual?: (number | null)[]
+  fixedPrevistoManual?: (number | null)[]
+  fixedMediaManual?: (number | null)[]
+  fixedMaximoManual?: (number | null)[]
   mkt: number[]
   faturamentoReurb: number[]
   faturamentoReurbPrevistoManual?: (number | null)[]
@@ -780,26 +783,6 @@ const Projection: React.FC = () => {
   }
 
   // Atualizar despesas fixas e salvar
-  const updateFixedExpensesAndSave = (category: keyof FixedExpensesData, monthIndex: number, value: number) => {
-    const newData = {
-      ...fixedExpensesData,
-      [category]: fixedExpensesData[category].map((val, index) => 
-        index === monthIndex ? value : val
-      )
-    }
-    setFixedExpensesData(newData)
-    
-    // Marcar como edição manual
-    const editKey = `fixedExpenses-${category}-${monthIndex}`
-    setManualEdits(prev => ({
-      ...prev,
-      [editKey]: true
-    }))
-    
-    if (token) {
-      saveFixedExpensesToServer(newData)
-    }
-  }
 
   // Carregar dados de despesas variáveis
   const loadVariableExpensesData = async () => {
@@ -1359,57 +1342,9 @@ Continuar mesmo assim?`)
   }
 
   // Funções específicas para despesas fixas
-  const calcularPrevistoJaneiro = () => {
-    // Janeiro = Dezembro da primeira tabela + 10%
-    const dezembroDespesasFixas = data.despesasFixas[11] || 0
-    return formatNumber(dezembroDespesasFixas * 1.1)
-  }
 
-  const calcularPrevistoMes = (monthIndex: number) => {
-    if (monthIndex === 0) {
-      // Janeiro = Dezembro da primeira tabela + 10%
-      return calcularPrevistoJaneiro()
-    } else if (monthIndex === 1 || monthIndex === 2) {
-      // Fevereiro e Março = Janeiro
-      return formatNumber(fixedExpensesData.previsto[0] || 0)
-    } else if (monthIndex === 3) {
-      // Abril = Março + 10%
-      const marco = fixedExpensesData.previsto[2] || 0
-      return formatNumber(marco * 1.1)
-    } else if (monthIndex === 4 || monthIndex === 5) {
-      // Maio e Junho = Abril
-      return formatNumber(fixedExpensesData.previsto[3] || 0)
-    } else if (monthIndex === 6) {
-      // Julho = Junho + 10%
-      const junho = fixedExpensesData.previsto[5] || 0
-      return formatNumber(junho * 1.1)
-    } else if (monthIndex === 7 || monthIndex === 8) {
-      // Agosto e Setembro = Julho
-      return formatNumber(fixedExpensesData.previsto[6] || 0)
-    } else if (monthIndex === 9) {
-      // Outubro = Setembro + 10%
-      const setembro = fixedExpensesData.previsto[8] || 0
-      return formatNumber(setembro * 1.1)
-    } else if (monthIndex === 10 || monthIndex === 11) {
-      // Novembro e Dezembro = Outubro
-      return formatNumber(fixedExpensesData.previsto[9] || 0)
-    } else {
-      // Fallback (não deveria acontecer)
-      return 0
-    }
-  }
 
-  const calcularMediaMes = (monthIndex: number) => {
-    // Média = Previsto + 10%
-    const previsto = calcularPrevistoMes(monthIndex)
-    return formatNumber(previsto * 1.1)
-  }
 
-  const calcularMaximoMes = (monthIndex: number) => {
-    // Máximo = Média + 10%
-    const media = calcularMediaMes(monthIndex)
-    return formatNumber(media * 1.1)
-  }
 
   // Funções específicas para despesas variáveis
   const calcularPrevistoVariableMes = (monthIndex: number) => {
@@ -1437,6 +1372,34 @@ Continuar mesmo assim?`)
     const despesasVariaveis = data.despesasVariaveis[monthIndex] || 0
     const percentualMaximo = data.growth?.maximo || 0
     return formatNumber(despesasVariaveis + (despesasVariaveis * percentualMaximo / 100))
+  }
+
+  // Funções de cálculo para Despesas Fixas
+  const calcularPrevistoFixedMes = (monthIndex: number) => {
+    const override = data.fixedPrevistoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
+    // Previsto = Despesas Fixas (tabela principal) + Percentual Mínimo
+    const despesasFixas = data.despesasFixas[monthIndex] || 0
+    const percentualMinimo = data.growth?.minimo || 0
+    return formatNumber(despesasFixas + (despesasFixas * percentualMinimo / 100))
+  }
+
+  const calcularMediaFixedMes = (monthIndex: number) => {
+    const override = data.fixedMediaManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
+    // Médio = Despesas Fixas (tabela principal) + Percentual Médio
+    const despesasFixas = data.despesasFixas[monthIndex] || 0
+    const percentualMedio = data.growth?.medio || 0
+    return formatNumber(despesasFixas + (despesasFixas * percentualMedio / 100))
+  }
+
+  const calcularMaximoFixedMes = (monthIndex: number) => {
+    const override = data.fixedMaximoManual?.[monthIndex]
+    if (override !== undefined && override !== null) return formatNumber(override)
+    // Máximo = Despesas Fixas (tabela principal) + Percentual Máximo
+    const despesasFixas = data.despesasFixas[monthIndex] || 0
+    const percentualMaximo = data.growth?.maximo || 0
+    return formatNumber(despesasFixas + (despesasFixas * percentualMaximo / 100))
   }
 
   // Funções de cálculo para Faturamento REURB
@@ -1622,21 +1585,21 @@ Continuar mesmo assim?`)
   // Funções específicas para despesas fixas + variáveis (não editáveis)
   const calcularPrevistoFixoVariavelMes = (monthIndex: number) => {
     // Previsto = Despesas Fixas (Previsto) + Despesas Variáveis (Previsto)
-    const despesasFixasPrevisto = calcularPrevistoMes(monthIndex)
+    const despesasFixasPrevisto = calcularPrevistoFixedMes(monthIndex)
     const despesasVariaveisPrevisto = calcularPrevistoVariableMes(monthIndex)
     return formatNumber(despesasFixasPrevisto + despesasVariaveisPrevisto)
   }
 
   const calcularMedioFixoVariavelMes = (monthIndex: number) => {
     // Médio = Despesas Fixas (Média) + Despesas Variáveis (Médio)
-    const despesasFixasMedia = calcularMediaMes(monthIndex)
+    const despesasFixasMedia = calcularMediaFixedMes(monthIndex)
     const despesasVariaveisMedio = calcularMedioVariableMes(monthIndex)
     return formatNumber(despesasFixasMedia + despesasVariaveisMedio)
   }
 
   const calcularMaximoFixoVariavelMes = (monthIndex: number) => {
     // Máximo = Despesas Fixas (Máximo) + Despesas Variáveis (Máximo)
-    const despesasFixasMaximo = calcularMaximoMes(monthIndex)
+    const despesasFixasMaximo = calcularMaximoFixedMes(monthIndex)
     const despesasVariaveisMaximo = calcularMaximoVariableMes(monthIndex)
     return formatNumber(despesasFixasMaximo + despesasVariaveisMaximo)
   }
@@ -3389,62 +3352,86 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixedMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index, value)}
-                        category="fixedExpenses-previsto"
+                        value={calcularPrevistoFixedMes(index)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, fixedPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="previsto-fixed"
                         monthIndex={index}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoFixedMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 3] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 3, value)}
-                        category="fixedExpenses-previsto"
+                        value={calcularPrevistoFixedMes(index + 3)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, fixedPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="previsto-fixed"
                         monthIndex={index + 3}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoFixedMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 6] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 6, value)}
-                        category="fixedExpenses-previsto"
+                        value={calcularPrevistoFixedMes(index + 6)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, fixedPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="previsto-fixed"
                         monthIndex={index + 6}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoFixedMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.previsto[index + 9] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('previsto', index + 9, value)}
-                        category="fixedExpenses-previsto"
+                        value={calcularPrevistoFixedMes(index + 9)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, fixedPrevistoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="previsto-fixed"
                         monthIndex={index + 9}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoFixedMes(i))} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.previsto[i] || 0)} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoFixedMes(i))} />
                   </td>
                 </tr>
 
@@ -3452,62 +3439,86 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Média</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaFixedMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.media[index] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('media', index, value)}
-                        category="fixedExpenses-media"
+                        value={calcularMediaFixedMes(index)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMediaManual && data.fixedMediaManual.length === 12) ? [...data.fixedMediaManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, fixedMediaManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="media-fixed"
                         monthIndex={index}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaFixedMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.media[index + 3] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 3, value)}
-                        category="fixedExpenses-media"
+                        value={calcularMediaFixedMes(index + 3)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMediaManual && data.fixedMediaManual.length === 12) ? [...data.fixedMediaManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, fixedMediaManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="media-fixed"
                         monthIndex={index + 3}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaFixedMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.media[index + 6] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 6, value)}
-                        category="fixedExpenses-media"
+                        value={calcularMediaFixedMes(index + 6)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMediaManual && data.fixedMediaManual.length === 12) ? [...data.fixedMediaManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, fixedMediaManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="media-fixed"
                         monthIndex={index + 6}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaFixedMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.media[index + 9] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('media', index + 9, value)}
-                        category="fixedExpenses-media"
+                        value={calcularMediaFixedMes(index + 9)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMediaManual && data.fixedMediaManual.length === 12) ? [...data.fixedMediaManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, fixedMediaManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="media-fixed"
                         monthIndex={index + 9}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMediaFixedMes(i))} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.media[i] || 0)} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMediaFixedMes(i))} />
                   </td>
                 </tr>
 
@@ -3515,62 +3526,86 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixedMes(i))} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.maximo[index] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index, value)}
-                        category="fixedExpenses-maximo"
+                        value={calcularMaximoFixedMes(index)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMaximoManual && data.fixedMaximoManual.length === 12) ? [...data.fixedMaximoManual] : new Array(12).fill(null)
+                          arr[index] = value
+                          const updated = { ...data, fixedMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="maximo-fixed"
                         monthIndex={index}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoFixedMes(i))} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.maximo[index + 3] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 3, value)}
-                        category="fixedExpenses-maximo"
+                        value={calcularMaximoFixedMes(index + 3)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMaximoManual && data.fixedMaximoManual.length === 12) ? [...data.fixedMaximoManual] : new Array(12).fill(null)
+                          arr[index + 3] = value
+                          const updated = { ...data, fixedMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="maximo-fixed"
                         monthIndex={index + 3}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoFixedMes(i))} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.maximo[index + 6] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 6, value)}
-                        category="fixedExpenses-maximo"
+                        value={calcularMaximoFixedMes(index + 6)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMaximoManual && data.fixedMaximoManual.length === 12) ? [...data.fixedMaximoManual] : new Array(12).fill(null)
+                          arr[index + 6] = value
+                          const updated = { ...data, fixedMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="maximo-fixed"
                         monthIndex={index + 6}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoFixedMes(i))} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                       <InputCell
-                        value={fixedExpensesData.maximo[index + 9] || 0}
-                        onBlur={(value) => updateFixedExpensesAndSave('maximo', index + 9, value)}
-                        category="fixedExpenses-maximo"
+                        value={calcularMaximoFixedMes(index + 9)}
+                        onBlur={(value) => {
+                          const arr = (data.fixedMaximoManual && data.fixedMaximoManual.length === 12) ? [...data.fixedMaximoManual] : new Array(12).fill(null)
+                          arr[index + 9] = value
+                          const updated = { ...data, fixedMaximoManual: arr }
+                          setData(updated)
+                          if (token) saveToServer(updated)
+                        }}
+                        category="maximo-fixed"
                         monthIndex={index + 9}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoFixedMes(i))} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => fixedExpensesData.maximo[i] || 0)} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoFixedMes(i))} />
                   </td>
                 </tr>
               </tbody>
