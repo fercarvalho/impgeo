@@ -1635,11 +1635,11 @@ Continuar mesmo assim?`)
 
   // Funções de cálculo para MKT baseadas na linha TOTAL da Composição MKT
   const calcularPrevistoMktMes = (monthIndex: number) => {
+    // Previsto = Total da composição de MKT (sem percentual de crescimento)
     const totalMkt = (data.mktComponents?.trafego[monthIndex] || 0) + 
                     (data.mktComponents?.socialMedia[monthIndex] || 0) + 
                     (data.mktComponents?.producaoConteudo[monthIndex] || 0)
-    const percentualMinimo = data.growth?.minimo || 0
-    return formatNumber(totalMkt + (totalMkt * percentualMinimo / 100))
+    return formatNumber(totalMkt)
   }
 
   const calcularMedioMktMes = (monthIndex: number) => {
