@@ -525,6 +525,15 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const statusIcon = metaAtingida ? '✅' : progressoPercentual >= 80 ? '⚠️' : '❌'
     const statusTexto = metaAtingida ? 'META ATINGIDA!' : progressoPercentual >= 80 ? 'QUASE LÁ!' : 'EM ANDAMENTO'
 
+    // Debug específico para Meta do Mês
+    console.log(`🎯 META DO MÊS ${monthIndex}:`, {
+      metaValue,
+      totalReceitas,
+      progressoPercentual,
+      metaAtingida,
+      restante: Math.max(0, metaValue - totalReceitas)
+    })
+
     return (
       <div className="space-y-6">
         {/* 1. RESULTADO */}
