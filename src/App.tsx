@@ -25,6 +25,7 @@ import Projects from './components/Projects'
 import Services from './components/Services'
 import Login from './components/Login'
 import Projection from './components/Projection'
+import ChartModal from './components/modals/ChartModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -110,6 +111,20 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Estados para Metas
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
   
+  // Estados para modal de gráficos
+  const [chartModal, setChartModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    data: Array<{name: string; value: number; color: string}>;
+    totalValue: number;
+    subtitle?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    data: [],
+    totalValue: 0
+  })
+  
   // Definição das metas mensais (centralizada)
   const mesesMetas = [
     { nome: 'JANEIRO', indice: 0, meta: 18500.00 },
@@ -194,6 +209,188 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const despesas = transactions.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.value, 0)
     const resultado = receitas - despesas
     return { receitas, despesas, resultado }
+  }
+
+  // Funções para abrir gráficos
+  const openChart = (title: string, data: Array<{name: string; value: number; color: string}>, subtitle?: string) => {
+    const totalValue = data.reduce((sum, item) => sum + item.value, 0)
+    setChartModal({
+      isOpen: true,
+      title,
+      data,
+      totalValue,
+      subtitle
+    })
+  }
+
+  const closeChart = () => {
+    setChartModal(prev => ({ ...prev, isOpen: false }))
+  }
+
+  // Funções específicas para cada tipo de gráfico
+  const openFaturamentoChart = (monthIndex: number, monthName: string) => {
+    const currentYear = 2025
+    const transacoesDoMes = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    
+    // Meta de faturamento para o mês (baseada na meta mensal)
+    const metasDoMes = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    const metaFaturamento = metasDoMes[monthIndex]
+    
+    const data = [
+      { name: 'Alcançado', value: totalReceitas, color: '#10b981' },
+      { name: 'Meta Restante', value: Math.max(0, metaFaturamento - totalReceitas), color: '#e5e7eb' }
+    ]
+    
+    openChart(`Faturamento - ${monthName}`, data, `Alcançado vs Meta de R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openDespesasChart = (monthIndex: number, monthName: string) => {
+    const currentYear = 2025
+    const transacoesDoMes = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+    })
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Meta de despesas para o mês (limite de 15.000 por mês)
+    const metaDespesas = 15000
+    
+    const data = [
+      { name: 'Alcançado', value: totalDespesas, color: '#ef4444' },
+      { name: 'Limite Restante', value: Math.max(0, metaDespesas - totalDespesas), color: '#e5e7eb' }
+    ]
+    
+    openChart(`Despesas - ${monthName}`, data, `Alcançado vs Limite de R$ ${metaDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openInvestimentosChart = (monthIndex: number, monthName: string) => {
+    const currentYear = 2025
+    const transacoesDoMes = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Metas de investimentos para o mês
+    const metaInvestimentosGerais = 2000
+    const metaInvestimentosMkt = 3000
+    const investimentosGerais = totalDespesas * 0.05
+    const investimentosMkt = totalReceitas * 0.1
+    
+    const data = [
+      { name: 'Investimentos Gerais Alcançados', value: investimentosGerais, color: '#3b82f6' },
+      { name: 'Meta Restante Gerais', value: Math.max(0, metaInvestimentosGerais - investimentosGerais), color: '#e5e7eb' },
+      { name: 'Investimentos MKT Alcançados', value: investimentosMkt, color: '#8b5cf6' },
+      { name: 'Meta Restante MKT', value: Math.max(0, metaInvestimentosMkt - investimentosMkt), color: '#f3f4f6' }
+    ]
+    
+    openChart(`Investimentos - ${monthName}`, data, `Alcançado vs Metas: Gerais R$ ${metaInvestimentosGerais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMkt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openProgressoChart = (monthIndex: number, monthName: string) => {
+    const currentYear = 2025
+    const transacoesDoMes = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const metasDoMes = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    const metaValue = metasDoMes[monthIndex]
+    
+    const data = [
+      { name: 'Meta Alcançada', value: totalReceitas, color: '#ec4899' },
+      { name: 'Meta Restante', value: Math.max(0, metaValue - totalReceitas), color: '#f3f4f6' }
+    ]
+    
+    openChart(`Progresso da Meta - ${monthName}`, data, `Progresso em relação à meta mensal`)
+  }
+
+  // Funções para gráficos anuais
+  const openFaturamentoAnualChart = () => {
+    const currentYear = 2025
+    const transacoesDoAno = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    
+    // Meta anual de faturamento (soma das metas mensais)
+    const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    const metaFaturamentoAnual = metasDoAno.reduce((sum, meta) => sum + meta, 0)
+    
+    const data = [
+      { name: 'Alcançado', value: totalReceitasAno, color: '#10b981' },
+      { name: 'Meta Restante', value: Math.max(0, metaFaturamentoAnual - totalReceitasAno), color: '#e5e7eb' }
+    ]
+    
+    openChart('Faturamento Anual 2025', data, `Alcançado vs Meta Anual de R$ ${metaFaturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openDespesasAnualChart = () => {
+    const currentYear = 2025
+    const transacoesDoAno = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() === currentYear
+    })
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Meta anual de despesas (limite de 180.000 por ano)
+    const metaDespesasAnual = 180000
+    
+    const data = [
+      { name: 'Alcançado', value: totalDespesasAno, color: '#ef4444' },
+      { name: 'Limite Restante', value: Math.max(0, metaDespesasAnual - totalDespesasAno), color: '#e5e7eb' }
+    ]
+    
+    openChart('Despesas Anuais 2025', data, `Alcançado vs Limite Anual de R$ ${metaDespesasAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openInvestimentosAnualChart = () => {
+    const currentYear = 2025
+    const transacoesDoAno = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Metas anuais de investimentos
+    const metaInvestimentosGeraisAnual = 24000
+    const metaInvestimentosMktAnual = 36000
+    const investimentosGeraisAnual = totalDespesasAno * 0.05
+    const investimentosMktAnual = totalReceitasAno * 0.1
+    
+    const data = [
+      { name: 'Investimentos Gerais Alcançados', value: investimentosGeraisAnual, color: '#3b82f6' },
+      { name: 'Meta Restante Gerais', value: Math.max(0, metaInvestimentosGeraisAnual - investimentosGeraisAnual), color: '#e5e7eb' },
+      { name: 'Investimentos MKT Alcançados', value: investimentosMktAnual, color: '#8b5cf6' },
+      { name: 'Meta Restante MKT', value: Math.max(0, metaInvestimentosMktAnual - investimentosMktAnual), color: '#f3f4f6' }
+    ]
+    
+    openChart('Investimentos Anuais 2025', data, `Alcançado vs Metas Anuais: Gerais R$ ${metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  }
+
+  const openProgressoAnualChart = () => {
+    const currentYear = 2025
+    const transacoesDoAno = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() === currentYear
+    })
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
+    
+    const data = [
+      { name: 'Meta Anual Alcançada', value: totalReceitasAno, color: '#ec4899' },
+      { name: 'Meta Anual Restante', value: Math.max(0, metaTotalAno - totalReceitasAno), color: '#f3f4f6' }
+    ]
+    
+    openChart('Progresso da Meta Anual 2025', data, 'Progresso em relação à meta anual')
   }
 
   // NavigationBar
@@ -408,7 +605,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-emerald-800 mb-4">Faturamento TOTAL</h3>
               <div className="text-2xl font-bold text-emerald-900 mb-4">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -442,7 +642,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-green-800 mb-4">Faturamento Varejo</h3>
               <div className="text-2xl font-bold text-green-900 mb-4">
                 R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -476,7 +679,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-teal-50 to-teal-100 p-6 rounded-2xl border border-teal-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-teal-50 to-teal-100 p-6 rounded-2xl border border-teal-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-teal-800 mb-4">Faturamento Atacado</h3>
               <div className="text-2xl font-bold text-teal-900 mb-4">
                 R$ {(totalReceitas * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -520,7 +726,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-2xl border border-red-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-2xl border border-red-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-red-800 mb-4">Despesas TOTAL</h3>
               <div className="text-2xl font-bold text-red-900 mb-4">
                 R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -554,7 +763,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-2xl border border-orange-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-2xl border border-orange-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-orange-800 mb-4">Despesas Variáveis</h3>
               <div className="text-2xl font-bold text-orange-900 mb-4">
                 R$ {(totalDespesas * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -588,7 +800,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-2xl border border-amber-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-2xl border border-amber-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-amber-800 mb-4">Despesas Fixas</h3>
               <div className="text-2xl font-bold text-amber-900 mb-4">
                 R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -632,7 +847,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl border border-blue-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openInvestimentosChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-blue-800 mb-4">Investimentos Gerais</h3>
               <div className="text-2xl font-bold text-blue-900 mb-4">
                 R$ {(totalDespesas * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -666,7 +884,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-2xl border border-purple-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-2xl border border-purple-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openInvestimentosChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-purple-800 mb-4">Investimentos em MKT</h3>
               <div className="text-2xl font-bold text-purple-900 mb-4">
                 R$ {(totalReceitas * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -711,7 +932,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Gráfico de Pizza */}
-            <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-6 rounded-2xl border border-pink-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-pink-50 to-rose-50 p-6 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-pink-800 mb-4">Distribuição de Receitas</h3>
               <div className="flex items-center justify-center h-48">
                 <div className="relative w-32 h-32">
@@ -742,7 +966,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             {/* Barra de Progresso Linear */}
-            <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-2xl border border-cyan-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
+            >
               <h3 className="text-lg font-bold text-cyan-800 mb-4">Progresso Linear</h3>
               <div className="space-y-4">
                 <div className="text-center">
@@ -915,7 +1142,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoAnualChart()}
+            >
               <h3 className="text-lg font-bold text-emerald-800 mb-4">Faturamento TOTAL Anual</h3>
               <div className="text-2xl font-bold text-emerald-900 mb-4">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -940,7 +1170,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoAnualChart()}
+            >
               <h3 className="text-lg font-bold text-green-800 mb-4">Faturamento Varejo Anual</h3>
               <div className="text-2xl font-bold text-green-900 mb-4">
                 R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -964,7 +1197,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-teal-50 to-teal-100 p-6 rounded-2xl border border-teal-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-teal-50 to-teal-100 p-6 rounded-2xl border border-teal-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openFaturamentoAnualChart()}
+            >
               <h3 className="text-lg font-bold text-teal-800 mb-4">Faturamento Atacado Anual</h3>
               <div className="text-2xl font-bold text-teal-900 mb-4">
                 R$ {(totalReceitasAno * 0.3).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -998,7 +1234,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-red-100 to-red-200 p-8 rounded-2xl border-2 border-red-300 shadow-xl">
+            <div 
+              className="bg-gradient-to-br from-red-100 to-red-200 p-8 rounded-2xl border-2 border-red-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasAnualChart()}
+            >
               <h3 className="text-xl font-bold text-red-900 mb-6">Despesas TOTAL Anuais</h3>
               <div className="text-3xl font-bold text-red-900 mb-4">
                 R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1032,7 +1271,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-100 to-orange-200 p-8 rounded-2xl border-2 border-orange-300 shadow-xl">
+            <div 
+              className="bg-gradient-to-br from-orange-100 to-orange-200 p-8 rounded-2xl border-2 border-orange-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasAnualChart()}
+            >
               <h3 className="text-xl font-bold text-orange-900 mb-6">Despesas Variáveis Anuais</h3>
               <div className="text-3xl font-bold text-orange-900 mb-4">
                 R$ {(totalDespesasAno * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1066,7 +1308,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-8 rounded-2xl border-2 border-amber-300 shadow-xl">
+            <div 
+              className="bg-gradient-to-br from-amber-100 to-amber-200 p-8 rounded-2xl border-2 border-amber-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              onClick={() => openDespesasAnualChart()}
+            >
               <h3 className="text-xl font-bold text-amber-900 mb-6">Despesas Fixas Anuais</h3>
               <div className="text-3xl font-bold text-amber-900 mb-4">
                 R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1110,7 +1355,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-8 rounded-2xl border-2 border-blue-300 shadow-xl">
+            <div 
+              className="bg-gradient-to-br from-blue-100 to-blue-200 p-8 rounded-2xl border-2 border-blue-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              onClick={() => openInvestimentosAnualChart()}
+            >
               <h3 className="text-xl font-bold text-blue-900 mb-6">Investimentos Gerais Anuais</h3>
               <div className="text-3xl font-bold text-blue-900 mb-4">
                 R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1144,7 +1392,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-100 to-purple-200 p-8 rounded-2xl border-2 border-purple-300 shadow-xl">
+            <div 
+              className="bg-gradient-to-br from-purple-100 to-purple-200 p-8 rounded-2xl border-2 border-purple-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              onClick={() => openInvestimentosAnualChart()}
+            >
               <h3 className="text-xl font-bold text-purple-900 mb-6">Investimentos MKT Anuais</h3>
               <div className="text-3xl font-bold text-purple-900 mb-4">
                 R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1189,7 +1440,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Gráfico de Pizza Anual */}
-            <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-6 rounded-2xl border border-pink-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-pink-50 to-rose-50 p-6 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openProgressoAnualChart()}
+            >
               <h3 className="text-lg font-bold text-pink-800 mb-4">Distribuição de Receitas Anuais</h3>
               <div className="flex items-center justify-center h-48">
                 <div className="relative w-32 h-32">
@@ -1217,7 +1471,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             {/* Barra de Progresso Linear Anual */}
-            <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-2xl border border-cyan-200 shadow-lg">
+            <div 
+              className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => openProgressoAnualChart()}
+            >
               <h3 className="text-lg font-bold text-cyan-800 mb-4">Progresso Linear Anual</h3>
               <div className="space-y-4">
                 <div className="text-center">
@@ -1850,6 +2107,16 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </div>
         </div>
       </footer>
+      
+      {/* Modal de Gráficos */}
+      <ChartModal
+        isOpen={chartModal.isOpen}
+        onClose={closeChart}
+        title={chartModal.title}
+        data={chartModal.data}
+        totalValue={chartModal.totalValue}
+        subtitle={chartModal.subtitle}
+      />
     </div>
   )
 }
