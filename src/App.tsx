@@ -549,8 +549,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 
                 {/* SALDO INICIAL */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="font-semibold text-blue-700">SALDO INICIAL</span>
-                  <span className="font-bold text-blue-800">R$ {saldoInicial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-semibold text-cyan-700">SALDO INICIAL</span>
+                  <span className="font-bold text-cyan-800">R$ {saldoInicial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* TOTAL GERAL */}
@@ -635,30 +635,30 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           {/* Primeira linha: Total, REURB, GEO */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div 
-              className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-2xl border border-slate-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-2xl border border-indigo-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-slate-800 mb-3">Faturamento Total</h3>
-              <div className="text-xl font-bold text-slate-900 mb-3">
+              <h3 className="text-base font-bold text-indigo-800 mb-3">Faturamento Total</h3>
+              <div className="text-xl font-bold text-indigo-900 mb-3">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-slate-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
                   <span>Progresso</span>
                   <span>{((totalReceitas / metaValue) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 relative">
+                <div className="w-full bg-indigo-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-slate-500 to-slate-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, ((totalReceitas / metaValue) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalReceitas / metaValue) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-slate-700 to-slate-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, (((totalReceitas / metaValue) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -666,7 +666,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-slate-700 font-medium">
+              <div className="text-xs text-indigo-700 font-medium">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaValue - totalReceitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -786,30 +786,30 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div 
-              className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-blue-800 mb-3">Faturamento REG</h3>
-              <div className="text-xl font-bold text-blue-900 mb-3">
+              <h3 className="text-base font-bold text-cyan-800 mb-3">Faturamento REG</h3>
+              <div className="text-xl font-bold text-cyan-900 mb-3">
                 R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-blue-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
                   <span>{(((totalReceitas * 0.4) / (metaValue * 0.4)) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-blue-200 rounded-full h-2 relative">
+                <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (metaValue * 0.4)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.4) / (metaValue * 0.4)) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-blue-700 to-blue-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (metaValue * 0.4)) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -817,36 +817,36 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-blue-700 font-medium">
+              <div className="text-xs text-cyan-700 font-medium">
                 R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.4) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
             <div 
-              className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-2xl border border-purple-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-purple-800 mb-3">Faturamento NN</h3>
-              <div className="text-xl font-bold text-purple-900 mb-3">
+              <h3 className="text-base font-bold text-pink-800 mb-3">Faturamento NN</h3>
+              <div className="text-xl font-bold text-pink-900 mb-3">
                 R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-purple-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
                   <span>{(((totalReceitas * 0.2) / (metaValue * 0.2)) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-purple-200 rounded-full h-2 relative">
+                <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (metaValue * 0.2)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.2) / (metaValue * 0.2)) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-purple-700 to-purple-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (metaValue * 0.2)) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -854,7 +854,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-purple-700 font-medium">
+              <div className="text-xs text-pink-700 font-medium">
                 R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.2) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -1068,7 +1068,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 5. PROGRESSO VISUAL */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-blue-800 flex items-center gap-3">
+          <h2 className="text-xl font-bold text-cyan-800 flex items-center gap-3">
             <BarChart3 className="w-6 h-6 text-blue-600" />
             Progresso Visual
           </h2>
@@ -1190,7 +1190,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 1. RESULTADO ANUAL */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-purple-800 flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-pink-800 flex items-center gap-3">
             <PieChart className="w-8 h-8 text-purple-600" />
             Resultado Anual
           </h2>
@@ -1201,14 +1201,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="space-y-4">
                 {/* REFORÇO DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-purple-800 text-lg">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
+                  <span className="font-bold text-pink-800 text-lg">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-pink-900 text-lg">R$ 0,00</span>
                 </div>
                 
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-purple-800 text-lg">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-purple-900 text-lg">R$ 0,00</span>
+                  <span className="font-bold text-pink-800 text-lg">SAÍDA DE CAIXA</span>
+                  <span className="font-bold text-pink-900 text-lg">R$ 0,00</span>
                 </div>
                 
                 {/* RECEITA ANUAL */}
@@ -1229,13 +1229,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 
                 {/* SALDO INICIAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-blue-700 text-lg">SALDO INICIAL</span>
-                  <span className="font-bold text-blue-800 text-lg">R$ {saldoInicialAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-bold text-cyan-700 text-lg">SALDO INICIAL</span>
+                  <span className="font-bold text-cyan-800 text-lg">R$ {saldoInicialAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* TOTAL GERAL ANUAL */}
                 <div className="flex justify-between items-center py-6 bg-gradient-to-r from-purple-100 to-indigo-100 px-6 rounded-xl border-3 border-purple-400 mt-6">
-                  <span className="font-bold text-purple-900 text-2xl">Total Geral Anual</span>
+                  <span className="font-bold text-pink-900 text-2xl">Total Geral Anual</span>
                   <span className={`font-bold text-2xl ${
                     (saldoInicialAno + totalReceitasAno - totalDespesasAno) >= 0 ? 'text-emerald-800' : 'text-red-800'
                   }`}>
@@ -1265,18 +1265,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     <span className="font-bold text-purple-600 text-lg"></span>
                   </div>
                   <div className="text-center">
-                    <span className="font-bold text-purple-800 text-xl">R$</span>
+                    <span className="font-bold text-pink-800 text-xl">R$</span>
                   </div>
                   <div className="text-center">
-                    <span className="font-bold text-purple-800 text-xl">%</span>
+                    <span className="font-bold text-pink-800 text-xl">%</span>
                   </div>
                 </div>
                 
                 {/* META ANUAL */}
                 <div className="grid grid-cols-3 gap-4 py-3 border-b border-purple-200">
-                  <div className="font-bold text-purple-800 italic text-lg">META ANUAL</div>
-                  <div className="text-center font-bold text-purple-900 text-lg">R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                  <div className="text-center font-bold text-purple-900 text-lg">100%</div>
+                  <div className="font-bold text-pink-800 italic text-lg">META ANUAL</div>
+                  <div className="text-center font-bold text-pink-900 text-lg">R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-center font-bold text-pink-900 text-lg">100%</div>
                 </div>
                 
                 {/* ALCANÇADO ANUAL */}
@@ -1315,30 +1315,30 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           {/* Primeira linha: Total, REURB, GEO */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div 
-              className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-2xl border border-slate-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-2xl border border-indigo-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-slate-800 mb-3">Faturamento Total Anual</h3>
-              <div className="text-xl font-bold text-slate-900 mb-3">
+              <h3 className="text-base font-bold text-indigo-800 mb-3">Faturamento Total Anual</h3>
+              <div className="text-xl font-bold text-indigo-900 mb-3">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-slate-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
                   <span>Progresso</span>
                   <span>{((totalReceitasAno / metaTotalAno) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 relative">
+                <div className="w-full bg-indigo-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-slate-500 to-slate-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, ((totalReceitasAno / metaTotalAno) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalReceitasAno / metaTotalAno) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-slate-700 to-slate-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, (((totalReceitasAno / metaTotalAno) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -1346,7 +1346,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-slate-700 font-medium">
+              <div className="text-xs text-indigo-700 font-medium">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaTotalAno - totalReceitasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -1466,30 +1466,30 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div 
-              className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-blue-800 mb-3">Faturamento REG Anual</h3>
-              <div className="text-xl font-bold text-blue-900 mb-3">
+              <h3 className="text-base font-bold text-cyan-800 mb-3">Faturamento REG Anual</h3>
+              <div className="text-xl font-bold text-cyan-900 mb-3">
                 R$ {(totalReceitasAno * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-blue-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
                   <span>{(((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-blue-200 rounded-full h-2 relative">
+                <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, (((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-blue-700 to-blue-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -1497,36 +1497,36 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-blue-700 font-medium">
+              <div className="text-xs text-cyan-700 font-medium">
                 R$ {(totalReceitasAno * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.4) - (totalReceitasAno * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
             <div 
-              className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-2xl border border-purple-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-purple-800 mb-3">Faturamento NN Anual</h3>
-              <div className="text-xl font-bold text-purple-900 mb-3">
+              <h3 className="text-base font-bold text-pink-800 mb-3">Faturamento NN Anual</h3>
+              <div className="text-xl font-bold text-pink-900 mb-3">
                 R$ {(totalReceitasAno * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-purple-700 mb-3">
+                <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
                   <span>{(((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100).toFixed(0)}%</span>
                 </div>
-                <div className="w-full bg-purple-200 rounded-full h-2 relative">
+                <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(100, (((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100) > 100 && (
                     <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-purple-700 to-purple-800 h-2 rounded-full transition-all duration-300"
+                      className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100) - 100))}%` }}
                     ></div>
                   )}
@@ -1534,7 +1534,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-purple-700 font-medium">
+              <div className="text-xs text-pink-700 font-medium">
                 R$ {(totalReceitasAno * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.2) - (totalReceitasAno * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -1702,7 +1702,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-blue-800 font-medium">
+              <div className="text-xs text-cyan-800 font-medium">
                 R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 24000 - (totalDespesasAno * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -1739,7 +1739,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
               {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-purple-800 font-medium">
+              <div className="text-xs text-pink-800 font-medium">
                 R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 36000 - (totalReceitasAno * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -1748,7 +1748,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 5. PROGRESSO VISUAL ANUAL */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-blue-800 flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-cyan-800 flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Progresso Visual Anual
           </h2>
@@ -2163,7 +2163,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* Seção Ano */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-purple-800 flex items-center gap-3">
+          <h2 className="text-xl font-bold text-pink-800 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-purple-600" />
             Ano {currentYear}
           </h2>
