@@ -732,6 +732,17 @@ app.get('/api/projection', (req, res) => {
   }
 });
 
+// Rota para sincronizar dados de projeção
+app.post('/api/projection/sync', authenticateToken, (req, res) => {
+  try {
+    const syncedData = db.syncProjectionData();
+    res.json({ success: true, data: syncedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao sincronizar dados de projeção' });
+  }
+});
+
+// Rota para atualizar dados de projeção
 app.put('/api/projection', authenticateToken, (req, res) => {
   try {
     const projectionData = req.body;

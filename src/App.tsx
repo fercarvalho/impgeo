@@ -250,6 +250,41 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }, [projectionData])
 
+  // Função para recarregar dados da projeção
+  const recarregarDadosProjecao = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.warn('⚠️ Token não encontrado')
+        return
+      }
+      
+      console.log('🔄 Iniciando recarregamento de dados...')
+      
+      // Primeiro sincronizar os dados dos arquivos separados com projection.json
+      const syncResponse = await fetch('/api/projection/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      })
+      
+      if (syncResponse.ok) {
+        console.log('✅ Dados sincronizados com sucesso')
+      } else {
+        console.warn('⚠️ Erro ao sincronizar dados')
+      }
+      
+      // Depois recarregar os dados da projeção
+      await loadProjectionData()
+      
+      console.log('✅ Recarregamento concluído!')
+    } catch (error) {
+      console.error('❌ Erro ao recarregar dados:', error)
+    }
+  }
+
   // Carregar dados da projeção
   const loadProjectionData = async () => {
     try {
@@ -258,6 +293,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         const data = await response.json()
         setProjectionData(data)
         console.log('📊 Dados da projeção carregados:', data)
+        console.log('🔍 Faturamento NN Janeiro:', data.faturamentoNn?.[0])
       }
     } catch (error) {
       console.error('Erro ao carregar dados da projeção:', error)
@@ -440,6 +476,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       projectionData.faturamentoReg?.[monthIndex] || 0,
       projectionData.faturamentoNn?.[monthIndex] || 0
     ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
+    console.log('🔍 Debug metas para', monthName, ':', {
+      projectionData: !!projectionData,
+      faturamentoNn: projectionData?.faturamentoNn?.[monthIndex],
+      metasDoMes,
+      monthIndex
+    })
     
     // Meta total do mês (soma de todos os faturamentos)
     const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
@@ -639,6 +682,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       projectionData.faturamentoReg?.[monthIndex] || 0,
       projectionData.faturamentoNn?.[monthIndex] || 0
     ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
+    
+    console.log('🔍 Debug renderMonthContent para mês', monthIndex, ':', {
+      projectionData: !!projectionData,
+      faturamentoNn: projectionData?.faturamentoNn?.[monthIndex],
+      metasDoMes,
+      monthIndex
+    })
     
     // Meta total do mês (soma de todos os faturamentos)
     const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
@@ -866,19 +916,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 1.0) / (metaValue * 1.0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-emerald-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 1.0) / (metaValue * 1.0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 1.0) / (metaValue * 1.0)) * 100) > 100 && (
+                  {(((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 1.0) / (metaValue * 1.0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -886,7 +936,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-emerald-700 font-medium">
-                R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 1.0) - (totalReceitas * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoReurb?.[monthIndex] || 0) - (totalReceitas * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -903,19 +953,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.8) / (metaValue * 0.8)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-green-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.8) / (metaValue * 0.8)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.8) / (metaValue * 0.8)) * 100) > 100 && (
+                  {(((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-green-700 to-green-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.8) / (metaValue * 0.8)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -923,7 +973,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-green-700 font-medium">
-                R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.8) - (totalReceitas * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoGeo?.[monthIndex] || 0) - (totalReceitas * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -943,19 +993,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.6) / (metaValue * 0.6)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-teal-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / (metaValue * 0.6)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.6) / (metaValue * 0.6)) * 100) > 100 && (
+                  {(((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-teal-700 to-teal-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / (metaValue * 0.6)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -963,7 +1013,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-teal-700 font-medium">
-                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.6) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoPlan?.[monthIndex] || 0) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -980,19 +1030,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.4) / (metaValue * 0.4)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (metaValue * 0.4)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.4) / (metaValue * 0.4)) * 100) > 100 && (
+                  {(((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (metaValue * 0.4)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1000,7 +1050,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-cyan-700 font-medium">
-                R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.4) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoReg?.[monthIndex] || 0) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1017,19 +1067,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.2) / (metaValue * 0.2)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (metaValue * 0.2)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.2) / (metaValue * 0.2)) * 100) > 100 && (
+                  {(((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (metaValue * 0.2)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1037,7 +1087,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-pink-700 font-medium">
-                R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.2) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoNn?.[monthIndex] || 0) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -2037,6 +2087,15 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             Metas
           </h1>
           <div className="flex gap-3">
+            <button 
+              onClick={recarregarDadosProjecao}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-red-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Recarregar Projeção
+            </button>
             <button 
               onClick={verificarSincronizacaoMetas}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"

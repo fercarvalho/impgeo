@@ -729,6 +729,38 @@ class Database {
     }
   }
 
+  // Função para sincronizar dados dos arquivos separados com projection.json
+  syncProjectionData() {
+    try {
+      const projectionData = this.getProjectionData();
+      
+      // Ler dados dos arquivos separados
+      const faturamentoReurbData = this.getFaturamentoReurbData();
+      const faturamentoGeoData = this.getFaturamentoGeoData();
+      const faturamentoPlanData = this.getFaturamentoPlanData();
+      const faturamentoRegData = this.getFaturamentoRegData();
+      const faturamentoNnData = this.getFaturamentoNnData();
+      
+      // Atualizar projection.json com os dados dos arquivos separados
+      projectionData.faturamentoReurb = faturamentoReurbData.previsto;
+      projectionData.faturamentoGeo = faturamentoGeoData.previsto;
+      projectionData.faturamentoPlan = faturamentoPlanData.previsto;
+      projectionData.faturamentoReg = faturamentoRegData.previsto;
+      projectionData.faturamentoNn = faturamentoNnData.previsto;
+      
+      // Salvar projection.json atualizado
+      const updatedData = {
+        ...projectionData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.projectionFile, JSON.stringify(updatedData, null, 2));
+      
+      return updatedData;
+    } catch (error) {
+      throw new Error('Erro ao sincronizar dados de projeção: ' + error.message);
+    }
+  }
+
   // Métodos para Despesas Fixas
   getFixedExpensesData() {
     try {

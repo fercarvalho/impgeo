@@ -6321,11 +6321,21 @@ Continuar mesmo assim?`)
                     <InputCell 
                       value={calcularPrevistoNnMes(index + 9)} 
                       onBlur={(value) => {
+                        console.log(`🔵 Salvando Outubro NN: ${value}, index: ${index + 9}`)
                         const arr = (data.faturamentoNnPrevistoManual && data.faturamentoNnPrevistoManual.length === 12) ? [...data.faturamentoNnPrevistoManual] : new Array(12).fill(null)
                         arr[index + 9] = value
+                        console.log(`🔵 Array manual NN:`, arr)
                         const updated = { ...data, faturamentoNnPrevistoManual: arr }
                         setData(updated)
+                        console.log(`🔵 Salvando no projection.json...`)
                         if (token) saveToServer(updated)
+                        
+                        // Salvar também no arquivo faturamentoNn.json
+                        const newData = {...faturamentoNnData}
+                        newData.previsto[index + 9] = value
+                        setFaturamentoNnData(newData)
+                        console.log(`🔵 Salvando no faturamentoNn.json...`)
+                        saveFaturamentoNnToServer(newData)
                       }}
                       category="faturamentoNn"
                       monthIndex={index + 9}
