@@ -1803,8 +1803,41 @@ Continuar mesmo assim?`)
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
+              // Limpar edições manuais do estado local
               setManualEdits({})
+              
+              // Limpar arrays de edições manuais do estado principal
+              const updatedData = {
+                ...data,
+                // Limpar edições manuais de despesas fixas
+                fixedPrevistoManual: undefined,
+                fixedMediaManual: undefined,
+                fixedMaximoManual: undefined,
+                // Limpar edições manuais de despesas variáveis
+                variablePrevistoManual: undefined,
+                variableMedioManual: undefined,
+                variableMaximoManual: undefined,
+                // Limpar edições manuais de investimentos
+                investimentosPrevistoManual: undefined,
+                investimentosMedioManual: undefined,
+                investimentosMaximoManual: undefined,
+                // Limpar edições manuais de faturamentos
+                faturamentoReurbPrevistoManual: undefined,
+                faturamentoGeoPrevistoManual: undefined,
+                faturamentoPlanPrevistoManual: undefined,
+                faturamentoRegPrevistoManual: undefined,
+                faturamentoNnPrevistoManual: undefined
+              }
+              
+              setData(updatedData)
+              
+              // Salvar no servidor
+              if (token) {
+                saveToServer(updatedData)
+              }
+              
               console.log('Edições manuais resetadas - cálculos automáticos reativados')
+              alert('✅ Cálculos resetados com sucesso!\n\nTodas as edições manuais foram removidas e os valores voltaram aos cálculos automáticos.')
             }}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             title="Resetar edições manuais e permitir cálculos automáticos"
