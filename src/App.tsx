@@ -784,10 +784,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaValue * 0.6) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
-          </div>
-          
-          {/* Segunda linha com REG e NN */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
             <div 
               className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
@@ -1467,10 +1464,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.6) - (totalReceitasAno * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
-          </div>
-          
-          {/* Segunda linha com REG e NN */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
             <div 
               className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
               onClick={() => openFaturamentoAnualChart()}
