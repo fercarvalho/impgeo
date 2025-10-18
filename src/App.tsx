@@ -464,7 +464,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   )
 
   // Função para renderizar um mês completo (stub para manter referências)
-  const renderMonth = (monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
+  const renderMonth = (monthName: string, monthIndex: number, metaValue: number) => {
     return (
       <div key={monthName} className="space-y-6 mb-32">
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
@@ -472,13 +472,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             {monthName} - 2025
           </h2>
         </div>
-        {renderMonthContent(monthName, monthIndex, metaValue, saldoInicial)}
+        {renderMonthContent(monthName, monthIndex, metaValue)}
       </div>
     )
   }
 
   // Conteúdo do mês (stub alinhado com referências existentes)
-  const renderMonthContent = (_monthName: string, monthIndex: number, metaValue: number, saldoInicial: number = 31970.50) => {
+  const renderMonthContent = (_monthName: string, monthIndex: number, metaValue: number) => {
     // Cálculos para o mês específico
     const currentYear = 2025
     const transacoesDoMes = transactions.filter(t => {
@@ -488,6 +488,25 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    
+    // Calcular saldo inicial baseado em todas as transações anteriores ao mês atual
+    const transacoesAnteriores = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      const transactionMonth = transactionDate.getMonth()
+      const transactionYear = transactionDate.getFullYear()
+      
+      // Incluir transações de anos anteriores ou meses anteriores do ano atual
+      return (transactionYear < currentYear) || 
+             (transactionYear === currentYear && transactionMonth < monthIndex)
+    })
+    
+    const receitasAnteriores = transacoesAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const despesasAnteriores = transacoesAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const saldoInicial = receitasAnteriores - despesasAnteriores
+    
+    // Calcular reforço e saída de caixa (movimentações líquidas)
+    const reforcoCaixa = totalReceitas
+    const saidaCaixa = totalDespesas
 
     // Debug: Log das transações para verificar se estão sendo carregadas
     console.log(`📊 MÊS ${monthIndex} (${_monthName}):`, {
@@ -522,13 +541,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 {/* REFORÇO DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-gray-800">R$ 0,00</span>
+                  <span className="font-bold text-gray-800">R$ {reforcoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-gray-800">R$ 0,00</span>
+                  <span className="font-bold text-gray-800">R$ {saidaCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* RECEITA */}
@@ -1160,7 +1179,20 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     // Metas totais do ano
     const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
     const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
-    const saldoInicialAno = 31970.50
+    
+    // Calcular saldo inicial anual (todas as transações de anos anteriores)
+    const transacoesAnosAnteriores = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getFullYear() < currentYear
+    })
+    
+    const receitasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const despesasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const saldoInicialAno = receitasAnosAnteriores - despesasAnosAnteriores
+    
+    // Calcular reforço e saída de caixa anual
+    const reforcoCaixaAno = totalReceitasAno
+    const saidaCaixaAno = totalDespesasAno
 
     // Debug: Log das transações anuais
     console.log(`📊 ANO ${currentYear}:`, {
@@ -1202,13 +1234,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 {/* REFORÇO DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-pink-800 text-lg">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-pink-900 text-lg">R$ 0,00</span>
+                  <span className="font-bold text-pink-900 text-lg">R$ {reforcoCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-pink-800 text-lg">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-pink-900 text-lg">R$ 0,00</span>
+                  <span className="font-bold text-pink-900 text-lg">R$ {saidaCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
                 {/* RECEITA ANUAL */}
@@ -1869,7 +1901,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </div>
               
             {/* Conteúdo do Mês */}
-            {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice, mesSelecionado.meta, 31970.50)}
+            {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice, mesSelecionado.meta)}
               </div>
         )}
 
@@ -1878,7 +1910,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* Renderizar todos os 12 meses em ordem normal */}
         {mesesMetas.map((mes) => 
-          renderMonth(mes.nome, mes.indice, mes.meta, 31970.50)
+          renderMonth(mes.nome, mes.indice, mes.meta)
         )}
               </div>
     )
