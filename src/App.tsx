@@ -193,23 +193,23 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           detalhes: {
             reurb: {
               esperado: dadosProjecaoAtualizados.faturamentoReurb?.[monthIndex] || 0,
-              atual: projectionData?.faturamentoReurb?.[monthIndex] || 0
+              atual: getFaturamentoValue('Reurb', monthIndex)
             },
             geo: {
               esperado: dadosProjecaoAtualizados.faturamentoGeo?.[monthIndex] || 0,
-              atual: projectionData?.faturamentoGeo?.[monthIndex] || 0
+              atual: getFaturamentoValue('Geo', monthIndex)
             },
             plan: {
               esperado: dadosProjecaoAtualizados.faturamentoPlan?.[monthIndex] || 0,
-              atual: projectionData?.faturamentoPlan?.[monthIndex] || 0
+              atual: getFaturamentoValue('Plan', monthIndex)
             },
             reg: {
               esperado: dadosProjecaoAtualizados.faturamentoReg?.[monthIndex] || 0,
-              atual: projectionData?.faturamentoReg?.[monthIndex] || 0
+              atual: getFaturamentoValue('Reg', monthIndex)
             },
             nn: {
               esperado: dadosProjecaoAtualizados.faturamentoNn?.[monthIndex] || 0,
-              atual: projectionData?.faturamentoNn?.[monthIndex] || 0
+              atual: getFaturamentoValue('Nn', monthIndex)
             }
           }
         }
@@ -283,6 +283,23 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     } catch (error) {
       console.error('❌ Erro ao recarregar dados:', error)
     }
+  }
+
+  // Função auxiliar para obter valor correto da linha Previsto
+  const getFaturamentoValue = (tipo: string, monthIndex: number) => {
+    if (!projectionData) return 0
+    
+    const manualKey = `faturamento${tipo}PrevistoManual` as keyof typeof projectionData
+    const baseKey = `faturamento${tipo}` as keyof typeof projectionData
+    
+    const manualValue = projectionData[manualKey] as number[] | undefined
+    const baseValue = projectionData[baseKey] as number[] | undefined
+    
+    if (manualValue && manualValue[monthIndex] !== undefined) {
+      return manualValue[monthIndex]
+    }
+    
+    return baseValue?.[monthIndex] || 0
   }
 
   // Carregar dados da projeção
@@ -396,13 +413,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     })
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     
-    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
-      projectionData.faturamentoReurb?.[monthIndex] || 0,
-      projectionData.faturamentoGeo?.[monthIndex] || 0,
-      projectionData.faturamentoPlan?.[monthIndex] || 0,
-      projectionData.faturamentoReg?.[monthIndex] || 0,
-      projectionData.faturamentoNn?.[monthIndex] || 0
+      getFaturamentoValue('Reurb', monthIndex),
+      getFaturamentoValue('Geo', monthIndex),
+      getFaturamentoValue('Plan', monthIndex),
+      getFaturamentoValue('Reg', monthIndex),
+      getFaturamentoValue('Nn', monthIndex)
     ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
     
     // Meta total do mês (soma de todos os faturamentos)
@@ -468,13 +485,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     })
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     
-    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
-      projectionData.faturamentoReurb?.[monthIndex] || 0,
-      projectionData.faturamentoGeo?.[monthIndex] || 0,
-      projectionData.faturamentoPlan?.[monthIndex] || 0,
-      projectionData.faturamentoReg?.[monthIndex] || 0,
-      projectionData.faturamentoNn?.[monthIndex] || 0
+      getFaturamentoValue('Reurb', monthIndex),
+      getFaturamentoValue('Geo', monthIndex),
+      getFaturamentoValue('Plan', monthIndex),
+      getFaturamentoValue('Reg', monthIndex),
+      getFaturamentoValue('Nn', monthIndex)
     ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
     
     console.log('🔍 Debug metas para', monthName, ':', {
@@ -674,13 +691,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
     
-    // Meta de faturamento para o mês (baseada na projeção - linha Previsto)
+    // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
-      projectionData.faturamentoReurb?.[monthIndex] || 0,
-      projectionData.faturamentoGeo?.[monthIndex] || 0,
-      projectionData.faturamentoPlan?.[monthIndex] || 0,
-      projectionData.faturamentoReg?.[monthIndex] || 0,
-      projectionData.faturamentoNn?.[monthIndex] || 0
+      getFaturamentoValue('Reurb', monthIndex),
+      getFaturamentoValue('Geo', monthIndex),
+      getFaturamentoValue('Plan', monthIndex),
+      getFaturamentoValue('Reg', monthIndex),
+      getFaturamentoValue('Nn', monthIndex)
     ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
     
     console.log('🔍 Debug renderMonthContent para mês', monthIndex, ':', {
@@ -916,19 +933,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 1.0) / getFaturamentoValue('Reurb', monthIndex)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-emerald-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100) > 100 && (
+                  {(((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 1.0) / (projectionData?.faturamentoReurb?.[monthIndex] || 0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -936,7 +953,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-emerald-700 font-medium">
-                R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoReurb?.[monthIndex] || 0) - (totalReceitas * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Reurb', monthIndex)) - (totalReceitas * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -953,19 +970,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-green-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100) > 100 && (
+                  {(((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-green-700 to-green-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.8) / (projectionData?.faturamentoGeo?.[monthIndex] || 0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -973,7 +990,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-green-700 font-medium">
-                R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoGeo?.[monthIndex] || 0) - (totalReceitas * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Geo', monthIndex)) - (totalReceitas * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -993,19 +1010,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-teal-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100) > 100 && (
+                  {(((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-teal-700 to-teal-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / (projectionData?.faturamentoPlan?.[monthIndex] || 0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1013,7 +1030,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-teal-700 font-medium">
-                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoPlan?.[monthIndex] || 0) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Plan', monthIndex)) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1030,19 +1047,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100) > 100 && (
+                  {(((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (projectionData?.faturamentoReg?.[monthIndex] || 0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1050,7 +1067,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-cyan-700 font-medium">
-                R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoReg?.[monthIndex] || 0) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Reg', monthIndex)) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1067,19 +1084,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100) > 100 && (
+                  {(((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (projectionData?.faturamentoNn?.[monthIndex] || 0)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1087,7 +1104,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-pink-700 font-medium">
-                R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (projectionData?.faturamentoNn?.[monthIndex] || 0) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Nn', monthIndex)) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -1389,14 +1406,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
 
-    // Metas totais do ano (baseadas na projeção - linha Previsto)
+    // Metas totais do ano (baseadas nos arquivos específicos - linha Previsto)
     const metasDoAno = projectionData ? Array.from({ length: 12 }, (_, monthIndex) => {
       const metasDoMes = [
-        projectionData.faturamentoReurb?.[monthIndex] || 0,
-        projectionData.faturamentoGeo?.[monthIndex] || 0,
-        projectionData.faturamentoPlan?.[monthIndex] || 0,
-        projectionData.faturamentoReg?.[monthIndex] || 0,
-        projectionData.faturamentoNn?.[monthIndex] || 0
+        getFaturamentoValue('Reurb', monthIndex),
+        getFaturamentoValue('Geo', monthIndex),
+        getFaturamentoValue('Plan', monthIndex),
+        getFaturamentoValue('Reg', monthIndex),
+        getFaturamentoValue('Nn', monthIndex)
       ]
       return metasDoMes.reduce((sum, meta) => sum + meta, 0)
     }) : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
