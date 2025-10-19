@@ -96,6 +96,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [projectionData, setProjectionData] = useState<any>(null)
+  const [mktData, setMktData] = useState<any>(null)
   const [syncResults, setSyncResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -278,6 +279,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       
       // Depois recarregar os dados da projeção
       await loadProjectionData()
+      await loadMktData()
       
       console.log('✅ Recarregamento concluído!')
     } catch (error) {
@@ -306,12 +308,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const getInvestimentoValue = (tipo: 'investimentos' | 'mkt', monthIndex: number) => {
     if (!projectionData) return 0
     
-    // Para investimentos e MKT, usar os valores corretos dos arquivos específicos
-    // que são sincronizados com projection.json via syncProjectionData
-    const baseKey = tipo as keyof typeof projectionData
-    const baseValue = projectionData[baseKey] as number[] | undefined
+    if (tipo === 'investimentos') {
+      // Para investimentos: calcular linha Previsto usando a mesma fórmula da tabela
+      const valorBase = projectionData.investimentos?.[monthIndex] || 0
+      const percentualMinimo = projectionData.growth?.minimo || 0
+      return valorBase + (valorBase * percentualMinimo / 100)
+    }
     
-    return baseValue?.[monthIndex] || 0
+    if (tipo === 'mkt' && mktData) {
+      // Para MKT: usar valor da linha Previsto do arquivo específico
+      return mktData.previsto?.[monthIndex] || 0
+    }
+    
+    return 0
   }
 
   // Carregar dados da projeção
@@ -329,6 +338,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  // Carregar dados de MKT
+  const loadMktData = async () => {
+    try {
+      const response = await fetch('/api/mkt')
+      if (response.ok) {
+        const data = await response.json()
+        setMktData(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de MKT:', error)
+    }
+  }
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -340,6 +362,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         
         setTransactions(transactionsData)
         await loadProjectionData()
+        await loadMktData()
         
         // Criar metas padrão para IMPGEO
         const defaultMetas: Meta[] = [
