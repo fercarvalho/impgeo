@@ -155,6 +155,12 @@ const Projection: React.FC = () => {
     maximo: new Array(12).fill(0)
   })
 
+  const [investmentsData, setInvestmentsData] = useState<VariableExpensesData>({
+    previsto: new Array(12).fill(0),
+    medio: new Array(12).fill(0),
+    maximo: new Array(12).fill(0)
+  })
+
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -188,6 +194,7 @@ const Projection: React.FC = () => {
       await loadFixedExpensesData()
       await loadVariableExpensesData()
       await loadMktData()
+      await loadInvestmentsData()
       await loadFaturamentoReurbData()
       await loadFaturamentoGeoData()
       await loadFaturamentoPlanData()
@@ -516,9 +523,43 @@ const Projection: React.FC = () => {
 
   // Atualização automática dos investimentos quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
-    // Os investimentos são calculados automaticamente, mas não são salvos em banco separado
-    // Eles são calculados em tempo real baseados nos dados da tabela principal
-  }, [data.investimentos, data.growth?.minimo, data.growth?.medio, data.growth?.maximo]) // Depende dos dados da tabela principal e percentuais
+    let precisaAtualizar = false
+    const novosPrevisto = [...investmentsData.previsto]
+    const novosMedio = [...investmentsData.medio]
+    const novosMaximo = [...investmentsData.maximo]
+    
+    for (let i = 0; i < 12; i++) {
+      const novoPrevisto = calcularPrevistoInvestimentoMes(i)
+      const novoMedio = calcularMedioInvestimentoMes(i)
+      const novoMaximo = calcularMaximoInvestimentoMes(i)
+      
+      if (novosPrevisto[i] !== novoPrevisto) {
+        novosPrevisto[i] = novoPrevisto
+        precisaAtualizar = true
+      }
+      if (novosMedio[i] !== novoMedio) {
+        novosMedio[i] = novoMedio
+        precisaAtualizar = true
+      }
+      if (novosMaximo[i] !== novoMaximo) {
+        novosMaximo[i] = novoMaximo
+        precisaAtualizar = true
+      }
+    }
+    
+    if (precisaAtualizar) {
+      const novosDados = {
+        ...investmentsData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      setInvestmentsData(novosDados)
+      if (token) {
+        saveInvestmentsToServer(novosDados)
+      }
+    }
+  }, [data.investimentos, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
 
   // Atualização automática do faturamento total quando qualquer faturamento mudar
   useEffect(() => {
@@ -933,6 +974,19 @@ const Projection: React.FC = () => {
     }
   }
 
+  const loadInvestmentsData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/investments`)
+      if (response.ok) {
+        const investmentsData = await response.json()
+        setInvestmentsData(investmentsData)
+        console.log('Dados de Investimentos carregados com sucesso:', investmentsData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de Investimentos:', error)
+    }
+  }
+
   // Limpar todos os dados de projeção
   const clearAllProjectionData = async () => {
     if (!token) {
@@ -1315,6 +1369,35 @@ Continuar mesmo assim?`)
       console.log('Dados de MKT salvos com sucesso!')
     } catch (error) {
       console.error('Erro ao salvar dados de MKT:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const saveInvestmentsToServer = async (newData: VariableExpensesData) => {
+    if (!token) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/investments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar dados de Investimentos')
+      }
+      const j = await response.json()
+      if (j && j.success && j.data) {
+        // Investimentos tem estado derivado; não sobrescrevemos diretamente 'data', apenas confirmamos
+      }
+      console.log('Dados de Investimentos salvos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar dados de Investimentos:', error)
     } finally {
       setIsSaving(false)
     }

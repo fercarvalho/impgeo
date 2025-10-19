@@ -97,6 +97,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [metas, setMetas] = useState<Meta[]>([])
   const [projectionData, setProjectionData] = useState<any>(null)
   const [mktData, setMktData] = useState<any>(null)
+  const [investmentsData, setInvestmentsData] = useState<any>(null)
   const [syncResults, setSyncResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -280,6 +281,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       // Depois recarregar os dados da projeção
       await loadProjectionData()
       await loadMktData()
+      await loadInvestmentsData()
       
       console.log('✅ Recarregamento concluído!')
     } catch (error) {
@@ -308,11 +310,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const getInvestimentoValue = (tipo: 'investimentos' | 'mkt', monthIndex: number) => {
     if (!projectionData) return 0
     
-    if (tipo === 'investimentos') {
-      // Para investimentos: calcular linha Previsto usando a mesma fórmula da tabela
-      const valorBase = projectionData.investimentos?.[monthIndex] || 0
-      const percentualMinimo = projectionData.growth?.minimo || 0
-      return valorBase + (valorBase * percentualMinimo / 100)
+    if (tipo === 'investimentos' && investmentsData) {
+      // Para investimentos: usar valor da linha Previsto do arquivo específico
+      return investmentsData.previsto?.[monthIndex] || 0
     }
     
     if (tipo === 'mkt' && mktData) {
@@ -351,6 +351,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  const loadInvestmentsData = async () => {
+    try {
+      const response = await fetch('/api/investments')
+      if (response.ok) {
+        const data = await response.json()
+        setInvestmentsData(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de Investimentos:', error)
+    }
+  }
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -363,6 +375,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         setTransactions(transactionsData)
         await loadProjectionData()
         await loadMktData()
+        await loadInvestmentsData()
         
         // Criar metas padrão para IMPGEO
         const defaultMetas: Meta[] = [
