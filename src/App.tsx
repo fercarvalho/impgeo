@@ -1338,28 +1338,28 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               {/* Barra de Progresso */}
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-700 mb-3">
-                  <span>Meta</span>
-                  <span>{((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100).toFixed(0)}%</span>
+                  <span>Progresso</span>
+                  <span>{((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-500 to-amber-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100) > 100 && (
+                  {((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-amber-700 to-amber-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
               </div>
               
-              {/* Valores Alcançado/Meta */}
+              {/* Valores Realizado/Meta */}
               <div className="text-xs text-amber-700 font-medium">
-                R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -2048,28 +2048,28 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               {/* Barra de Progresso Anual */}
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-800 mb-3">
-                  <span>Meta Anual</span>
-                  <span>{((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100).toFixed(0)}%</span>
+                  <span>Progresso Anual</span>
+                  <span>{((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-amber-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-600 to-amber-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100) > 100 && (
+                  {((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-amber-800 to-amber-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
               </div>
               
-              {/* Valores Alcançado/Meta */}
+              {/* Valores Realizado/Meta */}
               <div className="text-xs text-amber-800 font-medium">
-                R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
