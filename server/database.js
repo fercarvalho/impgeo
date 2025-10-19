@@ -786,6 +786,20 @@ class Database {
     }
   }
 
+  updateVariableExpensesData(variableExpensesData) {
+    try {
+      const data = {
+        ...variableExpensesData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.variableExpensesFile, JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      console.error('Erro ao atualizar dados de despesas variáveis:', error);
+      throw error;
+    }
+  }
+
   updateFixedExpensesData(fixedExpensesData) {
     try {
       const data = {

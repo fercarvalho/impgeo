@@ -94,7 +94,10 @@ const Projection: React.FC = () => {
   // Estados para rastrear edições manuais
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
-  }>({})
+  }>(() => {
+    const saved = localStorage.getItem('manualEdits')
+    return saved ? JSON.parse(saved) : {}
+  })
   const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
     previsto: new Array(12).fill(0),
     media: new Array(12).fill(0),
@@ -314,6 +317,54 @@ const Projection: React.FC = () => {
       }
     }
   }, [data.despesasVariaveis, data.growth?.minimo, data.growth?.medio, data.growth?.maximo, manualEdits]) // Depende dos dados da tabela principal e percentuais
+
+  // Salvar manualEdits no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('manualEdits', JSON.stringify(manualEdits))
+  }, [manualEdits])
+
+  // Forçar cálculo inicial das despesas variáveis quando dados forem carregados
+  useEffect(() => {
+    console.log('useEffect despesas variáveis executado:', {
+      isLoading,
+      hasDespesasVariaveis: !!data.despesasVariaveis,
+      hasGrowth: !!data.growth,
+      despesasVariaveis: data.despesasVariaveis?.[0],
+      growth: data.growth
+    })
+    
+    if (!isLoading && data.despesasVariaveis && data.growth) {
+      console.log('Forçando cálculo inicial das despesas variáveis...')
+      const novosPrevisto = []
+      const novosMedio = []
+      const novosMaximo = []
+      
+      for (let i = 0; i < 12; i++) {
+        novosPrevisto[i] = calcularPrevistoVariableMes(i)
+        novosMedio[i] = calcularMedioVariableMes(i)
+        novosMaximo[i] = calcularMaximoVariableMes(i)
+      }
+      
+      console.log('Valores calculados:', {
+        previsto: novosPrevisto.slice(0, 3),
+        medio: novosMedio.slice(0, 3),
+        maximo: novosMaximo.slice(0, 3)
+      })
+      
+      const novosDados = {
+        ...variableExpensesData,
+        previsto: novosPrevisto,
+        medio: novosMedio,
+        maximo: novosMaximo
+      }
+      
+      setVariableExpensesData(novosDados)
+      if (token) {
+        console.log('Salvando no servidor...')
+        saveVariableExpensesToServer(novosDados)
+      }
+    }
+  }, [isLoading, data.despesasVariaveis, data.growth])
 
   // Atualização automática do faturamento REURB quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -1075,6 +1126,37 @@ Continuar mesmo assim?`)
   }
 
   // Salvar dados de despesas variáveis
+  const forcarCalculoDespesasVariáveis = () => {
+    console.log('Forçando cálculo das despesas variáveis...')
+    const novosPrevisto = []
+    const novosMedio = []
+    const novosMaximo = []
+    
+    for (let i = 0; i < 12; i++) {
+      novosPrevisto[i] = calcularPrevistoVariableMes(i)
+      novosMedio[i] = calcularMedioVariableMes(i)
+      novosMaximo[i] = calcularMaximoVariableMes(i)
+    }
+    
+    console.log('Valores calculados:', {
+      previsto: novosPrevisto.slice(0, 3),
+      medio: novosMedio.slice(0, 3),
+      maximo: novosMaximo.slice(0, 3)
+    })
+    
+    const novosDados = {
+      ...variableExpensesData,
+      previsto: novosPrevisto,
+      medio: novosMedio,
+      maximo: novosMaximo
+    }
+    
+    setVariableExpensesData(novosDados)
+    if (token) {
+      saveVariableExpensesToServer(novosDados)
+    }
+  }
+
   const saveVariableExpensesToServer = async (newData: VariableExpensesData) => {
     if (!token) return
     
@@ -2173,6 +2255,14 @@ Continuar mesmo assim?`)
             title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
           >
             🔍 Verificar Sincronização
+          </button>
+          
+          <button
+            onClick={forcarCalculoDespesasVariáveis}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            title="Forçar cálculo das despesas variáveis"
+          >
+            🔧 Forçar Cálculo Despesas Variáveis
           </button>
           
           <button
