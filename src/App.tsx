@@ -100,6 +100,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [investmentsData, setInvestmentsData] = useState<any>(null)
   const [budgetData, setBudgetData] = useState<any>(null)
   const [variableExpensesData, setVariableExpensesData] = useState<any>(null)
+  const [fixedExpensesData, setFixedExpensesData] = useState<any>(null)
   const [syncResults, setSyncResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -286,6 +287,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       await loadInvestmentsData()
       await loadBudgetData()
       await loadVariableExpensesData()
+      await loadFixedExpensesData()
       
       console.log('✅ Recarregamento concluído!')
     } catch (error) {
@@ -343,6 +345,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     if (!variableExpensesData) return 0
     // Para despesas variáveis anuais: somar todos os valores da linha Previsto
     return variableExpensesData.previsto?.reduce((sum: number, value: number) => sum + value, 0) || 0
+  }
+
+  const getFixedExpensesValue = (monthIndex: number) => {
+    if (!fixedExpensesData) return 0
+    // Para despesas fixas: usar valor da linha Previsto do arquivo específico
+    return fixedExpensesData.previsto?.[monthIndex] || 0
+  }
+
+  const getFixedExpensesValueAnual = () => {
+    if (!fixedExpensesData) return 0
+    // Para despesas fixas anuais: somar todos os valores da linha Previsto
+    return fixedExpensesData.previsto?.reduce((sum: number, value: number) => sum + value, 0) || 0
   }
 
   const getBudgetValueAnual = () => {
@@ -415,6 +429,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  const loadFixedExpensesData = async () => {
+    try {
+      const response = await fetch('/api/fixed-expenses')
+      if (response.ok) {
+        const data = await response.json()
+        setFixedExpensesData(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de Despesas Fixas:', error)
+    }
+  }
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -430,6 +456,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         await loadInvestmentsData()
         await loadBudgetData()
         await loadVariableExpensesData()
+        await loadFixedExpensesData()
         
         // Criar metas padrão para IMPGEO
         const defaultMetas: Meta[] = [
@@ -879,13 +906,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">REFORÇO DE CAIXA</span>
                   <span className="font-bold text-gray-800">R$ {reforcoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
+              </div>
                 
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-gray-700">SAÍDA DE CAIXA</span>
                   <span className="font-bold text-gray-800">R$ {saidaCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
+            </div>
                 
                 {/* RECEITA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -939,14 +966,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-gray-300">
                   <div className="text-center">
                     <span className="font-bold text-gray-600 text-lg"></span>
-                  </div>
+                </div>
                   <div className="text-center">
                     <span className="font-bold text-gray-800 text-xl">R$</span>
-                  </div>
+              </div>
                   <div className="text-center">
                     <span className="font-bold text-gray-800 text-xl">%</span>
-                  </div>
-                </div>
+            </div>
+          </div>
                 
                 {/* META */}
                 <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-200">
@@ -1305,34 +1332,34 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             >
               <h3 className="text-base font-bold text-amber-800 mb-3">Despesas Fixas</h3>
               <div className="text-xl font-bold text-amber-900 mb-3">
-                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso */}
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-700 mb-3">
-                  <span>Limite</span>
-                  <span>{(((totalDespesas * 0.25) / 4500) * 100).toFixed(0)}%</span>
+                  <span>Meta</span>
+                  <span>{((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-500 to-amber-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesas * 0.25) / 4500) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesas * 0.25) / 4500) * 100) > 100 && (
+                  {((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-amber-700 to-amber-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.25) / 4500) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((getFixedExpensesValue(monthIndex) / Math.max(getFixedExpensesValue(monthIndex), 1)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
               </div>
               
-              {/* Valores Usado/Restante */}
+              {/* Valores Alcançado/Meta */}
               <div className="text-xs text-amber-700 font-medium">
-                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 4500 - (totalDespesas * 0.25)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -1589,13 +1616,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-pink-800 text-lg">REFORÇO DE CAIXA</span>
                   <span className="font-bold text-pink-900 text-lg">R$ {reforcoCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
+              </div>
                 
                 {/* SAÍDA DE CAIXA */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
                   <span className="font-bold text-pink-800 text-lg">SAÍDA DE CAIXA</span>
                   <span className="font-bold text-pink-900 text-lg">R$ {saidaCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
+            </div>
                 
                 {/* RECEITA ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
@@ -1603,7 +1630,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   <span className="font-bold text-emerald-800 text-lg">
                     R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                </div>
+          </div>
                 
                 {/* DESPESA ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
@@ -2015,34 +2042,34 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             >
               <h3 className="text-xl font-bold text-amber-900 mb-6">Despesas Fixas Anuais</h3>
               <div className="text-3xl font-bold text-amber-900 mb-3">
-                R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
               
               {/* Barra de Progresso Anual */}
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-800 mb-3">
-                  <span>Limite Anual</span>
-                  <span>{(((totalDespesasAno * 0.25) / 54000) * 100).toFixed(0)}%</span>
+                  <span>Meta Anual</span>
+                  <span>{((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-amber-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-600 to-amber-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.25) / 54000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesasAno * 0.25) / 54000) * 100) > 100 && (
+                  {((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-amber-800 to-amber-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.25) / 54000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((getFixedExpensesValueAnual() / Math.max(getFixedExpensesValueAnual(), 1)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
               </div>
               
-              {/* Valores Usado/Restante */}
+              {/* Valores Alcançado/Meta */}
               <div className="text-xs text-amber-800 font-medium">
-                R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 54000 - (totalDespesasAno * 0.25)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -2236,13 +2263,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               </svg>
               Verificar Sincronização
             </button>
-            <button 
-              onClick={() => alert("Ferramenta em construção")}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <Plus className="h-5 w-5" />
-              Nova Meta
-            </button>
+          <button 
+            onClick={() => alert("Ferramenta em construção")}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Plus className="h-5 w-5" />
+            Nova Meta
+          </button>
           </div>
         </div>
 

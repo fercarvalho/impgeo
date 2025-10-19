@@ -1560,28 +1560,52 @@ Continuar mesmo assim?`)
   const calcularPrevistoFixedMes = (monthIndex: number) => {
     const override = data.fixedPrevistoManual?.[monthIndex]
     if (override !== undefined && override !== null) return formatNumber(override)
-    // Previsto = Despesas Fixas (tabela principal) + Percentual Mínimo
-    const despesasFixas = data.despesasFixas[monthIndex] || 0
-    const percentualMinimo = data.growth?.minimo || 0
-    return formatNumber(despesasFixas + (despesasFixas * percentualMinimo / 100))
+    
+    // Nova fórmula: Janeiro = Dezembro anterior + 10%
+    // Fevereiro e Março = Janeiro
+    // Abril = Março + 10%, Maio e Junho = Abril
+    // Julho = Junho + 10%, Agosto e Setembro = Julho
+    // Outubro = Setembro + 10%, Novembro e Dezembro = Outubro
+    
+    const dezembroAnterior = data.despesasFixas[11] || 500 // Valor de dezembro do ano anterior
+    const janeiro = dezembroAnterior * 1.10 // Janeiro = Dezembro + 10%
+    
+    if (monthIndex === 0) return formatNumber(janeiro) // Janeiro
+    if (monthIndex === 1 || monthIndex === 2) return formatNumber(janeiro) // Fevereiro e Março
+    
+    const abril = janeiro * 1.10 // Abril = Janeiro + 10%
+    if (monthIndex === 3) return formatNumber(abril) // Abril
+    if (monthIndex === 4 || monthIndex === 5) return formatNumber(abril) // Maio e Junho
+    
+    const julho = abril * 1.10 // Julho = Abril + 10%
+    if (monthIndex === 6) return formatNumber(julho) // Julho
+    if (monthIndex === 7 || monthIndex === 8) return formatNumber(julho) // Agosto e Setembro
+    
+    const outubro = julho * 1.10 // Outubro = Julho + 10%
+    if (monthIndex === 9) return formatNumber(outubro) // Outubro
+    if (monthIndex === 10 || monthIndex === 11) return formatNumber(outubro) // Novembro e Dezembro
+    
+    return formatNumber(0)
   }
 
   const calcularMediaFixedMes = (monthIndex: number) => {
     const override = data.fixedMediaManual?.[monthIndex]
     if (override !== undefined && override !== null) return formatNumber(override)
-    // Médio = Despesas Fixas (tabela principal) + Percentual Médio
-    const despesasFixas = data.despesasFixas[monthIndex] || 0
-    const percentualMedio = data.growth?.medio || 0
-    return formatNumber(despesasFixas + (despesasFixas * percentualMedio / 100))
+    
+    // Médio = Previsto + 10%
+    const previstoStr = calcularPrevistoFixedMes(monthIndex)
+    const previstoValue = parseFloat(String(previstoStr).replace(/[^\d.-]/g, '')) || 0
+    return formatNumber(previstoValue * 1.10)
   }
 
   const calcularMaximoFixedMes = (monthIndex: number) => {
     const override = data.fixedMaximoManual?.[monthIndex]
     if (override !== undefined && override !== null) return formatNumber(override)
-    // Máximo = Despesas Fixas (tabela principal) + Percentual Máximo
-    const despesasFixas = data.despesasFixas[monthIndex] || 0
-    const percentualMaximo = data.growth?.maximo || 0
-    return formatNumber(despesasFixas + (despesasFixas * percentualMaximo / 100))
+    
+    // Máximo = Médio + 10%
+    const medioStr = calcularMediaFixedMes(monthIndex)
+    const medioValue = parseFloat(String(medioStr).replace(/[^\d.-]/g, '')) || 0
+    return formatNumber(medioValue * 1.10)
   }
 
   // Funções de cálculo para Faturamento REURB
