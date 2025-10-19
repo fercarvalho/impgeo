@@ -98,6 +98,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [projectionData, setProjectionData] = useState<any>(null)
   const [mktData, setMktData] = useState<any>(null)
   const [investmentsData, setInvestmentsData] = useState<any>(null)
+  const [budgetData, setBudgetData] = useState<any>(null)
   const [syncResults, setSyncResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -282,6 +283,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       await loadProjectionData()
       await loadMktData()
       await loadInvestmentsData()
+      await loadBudgetData()
       
       console.log('✅ Recarregamento concluído!')
     } catch (error) {
@@ -321,6 +323,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
     
     return 0
+  }
+
+  const getBudgetValue = (monthIndex: number) => {
+    if (!budgetData) return 0
+    // Para orçamento: usar valor da linha Previsto do arquivo específico
+    return budgetData.previsto?.[monthIndex] || 0
+  }
+
+  const getBudgetValueAnual = () => {
+    if (!budgetData) return 0
+    // Para orçamento anual: somar todos os valores da linha Previsto
+    return budgetData.previsto?.reduce((sum: number, value: number) => sum + value, 0) || 0
   }
 
   // Carregar dados da projeção
@@ -363,6 +377,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  const loadBudgetData = async () => {
+    try {
+      const response = await fetch('/api/budget')
+      if (response.ok) {
+        const data = await response.json()
+        setBudgetData(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de Orçamento:', error)
+    }
+  }
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -376,6 +402,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         await loadProjectionData()
         await loadMktData()
         await loadInvestmentsData()
+        await loadBudgetData()
         
         // Criar metas padrão para IMPGEO
         const defaultMetas: Meta[] = [
@@ -1184,19 +1211,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-red-700 mb-3">
                   <span>Limite</span>
-                  <span>{((totalDespesas / 15000) * 100).toFixed(0)}%</span>
+                  <span>{((totalDespesas / getBudgetValue(monthIndex)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-red-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesas / 15000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((totalDespesas / getBudgetValue(monthIndex)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {((totalDespesas / 15000) * 100) > 100 && (
+                  {((totalDespesas / getBudgetValue(monthIndex)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesas / 15000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((totalDespesas / getBudgetValue(monthIndex)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1204,7 +1231,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Usado/Restante */}
               <div className="text-xs text-red-700 font-medium">
-                R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 15000 - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getBudgetValue(monthIndex) - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1894,19 +1921,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-red-800 mb-3">
                   <span>Limite Anual</span>
-                  <span>{((totalDespesasAno / 180000) * 100).toFixed(0)}%</span>
+                  <span>{((totalDespesasAno / getBudgetValueAnual()) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-red-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesasAno / 180000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, ((totalDespesasAno / getBudgetValueAnual()) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {((totalDespesasAno / 180000) * 100) > 100 && (
+                  {((totalDespesasAno / getBudgetValueAnual()) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-red-800 to-red-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesasAno / 180000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, (((totalDespesasAno / getBudgetValueAnual()) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1914,7 +1941,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Usado/Restante */}
               <div className="text-xs text-red-800 font-medium">
-                R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 180000 - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getBudgetValueAnual() - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
