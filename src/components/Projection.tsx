@@ -863,8 +863,12 @@ const Projection: React.FC = () => {
 
   // Salvar dados de despesas fixas
   const saveFixedExpensesToServer = async (newData: FixedExpensesData) => {
-    if (!token) return
+    if (!token) {
+      console.error('❌ Token não encontrado para salvar despesas fixas')
+      return
+    }
     
+    console.log('💾 Salvando despesas fixas:', newData)
     setIsSaving(true)
     try {
       const response = await fetch(`${API_BASE_URL}/fixed-expenses`, {
@@ -877,9 +881,11 @@ const Projection: React.FC = () => {
       })
       
       if (!response.ok) {
+        console.error('❌ Erro ao salvar despesas fixas:', response.status, response.statusText)
         throw new Error('Erro ao salvar dados de despesas fixas')
       }
       const j = await response.json()
+      console.log('✅ Despesas fixas salvas com sucesso:', j)
       if (j && j.success && j.data) {
         setFixedExpensesData(j.data)
       }
@@ -3835,11 +3841,23 @@ Continuar mesmo assim?`)
                       <InputCell
                         value={calcularPrevistoFixedMes(index)}
                         onBlur={(value) => {
+                          // Salvar em projection.json (para compatibilidade)
                           const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
                           arr[index] = value
                           const updated = { ...data, fixedPrevistoManual: arr }
                           setData(updated)
                           if (token) saveToServer(updated)
+                          
+                          // Salvar em fixedExpenses.json (para metas)
+                          const novosDados = {
+                            ...fixedExpensesData,
+                            previsto: [...fixedExpensesData.previsto]
+                          }
+                          novosDados.previsto[index] = value
+                          setFixedExpensesData(novosDados)
+                          if (token) {
+                            saveFixedExpensesToServer(novosDados)
+                          }
                         }}
                         category="previsto-fixed"
                         monthIndex={index}
@@ -3854,11 +3872,23 @@ Continuar mesmo assim?`)
                       <InputCell
                         value={calcularPrevistoFixedMes(index + 3)}
                         onBlur={(value) => {
+                          // Salvar em projection.json (para compatibilidade)
                           const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
                           arr[index + 3] = value
                           const updated = { ...data, fixedPrevistoManual: arr }
                           setData(updated)
                           if (token) saveToServer(updated)
+                          
+                          // Salvar em fixedExpenses.json (para metas)
+                          const novosDados = {
+                            ...fixedExpensesData,
+                            previsto: [...fixedExpensesData.previsto]
+                          }
+                          novosDados.previsto[index + 3] = value
+                          setFixedExpensesData(novosDados)
+                          if (token) {
+                            saveFixedExpensesToServer(novosDados)
+                          }
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 3}
@@ -3873,11 +3903,23 @@ Continuar mesmo assim?`)
                       <InputCell
                         value={calcularPrevistoFixedMes(index + 6)}
                         onBlur={(value) => {
+                          // Salvar em projection.json (para compatibilidade)
                           const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
                           arr[index + 6] = value
                           const updated = { ...data, fixedPrevistoManual: arr }
                           setData(updated)
                           if (token) saveToServer(updated)
+                          
+                          // Salvar em fixedExpenses.json (para metas)
+                          const novosDados = {
+                            ...fixedExpensesData,
+                            previsto: [...fixedExpensesData.previsto]
+                          }
+                          novosDados.previsto[index + 6] = value
+                          setFixedExpensesData(novosDados)
+                          if (token) {
+                            saveFixedExpensesToServer(novosDados)
+                          }
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 6}
@@ -3892,11 +3934,23 @@ Continuar mesmo assim?`)
                       <InputCell
                         value={calcularPrevistoFixedMes(index + 9)}
                         onBlur={(value) => {
+                          // Salvar em projection.json (para compatibilidade)
                           const arr = (data.fixedPrevistoManual && data.fixedPrevistoManual.length === 12) ? [...data.fixedPrevistoManual] : new Array(12).fill(null)
                           arr[index + 9] = value
                           const updated = { ...data, fixedPrevistoManual: arr }
                           setData(updated)
                           if (token) saveToServer(updated)
+                          
+                          // Salvar em fixedExpenses.json (para metas)
+                          const novosDados = {
+                            ...fixedExpensesData,
+                            previsto: [...fixedExpensesData.previsto]
+                          }
+                          novosDados.previsto[index + 9] = value
+                          setFixedExpensesData(novosDados)
+                          if (token) {
+                            saveFixedExpensesToServer(novosDados)
+                          }
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 9}
