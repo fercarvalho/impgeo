@@ -302,6 +302,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     return baseValue?.[monthIndex] || 0
   }
 
+  // Função auxiliar para obter valor correto de investimentos e MKT
+  const getInvestimentoValue = (tipo: 'investimentos' | 'mkt', monthIndex: number) => {
+    if (!projectionData) return 0
+    
+    // Para investimentos e MKT, usar os valores corretos dos arquivos específicos
+    // que são sincronizados com projection.json via syncProjectionData
+    const baseKey = tipo as keyof typeof projectionData
+    const baseValue = projectionData[baseKey] as number[] | undefined
+    
+    return baseValue?.[monthIndex] || 0
+  }
+
   // Carregar dados da projeção
   const loadProjectionData = async () => {
     try {
@@ -461,9 +473,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
     
-    // Metas de investimentos para o mês
-    const metaInvestimentosGerais = 2000
-    const metaInvestimentosMkt = 3000
+    // Metas de investimentos para o mês (baseadas na projeção - linha Previsto)
+    const metaInvestimentosGerais = getInvestimentoValue('investimentos', monthIndex)
+    const metaInvestimentosMkt = getInvestimentoValue('mkt', monthIndex)
     const investimentosGerais = totalDespesas * 0.05
     const investimentosMkt = totalReceitas * 0.1
     
@@ -561,9 +573,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
     
-    // Metas anuais de investimentos
-    const metaInvestimentosGeraisAnual = 24000
-    const metaInvestimentosMktAnual = 36000
+    // Metas anuais de investimentos (baseadas na projeção - linha Previsto)
+    const metaInvestimentosGeraisAnual = Array.from({ length: 12 }, (_, monthIndex) => 
+      getInvestimentoValue('investimentos', monthIndex)
+    ).reduce((sum, meta) => sum + meta, 0)
+    
+    const metaInvestimentosMktAnual = Array.from({ length: 12 }, (_, monthIndex) => 
+      getInvestimentoValue('mkt', monthIndex)
+    ).reduce((sum, meta) => sum + meta, 0)
     const investimentosGeraisAnual = totalDespesasAno * 0.05
     const investimentosMktAnual = totalReceitasAno * 0.1
     
@@ -1252,19 +1269,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-blue-700 mb-3">
                   <span>Meta</span>
-                  <span>{(((totalDespesas * 0.05) / 2000) * 100).toFixed(0)}%</span>
+                  <span>{(((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-blue-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesas * 0.05) / 2000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesas * 0.05) / 2000) * 100) > 100 && (
+                  {(((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-blue-700 to-blue-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.05) / 2000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1272,7 +1289,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-blue-700 font-medium">
-                R$ {(totalDespesas * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 2000 - (totalDespesas * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalDespesas * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getInvestimentoValue('investimentos', monthIndex) - (totalDespesas * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1289,19 +1306,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-purple-700 mb-3">
                   <span>Meta</span>
-                  <span>{(((totalReceitas * 0.1) / 3000) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-purple-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.1) / 3000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.1) / 3000) * 100) > 100 && (
+                  {(((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-purple-700 to-purple-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.1) / 3000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1309,7 +1326,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-purple-700 font-medium">
-                R$ {(totalReceitas * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 3000 - (totalReceitas * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitas * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getInvestimentoValue('mkt', monthIndex) - (totalReceitas * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -1406,7 +1423,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
     const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
 
-    // Metas totais do ano (baseadas nos arquivos específicos - linha Previsto)
+    // Metas anuais de investimentos (baseadas na projeção - linha Previsto)
+    const metaInvestimentosGeraisAnual = Array.from({ length: 12 }, (_, monthIndex) => 
+      getInvestimentoValue('investimentos', monthIndex)
+    ).reduce((sum, meta) => sum + meta, 0)
+    
+    const metaInvestimentosMktAnual = Array.from({ length: 12 }, (_, monthIndex) => 
+      getInvestimentoValue('mkt', monthIndex)
+    ).reduce((sum, meta) => sum + meta, 0)
     const metasDoAno = projectionData ? Array.from({ length: 12 }, (_, monthIndex) => {
       const metasDoMes = [
         getFaturamentoValue('Reurb', monthIndex),
@@ -1955,19 +1979,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-blue-800 mb-3">
                   <span>Meta Anual</span>
-                  <span>{(((totalDespesasAno * 0.05) / 24000) * 100).toFixed(0)}%</span>
+                  <span>{(((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-blue-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-600 to-blue-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.05) / 24000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesasAno * 0.05) / 24000) * 100) > 100 && (
+                  {(((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-blue-800 to-blue-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.05) / 24000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -1975,7 +1999,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-cyan-800 font-medium">
-                R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 24000 - (totalDespesasAno * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaInvestimentosGeraisAnual - (totalDespesasAno * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -1992,19 +2016,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-purple-800 mb-3">
                   <span>Meta Anual</span>
-                  <span>{(((totalReceitasAno * 0.1) / 36000) * 100).toFixed(0)}%</span>
+                  <span>{(((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-purple-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-600 to-purple-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.1) / 36000) * 100))}%` }}
+                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.1) / 36000) * 100) > 100 && (
+                  {(((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-purple-800 to-purple-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.1) / 36000) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100) - 100))}%` }}
                     ></div>
                   )}
                 </div>
@@ -2012,7 +2036,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               
               {/* Valores Alcançado/Restante */}
               <div className="text-xs text-pink-800 font-medium">
-                R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, 36000 - (totalReceitasAno * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaInvestimentosMktAnual - (totalReceitasAno * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>

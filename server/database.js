@@ -740,6 +740,8 @@ class Database {
       const faturamentoPlanData = this.getFaturamentoPlanData();
       const faturamentoRegData = this.getFaturamentoRegData();
       const faturamentoNnData = this.getFaturamentoNnData();
+      const investmentsData = this.getInvestmentsData();
+      const mktData = this.getMktData();
       
       // Atualizar projection.json com os dados dos arquivos separados
       projectionData.faturamentoReurb = faturamentoReurbData.previsto;
@@ -747,6 +749,8 @@ class Database {
       projectionData.faturamentoPlan = faturamentoPlanData.previsto;
       projectionData.faturamentoReg = faturamentoRegData.previsto;
       projectionData.faturamentoNn = faturamentoNnData.previsto;
+      projectionData.investimentos = investmentsData.previsto;
+      projectionData.mkt = mktData.previsto;
       
       // Salvar projection.json atualizado
       const updatedData = {
