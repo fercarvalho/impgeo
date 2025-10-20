@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer } from 'react-icons/fa'
+import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -94,30 +94,157 @@ const Projection: React.FC = () => {
   const [isChartView, setIsChartView] = useState(false)
   
   // Função para criar gráfico de barras simples
-  const createBarChart = (data: number[], title: string, color: string = 'blue') => {
-    const maxValue = Math.max(...data, 1) // Evita divisão por zero
+  const createLineChart = (previsto: number[], medio: number[], maximo: number[], title: string) => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    const allValues = [...previsto, ...medio, ...maximo]
+    const rawMinValue = Math.min(...allValues) // Valor mínimo real
+    const rawMaxValue = Math.max(...allValues) // Valor máximo real
+    
+    // Adicionar uma pequena margem (5%) para que as linhas não fiquem coladas nas bordas
+    const range = rawMaxValue - rawMinValue
+    const margin = range * 0.05
+    const minValue = rawMinValue - margin
+    const maxValue = rawMaxValue + margin
+    
+    const chartHeight = 280 // Reduzido de 350 para 280
+    const chartWidth = 1100 // Aumentado para dar mais espaço para os labels do eixo Y
+    const paddingX = 90 // Aumentado para evitar cortes nos labels do eixo Y
+    const paddingYTop = 20 // Padding superior para evitar cortes no label mais alto
+    
+    // Função para calcular coordenadas Y (escala entre minValue e maxValue)
+    const getY = (value: number) => {
+      if (maxValue === minValue) return paddingYTop + chartHeight / 2 // Se todos os valores são iguais
+      return paddingYTop + chartHeight - ((value - minValue) / (maxValue - minValue)) * chartHeight
+    }
+    
+    // Função para calcular coordenadas X (com padding para evitar cortes)
+    const getX = (index: number) => paddingX + (index / (months.length - 1)) * (chartWidth - 2 * paddingX)
     
     return (
       <div className="bg-white rounded-xl p-6 shadow-lg border">
         <h3 className="text-lg font-semibold mb-4 text-center">{title}</h3>
-        <div className="flex items-end justify-between h-64 gap-1">
-          {data.map((value, index) => {
-            const height = (value / maxValue) * 100
-            return (
-              <div key={index} className="flex flex-col items-center flex-1">
-                <div className="text-xs text-gray-600 mb-2 font-medium">
-                  R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </div>
-                <div
-                  className={`w-full bg-gradient-to-t from-${color}-500 to-${color}-400 rounded-t transition-all duration-300 hover:from-${color}-600 hover:to-${color}-500`}
-                  style={{ height: `${height}%` }}
-                  title={`${months[index]}: R$ ${value.toLocaleString('pt-BR')}`}
-                />
-                <div className="text-xs text-gray-500 mt-2 font-medium">{months[index]}</div>
-              </div>
-            )
-          })}
+        
+        {/* Legenda */}
+        <div className="flex justify-center gap-6 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-blue-500"></div>
+            <span className="text-sm text-gray-600">Previsto</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-green-500"></div>
+            <span className="text-sm text-gray-600">Médio</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-purple-500"></div>
+            <span className="text-sm text-gray-600">Máximo</span>
+          </div>
+        </div>
+        
+        {/* Gráfico SVG */}
+        <div className="overflow-x-auto w-full">
+          <svg width={chartWidth} height={chartHeight + paddingYTop + 50} className="mx-auto min-w-full">
+            {/* Grid horizontal com 10 intervalos */}
+            {Array.from({ length: 11 }, (_, i) => i / 10).map((ratio, i) => {
+              const value = minValue + (maxValue - minValue) * (1 - ratio)
+              return (
+                <g key={i}>
+                  <line
+                    x1={paddingX}
+                    y1={paddingYTop + chartHeight * ratio}
+                    x2={chartWidth - paddingX}
+                    y2={paddingYTop + chartHeight * ratio}
+                    stroke={i % 2 === 0 ? "#e5e7eb" : "#f3f4f6"} // Linhas principais mais destacadas
+                    strokeWidth={i % 2 === 0 ? 1 : 0.5}
+                  />
+                  <text
+                    x={paddingX - 20}
+                    y={paddingYTop + chartHeight * ratio + 4}
+                    textAnchor="end"
+                    className="text-xs fill-gray-500"
+                  >
+                    R$ {Math.round(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </text>
+                </g>
+              )
+            })}
+            
+            {/* Linha Previsto */}
+            <polyline
+              points={previsto.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            
+            {/* Linha Médio */}
+            <polyline
+              points={medio.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            
+            {/* Linha Máximo */}
+            <polyline
+              points={maximo.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
+              fill="none"
+              stroke="#8b5cf6"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            
+            {/* Pontos nas linhas */}
+            {previsto.map((value, index) => (
+              <circle
+                key={`previsto-${index}`}
+                cx={getX(index)}
+                cy={getY(value)}
+                r={4}
+                fill="#3b82f6"
+                className="hover:r-6 transition-all duration-200"
+              />
+            ))}
+            
+            {medio.map((value, index) => (
+              <circle
+                key={`medio-${index}`}
+                cx={getX(index)}
+                cy={getY(value)}
+                r={4}
+                fill="#10b981"
+                className="hover:r-6 transition-all duration-200"
+              />
+              ))}
+            
+            {maximo.map((value, index) => (
+              <circle
+                key={`maximo-${index}`}
+                cx={getX(index)}
+                cy={getY(value)}
+                r={4}
+                fill="#8b5cf6"
+                className="hover:r-6 transition-all duration-200"
+              />
+            ))}
+            
+            {/* Labels dos meses */}
+            {months.map((month, index) => (
+              <text
+                key={month}
+                x={getX(index)}
+                y={paddingYTop + chartHeight + 30}
+                textAnchor="middle"
+                className="text-xs fill-gray-600 font-medium"
+              >
+                {month}
+              </text>
+            ))}
+          </svg>
         </div>
       </div>
     )
@@ -2532,7 +2659,7 @@ Continuar mesmo assim?`)
         {/* Switch Tabela/Gráfico */}
         <div className="flex items-center gap-3">
           <span className={`text-sm font-medium ${!isChartView ? 'text-blue-600' : 'text-gray-500'}`}>
-            📊 Tabelas
+            <FaTable className="inline mr-1" /> Tabelas
           </span>
           <button
             onClick={() => setIsChartView(!isChartView)}
@@ -2547,7 +2674,7 @@ Continuar mesmo assim?`)
             />
           </button>
           <span className={`text-sm font-medium ${isChartView ? 'text-blue-600' : 'text-gray-500'}`}>
-            📈 Gráficos
+            <FaChartBar className="inline mr-1" /> Gráficos
           </span>
         </div>
       </div>
@@ -2555,10 +2682,8 @@ Continuar mesmo assim?`)
       {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
       <div className="mb-8">
         {isChartView ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {createBarChart(resultadoData.previsto, 'Resultado Previsto', 'blue')}
-            {createBarChart(resultadoData.medio, 'Resultado Médio', 'green')}
-            {createBarChart(resultadoData.maximo, 'Resultado Máximo', 'purple')}
+          <div className="flex justify-center">
+            {createLineChart(resultadoData.previsto, resultadoData.medio, resultadoData.maximo, 'Resultado Financeiro')}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
