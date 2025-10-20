@@ -93,6 +93,10 @@ const Projection: React.FC = () => {
   // Estado para controlar visualização (tabela/gráfico)
   const [isChartView, setIsChartView] = useState(false)
   
+  // Estados para modal de limpeza seletiva
+  const [showSelectiveClearModal, setShowSelectiveClearModal] = useState(false)
+  const [selectedTablesToClear, setSelectedTablesToClear] = useState<string[]>([])
+  
   // Função para criar gráfico de barras simples
   const createLineChart = (previsto: number[], medio: number[], maximo: number[], title: string) => {
     // PROPRIEDADES PADRÃO DO GRÁFICO - REUTILIZÁVEIS PARA PRÓXIMOS GRÁFICOS
@@ -2621,14 +2625,24 @@ Continuar mesmo assim?`)
               Resetar Cálculos
             </button>
             
-            <button
+            <button 
               onClick={clearAllProjectionData}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
               title="⚠️ APAGAR TODOS os dados de projeção permanentemente"
               disabled={isSaving}
             >
               <FaTrash className="h-5 w-5" />
-              {isSaving ? 'Limpando...' : 'Limpar Todos os Dados'}
+              {isSaving ? 'Limpando...' : 'Limpar Dados'}
+            </button>
+            
+            <button 
+              onClick={() => setShowSelectiveClearModal(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-800 text-white font-semibold rounded-xl hover:from-orange-700 hover:to-orange-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="⚠️ Selecionar tabelas específicas da projeção para limpar"
+              disabled={isSaving}
+            >
+              <FaTrash className="h-5 w-5" />
+              {isSaving ? 'Limpando...' : 'Limpar Seletivo'}
             </button>
           </div>
         </div>
@@ -7450,6 +7464,148 @@ Continuar mesmo assim?`)
         </div>
       </div>
 
+      {/* Modal de Limpeza Seletiva das Tabelas da Projeção */}
+      {showSelectiveClearModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowSelectiveClearModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Limpeza Seletiva - Projeção</h3>
+                <p className="text-gray-600 text-sm mt-1">Selecione quais tabelas editáveis da projeção deseja limpar</p>
+              </div>
+              <button
+                onClick={() => setShowSelectiveClearModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Lista de Tabelas Editáveis da Projeção */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Tabelas editáveis da projeção:</h4>
+              <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                {[
+                  { id: 'fixedExpenses', name: 'Despesas Fixas' },
+                  { id: 'variableExpenses', name: 'Despesas Variáveis' },
+                  { id: 'mkt', name: 'Composição do MKT' },
+                  { id: 'investments', name: 'Investimentos' },
+                  { id: 'faturamentoReurb', name: 'Faturamento REURB' },
+                  { id: 'faturamentoGeo', name: 'Faturamento GEO' },
+                  { id: 'faturamentoPlan', name: 'Faturamento PLAN' },
+                  { id: 'faturamentoReg', name: 'Faturamento REG' },
+                  { id: 'faturamentoNn', name: 'Faturamento NN' },
+                  { id: 'resultado', name: 'Resultado do Ano Anterior' },
+                  { id: 'percentualComparativo', name: 'Percentual de Crescimento Anual' }
+                ].map((table) => (
+                  <label key={table.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedTablesToClear.includes(table.id)}
+                      onChange={() => {
+                        setSelectedTablesToClear(prev => {
+                          if (prev.includes(table.id)) {
+                            return prev.filter(t => t !== table.id)
+                          } else {
+                            return [...prev, table.id]
+                          }
+                        })
+                      }}
+                      className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{table.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setSelectedTablesToClear([
+                    'fixedExpenses', 'variableExpenses', 'mkt', 'investments',
+                    'faturamentoReurb', 'faturamentoGeo', 'faturamentoPlan', 'faturamentoReg', 
+                    'faturamentoNn', 'resultado', 'percentualComparativo'
+                  ])}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Selecionar Todas
+                </button>
+                <button 
+                  onClick={() => setSelectedTablesToClear([])}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Desmarcar Todas
+                </button>
+              </div>
+              
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowSelectiveClearModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (selectedTablesToClear.length === 0) {
+                      alert('Selecione pelo menos uma tabela da projeção para limpar!')
+                      return
+                    }
+
+                    const confirmMessage = `Tem certeza que deseja limpar ${selectedTablesToClear.length} tabela${selectedTablesToClear.length !== 1 ? 's' : ''} da projeção?\n\nEsta ação não pode ser desfeita!`
+                    if (!confirm(confirmMessage)) {
+                      return
+                    }
+
+                    setIsSaving(true)
+                    try {
+                      // Limpar cada tabela selecionada
+                      for (const tableId of selectedTablesToClear) {
+                        await fetch(`/api/${tableId}`, {
+                          method: 'DELETE',
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                          }
+                        })
+                      }
+
+                      // Recarregar dados
+                      await loadData()
+                      
+                      // Fechar modal e mostrar sucesso
+                      setShowSelectiveClearModal(false)
+                      setSelectedTablesToClear([])
+                      alert(`✅ ${selectedTablesToClear.length} tabela${selectedTablesToClear.length !== 1 ? 's' : ''} da projeção limpa${selectedTablesToClear.length !== 1 ? 's' : ''} com sucesso!`)
+                      
+                    } catch (error) {
+                      console.error('Erro ao limpar tabelas da projeção:', error)
+                      alert('❌ Erro ao limpar tabelas da projeção. Tente novamente.')
+                    } finally {
+                      setIsSaving(false)
+                    }
+                  }}
+                  disabled={isSaving || selectedTablesToClear.length === 0}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSaving ? 'Limpando...' : `Limpar ${selectedTablesToClear.length} Tabela${selectedTablesToClear.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
