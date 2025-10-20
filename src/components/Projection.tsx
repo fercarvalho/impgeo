@@ -90,6 +90,39 @@ const Projection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   
+  // Estado para controlar visualização (tabela/gráfico)
+  const [isChartView, setIsChartView] = useState(false)
+  
+  // Função para criar gráfico de barras simples
+  const createBarChart = (data: number[], title: string, color: string = 'blue') => {
+    const maxValue = Math.max(...data, 1) // Evita divisão por zero
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    return (
+      <div className="bg-white rounded-xl p-6 shadow-lg border">
+        <h3 className="text-lg font-semibold mb-4 text-center">{title}</h3>
+        <div className="flex items-end justify-between h-64 gap-1">
+          {data.map((value, index) => {
+            const height = (value / maxValue) * 100
+            return (
+              <div key={index} className="flex flex-col items-center flex-1">
+                <div className="text-xs text-gray-600 mb-2 font-medium">
+                  R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </div>
+                <div
+                  className={`w-full bg-gradient-to-t from-${color}-500 to-${color}-400 rounded-t transition-all duration-300 hover:from-${color}-600 hover:to-${color}-500`}
+                  style={{ height: `${height}%` }}
+                  title={`${months[index]}: R$ ${value.toLocaleString('pt-BR')}`}
+                />
+                <div className="text-xs text-gray-500 mt-2 font-medium">{months[index]}</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+  
   // Estados para rastrear edições manuais
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
@@ -2485,19 +2518,50 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Frase informativa */}
-      <div className="flex items-center gap-2">
-        <p className="text-sm text-gray-600">Preencha apenas os valores mensais - os cálculos são automáticos</p>
-        {isSaving && (
-          <div className="flex items-center gap-2 text-sm text-blue-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            salvando
-          </div>
-        )}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-gray-600">Preencha apenas os valores mensais - os cálculos são automáticos</p>
+          {isSaving && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              salvando
+            </div>
+          )}
+        </div>
+        
+        {/* Switch Tabela/Gráfico */}
+        <div className="flex items-center gap-3">
+          <span className={`text-sm font-medium ${!isChartView ? 'text-blue-600' : 'text-gray-500'}`}>
+            📊 Tabelas
+          </span>
+          <button
+            onClick={() => setIsChartView(!isChartView)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              isChartView ? 'bg-blue-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                isChartView ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className={`text-sm font-medium ${isChartView ? 'text-blue-600' : 'text-gray-500'}`}>
+            📈 Gráficos
+          </span>
+        </div>
       </div>
 
-      {/* Tabela RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
+      {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
       <div className="mb-8">
-        <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
+        {isChartView ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {createBarChart(resultadoData.previsto, 'Resultado Previsto', 'blue')}
+            {createBarChart(resultadoData.medio, 'Resultado Médio', 'green')}
+            {createBarChart(resultadoData.maximo, 'Resultado Máximo', 'purple')}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
@@ -2654,6 +2718,7 @@ Continuar mesmo assim?`)
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Legenda Resultado Financeiro */}
