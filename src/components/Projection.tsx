@@ -2626,23 +2626,13 @@ Continuar mesmo assim?`)
             </button>
             
             <button 
-              onClick={clearAllProjectionData}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-              title="⚠️ APAGAR TODOS os dados de projeção permanentemente"
-              disabled={isSaving}
-            >
-              <FaTrash className="h-5 w-5" />
-              {isSaving ? 'Limpando...' : 'Limpar Dados'}
-            </button>
-            
-            <button 
               onClick={() => setShowSelectiveClearModal(true)}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
               title="⚠️ Selecionar tabelas específicas da projeção para limpar"
               disabled={isSaving}
             >
               <FaTrash className="h-5 w-5" />
-              {isSaving ? 'Limpando...' : 'Limpar Seletivo'}
+              {isSaving ? 'Limpando...' : 'Limpar Dados'}
             </button>
           </div>
         </div>
@@ -2675,6 +2665,16 @@ Continuar mesmo assim?`)
             >
               <FaHandPointer className="h-5 w-5" />
               Preencher de Maneira Manual
+            </button>
+
+            <button 
+              onClick={clearAllProjectionData}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="⚠️ APAGAR TODOS os dados de projeção permanentemente"
+              disabled={isSaving}
+            >
+              <FaTrash className="h-5 w-5" />
+              {isSaving ? 'Limpando...' : 'Limpar Todos os Dados'}
             </button>
           </div>
         )}
