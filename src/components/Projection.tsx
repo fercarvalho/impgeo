@@ -70,7 +70,7 @@ interface FaturamentoData {
 const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [data, setData] = useState<ProjectionData>({
     despesasVariaveis: new Array(12).fill(0),
     despesasFixas: new Array(12).fill(0),
@@ -2248,13 +2248,15 @@ Continuar mesmo assim?`)
             Resetar Cálculos
           </button>
           
-          <button
-            onClick={verificarSincronizacao}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
-          >
-            🔍 Verificar Sincronização
-          </button>
+          {user?.username === 'superadmin' && (
+            <button
+              onClick={verificarSincronizacao}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
+            >
+              🔍 Verificar Sincronização
+            </button>
+          )}
           
           <button
             onClick={clearAllProjectionData}
