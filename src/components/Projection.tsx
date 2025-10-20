@@ -1131,37 +1131,6 @@ Continuar mesmo assim?`)
     }
   }
 
-  // Salvar dados de despesas variáveis
-  const forcarCalculoDespesasVariáveis = () => {
-    console.log('Forçando cálculo das despesas variáveis...')
-    const novosPrevisto = []
-    const novosMedio = []
-    const novosMaximo = []
-    
-    for (let i = 0; i < 12; i++) {
-      novosPrevisto[i] = calcularPrevistoVariableMes(i)
-      novosMedio[i] = calcularMedioVariableMes(i)
-      novosMaximo[i] = calcularMaximoVariableMes(i)
-    }
-    
-    console.log('Valores calculados:', {
-      previsto: novosPrevisto.slice(0, 3),
-      medio: novosMedio.slice(0, 3),
-      maximo: novosMaximo.slice(0, 3)
-    })
-    
-    const novosDados = {
-      ...variableExpensesData,
-      previsto: novosPrevisto,
-      medio: novosMedio,
-      maximo: novosMaximo
-    }
-    
-    setVariableExpensesData(novosDados)
-    if (token) {
-      saveVariableExpensesToServer(novosDados)
-    }
-  }
 
   const saveVariableExpensesToServer = async (newData: VariableExpensesData) => {
     if (!token) return
@@ -1573,7 +1542,7 @@ Continuar mesmo assim?`)
     // Julho = Junho + 10%, Agosto e Setembro = Julho
     // Outubro = Setembro + 10%, Novembro e Dezembro = Outubro
     
-    const dezembroAnterior = data.despesasFixas[11] || 500 // Valor de dezembro do ano anterior
+    const dezembroAnterior = data.despesasFixas[11] || 0 // Valor de dezembro do ano anterior
     const janeiro = dezembroAnterior * 1.10 // Janeiro = Dezembro + 10%
     
     if (monthIndex === 0) return formatNumber(janeiro) // Janeiro
@@ -2285,14 +2254,6 @@ Continuar mesmo assim?`)
             title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
           >
             🔍 Verificar Sincronização
-          </button>
-          
-          <button
-            onClick={forcarCalculoDespesasVariáveis}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            title="Forçar cálculo das despesas variáveis"
-          >
-            🔧 Forçar Cálculo Despesas Variáveis
           </button>
           
           <button
