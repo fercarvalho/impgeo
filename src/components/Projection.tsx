@@ -2637,7 +2637,7 @@ Continuar mesmo assim?`)
             
             <button 
               onClick={() => setShowSelectiveClearModal(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-800 text-white font-semibold rounded-xl hover:from-orange-700 hover:to-orange-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-900 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
               title="⚠️ Selecionar tabelas específicas da projeção para limpar"
               disabled={isSaving}
             >
@@ -7471,7 +7471,7 @@ Continuar mesmo assim?`)
           onClick={() => setShowSelectiveClearModal(false)}
         >
           <div 
-            className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[95vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header do Modal */}
@@ -7493,7 +7493,7 @@ Continuar mesmo assim?`)
             {/* Lista de Tabelas Editáveis da Projeção */}
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Tabelas editáveis da projeção:</h4>
-              <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto">
                 {[
                   { id: 'fixedExpenses', name: 'Despesas Fixas' },
                   { id: 'variableExpenses', name: 'Despesas Variáveis' },
@@ -7537,13 +7537,13 @@ Continuar mesmo assim?`)
                     'faturamentoReurb', 'faturamentoGeo', 'faturamentoPlan', 'faturamentoReg', 
                     'faturamentoNn', 'resultado', 'percentualComparativo'
                   ])}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors"
                 >
                   Selecionar Todas
                 </button>
                 <button 
                   onClick={() => setSelectedTablesToClear([])}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors"
                 >
                   Desmarcar Todas
                 </button>
@@ -7552,7 +7552,7 @@ Continuar mesmo assim?`)
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowSelectiveClearModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex-1 px-4 py-2 bg-red-300 text-white font-medium rounded-lg hover:bg-red-400 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -7597,7 +7597,7 @@ Continuar mesmo assim?`)
                     }
                   }}
                   disabled={isSaving || selectedTablesToClear.length === 0}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSaving ? 'Limpando...' : `Limpar ${selectedTablesToClear.length} Tabela${selectedTablesToClear.length !== 1 ? 's' : ''}`}
                 </button>
