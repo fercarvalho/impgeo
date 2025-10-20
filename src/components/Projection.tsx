@@ -2464,21 +2464,21 @@ Continuar mesmo assim?`)
             </button>
 
             <button
-              onClick={preencherDeManieraManual}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-yellow-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-              title="Simular edições manuais multiplicando valores por 10"
-            >
-              <FaHandPointer className="h-5 w-5" />
-              Preencher de Maneira Manual
-            </button>
-
-            <button
               onClick={preencherResultadoAnoAnterior}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
               title="Preencher tabela Resultado do Ano Anterior com valores crescentes"
             >
               <FaEdit className="h-5 w-5" />
               Preencher Resultado do Ano Anterior
+            </button>
+
+            <button
+              onClick={preencherDeManieraManual}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-yellow-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="Simular edições manuais multiplicando valores por 10"
+            >
+              <FaHandPointer className="h-5 w-5" />
+              Preencher de Maneira Manual
             </button>
           </div>
         )}
