@@ -2523,16 +2523,35 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             Metas
           </h1>
           <div className="flex gap-3">
-            {user.username === 'superadmin' && (
-              <button 
-                onClick={recarregarDadosProjecao}
-                disabled={isReloadingProjection}
-                className={`flex items-center gap-3 px-6 py-3 font-semibold rounded-xl shadow-lg transition-all duration-300 ${
-                  isReloadingProjection 
-                    ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 hover:shadow-xl hover:-translate-y-1'
-                }`}
-              >
+            <button 
+              onClick={exportarMetasPDF}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Download className="h-5 w-5" />
+              Exportar PDF
+            </button>
+            <button 
+              onClick={() => alert("Ferramenta em construção")}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Plus className="h-5 w-5" />
+              Nova Meta
+            </button>
+          </div>
+        </div>
+
+        {/* Segunda linha: Botões do superadmin */}
+        {user?.username === 'superadmin' && (
+          <div className="flex items-center gap-4 justify-end">
+            <button 
+              onClick={recarregarDadosProjecao}
+              disabled={isReloadingProjection}
+              className={`flex items-center gap-3 px-6 py-3 font-semibold rounded-xl shadow-lg transition-all duration-300 ${
+                isReloadingProjection 
+                  ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 hover:shadow-xl hover:-translate-y-1'
+              }`}
+            >
               {isReloadingProjection ? (
                 <>
                   <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -2549,35 +2568,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   Recarregar Projeção
                 </>
               )}
-              </button>
-            )}
-            {user.username === 'superadmin' && (
-              <button 
-                onClick={verificarSincronizacaoMetas}
-                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-              >
+            </button>
+
+            <button 
+              onClick={verificarSincronizacaoMetas}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Verificar Sincronização
-              </button>
-            )}
-          <button 
-            onClick={exportarMetasPDF}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Download className="h-5 w-5" />
-            Exportar PDF
-          </button>
-          <button 
-            onClick={() => alert("Ferramenta em construção")}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <Plus className="h-5 w-5" />
-            Nova Meta
-          </button>
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Resultados da Verificação de Sincronização */}
         {syncResults && (
