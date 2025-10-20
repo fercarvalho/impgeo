@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator } from 'react-icons/fa'
+import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -1041,6 +1041,99 @@ const Projection: React.FC = () => {
     } catch (error) {
       console.error('Erro ao carregar dados de Investimentos:', error)
     }
+  }
+
+  // Preencher de maneira manual - simula edições manuais multiplicando por 10
+  const preencherDeManieraManual = () => {
+    if (!confirm('Preencher todos os valores simulando edições manuais (multiplicando por 10)?')) {
+      return
+    }
+
+    const novosDados = { ...data }
+    const novosManualEdits = { ...manualEdits }
+
+    // Simular edições manuais para Despesas Fixas
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.despesasFixas[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.despesasFixas[i] = novoValor
+      novosManualEdits[`fixedPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Despesas Variáveis
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.despesasVariaveis[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.despesasVariaveis[i] = novoValor
+      novosManualEdits[`variablePrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Investimentos
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.investimentos[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.investimentos[i] = novoValor
+      novosManualEdits[`investimentosPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para MKT
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.mkt[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.mkt[i] = novoValor
+    }
+
+    // Simular edições manuais para Faturamento REURB
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.faturamentoReurb[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.faturamentoReurb[i] = novoValor
+      novosManualEdits[`faturamentoReurbPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Faturamento GEO
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.faturamentoGeo[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.faturamentoGeo[i] = novoValor
+      novosManualEdits[`faturamentoGeoPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Faturamento PLAN
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.faturamentoPlan[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.faturamentoPlan[i] = novoValor
+      novosManualEdits[`faturamentoPlanPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Faturamento REG
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.faturamentoReg[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.faturamentoReg[i] = novoValor
+      novosManualEdits[`faturamentoRegPrevistoManual-${i}`] = true
+    }
+
+    // Simular edições manuais para Faturamento NN
+    for (let i = 0; i < 12; i++) {
+      const valorOriginal = data.faturamentoNn[i] || 0
+      const novoValor = valorOriginal * 10
+      novosDados.faturamentoNn[i] = novoValor
+      novosManualEdits[`faturamentoNnPrevistoManual-${i}`] = true
+    }
+
+    // Atualizar os dados e manualEdits
+    setData(novosDados)
+    setManualEdits(novosManualEdits)
+    
+    // Salvar no localStorage
+    localStorage.setItem('manualEdits', JSON.stringify(novosManualEdits))
+    
+    // Salvar no servidor
+    saveToServer(novosDados)
+    
+    alert('✅ Valores preenchidos simulando edições manuais com sucesso!')
   }
 
   // Preencher Resultado do Ano Anterior com valores crescentes
@@ -2335,6 +2428,17 @@ Continuar mesmo assim?`)
             >
               <FaSearch className="h-5 w-5" />
               Verificar Sincronização
+            </button>
+          )}
+
+          {user?.username === 'superadmin' && (
+            <button
+              onClick={preencherDeManieraManual}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-yellow-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="Simular edições manuais multiplicando valores por 10"
+            >
+              <FaHandPointer className="h-5 w-5" />
+              Preencher de Maneira Manual
             </button>
           )}
 
