@@ -2305,8 +2305,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         getFaturamentoValue('Nn', monthIndex)
       ] : [0, 0, 0, 0, 0]
       
-      const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
-      const metaFaturamento = mesSelecionado.meta
+      // Meta de faturamento = soma de todos os faturamentos (meta total)
+      const metaFaturamento = metasDoMes.reduce((sum, meta) => sum + meta, 0)
       
       // Obter dados reais de transações do mês
       const currentYear = 2025
@@ -2318,15 +2318,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
       const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
       
-      // Obter despesas da projeção (dados reais)
-      const despesasProjecao = projectionData ? 
+      // Meta/Limite de despesas = soma das despesas da projeção (limite total)
+      const metaDespesas = projectionData ? 
         (projectionData.despesasVariaveis[monthIndex] || 0) + 
         (projectionData.despesasFixas[monthIndex] || 0) : 0
       
-      // Usar o maior valor entre transações reais e projeção para despesas
-      const totalDespesasFinal = Math.max(totalDespesas, despesasProjecao)
-      
-      const resultadoFinanceiro = totalReceitas - totalDespesasFinal
+      const resultadoFinanceiro = totalReceitas - metaDespesas
       
       // Criar HTML do relatório com dados REAIS
       tempElement.innerHTML = `
@@ -2348,8 +2345,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div style="font-size: 18px; font-weight: bold; color: #059669;">R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
             </div>
             <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
-              <div style="font-weight: bold; color: #ef4444; margin-bottom: 5px;">Total de Despesas</div>
-              <div style="font-size: 18px; font-weight: bold; color: #dc2626;">R$ ${totalDespesasFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              <div style="font-weight: bold; color: #ef4444; margin-bottom: 5px;">Limite de Despesas</div>
+              <div style="font-size: 18px; font-weight: bold; color: #dc2626;">R$ ${metaDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
             </div>
             <div style="background: ${resultadoFinanceiro >= 0 ? '#f0fdf4' : '#fef2f2'}; padding: 15px; border-radius: 8px; border-left: 4px solid ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'};">
               <div style="font-weight: bold; color: ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'}; margin-bottom: 5px;">Resultado Financeiro</div>
@@ -2372,31 +2369,31 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">REURB</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[0] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[0] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaFaturamento > 0 ? ((metasDoMes[0] || 0) / metaFaturamento * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr>
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">GEO</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[1] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[1] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaFaturamento > 0 ? ((metasDoMes[1] || 0) / metaFaturamento * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">PLAN</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[2] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[2] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaFaturamento > 0 ? ((metasDoMes[2] || 0) / metaFaturamento * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr>
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">REG</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[3] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[3] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaFaturamento > 0 ? ((metasDoMes[3] || 0) / metaFaturamento * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">NN</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[4] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaFaturamento > 0 ? ((metasDoMes[4] || 0) / metaFaturamento * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #1e40af; color: white; font-weight: bold;">
                 <td style="padding: 12px; border: 1px solid #1e40af;">TOTAL PREVISTO</td>
-                <td style="padding: 12px; border: 1px solid #1e40af; text-align: right;">${metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 12px; border: 1px solid #1e40af; text-align: right;">${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td style="padding: 12px; border: 1px solid #1e40af; text-align: center;">100%</td>
               </tr>
             </tbody>
@@ -2452,8 +2449,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div style="font-size: 16px; color: #ef4444; font-weight: bold;">R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
               </div>
               <div>
-                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Despesas Projeção:</div>
-                <div style="font-size: 16px; color: #f59e0b; font-weight: bold;">R$ ${despesasProjecao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Limite de Despesas:</div>
+                <div style="font-size: 16px; color: #f59e0b; font-weight: bold;">R$ ${metaDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           </div>
@@ -2505,7 +2502,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const fileName = `Metas_${mesSelecionado.nome}_2025_${new Date().toISOString().split('T')[0]}.pdf`
       pdf.save(fileName)
       
-      alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}\n\n📊 Dados incluídos:\n• Meta: R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Realizado: R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Despesas: R$ ${totalDespesasFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Resultado: R$ ${resultadoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+      alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}\n\n📊 Dados incluídos:\n• Meta de Faturamento: R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Faturamento Realizado: R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Limite de Despesas: R$ ${metaDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Resultado Financeiro: R$ ${resultadoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
       
     } catch (error) {
       console.error('Erro ao exportar PDF:', error)
