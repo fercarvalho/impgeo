@@ -320,6 +320,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  // Função auxiliar para calcular percentual de forma segura (evita NaN)
+  const calcularPercentualSeguro = (valor: number, total: number, casasDecimais: number = 0): string => {
+    if (!total || total === 0) return '0'
+    const percentual = (valor / total) * 100
+    return isNaN(percentual) ? '0' : percentual.toFixed(casasDecimais)
+  }
+
   // Função auxiliar para obter valor correto da linha Previsto
   const getFaturamentoValue = (tipo: string, monthIndex: number) => {
     if (!projectionData) return 0
@@ -895,12 +902,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       totalReceitas,
       totalDespesas,
       metaValue,
-      progressoPercentual: metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(1) : 0
+      progressoPercentual: calcularPercentualSeguro(totalReceitas, metaValue, 1)
     })
 
     // Status da meta
     const metaAtingida = totalReceitas >= metaValue
-    const progressoPercentual = metaValue > 0 ? ((totalReceitas / metaValue) * 100) : 0
+    const progressoPercentual = parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1))
     const statusCor = metaAtingida ? 'text-emerald-600' : progressoPercentual >= 80 ? 'text-yellow-600' : 'text-red-600'
     const statusIcon = metaAtingida ? '✅' : progressoPercentual >= 80 ? '⚠️' : '❌'
     const statusTexto = metaAtingida ? 'META ATINGIDA!' : progressoPercentual >= 80 ? 'QUASE LÁ!' : 'EM ANDAMENTO'
@@ -983,7 +990,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     <span>{statusTexto}</span>
                   </div>
                   <div className={`text-xs font-medium ${statusCor}`}>
-                    {progressoPercentual.toFixed(1)}% da meta atingida
+                    {calcularPercentualSeguro(totalReceitas, metaValue, 1)}% da meta atingida
                   </div>
                 </div>
                 
@@ -1014,7 +1021,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-center font-bold text-emerald-800">
-                    {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(0) : 0}%
+                    {calcularPercentualSeguro(totalReceitas, metaValue, 0)}%
                   </div>
                 </div>
                 
@@ -1025,7 +1032,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     -R$ {Math.max(0, metaValue - totalReceitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-center font-bold text-red-800">
-                    {metaValue > 0 ? Math.max(0, 100 - ((totalReceitas / metaValue) * 100)).toFixed(0) : 100}%
+                    {calcularPercentualSeguro(Math.max(0, metaValue - totalReceitas), metaValue, 0)}%
                   </div>
                 </div>
               </div>
@@ -1055,19 +1062,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
                   <span>Progresso</span>
-                  <span>{((totalReceitas / metaValue) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas, metaValue, 0)}%</span>
                 </div>
                 <div className="w-full bg-indigo-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalReceitas / metaValue) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {((totalReceitas / metaValue) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalReceitas / metaValue) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -1092,19 +1099,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 1.0) / getFaturamentoValue('Reurb', monthIndex)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-emerald-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 1.0) / (getFaturamentoValue('Reurb', monthIndex))) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -1129,7 +1136,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-green-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1169,7 +1176,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-teal-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1206,7 +1213,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1243,7 +1250,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1290,7 +1297,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-red-700 mb-3">
                   <span>Limite</span>
-                  <span>{((totalDespesas / getBudgetValue(monthIndex)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesas, getBudgetValue(monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-red-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1327,7 +1334,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-orange-700 mb-3">
                   <span>Limite</span>
-                  <span>{(((totalDespesas * 0.7) / getVariableExpensesValue(monthIndex)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesas * 0.7, getVariableExpensesValue(monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-orange-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1364,7 +1371,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-700 mb-3">
                   <span>Progresso</span>
-                  <span>{((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 0)}%</span>
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1411,19 +1418,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-blue-700 mb-3">
                   <span>Meta</span>
-                  <span>{(((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-blue-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-blue-700 to-blue-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.05) / getInvestimentoValue('investimentos', monthIndex)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -1448,19 +1455,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-purple-700 mb-3">
                   <span>Meta</span>
-                  <span>{(((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 0)}%</span>
                 </div>
                 <div className="w-full bg-purple-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-purple-700 to-purple-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.1) / getInvestimentoValue('mkt', monthIndex)) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -1504,7 +1511,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <div className="text-xl font-bold text-rose-800">
-                        {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(0) : 0}%
+                        {calcularPercentualSeguro(totalReceitas, metaValue, 0)}%
                       </div>
                       <div className="text-xs text-rose-600 font-medium">Alcançado</div>
                     </div>
@@ -1525,7 +1532,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-sky-900 mb-3">
-                    {metaValue > 0 ? ((totalReceitas / metaValue) * 100).toFixed(1) : 0}%
+                    {calcularPercentualSeguro(totalReceitas, metaValue, 1)}%
                   </div>
                   <div className="text-xs text-sky-700">Meta Alcançada</div>
                 </div>
@@ -1724,7 +1731,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-center font-bold text-emerald-800 text-lg">
-                    {metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(0) : 0}%
+                    {calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%
                   </div>
                 </div>
                 
@@ -1735,7 +1742,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     -R$ {Math.max(0, metaTotalAno - totalReceitasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-center font-bold text-red-800 text-lg">
-                    {metaTotalAno > 0 ? Math.max(0, 100 - ((totalReceitasAno / metaTotalAno) * 100)).toFixed(0) : 100}%
+                    {calcularPercentualSeguro(Math.max(0, metaTotalAno - totalReceitasAno), metaTotalAno, 0)}%
                   </div>
                 </div>
               </div>
@@ -1765,7 +1772,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
                   <span>Progresso</span>
-                  <span>{((totalReceitasAno / metaTotalAno) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-indigo-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1802,7 +1809,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitasAno * 1.0) / (metaTotalAno * 1.0)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-emerald-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1839,7 +1846,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitasAno * 0.8) / (metaTotalAno * 0.8)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-green-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1879,7 +1886,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitasAno * 0.6) / (metaTotalAno * 0.6)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-teal-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1916,7 +1923,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-cyan-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -1953,7 +1960,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
                   <span>Progresso</span>
-                  <span>{(((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
                 <div className="w-full bg-pink-200 rounded-full h-2 relative">
                   {/* Barra base (0-100%) */}
@@ -2000,7 +2007,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-red-800 mb-3">
                   <span>Limite Anual</span>
-                  <span>{((totalDespesasAno / getBudgetValueAnual()) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesasAno, getBudgetValueAnual(), 0)}%</span>
                 </div>
                 <div className="w-full bg-red-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
@@ -2037,7 +2044,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-orange-800 mb-3">
                   <span>Limite Anual</span>
-                  <span>{(((totalDespesasAno * 0.7) / getVariableExpensesValueAnual()) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesasAno * 0.7, getVariableExpensesValueAnual(), 0)}%</span>
                 </div>
                 <div className="w-full bg-orange-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
@@ -2074,7 +2081,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-amber-800 mb-3">
                   <span>Progresso Anual</span>
-                  <span>{((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 0)}%</span>
                 </div>
                 <div className="w-full bg-amber-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
@@ -2121,19 +2128,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-blue-800 mb-3">
                   <span>Meta Anual</span>
-                  <span>{(((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 0)}%</span>
                 </div>
                 <div className="w-full bg-blue-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-600 to-blue-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-blue-800 to-blue-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.05) / metaInvestimentosGeraisAnual) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -2158,19 +2165,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="mb-3">
                 <div className="flex justify-between text-xs font-medium text-purple-800 mb-3">
                   <span>Meta Anual</span>
-                  <span>{(((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100).toFixed(0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 0)}%</span>
                 </div>
                 <div className="w-full bg-purple-300 rounded-full h-3 relative">
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-600 to-purple-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100))}%` }}
+                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)))}%` }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100) > 100 && (
+                  {parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-purple-800 to-purple-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.1) / metaInvestimentosMktAnual) * 100) - 100))}%` }}
+                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)) - 100)}%` }}
                     ></div>
                   )}
                 </div>
@@ -2211,7 +2218,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <div className="text-xl font-bold text-pink-800">
-                        {metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(0) : 0}%
+                        {calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%
                       </div>
                       <div className="text-xs text-pink-600 font-medium">Alcançado</div>
                     </div>
