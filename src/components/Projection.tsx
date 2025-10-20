@@ -322,6 +322,20 @@ const Projection: React.FC = () => {
     localStorage.setItem('manualEdits', JSON.stringify(manualEdits))
   }, [manualEdits])
 
+  // Escutar evento para resetar cálculos automaticamente quando entrar na aba de metas
+  useEffect(() => {
+    const handleResetarCalculosAutomatico = () => {
+      console.log('🔄 Resetando cálculos automaticamente ao entrar na aba de metas...')
+      resetarCalculos()
+    }
+
+    window.addEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
+    
+    return () => {
+      window.removeEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
+    }
+  }, [])
+
   // Forçar cálculo inicial das despesas variáveis quando dados forem carregados
   useEffect(() => {
     console.log('useEffect despesas variáveis executado:', {
@@ -1214,6 +1228,55 @@ const Projection: React.FC = () => {
     saveToServer(novosDados)
     
     alert('✅ Tabela "Resultado do Ano Anterior" preenchida com sucesso!')
+  }
+
+  // Função para resetar cálculos (extraída do botão)
+  const resetarCalculos = async () => {
+    // Limpar edições manuais do estado local
+    setManualEdits({})
+    
+    // Limpar arrays de edições manuais do estado principal
+    const updatedData = {
+      ...data,
+      // Limpar edições manuais de despesas fixas
+      fixedPrevistoManual: undefined,
+      fixedMediaManual: undefined,
+      fixedMaximoManual: undefined,
+      // Limpar edições manuais de despesas variáveis
+      variablePrevistoManual: undefined,
+      variableMedioManual: undefined,
+      variableMaximoManual: undefined,
+      // Limpar edições manuais de investimentos
+      investimentosPrevistoManual: undefined,
+      investimentosMedioManual: undefined,
+      investimentosMaximoManual: undefined,
+      // Limpar edições manuais de faturamentos
+      faturamentoReurbPrevistoManual: undefined,
+      faturamentoReurbMedioManual: undefined,
+      faturamentoReurbMaximoManual: undefined,
+      faturamentoGeoPrevistoManual: undefined,
+      faturamentoGeoMedioManual: undefined,
+      faturamentoGeoMaximoManual: undefined,
+      faturamentoPlanPrevistoManual: undefined,
+      faturamentoPlanMedioManual: undefined,
+      faturamentoPlanMaximoManual: undefined,
+      faturamentoRegPrevistoManual: undefined,
+      faturamentoRegMedioManual: undefined,
+      faturamentoRegMaximoManual: undefined,
+      faturamentoNnPrevistoManual: undefined,
+      faturamentoNnMedioManual: undefined,
+      faturamentoNnMaximoManual: undefined
+    }
+    
+    setData(updatedData)
+    
+    // Salvar no servidor
+    if (token) {
+      saveToServer(updatedData)
+    }
+    
+    console.log('Edições manuais resetadas - cálculos automáticos reativados')
+    alert('✅ Cálculos resetados com sucesso!\n\nTodas as edições manuais foram removidas e os valores voltaram aos cálculos automáticos.')
   }
 
   // Limpar todos os dados de projeção
@@ -2366,53 +2429,7 @@ Continuar mesmo assim?`)
         </h1>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => {
-              // Limpar edições manuais do estado local
-              setManualEdits({})
-              
-              // Limpar arrays de edições manuais do estado principal
-              const updatedData = {
-                ...data,
-                // Limpar edições manuais de despesas fixas
-                fixedPrevistoManual: undefined,
-                fixedMediaManual: undefined,
-                fixedMaximoManual: undefined,
-                // Limpar edições manuais de despesas variáveis
-                variablePrevistoManual: undefined,
-                variableMedioManual: undefined,
-                variableMaximoManual: undefined,
-                // Limpar edições manuais de investimentos
-                investimentosPrevistoManual: undefined,
-                investimentosMedioManual: undefined,
-                investimentosMaximoManual: undefined,
-                // Limpar edições manuais de faturamentos
-                faturamentoReurbPrevistoManual: undefined,
-                faturamentoReurbMedioManual: undefined,
-                faturamentoReurbMaximoManual: undefined,
-                faturamentoGeoPrevistoManual: undefined,
-                faturamentoGeoMedioManual: undefined,
-                faturamentoGeoMaximoManual: undefined,
-                faturamentoPlanPrevistoManual: undefined,
-                faturamentoPlanMedioManual: undefined,
-                faturamentoPlanMaximoManual: undefined,
-                faturamentoRegPrevistoManual: undefined,
-                faturamentoRegMedioManual: undefined,
-                faturamentoRegMaximoManual: undefined,
-                faturamentoNnPrevistoManual: undefined,
-                faturamentoNnMedioManual: undefined,
-                faturamentoNnMaximoManual: undefined
-              }
-              
-              setData(updatedData)
-              
-              // Salvar no servidor
-              if (token) {
-                saveToServer(updatedData)
-              }
-              
-              console.log('Edições manuais resetadas - cálculos automáticos reativados')
-              alert('✅ Cálculos resetados com sucesso!\n\nTodas as edições manuais foram removidas e os valores voltaram aos cálculos automáticos.')
-            }}
+            onClick={resetarCalculos}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             title="Resetar edições manuais e permitir cálculos automáticos"
           >

@@ -112,6 +112,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     setShowTransactionModal(false)
   }, [activeTab])
   
+  // Executar resetar cálculos automaticamente quando entrar na aba de metas
+  useEffect(() => {
+    if (activeTab === 'metas') {
+      // Aguardar um pequeno delay para garantir que o componente esteja carregado
+      const timer = setTimeout(() => {
+        // Disparar evento customizado para o componente Projection executar resetarCalculos
+        window.dispatchEvent(new CustomEvent('resetarCalculosAutomatico'))
+      }, 500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [activeTab])
+  
 
 
   // Estados para gráficos expandidos
