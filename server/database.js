@@ -755,6 +755,8 @@ class Database {
       const projectionData = this.getProjectionData();
       
       // Ler dados dos arquivos separados
+      const fixedExpensesData = this.getFixedExpensesData();
+      const variableExpensesData = this.getVariableExpensesData();
       const faturamentoReurbData = this.getFaturamentoReurbData();
       const faturamentoGeoData = this.getFaturamentoGeoData();
       const faturamentoPlanData = this.getFaturamentoPlanData();
@@ -764,6 +766,8 @@ class Database {
       const mktData = this.getMktData();
       
       // Atualizar projection.json com os dados dos arquivos separados
+      projectionData.despesasFixas = fixedExpensesData.previsto;
+      projectionData.despesasVariaveis = variableExpensesData.previsto;
       projectionData.faturamentoReurb = faturamentoReurbData.previsto;
       projectionData.faturamentoGeo = faturamentoGeoData.previsto;
       projectionData.faturamentoPlan = faturamentoPlanData.previsto;
