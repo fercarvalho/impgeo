@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Calculator, RotateCcw, Trash2 } from 'lucide-react'
-import { FaBullseye, FaChartLine, FaChartBar, FaRocket } from 'react-icons/fa'
+import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 
 interface ProjectionData {
@@ -1042,6 +1041,86 @@ const Projection: React.FC = () => {
     } catch (error) {
       console.error('Erro ao carregar dados de Investimentos:', error)
     }
+  }
+
+  // Preencher Resultado do Ano Anterior com valores crescentes
+  const preencherResultadoAnoAnterior = () => {
+    if (!confirm('Preencher todos os campos de "Resultado do Ano Anterior" com valores crescentes de 100 em 100?')) {
+      return
+    }
+
+    let valorAtual = 100
+    const novosDados = { ...data }
+
+    // Preencher cada linha (categoria) com valores crescentes
+    // Despesas Variáveis (12 meses)
+    novosDados.despesasVariaveis = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Despesas Fixas (12 meses)
+    novosDados.despesasFixas = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Investimentos (12 meses)
+    novosDados.investimentos = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // MKT (12 meses)
+    novosDados.mkt = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Faturamento REURB (12 meses)
+    novosDados.faturamentoReurb = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Faturamento GEO (12 meses)
+    novosDados.faturamentoGeo = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Faturamento PLAN (12 meses)
+    novosDados.faturamentoPlan = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Faturamento REG (12 meses)
+    novosDados.faturamentoReg = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Faturamento NN (12 meses)
+    novosDados.faturamentoNn = Array.from({ length: 12 }, () => {
+      const valor = valorAtual
+      valorAtual += 100
+      return valor
+    })
+
+    // Atualizar os dados
+    setData(novosDados)
+    saveToServer(novosDados)
+    
+    alert('✅ Tabela "Resultado do Ano Anterior" preenchida com sucesso!')
   }
 
   // Limpar todos os dados de projeção
@@ -2189,7 +2268,7 @@ Continuar mesmo assim?`)
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Calculator className="w-8 h-8 text-blue-600" />
+          <FaCalculator className="w-8 h-8 text-blue-600" />
           Projeção Anual
         </h1>
         <div className="flex items-center gap-4">
@@ -2244,7 +2323,7 @@ Continuar mesmo assim?`)
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             title="Resetar edições manuais e permitir cálculos automáticos"
           >
-            <RotateCcw className="h-5 w-5" />
+            <FaUndo className="h-5 w-5" />
             Resetar Cálculos
           </button>
           
@@ -2254,7 +2333,19 @@ Continuar mesmo assim?`)
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
               title="Verificar se os valores exibidos estão sincronizados com o banco de dados"
             >
-              🔍 Verificar Sincronização
+              <FaSearch className="h-5 w-5" />
+              Verificar Sincronização
+            </button>
+          )}
+
+          {user?.username === 'superadmin' && (
+            <button
+              onClick={preencherResultadoAnoAnterior}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              title="Preencher tabela Resultado do Ano Anterior com valores crescentes"
+            >
+              <FaEdit className="h-5 w-5" />
+              Preencher Resultado do Ano Anterior
             </button>
           )}
           
@@ -2264,7 +2355,7 @@ Continuar mesmo assim?`)
             title="⚠️ APAGAR TODOS os dados de projeção permanentemente"
             disabled={isSaving}
           >
-            <Trash2 className="h-5 w-5" />
+            <FaTrash className="h-5 w-5" />
             {isSaving ? 'Limpando...' : 'Limpar Todos os Dados'}
           </button>
           
