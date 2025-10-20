@@ -2293,27 +2293,42 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       tempElement.style.padding = '20px'
       tempElement.style.fontFamily = 'Arial, sans-serif'
       
-      // Obter dados do mês selecionado
+      // Obter dados REAIS do mês selecionado usando as mesmas funções da interface
       const monthIndex = selectedMonth
+      
+      // Usar getFaturamentoValue para obter os dados reais (incluindo valores manuais)
       const metasDoMes = projectionData ? [
-        projectionData.faturamentoReurb[monthIndex] || 0,
-        projectionData.faturamentoGeo[monthIndex] || 0,
-        projectionData.faturamentoPlan[monthIndex] || 0,
-        projectionData.faturamentoReg[monthIndex] || 0,
-        projectionData.faturamentoNn[monthIndex] || 0
+        getFaturamentoValue('Reurb', monthIndex),
+        getFaturamentoValue('Geo', monthIndex),
+        getFaturamentoValue('Plan', monthIndex),
+        getFaturamentoValue('Reg', monthIndex),
+        getFaturamentoValue('Nn', monthIndex)
       ] : [0, 0, 0, 0, 0]
       
       const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
       const metaFaturamento = mesSelecionado.meta
       
-      const totalReceitas = metaValue
-      const totalDespesas = projectionData ? 
+      // Obter dados reais de transações do mês
+      const currentYear = 2025
+      const transacoesDoMes = transactions.filter(t => {
+        const transactionDate = new Date(t.date)
+        return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
+      })
+      
+      const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+      const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+      
+      // Obter despesas da projeção (dados reais)
+      const despesasProjecao = projectionData ? 
         (projectionData.despesasVariaveis[monthIndex] || 0) + 
         (projectionData.despesasFixas[monthIndex] || 0) : 0
       
-      const resultadoFinanceiro = totalReceitas - totalDespesas
+      // Usar o maior valor entre transações reais e projeção para despesas
+      const totalDespesasFinal = Math.max(totalDespesas, despesasProjecao)
       
-      // Criar HTML do relatório
+      const resultadoFinanceiro = totalReceitas - totalDespesasFinal
+      
+      // Criar HTML do relatório com dados REAIS
       tempElement.innerHTML = `
         <div style="text-align: center; margin-bottom: 30px;">
           <h1 style="color: #1e40af; font-size: 28px; margin: 0; font-weight: bold;">IMPGEO</h1>
@@ -2334,7 +2349,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
             <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
               <div style="font-weight: bold; color: #ef4444; margin-bottom: 5px;">Total de Despesas</div>
-              <div style="font-size: 18px; font-weight: bold; color: #dc2626;">R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              <div style="font-size: 18px; font-weight: bold; color: #dc2626;">R$ ${totalDespesasFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
             </div>
             <div style="background: ${resultadoFinanceiro >= 0 ? '#f0fdf4' : '#fef2f2'}; padding: 15px; border-radius: 8px; border-left: 4px solid ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'};">
               <div style="font-weight: bold; color: ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'}; margin-bottom: 5px;">Resultado Financeiro</div>
@@ -2349,7 +2364,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <thead>
               <tr style="background: #1e40af; color: white;">
                 <th style="padding: 12px; text-align: left; border: 1px solid #1e40af;">Tipo de Faturamento</th>
-                <th style="padding: 12px; text-align: right; border: 1px solid #1e40af;">Valor (R$)</th>
+                <th style="padding: 12px; text-align: right; border: 1px solid #1e40af;">Valor Previsto (R$)</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #1e40af;">% do Total</th>
               </tr>
             </thead>
@@ -2357,31 +2372,31 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">REURB</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[0] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[0] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[0] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr>
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">GEO</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[1] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[1] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[1] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">PLAN</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[2] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[2] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[2] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr>
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">REG</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[3] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[3] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[3] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #f8fafc;">
                 <td style="padding: 10px; border: 1px solid #e2e8f0;">NN</td>
                 <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[4] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${metaValue > 0 ? ((metasDoMes[4] || 0) / metaValue * 100).toFixed(1) : 0}%</td>
               </tr>
               <tr style="background: #1e40af; color: white; font-weight: bold;">
-                <td style="padding: 12px; border: 1px solid #1e40af;">TOTAL</td>
-                <td style="padding: 12px; border: 1px solid #1e40af; text-align: right;">${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 12px; border: 1px solid #1e40af;">TOTAL PREVISTO</td>
+                <td style="padding: 12px; border: 1px solid #1e40af; text-align: right;">${metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td style="padding: 12px; border: 1px solid #1e40af; text-align: center;">100%</td>
               </tr>
             </tbody>
@@ -2394,20 +2409,20 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <div style="margin-bottom: 15px;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                 <span style="font-weight: bold;">Meta vs Realizado:</span>
-                <span style="font-weight: bold; color: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'};">${metaValue >= metaFaturamento ? '✅ Meta Atingida' : '❌ Meta Não Atingida'}</span>
+                <span style="font-weight: bold; color: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'};">${totalReceitas >= metaFaturamento ? '✅ Meta Atingida' : '❌ Meta Não Atingida'}</span>
               </div>
               <div style="background: #e2e8f0; height: 20px; border-radius: 10px; overflow: hidden;">
-                <div style="background: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'}; height: 100%; width: ${Math.min((metaValue / metaFaturamento) * 100, 100)}%; transition: width 0.3s ease;"></div>
+                <div style="background: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'}; height: 100%; width: ${Math.min((totalReceitas / metaFaturamento) * 100, 100)}%; transition: width 0.3s ease;"></div>
               </div>
               <div style="text-align: center; margin-top: 5px; font-size: 14px; color: #6b7280;">
-                ${((metaValue / metaFaturamento) * 100).toFixed(1)}% da meta
+                ${((totalReceitas / metaFaturamento) * 100).toFixed(1)}% da meta
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
               <div>
                 <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Diferença da Meta:</div>
-                <div style="font-size: 16px; color: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'}; font-weight: bold;">
-                  R$ ${(metaValue - metaFaturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <div style="font-size: 16px; color: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'}; font-weight: bold;">
+                  R$ ${(totalReceitas - metaFaturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
               </div>
               <div>
@@ -2420,9 +2435,34 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </div>
         </div>
         
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #1e40af; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #1e40af; padding-bottom: 5px;">📋 Dados de Transações Reais</h3>
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Total de Transações:</div>
+                <div style="font-size: 16px; color: #1e40af; font-weight: bold;">${transacoesDoMes.length} transações</div>
+              </div>
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Receitas Reais:</div>
+                <div style="font-size: 16px; color: #10b981; font-weight: bold;">R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Despesas Reais:</div>
+                <div style="font-size: 16px; color: #ef4444; font-weight: bold;">R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Despesas Projeção:</div>
+                <div style="font-size: 16px; color: #f59e0b; font-weight: bold;">R$ ${despesasProjecao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
           <p style="color: #6b7280; font-size: 12px; margin: 0;">
             Relatório gerado automaticamente pelo sistema IMPGEO<br>
+            Dados baseados em projeções e transações reais do mês<br>
             Para mais informações, acesse o painel administrativo
           </p>
         </div>
@@ -2465,7 +2505,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const fileName = `Metas_${mesSelecionado.nome}_2025_${new Date().toISOString().split('T')[0]}.pdf`
       pdf.save(fileName)
       
-      alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}`)
+      alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}\n\n📊 Dados incluídos:\n• Meta: R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Realizado: R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Despesas: R$ ${totalDespesasFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Resultado: R$ ${resultadoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
       
     } catch (error) {
       console.error('Erro ao exportar PDF:', error)
