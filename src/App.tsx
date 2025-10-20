@@ -15,8 +15,11 @@ import {
   Phone,
   Mail,
   Map,
-  Calculator
+  Calculator,
+  Download
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import Reports from './components/Reports'
 import { TransactionsPage } from './components/Transactions'
 import Clients from './components/Clients'
@@ -2270,6 +2273,206 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       </div>
     )
   }
+
+  // Função para exportar dados do mês selecionado em PDF
+  const exportarMetasPDF = async () => {
+    try {
+      const mesSelecionado = mesesMetas.find(mes => mes.indice === selectedMonth)
+      if (!mesSelecionado) {
+        alert('Mês selecionado não encontrado!')
+        return
+      }
+
+      // Criar elemento temporário para capturar o conteúdo
+      const tempElement = document.createElement('div')
+      tempElement.style.position = 'absolute'
+      tempElement.style.left = '-9999px'
+      tempElement.style.top = '-9999px'
+      tempElement.style.width = '800px'
+      tempElement.style.backgroundColor = 'white'
+      tempElement.style.padding = '20px'
+      tempElement.style.fontFamily = 'Arial, sans-serif'
+      
+      // Obter dados do mês selecionado
+      const monthIndex = selectedMonth
+      const metasDoMes = projectionData ? [
+        projectionData.faturamentoReurb[monthIndex] || 0,
+        projectionData.faturamentoGeo[monthIndex] || 0,
+        projectionData.faturamentoPlan[monthIndex] || 0,
+        projectionData.faturamentoReg[monthIndex] || 0,
+        projectionData.faturamentoNn[monthIndex] || 0
+      ] : [0, 0, 0, 0, 0]
+      
+      const metaValue = metasDoMes.reduce((sum, meta) => sum + meta, 0)
+      const metaFaturamento = mesSelecionado.meta
+      
+      const totalReceitas = metaValue
+      const totalDespesas = projectionData ? 
+        (projectionData.despesasVariaveis[monthIndex] || 0) + 
+        (projectionData.despesasFixas[monthIndex] || 0) : 0
+      
+      const resultadoFinanceiro = totalReceitas - totalDespesas
+      
+      // Criar HTML do relatório
+      tempElement.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1e40af; font-size: 28px; margin: 0; font-weight: bold;">IMPGEO</h1>
+          <h2 style="color: #374151; font-size: 24px; margin: 10px 0; font-weight: bold;">Relatório de Metas - ${mesSelecionado.nome} 2025</h2>
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #1e40af; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #1e40af; padding-bottom: 5px;">📊 Resumo Executivo</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #1e40af;">
+              <div style="font-weight: bold; color: #1e40af; margin-bottom: 5px;">Meta de Faturamento</div>
+              <div style="font-size: 18px; font-weight: bold; color: #1e3a8a;">R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+              <div style="font-weight: bold; color: #10b981; margin-bottom: 5px;">Faturamento Realizado</div>
+              <div style="font-size: 18px; font-weight: bold; color: #059669;">R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
+              <div style="font-weight: bold; color: #ef4444; margin-bottom: 5px;">Total de Despesas</div>
+              <div style="font-size: 18px; font-weight: bold; color: #dc2626;">R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div style="background: ${resultadoFinanceiro >= 0 ? '#f0fdf4' : '#fef2f2'}; padding: 15px; border-radius: 8px; border-left: 4px solid ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'};">
+              <div style="font-weight: bold; color: ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'}; margin-bottom: 5px;">Resultado Financeiro</div>
+              <div style="font-size: 18px; font-weight: bold; color: ${resultadoFinanceiro >= 0 ? '#059669' : '#dc2626'};">R$ ${resultadoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #1e40af; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #1e40af; padding-bottom: 5px;">💰 Detalhamento de Faturamento</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+              <tr style="background: #1e40af; color: white;">
+                <th style="padding: 12px; text-align: left; border: 1px solid #1e40af;">Tipo de Faturamento</th>
+                <th style="padding: 12px; text-align: right; border: 1px solid #1e40af;">Valor (R$)</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #1e40af;">% do Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background: #f8fafc;">
+                <td style="padding: 10px; border: 1px solid #e2e8f0;">REURB</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[0] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[0] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0;">GEO</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[1] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[1] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+              </tr>
+              <tr style="background: #f8fafc;">
+                <td style="padding: 10px; border: 1px solid #e2e8f0;">PLAN</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[2] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[2] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0;">REG</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[3] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[3] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+              </tr>
+              <tr style="background: #f8fafc;">
+                <td style="padding: 10px; border: 1px solid #e2e8f0;">NN</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${(metasDoMes[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${totalReceitas > 0 ? ((metasDoMes[4] || 0) / totalReceitas * 100).toFixed(1) : 0}%</td>
+              </tr>
+              <tr style="background: #1e40af; color: white; font-weight: bold;">
+                <td style="padding: 12px; border: 1px solid #1e40af;">TOTAL</td>
+                <td style="padding: 12px; border: 1px solid #1e40af; text-align: right;">${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 12px; border: 1px solid #1e40af; text-align: center;">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #1e40af; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #1e40af; padding-bottom: 5px;">📈 Análise de Performance</h3>
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="margin-bottom: 15px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="font-weight: bold;">Meta vs Realizado:</span>
+                <span style="font-weight: bold; color: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'};">${metaValue >= metaFaturamento ? '✅ Meta Atingida' : '❌ Meta Não Atingida'}</span>
+              </div>
+              <div style="background: #e2e8f0; height: 20px; border-radius: 10px; overflow: hidden;">
+                <div style="background: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'}; height: 100%; width: ${Math.min((metaValue / metaFaturamento) * 100, 100)}%; transition: width 0.3s ease;"></div>
+              </div>
+              <div style="text-align: center; margin-top: 5px; font-size: 14px; color: #6b7280;">
+                ${((metaValue / metaFaturamento) * 100).toFixed(1)}% da meta
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Diferença da Meta:</div>
+                <div style="font-size: 16px; color: ${metaValue >= metaFaturamento ? '#10b981' : '#ef4444'}; font-weight: bold;">
+                  R$ ${(metaValue - metaFaturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div>
+                <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">Margem de Lucro:</div>
+                <div style="font-size: 16px; color: ${resultadoFinanceiro >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">
+                  ${totalReceitas > 0 ? ((resultadoFinanceiro / totalReceitas) * 100).toFixed(1) : 0}%
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+          <p style="color: #6b7280; font-size: 12px; margin: 0;">
+            Relatório gerado automaticamente pelo sistema IMPGEO<br>
+            Para mais informações, acesse o painel administrativo
+          </p>
+        </div>
+      `
+      
+      document.body.appendChild(tempElement)
+      
+      // Capturar o elemento como imagem
+      const canvas = await html2canvas(tempElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      })
+      
+      // Remover elemento temporário
+      document.body.removeChild(tempElement)
+      
+      // Criar PDF
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgWidth = 210
+      const pageHeight = 295
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      
+      let position = 0
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
+      // Salvar PDF
+      const fileName = `Metas_${mesSelecionado.nome}_2025_${new Date().toISOString().split('T')[0]}.pdf`
+      pdf.save(fileName)
+      
+      alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}`)
+      
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error)
+      alert('❌ Erro ao exportar PDF. Tente novamente.')
+    }
+  }
+
   // Render Metas
   const renderMetas = () => {
     // Encontrar o mês selecionado na lista
@@ -2322,6 +2525,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               Verificar Sincronização
               </button>
             )}
+          <button 
+            onClick={exportarMetasPDF}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <Download className="h-5 w-5" />
+            Exportar PDF
+          </button>
           <button 
             onClick={() => alert("Ferramenta em construção")}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
