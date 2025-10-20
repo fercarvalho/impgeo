@@ -125,4 +125,4 @@ impgeo/
 
 ---
 
-**IMPGEO** — feito com ❤️ para quem precisa **decidir rápido, com confiança**.
+**IMPGEO** — feito com ❤️ por Fernando Carvalho (Viver de PJ) para quem precisa **decidir rápido, com confiança**.
