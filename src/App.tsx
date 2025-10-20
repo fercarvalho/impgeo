@@ -320,6 +320,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
+  // Função auxiliar para calcular largura da barra de progresso de forma segura
+  const calcularLarguraBarra = (valor: number, total: number, casasDecimais: number = 1): string => {
+    const percentual = parseFloat(calcularPercentualSeguro(valor, total, casasDecimais))
+    return percentual === 0 ? '0%' : `${Math.min(100, percentual)}%`
+  }
+
   // Função auxiliar para calcular percentual de forma segura (evita NaN)
   const calcularPercentualSeguro = (valor: number, total: number, casasDecimais: number = 0): string => {
     if (!total || total === 0) return '0'
@@ -1068,13 +1074,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas, metaValue, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) - 100)}%` }}
+                      style={{ width: calcularLarguraBarra(Math.max(0, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) - 100), 100, 1) }}
                     ></div>
                   )}
                 </div>
@@ -1105,13 +1111,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) > 100 && (
                     <div 
                       className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) - 100)}%` }}
+                      style={{ width: calcularLarguraBarra(Math.max(0, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) - 100), 100, 1) }}
                     ></div>
                   )}
                 </div>
@@ -1142,7 +1148,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100) > 100 && (
@@ -1182,7 +1188,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100) > 100 && (
@@ -1219,7 +1225,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100) > 100 && (
@@ -1256,7 +1262,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100) > 100 && (
@@ -1303,7 +1309,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesas / getBudgetValue(monthIndex)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesas, getBudgetValue(monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalDespesas / getBudgetValue(monthIndex)) * 100) > 100 && (
@@ -1340,7 +1346,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesas * 0.7) / getVariableExpensesValue(monthIndex)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesas * 0.7, getVariableExpensesValue(monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalDespesas * 0.7) / getVariableExpensesValue(monthIndex)) * 100) > 100 && (
@@ -1377,7 +1383,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-500 to-amber-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100) > 100 && (
@@ -1424,7 +1430,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)) > 100 && (
@@ -1461,7 +1467,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)) > 100 && (
@@ -1778,7 +1784,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalReceitasAno / metaTotalAno) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalReceitasAno / metaTotalAno) * 100) > 100 && (
@@ -1815,7 +1821,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 1.0) / (metaTotalAno * 1.0)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 1.0) / (metaTotalAno * 1.0)) * 100) > 100 && (
@@ -1852,7 +1858,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.8) / (metaTotalAno * 0.8)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.8) / (metaTotalAno * 0.8)) * 100) > 100 && (
@@ -1892,7 +1898,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.6) / (metaTotalAno * 0.6)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.6) / (metaTotalAno * 0.6)) * 100) > 100 && (
@@ -1929,7 +1935,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100) > 100 && (
@@ -1966,7 +1972,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100) > 100 && (
@@ -2013,7 +2019,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesasAno / getBudgetValueAnual()) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesasAno, getBudgetValueAnual(), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalDespesasAno / getBudgetValueAnual()) * 100) > 100 && (
@@ -2050,7 +2056,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-orange-600 to-orange-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, (((totalDespesasAno * 0.7) / getVariableExpensesValueAnual()) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.7, getVariableExpensesValueAnual(), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {(((totalDespesasAno * 0.7) / getVariableExpensesValueAnual()) * 100) > 100 && (
@@ -2087,7 +2093,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-amber-600 to-amber-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, ((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100) > 100 && (
@@ -2134,7 +2140,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-blue-600 to-blue-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)) > 100 && (
@@ -2171,7 +2177,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   {/* Barra base (0-100%) */}
                   <div 
                     className="bg-gradient-to-r from-purple-600 to-purple-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1) }}
                   ></div>
                   {/* Barra de excesso (>100%) */}
                   {parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)) > 100 && (
@@ -2247,7 +2253,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div className="w-full bg-cyan-200 rounded-full h-4 relative overflow-hidden">
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full transition-all duration-500 relative"
-                    style={{ width: `${Math.min(100, ((totalReceitasAno / metaTotalAno) * 100))}%` }}
+                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
                   </div>
