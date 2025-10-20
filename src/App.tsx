@@ -103,6 +103,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [fixedExpensesData, setFixedExpensesData] = useState<any>(null)
   const [syncResults, setSyncResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isReloadingProjection, setIsReloadingProjection] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
 
   // Resetar modal quando trocar de aba
@@ -258,6 +260,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Função para recarregar dados da projeção
   const recarregarDadosProjecao = async () => {
     try {
+      setIsReloadingProjection(true)
       const authToken = localStorage.getItem('authToken')
       if (!authToken) {
         console.warn('⚠️ Token não encontrado')
@@ -290,8 +293,17 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       await loadFixedExpensesData()
       
       console.log('✅ Recarregamento concluído!')
+      
+      // Mostrar mensagem de sucesso
+      setShowSuccessMessage(true)
+      setTimeout(() => {
+        setShowSuccessMessage(false)
+      }, 3000) // Remove a mensagem após 3 segundos
+      
     } catch (error) {
       console.error('❌ Erro ao recarregar dados:', error)
+    } finally {
+      setIsReloadingProjection(false)
     }
   }
 
@@ -2247,12 +2259,29 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <div className="flex gap-3">
             <button 
               onClick={recarregarDadosProjecao}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-red-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              disabled={isReloadingProjection}
+              className={`flex items-center gap-3 px-6 py-3 font-semibold rounded-xl shadow-lg transition-all duration-300 ${
+                isReloadingProjection 
+                  ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 hover:shadow-xl hover:-translate-y-1'
+              }`}
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Recarregar Projeção
+              {isReloadingProjection ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Recarregando...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Recarregar Projeção
+                </>
+              )}
             </button>
             <button 
               onClick={verificarSincronizacaoMetas}
@@ -2958,6 +2987,29 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         totalValue={chartModal.totalValue}
         subtitle={chartModal.subtitle}
       />
+
+      {/* Notificação de Sucesso */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
+          <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <div>
+              <div className="font-semibold">✅ Sincronização Concluída!</div>
+              <div className="text-sm opacity-90">Dados da projeção atualizados com sucesso</div>
+            </div>
+            <button 
+              onClick={() => setShowSuccessMessage(false)}
+              className="ml-2 text-white hover:text-gray-200 transition-colors"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
