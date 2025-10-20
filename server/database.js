@@ -25,6 +25,23 @@ class Database {
     this.faturamentoTotalFile = path.join(this.dbPath, 'faturamentoTotal.json');
     this.resultadoFile = path.join(this.dbPath, 'resultado.json');
     
+    // Mapeamento de arquivos de projeção para seus backups
+    this.projectionFiles = {
+      'projection': this.projectionFile,
+      'fixedExpenses': this.fixedExpensesFile,
+      'variableExpenses': this.variableExpensesFile,
+      'investments': this.investmentsFile,
+      'mkt': this.mktFile,
+      'budget': this.budgetFile,
+      'faturamentoReurb': this.faturamentoReurbFile,
+      'faturamentoGeo': this.faturamentoGeoFile,
+      'faturamentoPlan': this.faturamentoPlanFile,
+      'faturamentoReg': this.faturamentoRegFile,
+      'faturamentoNn': this.faturamentoNnFile,
+      'faturamentoTotal': this.faturamentoTotalFile,
+      'resultado': this.resultadoFile
+    };
+    
     // Garantir que os arquivos existam
     this.ensureFilesExist();
   }
@@ -718,6 +735,9 @@ class Database {
 
   updateProjectionData(projectionData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('projection')
+      
       const data = {
         ...projectionData,
         updatedAt: new Date().toISOString()
@@ -788,6 +808,9 @@ class Database {
 
   updateVariableExpensesData(variableExpensesData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('variableExpenses')
+      
       const data = {
         ...variableExpensesData,
         updatedAt: new Date().toISOString()
@@ -802,6 +825,9 @@ class Database {
 
   updateFixedExpensesData(fixedExpensesData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('fixedExpenses')
+      
       const data = {
         ...fixedExpensesData,
         updatedAt: new Date().toISOString()
@@ -826,6 +852,9 @@ class Database {
 
   updateMktData(mktData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('mkt')
+      
       const data = {
         ...mktData,
         updatedAt: new Date().toISOString()
@@ -850,6 +879,9 @@ class Database {
 
   updateBudgetData(budgetData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('budget')
+      
       const data = {
         ...budgetData,
         updatedAt: new Date().toISOString()
@@ -874,6 +906,9 @@ class Database {
 
   updateInvestmentsData(investmentsData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('investments')
+      
       const data = {
         ...investmentsData,
         updatedAt: new Date().toISOString()
@@ -898,6 +933,9 @@ class Database {
 
   updateFaturamentoReurbData(faturamentoReurbData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoReurb')
+      
       const data = {
         ...faturamentoReurbData,
         updatedAt: new Date().toISOString()
@@ -922,6 +960,9 @@ class Database {
 
   updateFaturamentoGeoData(faturamentoGeoData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoGeo')
+      
       const data = {
         ...faturamentoGeoData,
         updatedAt: new Date().toISOString()
@@ -946,6 +987,9 @@ class Database {
 
   updateFaturamentoPlanData(faturamentoPlanData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoPlan')
+      
       const data = {
         ...faturamentoPlanData,
         updatedAt: new Date().toISOString()
@@ -970,6 +1014,9 @@ class Database {
 
   updateFaturamentoRegData(faturamentoRegData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoReg')
+      
       const data = {
         ...faturamentoRegData,
         updatedAt: new Date().toISOString()
@@ -994,6 +1041,9 @@ class Database {
 
   updateFaturamentoNnData(faturamentoNnData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoNn')
+      
       const data = {
         ...faturamentoNnData,
         updatedAt: new Date().toISOString()
@@ -1018,6 +1068,9 @@ class Database {
 
   updateFaturamentoTotalData(faturamentoTotalData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('faturamentoTotal')
+      
       const data = {
         ...faturamentoTotalData,
         updatedAt: new Date().toISOString()
@@ -1042,6 +1095,9 @@ class Database {
 
   updateResultadoData(resultadoData) {
     try {
+      // Criar backup automático antes da alteração
+      this.createAutoBackup('resultado')
+      
       const data = {
         ...resultadoData,
         updatedAt: new Date().toISOString()
@@ -1192,6 +1248,85 @@ class Database {
     } catch (error) {
       console.error('Erro ao limpar dados de projeção:', error)
       return { success: false, message: 'Erro ao limpar dados de projeção: ' + error.message }
+    }
+  }
+
+  // Função para criar backup automático antes de uma alteração
+  createAutoBackup(tableName) {
+    try {
+      // Verificar se é uma tabela de projeção
+      if (!this.projectionFiles[tableName]) {
+        console.log(`⚠️ ${tableName} não é uma tabela de projeção, pulando backup`)
+        return { success: false, message: 'Tabela não é de projeção' }
+      }
+
+      const originalFile = this.projectionFiles[tableName]
+      const backupFile = originalFile.replace('.json', '-backup.json')
+      
+      // Verificar se o arquivo original existe
+      if (!fs.existsSync(originalFile)) {
+        console.log(`⚠️ Arquivo original ${tableName}.json não existe, pulando backup`)
+        return { success: false, message: 'Arquivo original não existe' }
+      }
+
+      // Ler dados atuais
+      const currentData = fs.readFileSync(originalFile, 'utf8')
+      
+      // Verificar se o backup já existe e se é diferente
+      if (fs.existsSync(backupFile)) {
+        const backupData = fs.readFileSync(backupFile, 'utf8')
+        if (currentData === backupData) {
+          console.log(`✅ ${tableName}: Dados idênticos ao backup, pulando`)
+          return { success: true, message: 'Dados idênticos ao backup' }
+        }
+      }
+
+      // Criar backup
+      fs.writeFileSync(backupFile, currentData)
+      console.log(`🔄 Backup automático criado: ${tableName}-backup.json`)
+      
+      return { 
+        success: true, 
+        message: `Backup automático criado para ${tableName}`,
+        timestamp: new Date().toISOString()
+      }
+      
+    } catch (error) {
+      console.error(`❌ Erro ao criar backup automático para ${tableName}:`, error)
+      return { success: false, message: `Erro no backup: ${error.message}` }
+    }
+  }
+
+  // Função para restaurar de backup
+  restoreFromBackup(tableName) {
+    try {
+      if (!this.projectionFiles[tableName]) {
+        return { success: false, message: 'Tabela não é de projeção' }
+      }
+
+      const originalFile = this.projectionFiles[tableName]
+      const backupFile = originalFile.replace('.json', '-backup.json')
+      
+      if (!fs.existsSync(backupFile)) {
+        return { success: false, message: 'Arquivo de backup não existe' }
+      }
+
+      // Ler dados do backup
+      const backupData = fs.readFileSync(backupFile, 'utf8')
+      
+      // Restaurar dados originais
+      fs.writeFileSync(originalFile, backupData)
+      console.log(`🔄 Restaurado de backup: ${tableName}`)
+      
+      return { 
+        success: true, 
+        message: `Dados restaurados de backup para ${tableName}`,
+        timestamp: new Date().toISOString()
+      }
+      
+    } catch (error) {
+      console.error(`❌ Erro ao restaurar backup para ${tableName}:`, error)
+      return { success: false, message: `Erro na restauração: ${error.message}` }
     }
   }
 }

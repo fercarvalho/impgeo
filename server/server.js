@@ -753,6 +753,37 @@ app.put('/api/projection', authenticateToken, (req, res) => {
   }
 });
 
+// APIs de Backup Automático
+app.post('/api/backup/create/:tableName', authenticateToken, (req, res) => {
+  try {
+    const { tableName } = req.params;
+    const result = db.createAutoBackup(tableName);
+    
+    if (result.success) {
+      res.json({ success: true, message: result.message, timestamp: result.timestamp });
+    } else {
+      res.status(400).json({ success: false, message: result.message });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/backup/restore/:tableName', authenticateToken, (req, res) => {
+  try {
+    const { tableName } = req.params;
+    const result = db.restoreFromBackup(tableName);
+    
+    if (result.success) {
+      res.json({ success: true, message: result.message, timestamp: result.timestamp });
+    } else {
+      res.status(400).json({ success: false, message: result.message });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Despesas Fixas
 app.get('/api/fixed-expenses', (req, res) => {
   try {
