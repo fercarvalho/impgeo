@@ -807,6 +807,25 @@ app.put('/api/fixed-expenses', authenticateToken, (req, res) => {
   }
 });
 
+// Limpeza seletiva: Despesas Fixas
+app.delete('/api/fixed-expenses', (req, res) => {
+  try {
+    db.createAutoBackup('fixedExpenses');
+    const cleared = db.updateFixedExpensesData({
+      previsto: new Array(12).fill(0),
+      media: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    
+    // Sincronizar dados de projeção após limpeza
+    db.syncProjectionData();
+    
+    res.json({ success: true, data: cleared });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Despesas Variáveis
 app.get('/api/variable-expenses', (req, res) => {
   try {
@@ -830,6 +849,22 @@ app.put('/api/variable-expenses', authenticateToken, (req, res) => {
   }
 });
 
+// Limpeza seletiva: Despesas Variáveis
+app.delete('/api/variable-expenses', (req, res) => {
+  try {
+    db.createAutoBackup('variableExpenses');
+    const cleared = db.updateVariableExpensesData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de MKT
 app.get('/api/mkt', (req, res) => {
   try {
@@ -848,6 +883,22 @@ app.put('/api/mkt', authenticateToken, (req, res) => {
     const mktData = req.body;
     const updatedData = db.updateMktData(mktData);
     res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Limpeza seletiva: MKT
+app.delete('/api/mkt', (req, res) => {
+  try {
+    db.createAutoBackup('mkt');
+    const cleared = db.updateMktData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -899,6 +950,22 @@ app.put('/api/investments', authenticateToken, (req, res) => {
   }
 });
 
+// Limpeza seletiva: Investimentos
+app.delete('/api/investments', (req, res) => {
+  try {
+    db.createAutoBackup('investments');
+    const cleared = db.updateInvestmentsData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Faturamento REURB
 app.get('/api/faturamento-reurb', (req, res) => {
   try {
@@ -917,6 +984,22 @@ app.put('/api/faturamento-reurb', authenticateToken, (req, res) => {
     const faturamentoReurbData = req.body;
     const updatedData = db.updateFaturamentoReurbData(faturamentoReurbData);
     res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Limpeza seletiva: Faturamento REURB
+app.delete('/api/faturamento-reurb', (req, res) => {
+  try {
+    db.createAutoBackup('faturamentoReurb');
+    const cleared = db.updateFaturamentoReurbData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -945,6 +1028,22 @@ app.put('/api/faturamento-geo', authenticateToken, (req, res) => {
   }
 });
 
+// Limpeza seletiva: Faturamento GEO
+app.delete('/api/faturamento-geo', (req, res) => {
+  try {
+    db.createAutoBackup('faturamentoGeo');
+    const cleared = db.updateFaturamentoGeoData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Faturamento PLAN
 app.get('/api/faturamento-plan', (req, res) => {
   try {
@@ -963,6 +1062,22 @@ app.put('/api/faturamento-plan', authenticateToken, (req, res) => {
     const faturamentoPlanData = req.body;
     const updatedData = db.updateFaturamentoPlanData(faturamentoPlanData);
     res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Limpeza seletiva: Faturamento PLAN
+app.delete('/api/faturamento-plan', (req, res) => {
+  try {
+    db.createAutoBackup('faturamentoPlan');
+    const cleared = db.updateFaturamentoPlanData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -991,6 +1106,22 @@ app.put('/api/faturamento-reg', authenticateToken, (req, res) => {
   }
 });
 
+// Limpeza seletiva: Faturamento REG
+app.delete('/api/faturamento-reg', (req, res) => {
+  try {
+    db.createAutoBackup('faturamentoReg');
+    const cleared = db.updateFaturamentoRegData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Faturamento NN
 app.get('/api/faturamento-nn', (req, res) => {
   try {
@@ -1009,6 +1140,22 @@ app.put('/api/faturamento-nn', authenticateToken, (req, res) => {
     const faturamentoNnData = req.body;
     const updatedData = db.updateFaturamentoNnData(faturamentoNnData);
     res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Limpeza seletiva: Faturamento NN
+app.delete('/api/faturamento-nn', (req, res) => {
+  try {
+    db.createAutoBackup('faturamentoNn');
+    const cleared = db.updateFaturamentoNnData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -1055,6 +1202,22 @@ app.put('/api/resultado', authenticateToken, (req, res) => {
     const resultadoData = req.body;
     const updatedData = db.updateResultadoData(resultadoData);
     res.json({ success: true, data: updatedData });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Limpeza seletiva: Resultado do ano anterior
+app.delete('/api/resultado', (req, res) => {
+  try {
+    db.createAutoBackup('resultado');
+    const cleared = db.updateResultadoData({
+      previsto: new Array(12).fill(0),
+      medio: new Array(12).fill(0),
+      maximo: new Array(12).fill(0)
+    });
+    db.syncProjectionData();
+    res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }

@@ -7504,8 +7504,7 @@ Continuar mesmo assim?`)
                   { id: 'faturamentoPlan', name: 'Faturamento PLAN' },
                   { id: 'faturamentoReg', name: 'Faturamento REG' },
                   { id: 'faturamentoNn', name: 'Faturamento NN' },
-                  { id: 'resultado', name: 'Resultado do Ano Anterior' },
-                  { id: 'percentualComparativo', name: 'Percentual de Crescimento Anual' }
+                  { id: 'resultado', name: 'Resultado do Ano Anterior' }
                 ].map((table) => (
                   <label key={table.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                     <input
@@ -7535,7 +7534,7 @@ Continuar mesmo assim?`)
                   onClick={() => setSelectedTablesToClear([
                     'fixedExpenses', 'variableExpenses', 'mkt', 'investments',
                     'faturamentoReurb', 'faturamentoGeo', 'faturamentoPlan', 'faturamentoReg', 
-                    'faturamentoNn', 'resultado', 'percentualComparativo'
+                    'faturamentoNn', 'resultado'
                   ])}
                   className="flex-1 px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors"
                 >
@@ -7570,15 +7569,40 @@ Continuar mesmo assim?`)
 
                     setIsSaving(true)
                     try {
+                      // Mapear IDs para rotas corretas
+                      const routeMap = {
+                        fixedExpenses: 'fixed-expenses',
+                        variableExpenses: 'variable-expenses',
+                        mkt: 'mkt',
+                        investments: 'investments',
+                        faturamentoReurb: 'faturamento-reurb',
+                        faturamentoGeo: 'faturamento-geo',
+                        faturamentoPlan: 'faturamento-plan',
+                        faturamentoReg: 'faturamento-reg',
+                        faturamentoNn: 'faturamento-nn',
+                        resultado: 'resultado'
+                      }
+
                       // Limpar cada tabela selecionada
                       for (const tableId of selectedTablesToClear) {
-                        await fetch(`/api/${tableId}`, {
-                          method: 'DELETE',
-                          headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            'Content-Type': 'application/json'
-                          }
+                        const route = routeMap[tableId as keyof typeof routeMap]
+                        if (!route) {
+                          console.log(`⚠️ Rota não encontrada para: ${tableId}`)
+                          continue
+                        }
+                        
+                        console.log(`🗑️ Limpando tabela: ${tableId} -> /api/${route}`)
+                        const response = await fetch(`/api/${route}`, {
+                          method: 'DELETE'
                         })
+                        
+                        if (!response.ok) {
+                          console.error(`❌ Erro ao limpar ${tableId}:`, response.status, response.statusText)
+                          throw new Error(`Erro ao limpar ${tableId}: ${response.statusText}`)
+                        }
+                        
+                        const result = await response.json()
+                        console.log(`✅ ${tableId} limpo com sucesso:`, result)
                       }
 
                       // Recarregar dados
