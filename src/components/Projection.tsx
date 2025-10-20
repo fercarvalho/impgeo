@@ -95,21 +95,43 @@ const Projection: React.FC = () => {
   
   // Função para criar gráfico de barras simples
   const createLineChart = (previsto: number[], medio: number[], maximo: number[], title: string) => {
+    // PROPRIEDADES PADRÃO DO GRÁFICO - REUTILIZÁVEIS PARA PRÓXIMOS GRÁFICOS
+    const CHART_CONFIG = {
+      height: 280,                    // Altura do gráfico
+      width: 1200,                    // Largura base (usado no viewBox)
+      paddingX: 100,                  // Padding horizontal para labels
+      paddingYTop: 25,                // Padding superior para evitar cortes
+      paddingYBottom: 50,             // Padding inferior para labels dos meses
+      marginPercent: 0.05,             // Margem percentual (5%) para não colar nas bordas
+      gridIntervals: 10,              // Número de intervalos no grid (10)
+      lineWidth: 3,                   // Espessura das linhas
+      pointRadius: 4,                 // Raio dos pontos nas linhas
+      hoverRadius: 6,                 // Raio dos pontos no hover
+      fontSize: 'text-xs',            // Tamanho da fonte dos labels
+      colors: {
+        previsto: '#3b82f6',          // Azul para Previsto
+        medio: '#10b981',             // Verde para Médio
+        maximo: '#8b5cf6'             // Roxo para Máximo
+      }
+    }
+    
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     const allValues = [...previsto, ...medio, ...maximo]
     const rawMinValue = Math.min(...allValues) // Valor mínimo real
     const rawMaxValue = Math.max(...allValues) // Valor máximo real
     
-    // Adicionar uma pequena margem (5%) para que as linhas não fiquem coladas nas bordas
+    // Adicionar uma pequena margem para que as linhas não fiquem coladas nas bordas
     const range = rawMaxValue - rawMinValue
-    const margin = range * 0.05
+    const margin = range * CHART_CONFIG.marginPercent
     const minValue = rawMinValue - margin
     const maxValue = rawMaxValue + margin
     
-    const chartHeight = 280 // Reduzido de 350 para 280
-    const chartWidth = 1200 // Aumentado para ficar igual à largura da legenda
-    const paddingX = 100 // Aumentado proporcionalmente
-    const paddingYTop = 25 // Aumentado para evitar cortes no label mais alto
+    // Usar as propriedades padrão
+    const chartHeight = CHART_CONFIG.height
+    const chartWidth = CHART_CONFIG.width
+    const paddingX = CHART_CONFIG.paddingX
+    const paddingYTop = CHART_CONFIG.paddingYTop
+    const paddingYBottom = CHART_CONFIG.paddingYBottom
     
     // Função para calcular coordenadas Y (escala entre minValue e maxValue)
     const getY = (value: number) => {
@@ -142,9 +164,9 @@ const Projection: React.FC = () => {
         
         {/* Gráfico SVG */}
         <div className="overflow-x-auto w-full">
-          <svg width="100%" height={chartHeight + paddingYTop + 50} className="mx-auto" viewBox={`0 0 ${chartWidth} ${chartHeight + paddingYTop + 50}`}>
-            {/* Grid horizontal com 10 intervalos */}
-            {Array.from({ length: 11 }, (_, i) => i / 10).map((ratio, i) => {
+          <svg width="100%" height={chartHeight + paddingYTop + paddingYBottom} className="mx-auto" viewBox={`0 0 ${chartWidth} ${chartHeight + paddingYTop + paddingYBottom}`}>
+            {/* Grid horizontal com intervalos configuráveis */}
+            {Array.from({ length: CHART_CONFIG.gridIntervals + 1 }, (_, i) => i / CHART_CONFIG.gridIntervals).map((ratio, i) => {
               const value = minValue + (maxValue - minValue) * (1 - ratio)
               return (
                 <g key={i}>
@@ -160,7 +182,7 @@ const Projection: React.FC = () => {
                     x={paddingX - 25}
                     y={paddingYTop + chartHeight * ratio + 4}
                     textAnchor="end"
-                    className="text-xs fill-gray-500"
+                    className={`${CHART_CONFIG.fontSize} fill-gray-500`}
                   >
                     R$ {Math.round(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </text>
@@ -172,8 +194,8 @@ const Projection: React.FC = () => {
             <polyline
               points={previsto.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
               fill="none"
-              stroke="#3b82f6"
-              strokeWidth={3}
+              stroke={CHART_CONFIG.colors.previsto}
+              strokeWidth={CHART_CONFIG.lineWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -182,8 +204,8 @@ const Projection: React.FC = () => {
             <polyline
               points={medio.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
               fill="none"
-              stroke="#10b981"
-              strokeWidth={3}
+              stroke={CHART_CONFIG.colors.medio}
+              strokeWidth={CHART_CONFIG.lineWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -192,8 +214,8 @@ const Projection: React.FC = () => {
             <polyline
               points={maximo.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
               fill="none"
-              stroke="#8b5cf6"
-              strokeWidth={3}
+              stroke={CHART_CONFIG.colors.maximo}
+              strokeWidth={CHART_CONFIG.lineWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -204,9 +226,9 @@ const Projection: React.FC = () => {
                 key={`previsto-${index}`}
                 cx={getX(index)}
                 cy={getY(value)}
-                r={4}
-                fill="#3b82f6"
-                className="hover:r-6 transition-all duration-200"
+                r={CHART_CONFIG.pointRadius}
+                fill={CHART_CONFIG.colors.previsto}
+                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
               />
             ))}
             
@@ -215,20 +237,20 @@ const Projection: React.FC = () => {
                 key={`medio-${index}`}
                 cx={getX(index)}
                 cy={getY(value)}
-                r={4}
-                fill="#10b981"
-                className="hover:r-6 transition-all duration-200"
+                r={CHART_CONFIG.pointRadius}
+                fill={CHART_CONFIG.colors.medio}
+                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
               />
-              ))}
+            ))}
             
             {maximo.map((value, index) => (
               <circle
                 key={`maximo-${index}`}
                 cx={getX(index)}
                 cy={getY(value)}
-                r={4}
-                fill="#8b5cf6"
-                className="hover:r-6 transition-all duration-200"
+                r={CHART_CONFIG.pointRadius}
+                fill={CHART_CONFIG.colors.maximo}
+                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
               />
             ))}
             
@@ -239,7 +261,7 @@ const Projection: React.FC = () => {
                 x={getX(index)}
                 y={paddingYTop + chartHeight + 30}
                 textAnchor="middle"
-                className="text-xs fill-gray-600 font-medium"
+                className={`${CHART_CONFIG.fontSize} fill-gray-600 font-medium`}
               >
                 {month}
               </text>
