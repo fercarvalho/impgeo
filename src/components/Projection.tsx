@@ -107,9 +107,9 @@ const Projection: React.FC = () => {
     const maxValue = rawMaxValue + margin
     
     const chartHeight = 280 // Reduzido de 350 para 280
-    const chartWidth = 1100 // Aumentado para dar mais espaço para os labels do eixo Y
-    const paddingX = 90 // Aumentado para evitar cortes nos labels do eixo Y
-    const paddingYTop = 20 // Padding superior para evitar cortes no label mais alto
+    const chartWidth = 1200 // Aumentado para ficar igual à largura da legenda
+    const paddingX = 100 // Aumentado proporcionalmente
+    const paddingYTop = 25 // Aumentado para evitar cortes no label mais alto
     
     // Função para calcular coordenadas Y (escala entre minValue e maxValue)
     const getY = (value: number) => {
@@ -142,7 +142,7 @@ const Projection: React.FC = () => {
         
         {/* Gráfico SVG */}
         <div className="overflow-x-auto w-full">
-          <svg width={chartWidth} height={chartHeight + paddingYTop + 50} className="mx-auto min-w-full">
+          <svg width="100%" height={chartHeight + paddingYTop + 50} className="mx-auto" viewBox={`0 0 ${chartWidth} ${chartHeight + paddingYTop + 50}`}>
             {/* Grid horizontal com 10 intervalos */}
             {Array.from({ length: 11 }, (_, i) => i / 10).map((ratio, i) => {
               const value = minValue + (maxValue - minValue) * (1 - ratio)
@@ -157,7 +157,7 @@ const Projection: React.FC = () => {
                     strokeWidth={i % 2 === 0 ? 1 : 0.5}
                   />
                   <text
-                    x={paddingX - 20}
+                    x={paddingX - 25}
                     y={paddingYTop + chartHeight * ratio + 4}
                     textAnchor="end"
                     className="text-xs fill-gray-500"
