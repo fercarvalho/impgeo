@@ -1,163 +1,128 @@
-# IMPGEO - Sistema de Gestão Financeira
+# IMPGEO — Sistema de Gestão Financeira
 
-Sistema de gestão financeira desenvolvido especificamente para a IMPGEO. Uma aplicação web moderna, responsiva e completa para gerenciamento financeiro empresarial.
+Plataforma **moderna e completa** para **gestão financeira empresarial**, criada para transformar dados em decisões — do **dia a dia operacional** ao **planejamento anual**.
 
-## 🚀 Funcionalidades
-
-### Dashboard
-- Visão geral das métricas principais
-- Receitas, despesas e saldo em tempo real
-- Gráficos interativos e expansíveis
-- Transações recentes
-- Análise mensal, trimestral e anual
-
-### Gestão de Projetos
-- Controle completo de projetos
-- Status de execução
-- Valores e cronogramas
-- Clientes associados
-
-### Gestão de Serviços
-- Catálogo de serviços
-- Preços e categorias
-- Controle de disponibilidade
-
-### Transações
-- Gestão completa de receitas e despesas
-- Categorização automática
-- Histórico detalhado de movimentações
-- Resumo financeiro por período
-
-### Metas
-- Definição de metas mensais e anuais
-- Acompanhamento de performance
-- Comparação meta vs realizado
-- Análise de crescimento
-
-### Relatórios
-- Relatórios por período (semanal, mensal, trimestral, anual)
-- Análise de projetos por categoria
-- Análise de serviços por categoria
-- Gráficos interativos
-
-### Projeção Anual
-- Planejamento financeiro anual
-- Cenários: Mínimo, Médio e Máximo
-- Projeção por categorias
-- Cálculos automáticos de trimestres e totais
-
-### DRE (Demonstração do Resultado do Exercício)
-- Relatório financeiro completo
-- Receitas, despesas e resultado líquido
-- Análise de margem de lucro
-
-## 🛠️ Tecnologias
-
-- **Frontend**: React 18 + TypeScript
-- **Build**: Vite (super rápido e leve)
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Charts**: Recharts
-- **Backend**: Node.js + Express
-- **Database**: JSON (local)
-
-## 📦 Instalação
-
-1. Clone o repositório
-2. Instale as dependências do frontend:
-   ```bash
-   npm install
-   ```
-3. Instale as dependências do backend:
-   ```bash
-   cd server
-   npm install
-   ```
-
-## 🎯 Como Usar
-
-### Desenvolvimento
-```bash
-# Frontend (porta 9000)
-npm run dev
-
-# Backend (porta 9001)
-cd server && npm start
-```
-
-Acesse:
-- Frontend: http://localhost:9000
-- Backend API: http://localhost:9001
-- Teste da API: http://localhost:9001/api/test
-
-### Build para Produção
-```bash
-npm run build
-```
-
-### Preview da Build
-```bash
-npm run preview
-```
-
-## 📊 Estrutura do Projeto
-
-```
-impgeo/
-├── src/
-│   ├── App.tsx              # Componente principal
-│   ├── main.tsx             # Entry point
-│   └── index.css            # Estilos globais
-├── server/
-│   ├── server.js            # Servidor Express
-│   ├── database.js          # Gerenciamento de dados
-│   └── database/            # Arquivos JSON de dados
-├── public/                  # Arquivos estáticos
-└── package.json             # Dependências do frontend
-```
-
-## 🎨 Design
-
-- Interface moderna e profissional
-- Totalmente responsiva (mobile-first)
-- Paleta de cores azul/índigo
-- UX otimizada para gestão financeira
-- Gráficos interativos e intuitivos
-
-## 📈 Funcionalidades Principais
-
-- ✅ Dashboard interativo com métricas em tempo real
-- ✅ Gestão completa de transações
-- ✅ Sistema de metas e acompanhamento
-- ✅ Relatórios detalhados por período
-- ✅ Projeção anual com cenários
-- ✅ DRE automático
-- ✅ API REST para integração
-- ✅ Interface responsiva
-
-## 🔧 Configuração
-
-### Portas
-- Frontend: 9000
-- Backend: 9001
-
-### API Endpoints
-- `GET /api/transactions` - Listar transações
-- `POST /api/transactions` - Criar transação
-- `GET /api/products` - Listar produtos
-- `POST /api/products` - Criar produto
-- `GET /api/clients` - Listar clientes
-- `POST /api/clients` - Criar cliente
-
-## 💡 Sobre o Projeto
-
-Este sistema foi desenvolvido especificamente para a IMPGEO, focando em:
-- Performance e velocidade
-- Facilidade de uso
-- Controle financeiro preciso
-- Gestão eficiente de projetos e serviços
-- Relatórios detalhados e projeções
+> **Pitch em 1 linha:** controle transações, metas e projeções em um painel bonito, rápido e pronto para gerar PDF — com importação via Excel e usuários com níveis de acesso.
 
 ---
 
-Desenvolvido com ❤️ para a IMPGEO
+## ✨ Principais Diferenciais
+- **Dashboard executivo** com métricas ao vivo e **gráficos interativos** (Recharts)
+- **Sistema de metas** (mensal/anual) com acompanhamento **meta vs. realizado**
+- **Projeção anual** com cenários **Mínimo / Médio / Máximo**
+- **Exportação para PDF** (jsPDF + html2canvas) dos relatórios e DRE
+- **Importação via Excel/CSV** (endpoint `/api/import`) para onboarding ágil
+- **Usuários com níveis de acesso** (login e verificação via **JWT**)
+- **Backup & Restore** por tabela (`/api/backup/restore/:tableName`)
+- **Arquitetura clara**: React (Vite) no frontend + Express no backend
+
+---
+
+## 🖥️ Experiência do Usuário
+- Interface **responsiva (mobile‑first)**, com paleta profissional em **azul/índigo**
+- Fluxos diretos e sem atrito: importar dados → visualizar → exportar PDF
+- Painéis com visão **mensal, trimestral e anual**
+
+---
+
+## 📦 Stack
+**Frontend:** React + TypeScript, Tailwind CSS, Lucide Icons, Recharts, Vite  
+**Backend:** Node.js + Express, **JWT Auth**, Multer (upload), CORS  
+**Dados:** JSON local (MVP) — preparado para evoluir a **PostgreSQL/MongoDB**
+
+---
+
+## ⚡ Como rodar (Dev)
+```bash
+# 1) Frontend
+cd impgeo
+npm install
+npm run dev    # porta 9000
+
+# 2) Backend
+cd server
+npm install
+npm start      # porta 9001
+```
+
+Acesse:  
+- **Frontend:** http://localhost:9000  
+- **API:** http://localhost:9001  
+- **Teste rápido:** http://localhost:9001/api/test
+
+> Variáveis sensíveis (ex.: `JWT_SECRET`) devem ficar em `.env` no backend.
+
+---
+
+## 🔐 Autenticação & Acesso
+- **Login:** `POST /api/auth/login` → retorna **JWT**
+- **Verificação:** `POST /api/auth/verify`
+- **Perfis sugeridos:** _admin_, _financeiro_, _gestor_, _leitura_ (RBAC)
+
+---
+
+## 📊 Módulos do Produto
+- **Transações:** receitas, despesas, categorias e centros de custo
+- **Projetos & Serviços:** status, cronograma, valores, clientes
+- **Metas:** definição mensal/anual, progressão e comparação **meta vs. realizado**
+- **Projeções:** planejamento anual com cenários (min/médio/máx)
+- **Relatórios & DRE:** visão por período, margem e resultado
+- **Importação/Exportação:** Excel/CSV → **PDF**
+
+---
+
+## 🔌 Endpoints (amostra)
+- POST /api/auth/login
+- POST /api/auth/verify
+- GET  /api/transactions
+- POST /api/transactions
+- PUT  /api/budget
+- GET  /api/clients
+- POST /api/clients
+- PUT  /api/clients/:id
+- DELETE /api/clients/:id
+- GET  /api/products
+- POST /api/products
+- DELETE /api/products/:id
+- GET  /api/projects
+- POST /api/projects
+- DELETE /api/projects/:id
+- GET  /api/services
+- POST /api/services
+- GET  /api/subcategories
+- POST /api/subcategories
+- POST /api/import
+- POST /api/export
+- POST /api/backup/restore/:tableName
+- DELETE /api/clear-all-projection-data
+- GET  /api/test
+
+> Há outros endpoints especializados (ex.: `faturamento-*`, `investments`, `fixed-expenses`, `resultado` etc.) para análises mais finas.
+
+---
+
+## 🧱 Estrutura (resumo)
+```
+impgeo/
+├─ impgeo/                 # Frontend (Vite + React + TS)
+│  ├─ src/                 # App, páginas, componentes, hooks
+│  ├─ public/              # Assets
+│  └─ package.json
+└─ server/                 # Backend (Express)
+   ├─ server.js            # Rotas, middlewares, JWT, import/export
+   ├─ database.js          # Banco em JSON/local
+   └─ database/            # Tabelas .json (dados)
+```
+
+---
+
+## 🧭 Roadmap de Evolução
+- Migrar dados de JSON para **PostgreSQL** (produção)
+- **RBAC avançado** (permissões por recurso/ação) e logs de auditoria
+- Exportação **em lote** (PDF/Excel) + templates customizáveis
+- **Agendamentos** (e.g., e-mail automático com DRE/previstos)
+- **CI/CD** com Docker, testes e deploy orquestrado
+
+---
+
+**IMPGEO** — feito com ❤️ para quem precisa **decidir rápido, com confiança**.
