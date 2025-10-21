@@ -82,5 +82,37 @@ async function handleApi(req) {
 }
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/')) { event.respondWith(handleApi(event.request)); }
+  const path = url.pathname;
+
+  // 1) Reescreve caminhos absolutos de assets para /app/* (corrige imagens/logo/rodapé no Pages)
+  const prefixes = ['/assets/', '/images/', '/img/', '/icons/'];
+  if (path === '/favicon.ico' || prefixes.some(p => path.startsWith(p))) {
+    const newPath = path === '/favicon.ico' ? '/app/favicon.ico' : '/app' + path;
+    const rewrittenUrl = new URL(newPath, url.origin);
+
+    const init = {
+      method: event.request.method,
+      headers: event.request.headers,
+      mode: event.request.mode,
+      credentials: event.request.credentials,
+      cache: event.request.cache,
+      redirect: event.request.redirect,
+      referrer: event.request.referrer,
+      referrerPolicy: event.request.referrerPolicy
+    };
+    // body só em métodos que suportam
+    if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+      init.body = event.request.body;
+      try { init.duplex = event.request.duplex; } catch (_) {}
+    }
+
+    event.respondWith(fetch(new Request(rewrittenUrl, init)));
+    return;
+  }
+
+  // 2) Mock de API
+  if (path.startsWith('/api/')) {
+    event.respondWith(handleApi(event.request));
+    return;
+  }
 });
