@@ -33,7 +33,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE_URL = 'http://localhost:9001/api';
+  // Decide dinamicamente o endpoint da API:
+  // - Em localhost: usa o backend real em 9001
+  // - Em produção (GitHub Pages): usa VITE_API_URL se definida, caso contrário "/api" (para o Service Worker mock)
+  const API_BASE_URL =
+    (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:9001/api'
+      : ((import.meta as any).env?.VITE_API_URL || '/api');
 
   useEffect(() => {
     // Verificar se há token salvo no localStorage
