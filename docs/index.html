@@ -3,12 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IMPGEO (Demo Estática)</title>
-  <script defer src="/mock/enableMock.js"></script>
-  <script>(async()=>{try{await enableMock();}catch(e){}})();</script>
+  <title>IMPGEO — Demo Estática (Launcher)</title>
+  <meta name="description" content="Launcher que ativa o mock e encaminha para o app estático." />
+  <script>
+    // calcula o base mesmo em github.io/REPO/
+    const base = (function () {
+      const path = location.pathname.endsWith('/')
+        ? location.pathname
+        : location.pathname.replace(/[^/]+$/, '');
+      return path; // "/" ou "/ImpGeo/"
+    })();
+
+    async function start() {
+      if ('serviceWorker' in navigator) {
+        try {
+          await navigator.serviceWorker.register(base + 'mock/mock-sw.js', { scope: base });
+          console.info('[IMPGEO MOCK] SW registrado em', base + 'mock/mock-sw.js');
+        } catch (e) { console.warn('[IMPGEO MOCK] Falha ao registrar SW:', e); }
+      }
+      // redireciona pro app (build do Vite)
+      setTimeout(() => { location.href = base + 'app/'; }, 150);
+    }
+    document.addEventListener('DOMContentLoaded', start);
+  </script>
+  <style>
+    body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;background:#0b1220;color:#e5e7eb;margin:0;display:grid;place-items:center;min-height:100dvh}
+    .box{max-width:760px;padding:24px;text-align:center}.muted{opacity:.75}
+  </style>
 </head>
 <body>
-  <h1>IMPGEO — Demo Estática</h1>
-  <p>Coloque aqui o bundle do Vite. O Service Worker mocka <code>/api/*</code>.</p>
+  <div class="box">
+    <h1>IMPGEO — Iniciando demo…</h1>
+    <p class="muted">Registrando mock e redirecionando para o app estático.</p>
+  </div>
 </body>
 </html>
