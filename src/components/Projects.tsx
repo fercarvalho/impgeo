@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Map, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X } from 'lucide-react'
+import { Plus, Download, Upload, Edit, Trash2, X } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
 interface Project {
@@ -62,9 +62,7 @@ const Projects: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false)
-  const [importType, setImportType] = useState<'projects'>('projects')
-  const [newProject, setNewProject] = useState('')
-  const [newProjectError, setNewProjectError] = useState('')
+  const [importType] = useState<'projects'>('projects')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Estados para filtros e ordenação
@@ -77,10 +75,6 @@ const Projects: React.FC = () => {
     field: 'startDate',
     direction: 'desc'
   })
-
-  // calendários de filtro
-  const [isFilterCalendarFromOpen, setIsFilterCalendarFromOpen] = useState(false)
-  const [isFilterCalendarToOpen, setIsFilterCalendarToOpen] = useState(false)
 
   useEffect(() => {
     const load = async () => {

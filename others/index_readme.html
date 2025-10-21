@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IMPGEO — Sistema de Gestão Financeira</title>
+  <meta name="description" content="IMPGEO — sistema moderno de gestão financeira com dashboard, metas, projeções, importação Excel e exportação em PDF." />
+  <meta property="og:title" content="IMPGEO — Sistema de Gestão Financeira" />
+  <meta property="og:description" content="Dashboards, metas, projeções, importação Excel e exportação em PDF — tudo em uma plataforma rápida e responsiva." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0b1220"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230b1220'/%3E%3Cpath d='M28 80c18-6 26-22 36-22s18 16 36 22' fill='none' stroke='%232563eb' stroke-width='10'/%3E%3Ccircle cx='64' cy='52' r='10' fill='%2322d3ee'/%3E%3C/svg%3E" />
+  <style>
+    :root { --bg:#0b1220; --surface:#111827; --muted:#1f2937; --primary:#2563eb; --text:#e5e7eb; --sub:#a1a1aa; --accent:#22d3ee; }
+    *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica Neue,Arial,Apple Color Emoji,Segoe UI Emoji}
+    a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+    .container{max-width:1100px;margin:0 auto;padding:24px}
+    .hero{text-align:center;padding:32px 0 8px}
+    .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+    .badge{background:#0f172a;border:1px solid #1e293b;padding:6px 10px;border-radius:999px;font-size:12px;color:#cbd5e1}
+    .title{font-size:clamp(28px,5vw,44px);margin:6px 0 8px;letter-spacing:-.02em}
+    .subtitle{color:#cbd5e1;font-size:16px;max-width:760px;margin:0 auto 16px}
+    .tech-logos{display:flex;gap:12px;justify-content:center;align-items:center;margin:12px 0 24px;opacity:.85}
+    .tech-logos img{width:40px;height:40px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4))}
+    .cta{display:flex;gap:12px;justify-content:center;margin:18px 0 0;flex-wrap:wrap}
+    .btn{background:linear-gradient(180deg,#2563eb,#1d4ed8);color:#fff;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.08);text-decoration:none;font-weight:600}
+    .btn.secondary{background:#0f172a;border-color:#1e293b;color:#e2e8f0}
+    .section{margin:30px 0}
+    .card-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-top:24px}
+    .card{grid-column:span 12;background:linear-gradient(180deg,rgba(17,24,39,.8),rgba(17,24,39,.6));border:1px solid #1f2937;border-radius:16px;padding:18px}
+    @media (min-width:800px){.card{grid-column:span 6}}
+    .card h3{margin:0 0 8px;font-size:18px}
+    .card p,.card li{color:#d1d5db}
+    .pill{display:inline-block;background:#0f172a;border:1px solid #1e293b;padding:6px 10px;border-radius:999px;font-size:12px;margin:4px 6px 0 0;color:#cbd5e1}
+    .mock{width:100%;aspect-ratio:16/9;border-radius:16px;background:linear-gradient(135deg,#1e293b,#0b1220);border:1px dashed #334155;display:grid;place-items:center;color:#94a3b8;font-size:18px;letter-spacing:.3px}
+    .code{background:#0b1320;border:1px solid #1e2237;border-radius:12px;padding:12px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:13px}
+    .kpis{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .kpi{grid-column:span 12;background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:14px}
+    .kpi h4{margin:0;font-size:14px;color:#93c5fd}.kpi .value{font-size:22px;font-weight:700;margin-top:6px}
+    @media (min-width:800px){.kpi{grid-column:span 3}}
+    footer{text-align:center;color:#94a3b8;padding:24px 0 40px}
+  </style>
+</head>
+<body>
+  <header class="hero container">
+    <div class="badges">
+      <span class="badge">status: active</span>
+      <span class="badge">build: passing</span>
+      <span class="badge">license: proprietary</span>
+    </div>
+    <h1 class="title">IMPGEO — Sistema de Gestão Financeira</h1>
+    <p class="subtitle">Transforme dados em decisões: gestão do dia a dia, metas e projeções em uma plataforma rápida, bonita e segura.</p>
+    <div class="tech-logos">
+      <img src="https://raw.githubusercontent.com/github/explore/main/topics/react/react.png" alt="React">
+      <img src="https://raw.githubusercontent.com/github/explore/main/topics/nodejs/nodejs.png" alt="Node.js">
+      <img src="https://raw.githubusercontent.com/github/explore/main/topics/javascript/javascript.png" alt="JavaScript">
+      <img src="https://raw.githubusercontent.com/github/explore/main/topics/typescript/typescript.png" alt="TypeScript">
+      <img src="https://raw.githubusercontent.com/github/explore/main/topics/tailwind/tailwind.png" alt="Tailwind">
+    </div>
+    <div class="cta">
+      <a class="btn" href="#instalacao">Começar agora</a>
+      <a class="btn secondary" href="#destaques">Ver destaques</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="kpis" class="section">
+      <div class="kpis">
+        <div class="kpi"><h4>Dashboard</h4><div class="value">Métricas em tempo real</div></div>
+        <div class="kpi"><h4>Metas</h4><div class="value">Mensal & Anual</div></div>
+        <div class="kpi"><h4>Projeções</h4><div class="value">Cenários Mín./Méd./Máx.</div></div>
+        <div class="kpi"><h4>Exportação</h4><div class="value">PDF & Excel</div></div>
+      </div>
+    </section>
+
+    <section id="preview" class="section">
+      <h2>Preview</h2>
+      <div class="mock">Preview do Dashboard Financeiro (adicione seu screenshot aqui)</div>
+    </section>
+
+    <section id="destaques" class="section">
+      <h2>Principais Diferenciais</h2>
+      <div class="card-grid">
+        <div class="card"><h3>📊 Dashboard Executivo</h3><p>Visão clara das métricas-chave, com gráficos interativos (Recharts) e filtros por período.</p></div>
+        <div class="card"><h3>🎯 Metas Mensais & Anuais</h3><p>Acompanhe meta vs. realizado em tempo real e visualize o progresso ao longo do ano.</p></div>
+        <div class="card"><h3>📈 Projeção Anual</h3><p>Planeje com cenários Mínimo, Médio e Máximo, com cálculo automático por trimestre.</p></div>
+        <div class="card"><h3>🧾 Exportação em PDF</h3><p>Gere relatórios e DRE em PDF com um clique (jsPDF + html2canvas).</p></div>
+        <div class="card"><h3>📥 Importação via Excel/CSV</h3><p>Suba dados em massa para acelerar o onboarding e evitar digitação manual.</p></div>
+        <div class="card"><h3>👥 Acesso por Usuários</h3><p>Autenticação JWT e perfis/roles para manter governança e segurança.</p></div>
+      </div>
+    </section>
+
+    <section id="stack" class="section">
+      <h2>Stack Tecnológica</h2>
+      <p>
+        <span class="pill">React</span>
+        <span class="pill">TypeScript</span>
+        <span class="pill">Tailwind CSS</span>
+        <span class="pill">Recharts</span>
+        <span class="pill">Vite</span>
+        <span class="pill">Node.js</span>
+        <span class="pill">Express</span>
+        <span class="pill">JWT</span>
+        <span class="pill">Multer</span>
+        <span class="pill">CORS</span>
+      </p>
+    </section>
+
+    <section id="instalacao" class="section">
+      <h2>Instalação & Uso</h2>
+      <div class="card">
+        <h3>Frontend</h3>
+        <pre class="code">cd impgeo
+npm install
+npm run dev # porta 9000</pre>
+      </div>
+      <div class="card">
+        <h3>Backend</h3>
+        <pre class="code">cd server
+npm install
+npm start # porta 9001</pre>
+      </div>
+      <p>Acesse: <strong>http://localhost:9000</strong> (App) e <strong>http://localhost:9001</strong> (API)</p>
+    </section>
+
+    <section id="endpoints" class="section">
+      <h2>Endpoints (amostra)</h2>
+      <ul>
+        <li>POST /api/auth/login</li>
+        <li>POST /api/auth/verify</li>
+        <li>GET /api/transactions</li>
+        <li>POST /api/import</li>
+        <li>POST /api/export</li>
+        <li>POST /api/backup/restore/:tableName</li>
+        <li>GET /api/test</li>
+      </ul>
+    </section>
+
+    <section id="screens" class="section">
+      <h2>Screenshots sugeridas</h2>
+      <ul>
+        <li>Dashboard financeiro (métricas e gráficos)</li>
+        <li>Metas & Projeções (cenários)</li>
+        <li>Exportação de DRE em PDF</li>
+        <li>Importação de planilhas Excel</li>
+        <li>Login & controle de acesso</li>
+      </ul>
+      <p>Envie as imagens e eu substituo o mock acima pelos seus screenshots reais.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>IMPGEO</strong> — dados, clareza e performance na palma da mão.</p>
+    <p><small>Desenvolvido com ❤️ por Fernando Carvalho</small></p>
+  </footer>
+</body>
+</html>
