@@ -84,6 +84,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   const path = url.pathname;
 
+  // Normaliza o logo do rodapé: qualquer variação (.PNG/.png) com ou sem /app
+  if (/^\/(app\/)?logo_rodape\.(png|PNG)$/.test(path)) {
+    event.respondWith(fetch(new URL('/app/logo_rodape.png', url.origin), { cache: 'reload' }));
+    return;
+  }
+
   // 1) Reescreve caminhos absolutos de assets para /app/* (corrige imagens/logo/rodapé no Pages)
   const prefixes = ['/assets/', '/images/', '/img/', '/icons/'];
   if (path === '/favicon.ico' || prefixes.some(p => path.startsWith(p))) {
@@ -113,9 +119,10 @@ self.addEventListener('fetch', (event) => {
   // 1.b) Aliases explícitos para imagens comuns da demo
   const aliases = new Map([
     ['/imp_logo.png', '/app/imp_logo.png'],
-    ['/logo_rodape.png', '/app/logo_rodape.PNG'], // cobre variação de caixa
-    ['/logo_rodape.PNG', '/app/logo_rodape.PNG'],
-    ['/app/logo_rodape.png', '/app/logo_rodape.PNG'],
+    ['/logo_rodape.png', '/app/logo_rodape.png'],
+    ['/logo_rodape.PNG', '/app/logo_rodape.png'],
+    ['/app/logo_rodape.png', '/app/logo_rodape.png'],
+    ['/app/logo_rodape.PNG', '/app/logo_rodape.png'],
     ['/imp_favicon.ico', '/app/imp_favicon.ico']
   ]);
   if (aliases.has(path)) {
