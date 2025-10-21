@@ -21,7 +21,22 @@ function notFound() { return jsonResponse({ error: 'Not found (mock)' }, 404); }
 function uid(prefix){ return (prefix || 'id') + '_' + Math.random().toString(36).slice(2, 9); }
 async function handleApi(req) {
   const url = new URL(req.url); const path = url.pathname;
-  if (path === '/api/auth/login' && req.method === 'POST') return jsonResponse(MOCK_DB.auth);
+  if (path === '/api/auth/login' && req.method === 'POST') {
+    const body = await req.json().catch(() => ({}));
+    const { username, password } = body;
+
+    // Demo credentials: username: "superadmin", password: "123456"
+    if (username === 'superadmin' && password === '123456') {
+      // return a realistic auth payload used by the app
+      return jsonResponse({
+        token: 'demo-token',
+        user: { id: 'u_1', name: 'Super Admin', role: 'ADMIN' }
+      });
+    }
+
+    // invalid credentials
+    return jsonResponse({ error: 'Usuário ou senha incorretos' }, 401);
+  }
   if (path === '/api/auth/verify' && req.method === 'POST') return jsonResponse({ valid: true, ...MOCK_DB.auth });
   const collections = ['clients','products','projects','services','transactions','subcategories'];
   for (const col of collections) {
