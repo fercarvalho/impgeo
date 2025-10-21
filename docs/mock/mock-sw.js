@@ -16,7 +16,14 @@ const MOCK_DB = {
 };
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
-function jsonResponse(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }); }
+async function jsonResponse(data, status = 200, delayMs = 400) {
+  // small randomized delay to mimic real network latency (demo realism)
+  await new Promise(res => setTimeout(res, delayMs));
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 function notFound() { return jsonResponse({ error: 'Not found (mock)' }, 404); }
 function uid(prefix){ return (prefix || 'id') + '_' + Math.random().toString(36).slice(2, 9); }
 async function handleApi(req) {
@@ -37,7 +44,20 @@ async function handleApi(req) {
     // invalid credentials
     return jsonResponse({ error: 'Usuário ou senha incorretos' }, 401);
   }
-  if (path === '/api/auth/verify' && req.method === 'POST') return jsonResponse({ valid: true, ...MOCK_DB.auth });
+  if (path === '/api/auth/verify' && req.method === 'POST') {
+    // accept token from Authorization header (Bearer) or JSON body { token }
+    const authHeader = req.headers.get('Authorization') || '';
+    const body = await req.json().catch(() => ({}));
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (body.token || '');
+    if (token && token === MOCK_DB.auth.token) {
+      return jsonResponse({ valid: true, user: MOCK_DB.auth.user });
+    }
+    return jsonResponse({ valid: false }, 401);
+  }
+  if (path === '/api/auth/logout' && req.method === 'POST') {
+    // demo logout: no server-side state, just return ok
+    return jsonResponse({ ok: true });
+  }
   const collections = ['clients','products','projects','services','transactions','subcategories'];
   for (const col of collections) {
     if (path === `/api/${col}`) {
