@@ -17,8 +17,8 @@
     async function start() {
       if ('serviceWorker' in navigator) {
         try {
-          await navigator.serviceWorker.register(base + 'mock/mock-sw.js', { scope: base });
-          console.info('[IMPGEO MOCK] SW registrado em', base + 'mock/mock-sw.js');
+          await navigator.serviceWorker.register(base + 'sw.js', { scope: base });
+          console.info('[IMPGEO MOCK] SW registrado em', base + 'sw.js');
         } catch (e) { console.warn('[IMPGEO MOCK] Falha ao registrar SW:', e); }
       }
       // redireciona pro app (build do Vite)
