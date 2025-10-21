@@ -106,7 +106,44 @@ self.addEventListener('fetch', (event) => {
       try { init.duplex = event.request.duplex; } catch (_) {}
     }
 
-    event.respondWith(fetch(new Request(rewrittenUrl, init)));
+    event.respondWith(fetch(new Request(rewrittenUrl, init), { cache: 'reload' }));
+    return;
+  }
+
+  // 1.b) Aliases explícitos para imagens comuns da demo
+  const aliases = new Map([
+    ['/imp_logo.png', '/app/imp_logo.png'],
+    ['/logo_rodape.png', '/app/logo_rodape.PNG'], // cobre variação de caixa
+    ['/logo_rodape.PNG', '/app/logo_rodape.PNG'],
+    ['/imp_favicon.ico', '/app/imp_favicon.ico']
+  ]);
+  if (aliases.has(path)) {
+    const target = new URL(aliases.get(path), url.origin);
+    event.respondWith(fetch(target, { cache: 'reload' }));
+    return;
+  }
+
+  // 1.c) Arquivos de imagem soltos na raiz (ex.: /foo.png) -> /app/foo.png
+  const rootAssetExt = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
+  const noSubfolder = url.pathname.indexOf('/', 1) === -1; // apenas "/nome.ext"
+  const isRootAsset = noSubfolder && rootAssetExt.some(ext => path.toLowerCase().endsWith(ext));
+  if (isRootAsset) {
+    const rewrittenRoot = new URL('/app' + path, url.origin);
+    const init2 = {
+      method: event.request.method,
+      headers: event.request.headers,
+      mode: event.request.mode,
+      credentials: event.request.credentials,
+      cache: 'reload',
+      redirect: event.request.redirect,
+      referrer: event.request.referrer,
+      referrerPolicy: event.request.referrerPolicy
+    };
+    if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+      init2.body = event.request.body;
+      try { init2.duplex = event.request.duplex; } catch (_) {}
+    }
+    event.respondWith(fetch(new Request(rewrittenRoot, init2)));
     return;
   }
 
