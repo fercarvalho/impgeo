@@ -115,6 +115,7 @@ self.addEventListener('fetch', (event) => {
     ['/imp_logo.png', '/app/imp_logo.png'],
     ['/logo_rodape.png', '/app/logo_rodape.PNG'], // cobre variação de caixa
     ['/logo_rodape.PNG', '/app/logo_rodape.PNG'],
+    ['/app/logo_rodape.png', '/app/logo_rodape.PNG'],
     ['/imp_favicon.ico', '/app/imp_favicon.ico']
   ]);
   if (aliases.has(path)) {
