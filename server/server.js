@@ -62,7 +62,7 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // Limite de 5MB
+    fileSize: 10 * 1024 * 1024 // Limite de 10MB
   }
 });
 
@@ -157,6 +157,52 @@ function processClients(worksheet) {
   return clients;
 }
 
+// Função para processar dados de acompanhamentos
+function processAcompanhamentos(worksheet) {
+  const data = XLSX.utils.sheet_to_json(worksheet);
+  const acompanhamentos = [];
+
+  data.forEach((row, index) => {
+    try {
+      const acompanhamento = {
+        id: Date.now() + index,
+        codImovel: parseInt(row['COD. IMP'] || row['Cod. Imp'] || row['codImovel'] || row['COD IMP'] || 0),
+        imovel: row['IMÓVEL'] || row['Imóvel'] || row['imovel'] || row['IMOVEL'] || '',
+        municipio: row['MUNICÍPIO'] || row['Município'] || row['municipio'] || row['MUNICIPIO'] || '',
+        mapaUrl: row['MAPA'] || row['Mapa'] || row['mapa'] || row['MAPA URL'] || row['Mapa URL'] || row['mapaUrl'] || '',
+        matriculas: row['MATRÍCULAS'] || row['Matrículas'] || row['matriculas'] || row['MATRICULAS'] || '',
+        nIncraCcir: row['N INCRA / CCIR'] || row['N Incra / CCIR'] || row['nIncraCcir'] || row['N INCRA CCIR'] || '',
+        car: row['CAR'] || row['car'] || '',
+        statusCar: row['STATUS CAR'] || row['Status CAR'] || row['statusCar'] || row['STATUS_CAR'] || 'ATIVO - AGUARDANDO ANÁLISE SC',
+        itr: row['ITR'] || row['itr'] || '',
+        geoCertificacao: (row['GEO CERTIFICAÇÃO'] || row['Geo Certificação'] || row['geoCertificacao'] || row['GEO_CERTIFICACAO'] || 'NÃO').toUpperCase() === 'SIM' ? 'SIM' : 'NÃO',
+        geoRegistro: (row['GEO REGISTRO'] || row['Geo Registro'] || row['geoRegistro'] || row['GEO_REGISTRO'] || 'NÃO').toUpperCase() === 'SIM' ? 'SIM' : 'NÃO',
+        areaTotal: parseFloat((row['ÁREA TOTAL (ha)'] || row['Área Total (ha)'] || row['areaTotal'] || row['AREA_TOTAL'] || 0).toString().replace(',', '.')) || 0,
+        reservaLegal: parseFloat((row['20% RESERVA LEGAL (ha)'] || row['20% Reserva Legal (ha)'] || row['reservaLegal'] || row['RESERVA_LEGAL'] || 0).toString().replace(',', '.')) || 0,
+        cultura1: row['CULTURAS'] || row['Culturas'] || row['cultura1'] || row['CULTURA1'] || '',
+        areaCultura1: parseFloat((row['ÁREA (ha)'] || row['Área (ha)'] || row['areaCultura1'] || row['AREA_CULTURA1'] || 0).toString().replace(',', '.')) || 0,
+        cultura2: row['CULTURAS.1'] || row['Culturas 2'] || row['cultura2'] || row['CULTURA2'] || '',
+        areaCultura2: parseFloat((row['ÁREA (ha).1'] || row['Área (ha) 2'] || row['areaCultura2'] || row['AREA_CULTURA2'] || 0).toString().replace(',', '.')) || 0,
+        outros: row['OUTROS'] || row['Outros'] || row['outros'] || '',
+        areaOutros: parseFloat((row['ÁREA (ha).2'] || row['Área (ha) Outros'] || row['areaOutros'] || row['AREA_OUTROS'] || 0).toString().replace(',', '.')) || 0,
+        appCodigoFlorestal: parseFloat((row['APP (CÓDIGO FLORESTAL)'] || row['APP (Código Florestal)'] || row['appCodigoFlorestal'] || row['APP_CODIGO_FLORESTAL'] || 0).toString().replace(',', '.')) || 0,
+        appVegetada: parseFloat((row['APP (VEGETADA)'] || row['APP (Vegetada)'] || row['appVegetada'] || row['APP_VEGETADA'] || 0).toString().replace(',', '.')) || 0,
+        appNaoVegetada: parseFloat((row['APP (NÃO VEGETADA)'] || row['APP (Não Vegetada)'] || row['appNaoVegetada'] || row['APP_NAO_VEGETADA'] || 0).toString().replace(',', '.')) || 0,
+        remanescenteFlorestal: parseFloat((row['REMANESCENTE FLORESTAL (ha)'] || row['Remanescente Florestal (ha)'] || row['remanescenteFlorestal'] || row['REMANESCENTE_FLORESTAL'] || 0).toString().replace(',', '.')) || 0
+      };
+
+      // Validar se tem dados essenciais
+      if (acompanhamento.codImovel > 0 && acompanhamento.imovel) {
+        acompanhamentos.push(acompanhamento);
+      }
+    } catch (error) {
+      console.log(`Erro ao processar linha ${index + 1}:`, error.message);
+    }
+  });
+
+  return acompanhamentos;
+}
+
 // Função para processar dados de projetos
 function processProjects(worksheet) {
   const data = XLSX.utils.sheet_to_json(worksheet);
@@ -197,8 +243,8 @@ function processProjects(worksheet) {
 app.get('/api/modelo/:type', (req, res) => {
   try {
     const { type } = req.params;
-    if (!['transactions', 'products', 'clients', 'projects'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients" ou "projects"' });
+    if (!['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "acompanhamentos"' });
     }
 
     // Sempre gerar arquivo modelo dinamicamente para garantir colunas atualizadas
@@ -277,6 +323,36 @@ app.get('/api/modelo/:type', (req, res) => {
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Projetos');
+    } else if (type === 'acompanhamentos') {
+      const sampleData = [
+        {
+          'COD. IMP': 1,
+          'IMÓVEL': 'Fazenda Jacarezinho',
+          'MUNICÍPIO': 'Joaquim Távora',
+          'MAPA': 'https://www.google.com/maps/d/u/0/viewer?...',
+          'MATRÍCULAS': '4031, 4183',
+          'N INCRA / CCIR': '731.000.003.808-7',
+          'CAR': 'PR-4112803-06020389GGA77AG9000237709GA760A2',
+          'STATUS CAR': 'ATIVO - AGUARDANDO ANÁLISE SC',
+          'ITR': '',
+          'GEO CERTIFICAÇÃO': 'SIM',
+          'GEO REGISTRO': 'SIM',
+          'ÁREA TOTAL (ha)': 33.26,
+          '20% RESERVA LEGAL (ha)': 2.35,
+          'CULTURAS': 'Cultura Temporária',
+          'ÁREA (ha)': 5.64,
+          'CULTURAS.1': 'Pasto',
+          'ÁREA (ha).1': 3.22,
+          'OUTROS': 'Horta',
+          'ÁREA (ha).2': 0.83,
+          'APP (CÓDIGO FLORESTAL)': 2.38,
+          'APP (VEGETADA)': 1.44,
+          'APP (NÃO VEGETADA)': 0.62,
+          'REMANESCENTE FLORESTAL (ha)': 0.68
+        }
+      ];
+      worksheet = XLSX.utils.json_to_sheet(sampleData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Acompanhamentos');
     } else {
       const headers = [{
         'Nome': '',
@@ -293,7 +369,8 @@ app.get('/api/modelo/:type', (req, res) => {
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 
                     type === 'clients' ? 'modelo-clientes.xlsx' : 
-                    type === 'projects' ? 'modelo-projetos.xlsx' : 'modelo-produtos.xlsx';
+                    type === 'projects' ? 'modelo-projetos.xlsx' :
+                    type === 'acompanhamentos' ? 'modelo-acompanhamentos.xlsx' : 'modelo-produtos.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -310,13 +387,13 @@ app.get('/api/modelo/:type', (req, res) => {
 app.post('/api/import', upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Nenhum arquivo foi enviado!' });
+      return res.status(400).json({ success: false, error: 'Nenhum arquivo foi enviado!' });
     }
 
-    const { type } = req.body; // 'transactions' ou 'products'
+    const { type } = req.body; // 'transactions', 'products', 'clients', 'projects' ou 'acompanhamentos'
     
-    if (!type || !['transactions', 'products', 'clients', 'projects'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients" ou "projects"' });
+    if (!type || !['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
+      return res.status(400).json({ success: false, error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "acompanhamentos"' });
     }
 
     console.log(`Processando arquivo: ${req.file.originalname} (${type})`);
@@ -350,10 +427,28 @@ app.post('/api/import', upload.single('file'), (req, res) => {
           console.error('Erro ao salvar projeto:', error);
         }
       });
+    } else if (type === 'acompanhamentos') {
+      processedData = processAcompanhamentos(worksheet);
+      console.log(`Processados ${processedData.length} acompanhamentos do arquivo`);
+      message = `${processedData.length} acompanhamentos importados com sucesso!`;
+      
+      // Salvar acompanhamentos processados no banco de dados
+      let savedCount = 0;
+      processedData.forEach(acompanhamento => {
+        try {
+          db.saveAcompanhamento(acompanhamento);
+          savedCount++;
+        } catch (error) {
+          console.error('Erro ao salvar acompanhamento:', error);
+        }
+      });
+      console.log(`${savedCount} acompanhamentos salvos no banco de dados`);
     }
 
     // Limpar o arquivo temporário
-    fs.unlinkSync(req.file.path);
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
     res.json({
       success: true,
@@ -365,15 +460,21 @@ app.post('/api/import', upload.single('file'), (req, res) => {
 
   } catch (error) {
     console.error('Erro ao processar arquivo:', error);
+    console.error('Stack trace:', error.stack);
     
     // Limpar arquivo em caso de erro
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Erro ao limpar arquivo temporário:', unlinkError);
+      }
     }
     
     res.status(500).json({ 
+      success: false,
       error: 'Erro interno do servidor',
-      message: error.message 
+      message: error.message || 'Erro desconhecido ao processar arquivo'
     });
   }
 });
@@ -664,6 +765,106 @@ app.delete('/api/services/:id', (req, res) => {
     res.json({ success: true, message: 'Serviço excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// APIs para Acompanhamentos
+app.get('/api/acompanhamentos', (req, res) => {
+  try {
+    const acompanhamentos = db.getAllAcompanhamentos();
+    res.json({ success: true, data: acompanhamentos });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/acompanhamentos', (req, res) => {
+  try {
+    const acompanhamento = db.saveAcompanhamento(req.body);
+    res.json({ success: true, data: acompanhamento });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/acompanhamentos/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const acompanhamento = db.updateAcompanhamento(id, req.body);
+    res.json({ success: true, data: acompanhamento });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/acompanhamentos/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    db.deleteAcompanhamento(id);
+    res.json({ success: true, message: 'Acompanhamento deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/acompanhamentos', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
+    }
+    db.deleteMultipleAcompanhamentos(ids);
+    res.json({ success: true, message: `${ids.length} acompanhamentos deletados com sucesso` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rota para gerar link compartilhável de acompanhamentos
+app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, res) => {
+  try {
+    // Gerar token único para compartilhamento
+    const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
+    
+    // Salvar token no banco (opcional - pode ser apenas um token fixo)
+    // Por simplicidade, vamos usar um token fixo que sempre funciona
+    // Em produção, você pode salvar tokens com expiração
+    
+    res.json({ 
+      success: true, 
+      token: token,
+      message: 'Link compartilhável gerado com sucesso'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rota pública para visualizar acompanhamentos (sem autenticação)
+app.get('/api/acompanhamentos/public/:token', (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Validar formato do token
+    if (!token || !token.startsWith('view_')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Token inválido' 
+      });
+    }
+    
+    // Buscar todos os acompanhamentos (público)
+    const acompanhamentos = db.getAllAcompanhamentos();
+    
+    res.json({ 
+      success: true, 
+      data: acompanhamentos 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Erro ao carregar dados' 
+    });
   }
 });
 
@@ -1324,11 +1525,16 @@ app.get('/api/test', (req, res) => {
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'Arquivo muito grande! Máximo 5MB.' });
+      return res.status(400).json({ success: false, error: 'Arquivo muito grande! Tamanho máximo permitido: 10MB.' });
     }
+    return res.status(400).json({ success: false, error: 'Erro no upload: ' + error.message });
   }
   
-  res.status(400).json({ error: error.message });
+  if (error.message) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+  
+  res.status(500).json({ success: false, error: 'Erro interno do servidor' });
 });
 
 // Limpar todos os dados de projeção

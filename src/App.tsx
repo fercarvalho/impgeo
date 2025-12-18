@@ -16,7 +16,8 @@ import {
   Mail,
   Map,
   Calculator,
-  Download
+  Download,
+  ClipboardList
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -28,6 +29,8 @@ import Projects from './components/Projects'
 import Services from './components/Services'
 import Login from './components/Login'
 import Projection from './components/Projection'
+import Acompanhamentos from './components/Acompanhamentos'
+import AcompanhamentosView from './components/AcompanhamentosView'
 import ChartModal from './components/modals/ChartModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
@@ -70,10 +73,27 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao'
+type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos'
 
 const AppContent: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
+  const [viewToken, setViewToken] = useState<string | null>(null);
+
+  // Verificar se há token de visualização pública na URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.substring(1);
+    const token = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
+    
+    if (token && token.startsWith('view_')) {
+      setViewToken(token);
+    }
+  }, []);
+
+  if (viewToken && viewToken.startsWith('view_')) {
+    // Renderizar visualização pública sem autenticação
+    return <AcompanhamentosView token={viewToken} />;
+  }
 
   if (isLoading) {
     return (
@@ -820,6 +840,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <button onClick={() => setActiveTab('dre')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
               <BarChart3 className="h-4 w-4 mb-3" />
               DRE
+            </button>
+            <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <ClipboardList className="h-4 w-4 mb-3" />
+              Acompanhamentos
             </button>
           </div>
           <div className="flex items-center space-x-4">
@@ -3190,6 +3214,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         )}
         {activeTab === 'dre' && (
           <DRE />
+        )}
+        {activeTab === 'acompanhamentos' && (
+          <Acompanhamentos />
         )}
       </main>
 

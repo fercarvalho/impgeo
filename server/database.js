@@ -24,6 +24,7 @@ class Database {
     this.faturamentoNnFile = path.join(this.dbPath, 'faturamentoNn.json');
     this.faturamentoTotalFile = path.join(this.dbPath, 'faturamentoTotal.json');
     this.resultadoFile = path.join(this.dbPath, 'resultado.json');
+    this.acompanhamentosFile = path.join(this.dbPath, 'acompanhamentos.json');
     
     // Mapeamento de arquivos de projeção para seus backups
     this.projectionFiles = {
@@ -118,6 +119,10 @@ class Database {
     
     if (!fs.existsSync(this.servicesFile)) {
       fs.writeFileSync(this.servicesFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.acompanhamentosFile)) {
+      fs.writeFileSync(this.acompanhamentosFile, '[]');
     }
     
     if (!fs.existsSync(this.usersFile)) {
@@ -719,6 +724,76 @@ class Database {
       fs.writeFileSync(this.servicesFile, JSON.stringify(filteredServices, null, 2));
     } catch (error) {
       throw new Error('Erro ao excluir serviço: ' + error.message);
+    }
+  }
+
+  // Métodos para Acompanhamentos
+  getAllAcompanhamentos() {
+    try {
+      const data = fs.readFileSync(this.acompanhamentosFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao ler acompanhamentos:', error);
+      return [];
+    }
+  }
+
+  saveAcompanhamento(acompanhamentoData) {
+    try {
+      const acompanhamentos = this.getAllAcompanhamentos();
+      const newAcompanhamento = {
+        id: this.generateId(),
+        ...acompanhamentoData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      acompanhamentos.push(newAcompanhamento);
+      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(acompanhamentos, null, 2));
+      return newAcompanhamento;
+    } catch (error) {
+      throw new Error('Erro ao salvar acompanhamento: ' + error.message);
+    }
+  }
+
+  updateAcompanhamento(id, updatedData) {
+    try {
+      const acompanhamentos = this.getAllAcompanhamentos();
+      const index = acompanhamentos.findIndex(a => a.id === id);
+      if (index === -1) {
+        throw new Error('Acompanhamento não encontrado');
+      }
+      acompanhamentos[index] = {
+        ...acompanhamentos[index],
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(acompanhamentos, null, 2));
+      return acompanhamentos[index];
+    } catch (error) {
+      throw new Error('Erro ao atualizar acompanhamento: ' + error.message);
+    }
+  }
+
+  deleteAcompanhamento(id) {
+    try {
+      const acompanhamentos = this.getAllAcompanhamentos();
+      const filteredAcompanhamentos = acompanhamentos.filter(a => a.id !== id);
+      if (filteredAcompanhamentos.length === acompanhamentos.length) {
+        throw new Error('Acompanhamento não encontrado');
+      }
+      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(filteredAcompanhamentos, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir acompanhamento: ' + error.message);
+    }
+  }
+
+  deleteMultipleAcompanhamentos(ids) {
+    try {
+      const acompanhamentos = this.getAllAcompanhamentos();
+      const filteredAcompanhamentos = acompanhamentos.filter(a => !ids.includes(a.id));
+      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(filteredAcompanhamentos, null, 2));
+    } catch (error) {
+      throw new Error('Erro ao excluir acompanhamentos: ' + error.message);
     }
   }
 
