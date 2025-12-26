@@ -1,128 +1,348 @@
-# IMPGEO — Sistema de Gestão Financeira
+# 💼 IMPGEO — Sistema de Gestão Financeira
 
-Plataforma **moderna e completa** para **gestão financeira empresarial**, criada para transformar dados em decisões — do **dia a dia operacional** ao **planejamento anual**.
+Sistema completo de gestão financeira empresarial que transforma dados em decisões — do dia a dia operacional ao planejamento anual. Plataforma moderna para controle de transações, metas, projeções e relatórios com interface intuitiva e exportação para PDF.
 
-> **Pitch em 1 linha:** controle transações, metas e projeções em um painel bonito, rápido e pronto para gerar PDF — com importação via Excel e usuários com níveis de acesso.
+## 📖 Sobre o Projeto
 
----
+O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira empresarial, oferecendo uma visão completa e em tempo real das finanças da empresa. Foi criado para resolver o problema de gestão financeira fragmentada, centralizando transações, projetos, metas e projeções em um único painel executivo.
 
-## ✨ Principais Diferenciais
-- **Dashboard executivo** com métricas ao vivo e **gráficos interativos** (Recharts)
-- **Sistema de metas** (mensal/anual) com acompanhamento **meta vs. realizado**
-- **Projeção anual** com cenários **Mínimo / Médio / Máximo**
-- **Exportação para PDF** (jsPDF + html2canvas) dos relatórios e DRE
-- **Importação via Excel/CSV** (endpoint `/api/import`) para onboarding ágil
-- **Usuários com níveis de acesso** (login e verificação via **JWT**)
-- **Backup & Restore** por tabela (`/api/backup/restore/:tableName`)
-- **Arquitetura clara**: React (Vite) no frontend + Express no backend
+**Feito com ❤️ por Fernando Carvalho**
 
----
+- 📧 Email: contato@fercarvalho.com
+- 📱 Instagram: [@cadeofer](https://instagram.com/cadeofer)
 
-## 🖥️ Experiência do Usuário
-- Interface **responsiva (mobile‑first)**, com paleta profissional em **azul/índigo**
-- Fluxos diretos e sem atrito: importar dados → visualizar → exportar PDF
-- Painéis com visão **mensal, trimestral e anual**
+## ✨ Funcionalidades Principais
 
----
+### 📊 Dashboard Executivo
+- Métricas ao vivo com indicadores financeiros em tempo real
+- Gráficos interativos com Recharts
+- Visão consolidada mensal, trimestral e anual
+- Painéis responsivos e mobile-first
 
-## 📦 Stack
-**Frontend:** React + TypeScript, Tailwind CSS, Lucide Icons, Recharts, Vite  
-**Backend:** Node.js + Express, **JWT Auth**, Multer (upload), CORS  
-**Dados:** JSON local (MVP) — preparado para evoluir a **PostgreSQL/MongoDB**
+### 🎯 Sistema de Metas
+- Definição de metas mensais e anuais
+- Acompanhamento meta vs. realizado
+- Progressão visual de objetivos
+- Comparação de desempenho por período
 
----
+### 📈 Projeções Financeiras
+- Planejamento anual com cenários (Mínimo / Médio / Máximo)
+- Projeções de receitas e despesas
+- Análise de diferentes cenários de negócio
+- Visualização gráfica de tendências
 
-## ⚡ Como rodar (Dev)
+### 📄 Relatórios e DRE
+- Demonstração do Resultado do Exercício (DRE)
+- Relatórios por período personalizado
+- Cálculo automático de margens e resultados
+- Exportação para PDF com jsPDF e html2canvas
+
+### 💰 Gestão de Transações
+- Controle de receitas e despesas
+- Categorização e subcategorização
+- Centros de custo personalizados
+- Histórico completo de movimentações
+
+### 🏗️ Gestão de Projetos e Serviços
+- Cadastro e acompanhamento de projetos
+- Gestão de serviços e produtos
+- Controle de clientes
+- Status e cronograma de projetos
+- Valores e faturamento por projeto
+
+### 📥 Importação e Exportação
+- Importação via Excel/CSV para onboarding ágil
+- Exportação de relatórios em PDF
+- Templates personalizáveis
+- Backup e restore por tabela
+
+### 👤 Autenticação e Segurança
+- Sistema de login com JWT
+- Níveis de acesso (admin, financeiro, gestor, leitura)
+- Middleware de autenticação
+- Hash de senhas com bcryptjs
+
+### 🔄 Backup e Restauração
+- Backup automático por tabela
+- Restauração seletiva de dados
+- Histórico de backups
+- Proteção contra perda de dados
+
+## 🛠️ Stack Tecnológica
+
+### Frontend
+- **React 18** com TypeScript
+- **Vite** para build e desenvolvimento
+- **Tailwind CSS** para estilização
+- **Lucide React** e **React Icons** para ícones
+- **Recharts** para gráficos interativos
+- **html2canvas** e **jsPDF** para exportação em PDF
+- **date-fns** para manipulação de datas
+
+### Backend
+- **Node.js** com Express
+- **JSON local** como banco de dados (MVP)
+- **JWT** para autenticação
+- **bcryptjs** para hash de senhas
+- **Multer** para upload de arquivos
+- **XLSX** para processamento de planilhas Excel
+- **CORS** para comunicação frontend/backend
+
+### Infraestrutura
+- Preparado para migração para **PostgreSQL** ou **MongoDB**
+- Suporte a deploy em VPS
+- Arquitetura modular e escalável
+
+## 📋 Pré-requisitos
+
+- Node.js 18+
+- npm ou yarn
+- Git (para clonar o repositório)
+
+## 🚀 Instalação
+
+### 1. Clone o repositório
+
 ```bash
-# 1) Frontend
+git clone https://github.com/seu-usuario/impgeo.git
 cd impgeo
-npm install
-npm run dev    # porta 9000
+```
 
-# 2) Backend
+### 2. Instale as dependências
+
+```bash
+# Dependências do frontend
+npm install
+
+# Dependências do backend
 cd server
 npm install
-npm start      # porta 9001
+cd ..
 ```
 
-Acesse:  
-- **Frontend:** http://localhost:9000  
-- **API:** http://localhost:9001  
+### 3. Configure as variáveis de ambiente
+
+Crie um arquivo `.env` na pasta `server/`:
+
+```env
+# JWT
+JWT_SECRET=sua_chave_secreta_super_segura_aqui
+
+# Portas
+PORT=9001
+FRONTEND_PORT=9000
+```
+
+### 4. Inicie o servidor
+
+**Desenvolvimento:**
+
+```bash
+# Terminal 1 - Backend
+cd server
+npm start      # ou npm run dev (com nodemon)
+# Servidor rodando em http://localhost:9001
+
+# Terminal 2 - Frontend
+npm run dev
+# Aplicação rodando em http://localhost:9000
+```
+
+**Produção:**
+
+```bash
+# Build do frontend
+npm run build
+
+# Iniciar servidor backend
+cd server
+npm start
+```
+
+### 5. Acesse a aplicação
+
+- **Frontend:** http://localhost:9000
+- **API Backend:** http://localhost:9001
 - **Teste rápido:** http://localhost:9001/api/test
 
-> Variáveis sensíveis (ex.: `JWT_SECRET`) devem ficar em `.env` no backend.
+## 📚 Documentação Adicional
 
----
+O projeto está em constante evolução. Documentação adicional será adicionada conforme necessário.
 
-## 🔐 Autenticação & Acesso
-- **Login:** `POST /api/auth/login` → retorna **JWT**
-- **Verificação:** `POST /api/auth/verify`
-- **Perfis sugeridos:** _admin_, _financeiro_, _gestor_, _leitura_ (RBAC)
+## 🏗️ Estrutura do Projeto
 
----
-
-## 📊 Módulos do Produto
-- **Transações:** receitas, despesas, categorias e centros de custo
-- **Projetos & Serviços:** status, cronograma, valores, clientes
-- **Metas:** definição mensal/anual, progressão e comparação **meta vs. realizado**
-- **Projeções:** planejamento anual com cenários (min/médio/máx)
-- **Relatórios & DRE:** visão por período, margem e resultado
-- **Importação/Exportação:** Excel/CSV → **PDF**
-
----
-
-## 🔌 Endpoints (amostra)
-- POST /api/auth/login
-- POST /api/auth/verify
-- GET  /api/transactions
-- POST /api/transactions
-- PUT  /api/budget
-- GET  /api/clients
-- POST /api/clients
-- PUT  /api/clients/:id
-- DELETE /api/clients/:id
-- GET  /api/products
-- POST /api/products
-- DELETE /api/products/:id
-- GET  /api/projects
-- POST /api/projects
-- DELETE /api/projects/:id
-- GET  /api/services
-- POST /api/services
-- GET  /api/subcategories
-- POST /api/subcategories
-- POST /api/import
-- POST /api/export
-- POST /api/backup/restore/:tableName
-- DELETE /api/clear-all-projection-data
-- GET  /api/test
-
-> Há outros endpoints especializados (ex.: `faturamento-*`, `investments`, `fixed-expenses`, `resultado` etc.) para análises mais finas.
-
----
-
-## 🧱 Estrutura (resumo)
 ```
 impgeo/
-├─ impgeo/                 # Frontend (Vite + React + TS)
-│  ├─ src/                 # App, páginas, componentes, hooks
-│  ├─ public/              # Assets
-│  └─ package.json
-└─ server/                 # Backend (Express)
-   ├─ server.js            # Rotas, middlewares, JWT, import/export
-   ├─ database.js          # Banco em JSON/local
-   └─ database/            # Tabelas .json (dados)
+├── src/                      # Aplicação React (Frontend)
+│   ├── components/           # Componentes React
+│   │   ├── modals/          # Modais (Chart, Product, Transaction)
+│   │   ├── Acompanhamentos.tsx
+│   │   ├── Clients.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── DRE.tsx
+│   │   ├── Login.tsx
+│   │   ├── Products.tsx
+│   │   ├── Projection.tsx
+│   │   ├── Projects.tsx
+│   │   ├── Reports.tsx
+│   │   ├── Services.tsx
+│   │   └── Transactions.tsx
+│   ├── contexts/            # Contextos React
+│   │   ├── AuthContext.tsx
+│   │   ├── ProductContext.tsx
+│   │   └── TransactionContext.tsx
+│   ├── hooks/               # Custom hooks
+│   │   └── usePermissions.ts
+│   ├── lib/                 # Bibliotecas e utilitários
+│   │   └── database.ts
+│   ├── types/               # Tipos TypeScript
+│   │   └── index.ts
+│   ├── App.tsx              # Componente principal
+│   ├── main.tsx             # Entry point
+│   └── index.css            # Estilos globais
+├── server/                  # Backend (Express)
+│   ├── database/            # Banco de dados JSON
+│   │   ├── transactions.json
+│   │   ├── projects.json
+│   │   ├── clients.json
+│   │   ├── products.json
+│   │   ├── budget.json
+│   │   └── ... (outros arquivos JSON)
+│   ├── uploads/             # Arquivos enviados
+│   ├── database.js          # Classe Database para gerenciamento
+│   ├── server.js            # Servidor Express principal
+│   └── package.json
+├── public/                  # Arquivos estáticos
+├── dist/                    # Build de produção
+├── docs/                    # Documentação e deploy
+├── package.json             # Dependências do frontend
+├── vite.config.ts           # Configuração do Vite
+├── tailwind.config.js       # Configuração do Tailwind
+└── tsconfig.json            # Configuração TypeScript
 ```
 
+## 🔌 API Endpoints Principais
+
+### Autenticação
+- `POST /api/auth/login` - Fazer login
+- `POST /api/auth/verify` - Verificar token JWT
+
+### Transações
+- `GET /api/transactions` - Obter todas as transações
+- `POST /api/transactions` - Criar nova transação
+- `PUT /api/transactions/:id` - Atualizar transação
+- `DELETE /api/transactions/:id` - Deletar transação
+
+### Projetos
+- `GET /api/projects` - Obter todos os projetos
+- `POST /api/projects` - Criar novo projeto
+- `PUT /api/projects/:id` - Atualizar projeto
+- `DELETE /api/projects/:id` - Deletar projeto
+
+### Clientes
+- `GET /api/clients` - Obter todos os clientes
+- `POST /api/clients` - Criar novo cliente
+- `PUT /api/clients/:id` - Atualizar cliente
+- `DELETE /api/clients/:id` - Deletar cliente
+
+### Produtos e Serviços
+- `GET /api/products` - Obter todos os produtos
+- `POST /api/products` - Criar novo produto
+- `DELETE /api/products/:id` - Deletar produto
+- `GET /api/services` - Obter todos os serviços
+- `POST /api/services` - Criar novo serviço
+
+### Metas e Orçamento
+- `GET /api/budget` - Obter orçamento/metas
+- `PUT /api/budget` - Atualizar orçamento/metas
+
+### Projeções
+- `GET /api/projection` - Obter projeções
+- `POST /api/projection` - Criar/atualizar projeções
+- `DELETE /api/clear-all-projection-data` - Limpar dados de projeção
+
+### Relatórios e Análises
+- `GET /api/faturamentoGeo` - Faturamento Geo
+- `GET /api/faturamentoNn` - Faturamento NN
+- `GET /api/faturamentoPlan` - Faturamento Plan
+- `GET /api/faturamentoReg` - Faturamento Reg
+- `GET /api/faturamentoReurb` - Faturamento Reurb
+- `GET /api/faturamentoTotal` - Faturamento Total
+- `GET /api/resultado` - Resultado financeiro
+- `GET /api/investments` - Investimentos
+- `GET /api/fixedExpenses` - Despesas fixas
+- `GET /api/variableExpenses` - Despesas variáveis
+
+### Importação e Exportação
+- `POST /api/import` - Importar dados via Excel/CSV
+- `POST /api/export` - Exportar dados
+
+### Backup e Restore
+- `POST /api/backup/restore/:tableName` - Restaurar backup de uma tabela
+
+### Utilitários
+- `GET /api/test` - Teste de conexão
+- `GET /api/subcategories` - Obter subcategorias
+- `POST /api/subcategories` - Criar subcategoria
+
+## 🔒 Segurança
+
+- Senhas hasheadas com bcryptjs
+- Tokens JWT para autenticação
+- Middleware de autenticação em rotas protegidas
+- Validação de inputs
+- CORS configurado para comunicação segura
+- Headers de segurança configurados
+
+## 📄 Licença
+
+Este projeto está licenciado sob a **Licença MIT - Uso Educacional e Não Comercial**.
+
+### ✅ O que você PODE fazer:
+- ✅ Usar para fins educacionais e de aprendizado
+- ✅ Estudar o código e arquitetura
+- ✅ Usar como referência ou inspiração para criar projetos **novos e originais**
+- ✅ Aplicar conceitos e padrões aprendidos em seus próprios projetos comerciais (desde que sejam criações originais)
+
+### ❌ O que você NÃO PODE fazer:
+- ❌ Reproduzir, copiar ou distribuir este software para fins comerciais
+- ❌ Fazer modificações mínimas e usar comercialmente
+- ❌ Vender ou licenciar este software ou partes dele
+- ❌ Criar produtos comerciais que sejam substancialmente similares
+
+**Para uso comercial deste código, entre em contato para licenciamento:**
+📧 Email: contato@fercarvalho.com
+
+## 🤝 Contribuindo
+
+Este é um projeto pessoal, mas sugestões e feedback são sempre bem-vindos!
+
+## 📝 Changelog
+
+### Versão Atual
+- ✅ Sistema completo de autenticação com JWT
+- ✅ Dashboard executivo com métricas em tempo real
+- ✅ Sistema de metas mensais e anuais
+- ✅ Projeções financeiras com múltiplos cenários
+- ✅ Gestão completa de transações, projetos e clientes
+- ✅ Exportação de relatórios em PDF
+- ✅ Importação de dados via Excel/CSV
+- ✅ Sistema de backup e restore
+- ✅ Interface responsiva e moderna
+- ✅ Gráficos interativos com Recharts
+- ✅ DRE (Demonstração do Resultado do Exercício)
+- ✅ E muito mais...
+
+### Roadmap de Evolução
+- 🔄 Migração de dados de JSON para **PostgreSQL** (produção)
+- 🔄 **RBAC avançado** (permissões por recurso/ação) e logs de auditoria
+- 🔄 Exportação **em lote** (PDF/Excel) + templates customizáveis
+- 🔄 **Agendamentos** (e.g., e-mail automático com DRE/previstos)
+- 🔄 **CI/CD** com Docker, testes e deploy orquestrado
+- 🔄 Integração com sistemas de pagamento
+- 🔄 Notificações em tempo real
+- 🔄 API pública para integrações
+
 ---
 
-## 🧭 Roadmap de Evolução
-- Migrar dados de JSON para **PostgreSQL** (produção)
-- **RBAC avançado** (permissões por recurso/ação) e logs de auditoria
-- Exportação **em lote** (PDF/Excel) + templates customizáveis
-- **Agendamentos** (e.g., e-mail automático com DRE/previstos)
-- **CI/CD** com Docker, testes e deploy orquestrado
-
----
-
-**IMPGEO** — feito com ❤️ por Fernando Carvalho (Viver de PJ) para quem precisa **decidir rápido, com confiança**.
+**IMPGEO** — feito com ❤️ para transformar dados em decisões financeiras inteligentes.
