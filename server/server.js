@@ -1470,6 +1470,131 @@ app.post('/api/auth/verify', authenticateToken, (req, res) => {
   });
 });
 
+// Middleware para verificar se o usuário é admin
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Acesso negado. Apenas administradores podem realizar esta ação.' });
+  }
+};
+
+// APIs de Gerenciamento de Usuários (apenas para admins)
+// GET /api/users - Listar todos os usuários
+app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const users = db.getAllUsers();
+    // Remover senhas dos usuários antes de enviar
+    const usersWithoutPasswords = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+    res.json({ success: true, data: usersWithoutPasswords });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar usuários' });
+  }
+});
+
+// POST /api/users - Criar novo usuário
+app.post('/api/users', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const { username, password, role } = req.body;
+    
+    if (!username || !password || !role) {
+      return res.status(400).json({ error: 'Username, password e role são obrigatórios' });
+    }
+
+    // Validar role
+    const validRoles = ['admin', 'user', 'guest'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'Role inválido. Use: admin, user ou guest' });
+    }
+
+    // Verificar se o usuário já existe
+    const existingUser = db.getUserByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Usuário já existe' });
+    }
+
+    // Hash da senha
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // Criar usuário
+    const newUser = db.saveUser({
+      username,
+      password: hashedPassword,
+      role
+    });
+
+    // Remover senha antes de enviar
+    const { password: _, ...userWithoutPassword } = newUser;
+    res.status(201).json({ success: true, data: userWithoutPassword });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao criar usuário: ' + error.message });
+  }
+});
+
+// PUT /api/users/:id - Atualizar usuário
+app.put('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, password, role } = req.body;
+
+    // Validar role se fornecido
+    if (role) {
+      const validRoles = ['admin', 'user', 'guest'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: 'Role inválido. Use: admin, user ou guest' });
+      }
+    }
+
+    // Preparar dados para atualização
+    const updateData = {};
+    if (username) updateData.username = username;
+    if (role) updateData.role = role;
+    if (password) {
+      updateData.password = bcrypt.hashSync(password, 10);
+    }
+
+    // Verificar se está tentando mudar o username para um que já existe
+    if (username) {
+      const existingUser = db.getUserByUsername(username);
+      if (existingUser && existingUser.id !== id) {
+        return res.status(400).json({ error: 'Username já está em uso' });
+      }
+    }
+
+    // Atualizar usuário
+    const updatedUser = db.updateUser(id, updateData);
+
+    // Remover senha antes de enviar
+    const { password: _, ...userWithoutPassword } = updatedUser;
+    res.json({ success: true, data: userWithoutPassword });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/users/:id - Excluir usuário
+app.delete('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Não permitir que o admin exclua a si mesmo
+    if (req.user.id === id) {
+      return res.status(400).json({ error: 'Você não pode excluir seu próprio usuário' });
+    }
+
+    db.deleteUser(id);
+    res.json({ success: true, message: 'Usuário excluído com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Rota de teste
 app.get('/api/test', (req, res) => {
   res.json({ 

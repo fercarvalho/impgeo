@@ -17,7 +17,8 @@ import {
   Map,
   Calculator,
   Download,
-  ClipboardList
+  ClipboardList,
+  Shield
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -32,6 +33,7 @@ import Projection from './components/Projection'
 import Acompanhamentos from './components/Acompanhamentos'
 import AcompanhamentosView from './components/AcompanhamentosView'
 import ChartModal from './components/modals/ChartModal'
+import AdminPanel from './components/AdminPanel'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -73,7 +75,7 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos'
+type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin'
 
 const AppContent: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
@@ -845,6 +847,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <ClipboardList className="h-4 w-4 mb-3" />
               Acompanhamentos
             </button>
+            {user.role === 'admin' && (
+              <button onClick={() => setActiveTab('admin')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+                <Shield className="h-4 w-4 mb-3" />
+                Admin
+              </button>
+            )}
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-white text-sm">
@@ -3217,6 +3225,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         )}
         {activeTab === 'acompanhamentos' && (
           <Acompanhamentos />
+        )}
+        {activeTab === 'admin' && user.role === 'admin' && (
+          <AdminPanel />
         )}
       </main>
 
