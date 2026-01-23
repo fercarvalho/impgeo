@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserPlus, Edit, Trash2, Shield, X, Save } from 'lucide-react';
+import { UserPlus, Edit, Trash2, X, Save } from 'lucide-react';
 
 interface User {
   id: string;
