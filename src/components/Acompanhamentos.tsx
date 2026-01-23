@@ -217,6 +217,37 @@ const Acompanhamentos: React.FC = () => {
     setFilteredAcompanhamentos(filtered)
   }, [searchTerm, acompanhamentos])
 
+  // Bloquear scroll do body quando o modal de mapa estiver aberto
+  useEffect(() => {
+    if (isMapModalOpen) {
+      const scrollY = window.scrollY
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+    } else {
+      const scrollY = document.body.style.top
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1)
+      }
+    }
+    
+    return () => {
+      const scrollY = document.body.style.top
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1)
+      }
+    }
+  }, [isMapModalOpen])
+
   const handleEdit = (acomp: Acompanhamento) => {
     setEditing(acomp)
     setForm(acomp)
@@ -1503,7 +1534,8 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsMapModalOpen(false)
             setSelectedMapUrl('')
@@ -1511,7 +1543,7 @@ const Acompanhamentos: React.FC = () => {
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
