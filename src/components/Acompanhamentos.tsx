@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import ChartModal from './modals/ChartModal'
 
 interface Acompanhamento {
   id: string
@@ -46,6 +47,11 @@ const Acompanhamentos: React.FC = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareLink, setShareLink] = useState<string>('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [chartModalOpen, setChartModalOpen] = useState(false)
+  const [chartData, setChartData] = useState<Array<{name: string; value: number; color: string}>>([])
+  const [chartTitle, setChartTitle] = useState('')
+  const [chartSubtitle, setChartSubtitle] = useState('')
+  const [chartTotal, setChartTotal] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [form, setForm] = useState<Partial<Acompanhamento>>({
     codImovel: 0,
@@ -272,14 +278,22 @@ const Acompanhamentos: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(acompanhamentoData)
         })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(errorText || `Erro HTTP: ${response.status}`)
+        }
+        
         const result = await response.json()
         if (result.success) {
-          const updated = acompanhamentos.map(a => a.id === editing.id ? result.data : a)
+          const updated = acompanhamentos.map(a => a.id === editing.id ? { ...result.data, id: editing.id } : a)
           setAcompanhamentos(updated)
           setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
+          setEditing(null)
+          setFormErrors({})
         } else {
-          alert('Erro ao atualizar acompanhamento: ' + result.error)
+          alert('Erro ao atualizar acompanhamento: ' + (result.error || 'Erro desconhecido'))
         }
       } else {
         // Criar novo
@@ -288,19 +302,28 @@ const Acompanhamentos: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(acompanhamentoData)
         })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(errorText || `Erro HTTP: ${response.status}`)
+        }
+        
         const result = await response.json()
         if (result.success) {
           const updated = [...acompanhamentos, result.data]
           setAcompanhamentos(updated)
           setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
+          setEditing(null)
+          setFormErrors({})
         } else {
-          alert('Erro ao criar acompanhamento: ' + result.error)
+          alert('Erro ao criar acompanhamento: ' + (result.error || 'Erro desconhecido'))
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar acompanhamento:', error)
-      alert('Erro ao salvar acompanhamento')
+      const errorMessage = error?.message || error?.toString() || 'Erro desconhecido ao salvar acompanhamento'
+      alert(`Erro ao salvar acompanhamento: ${errorMessage}`)
     }
   }
 
@@ -344,6 +367,59 @@ const Acompanhamentos: React.FC = () => {
 
   const formatNumber = (num: number) => {
     return num.toFixed(2).replace('.', ',')
+  }
+
+  // Função para normalizar o nome da cultura (remove acentos e converte para maiúsculas)
+  const normalizeCulturaName = (name: string): string => {
+    if (!name) return ''
+    return name
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+  }
+
+  // Função para verificar se uma cultura corresponde ao tipo (com variações)
+  const matchesCulturaType = (cultura: string, tipo: string): boolean => {
+    const culturaNorm = normalizeCulturaName(cultura)
+    const tipoNorm = normalizeCulturaName(tipo)
+    
+    if (culturaNorm === tipoNorm) return true
+    
+    // Variações comuns
+    const variacoes: { [key: string]: string[] } = {
+      'CULTURA TEMPORARIA': ['CULTURA TEMPORARIA', 'CULTURA TEMPORÁRIA', 'TEMPORARIA', 'TEMPORÁRIA'],
+      'SILVICULTURA': ['SILVICULTURA', 'SILVICULTURA', 'REFLORESTAMENTO'],
+      'PASTO': ['PASTO', 'PASTAGEM', 'PASTAGENS'],
+      'BANHADO': ['BANHADO', 'BANHADOS', 'BREJO', 'BREJOS'],
+      'SERVIDAO': ['SERVIDAO', 'SERVIDÃO', 'SERVIDOES', 'SERVIÇÕES'],
+      'AREA ANTROPIZADA': ['AREA ANTROPIZADA', 'ÁREA ANTROPIZADA', 'ANTROPIZADA', 'ANTROPIZADO']
+    }
+    
+    const variacoesTipo = variacoes[tipoNorm] || []
+    return variacoesTipo.some(v => normalizeCulturaName(v) === culturaNorm) || culturaNorm.includes(tipoNorm) || tipoNorm.includes(culturaNorm)
+  }
+
+  // Função para calcular área total por tipo de cultura
+  const getAreaByCulturaType = (tipo: string): number => {
+    let total = 0
+
+    acompanhamentos.forEach(acomp => {
+      // Verificar cultura1
+      if (matchesCulturaType(acomp.cultura1, tipo)) {
+        total += acomp.areaCultura1 || 0
+      }
+      // Verificar cultura2
+      if (matchesCulturaType(acomp.cultura2, tipo)) {
+        total += acomp.areaCultura2 || 0
+      }
+      // Verificar outros
+      if (matchesCulturaType(acomp.outros, tipo)) {
+        total += acomp.areaOutros || 0
+      }
+    })
+
+    return total
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -445,6 +521,122 @@ const Acompanhamentos: React.FC = () => {
     })
   }
 
+  // Cores para os gráficos
+  const chartColors = [
+    '#3b82f6', // azul
+    '#22c55e', // verde
+    '#ef4444', // vermelho
+    '#f59e0b', // laranja
+    '#8b5cf6', // roxo
+    '#ec4899', // rosa
+    '#06b6d4', // ciano
+    '#84cc16', // verde limão
+    '#f97316', // laranja escuro
+    '#6366f1', // índigo
+  ]
+
+  // Função para abrir gráfico
+  const openChart = (title: string, subtitle: string, data: Array<{name: string; value: number; color: string}>) => {
+    if (!data || data.length === 0) {
+      alert('Não há dados disponíveis para exibir o gráfico.')
+      return
+    }
+    const total = data.reduce((sum, item) => sum + item.value, 0)
+    if (total === 0) {
+      alert('Não há dados disponíveis para exibir o gráfico.')
+      return
+    }
+    setChartTitle(title)
+    setChartSubtitle(subtitle)
+    setChartData(data)
+    setChartTotal(total)
+    setChartModalOpen(true)
+  }
+
+  // Funções para gerar dados de cada gráfico
+  const getTotalImoveisData = () => {
+    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+      acc[acomp.municipio] = (acc[acomp.municipio] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    return Object.entries(byMunicipio)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: chartColors[index % chartColors.length]
+      }))
+      .sort((a, b) => b.value - a.value)
+  }
+
+  const getAreaTotalData = () => {
+    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+      acc[acomp.municipio] = (acc[acomp.municipio] || 0) + (acomp.areaTotal || 0)
+      return acc
+    }, {} as Record<string, number>)
+
+    return Object.entries(byMunicipio)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: chartColors[index % chartColors.length]
+      }))
+      .sort((a, b) => b.value - a.value)
+  }
+
+  const getGeoCertificacaoData = () => {
+    const sim = acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length
+    const nao = acompanhamentos.filter(a => a.geoCertificacao === 'NÃO').length
+    return [
+      { name: 'SIM', value: sim, color: '#22c55e' },
+      { name: 'NÃO', value: nao, color: '#ef4444' }
+    ]
+  }
+
+  const getGeoRegistroData = () => {
+    const sim = acompanhamentos.filter(a => a.geoRegistro === 'SIM').length
+    const nao = acompanhamentos.filter(a => a.geoRegistro === 'NÃO').length
+    return [
+      { name: 'SIM', value: sim, color: '#22c55e' },
+      { name: 'NÃO', value: nao, color: '#ef4444' }
+    ]
+  }
+
+  const getCulturaData = (tipo: string) => {
+    const data = acompanhamentos.map(acomp => {
+      let area = 0
+      if (matchesCulturaType(acomp.cultura1, tipo)) area += acomp.areaCultura1 || 0
+      if (matchesCulturaType(acomp.cultura2, tipo)) area += acomp.areaCultura2 || 0
+      if (matchesCulturaType(acomp.outros, tipo)) area += acomp.areaOutros || 0
+      return { imovel: acomp.imovel, area }
+    }).filter(item => item.area > 0)
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 10) // Top 10
+
+    return data.map((item, index) => ({
+      name: item.imovel,
+      value: item.area,
+      color: chartColors[index % chartColors.length]
+    }))
+  }
+
+  const getAPPData = (tipo: 'appCodigoFlorestal' | 'appVegetada' | 'appNaoVegetada' | 'remanescenteFlorestal') => {
+    const data = acompanhamentos
+      .map(acomp => ({
+        imovel: acomp.imovel,
+        area: acomp[tipo] || 0
+      }))
+      .filter(item => item.area > 0)
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 10) // Top 10
+
+    return data.map((item, index) => ({
+      name: item.imovel,
+      value: item.area,
+      color: chartColors[index % chartColors.length]
+    }))
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -481,6 +673,142 @@ const Acompanhamentos: React.FC = () => {
               Novo
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData())}
+        >
+          <p className="text-sm text-gray-600">Total de Imóveis</p>
+          <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', getAreaTotalData())}
+        >
+          <p className="text-sm text-gray-600">Área Total</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData())}
+        >
+          <p className="text-sm text-gray-600">Com Geo Certificação</p>
+          <p className="text-2xl font-bold text-green-600">
+            {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData())}
+        >
+          <p className="text-sm text-gray-600">Com Geo Registro</p>
+          <p className="text-2xl font-bold text-green-600">
+            {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
+          </p>
+        </div>
+      </div>
+
+      {/* Estatísticas de Área por Tipo de Cultura */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
+        >
+          <p className="text-sm text-gray-600">Silvicultura</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Silvicultura'))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Cultura Temporária', 'Distribuição de área por imóvel (ha)', getCulturaData('Cultura Temporária'))}
+        >
+          <p className="text-sm text-gray-600">Cultura Temporária</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Cultura Temporária'))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Pasto', 'Distribuição de área por imóvel (ha)', getCulturaData('Pasto'))}
+        >
+          <p className="text-sm text-gray-600">Pasto</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Pasto'))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Banhado', 'Distribuição de área por imóvel (ha)', getCulturaData('Banhado'))}
+        >
+          <p className="text-sm text-gray-600">Banhado</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Banhado'))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Servidão', 'Distribuição de área por imóvel (ha)', getCulturaData('Servidão'))}
+        >
+          <p className="text-sm text-gray-600">Servidão</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Servidão'))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
+        >
+          <p className="text-sm text-gray-600">Área Antropizada</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
+          </p>
+        </div>
+      </div>
+
+      {/* Estatísticas de APP e Remanescente Florestal */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
+        >
+          <p className="text-sm text-gray-600">APP Código Florestal</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('APP Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appVegetada'))}
+        >
+          <p className="text-sm text-gray-600">APP Vegetada</p>
+          <p className="text-2xl font-bold text-green-600">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('APP Não Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appNaoVegetada'))}
+        >
+          <p className="text-sm text-gray-600">APP Não Vegetada</p>
+          <p className="text-2xl font-bold text-orange-600">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
+          </p>
+        </div>
+        <div 
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
+        >
+          <p className="text-sm text-gray-600">Remanescente Florestal</p>
+          <p className="text-2xl font-bold text-green-700">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
+          </p>
         </div>
       </div>
 
@@ -645,7 +973,12 @@ const Acompanhamentos: React.FC = () => {
                   {editing ? 'Editar Acompanhamento' : 'Novo Acompanhamento'}
                 </h2>
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    setEditing(null)
+                    setFormErrors({})
+                  }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
                   ✕
@@ -1013,12 +1346,18 @@ const Acompanhamentos: React.FC = () => {
               {/* Botões */}
               <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    setEditing(null)
+                    setFormErrors({})
+                  }}
                   className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleSave}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -1185,31 +1524,17 @@ const Acompanhamentos: React.FC = () => {
         </div>
       )}
 
-      {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <p className="text-sm text-gray-600">Total de Imóveis</p>
-          <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <p className="text-sm text-gray-600">Área Total</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <p className="text-sm text-gray-600">Com Geo Certificação</p>
-          <p className="text-2xl font-bold text-green-600">
-            {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <p className="text-sm text-gray-600">Com Geo Registro</p>
-          <p className="text-2xl font-bold text-green-600">
-            {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
-          </p>
-        </div>
-      </div>
+      {/* Modal de Gráfico */}
+      <ChartModal
+        isOpen={chartModalOpen}
+        onClose={() => setChartModalOpen(false)}
+        title={chartTitle}
+        subtitle={chartSubtitle}
+        data={chartData}
+        totalValue={chartTotal}
+        valueFormat="area"
+        valueUnit="ha"
+      />
     </div>
   )
 }

@@ -758,13 +758,16 @@ class Database {
   updateAcompanhamento(id, updatedData) {
     try {
       const acompanhamentos = this.getAllAcompanhamentos();
-      const index = acompanhamentos.findIndex(a => a.id === id);
+      // Converter ambos para string para comparação flexível
+      const idStr = String(id);
+      const index = acompanhamentos.findIndex(a => String(a.id) === idStr);
       if (index === -1) {
         throw new Error('Acompanhamento não encontrado');
       }
       acompanhamentos[index] = {
         ...acompanhamentos[index],
         ...updatedData,
+        id: acompanhamentos[index].id, // Preservar o ID original
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(acompanhamentos, null, 2));

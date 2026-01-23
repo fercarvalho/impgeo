@@ -16,6 +16,8 @@ interface ChartModalProps {
   data: ChartData[];
   totalValue: number;
   subtitle?: string;
+  valueFormat?: 'currency' | 'number' | 'area';
+  valueUnit?: string;
 }
 
 const ChartModal: React.FC<ChartModalProps> = ({
@@ -24,9 +26,21 @@ const ChartModal: React.FC<ChartModalProps> = ({
   title,
   data,
   totalValue,
-  subtitle
+  subtitle,
+  valueFormat = 'currency',
+  valueUnit = ''
 }) => {
   if (!isOpen) return null;
+
+  const formatValue = (value: number) => {
+    if (valueFormat === 'currency') {
+      return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    } else if (valueFormat === 'area') {
+      return `${value.toFixed(2).replace('.', ',')} ${valueUnit || 'ha'}`
+    } else {
+      return value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+    }
+  }
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -36,7 +50,7 @@ const ChartModal: React.FC<ChartModalProps> = ({
         <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-semibold text-gray-800">{data.name}</p>
           <p className="text-sm text-gray-600">
-            R$ {data.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            {formatValue(data.value)}
           </p>
           <p className="text-sm text-gray-500">{percentage}% do total</p>
         </div>
@@ -70,15 +84,16 @@ const ChartModal: React.FC<ChartModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+      style={{ margin: 0, padding: 0 }}
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden m-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
             {subtitle && (
@@ -93,8 +108,8 @@ const ChartModal: React.FC<ChartModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Content - Scrollable */}
+        <div className="p-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Chart */}
             <div className="flex flex-col items-center">
@@ -125,7 +140,7 @@ const ChartModal: React.FC<ChartModalProps> = ({
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">Total</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatValue(totalValue)}
                 </p>
               </div>
             </div>
@@ -147,7 +162,7 @@ const ChartModal: React.FC<ChartModalProps> = ({
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-gray-800">
-                          R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {formatValue(item.value)}
                         </p>
                         <p className="text-sm text-gray-600">{percentage}%</p>
                       </div>
