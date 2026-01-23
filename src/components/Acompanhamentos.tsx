@@ -541,6 +541,18 @@ const Acompanhamentos: React.FC = () => {
     }
 
     try {
+      // Primeiro, recarregar os dados do servidor para garantir que estamos usando a versão mais recente
+      const refreshResponse = await fetch(`${API_BASE_URL}/acompanhamentos`)
+      if (refreshResponse.ok) {
+        const refreshResult = await refreshResponse.json()
+        if (refreshResult.success && refreshResult.data) {
+          // Atualizar os dados locais com a versão mais recente do servidor
+          setAcompanhamentos(refreshResult.data)
+          setFilteredAcompanhamentos(refreshResult.data)
+        }
+      }
+
+      // Agora gerar o link compartilhável
       const response = await fetch(`${API_BASE_URL}/acompanhamentos/generate-share-link`, {
         method: 'POST',
         headers: { 
