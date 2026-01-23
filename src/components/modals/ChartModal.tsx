@@ -27,15 +27,17 @@ const ChartModal: React.FC<ChartModalProps> = ({
   data,
   totalValue,
   subtitle,
-  valueFormat = 'currency',
+  valueFormat,
   valueUnit = ''
 }) => {
   if (!isOpen) return null;
 
   const formatValue = (value: number) => {
-    if (valueFormat === 'currency') {
+    const effectiveValueFormat = valueFormat ?? (valueUnit ? 'area' : 'currency');
+
+    if (effectiveValueFormat === 'currency') {
       return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    } else if (valueFormat === 'area') {
+    } else if (effectiveValueFormat === 'area') {
       return `${value.toFixed(2).replace('.', ',')} ${valueUnit || 'ha'}`
     } else {
       return value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })

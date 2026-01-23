@@ -1532,7 +1532,6 @@ const Acompanhamentos: React.FC = () => {
         subtitle={chartSubtitle}
         data={chartData}
         totalValue={chartTotal}
-        valueFormat="area"
         valueUnit="ha"
       />
     </div>
