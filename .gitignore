@@ -58,4 +58,12 @@ server/database/*.json
 !server/database/clients.json
 !server/database/products.json
 !server/database/transactions.json
+
+# VPS upload scripts and instructions (keep only README.md)
+server/README-UPLOAD-ACOMPANHAMENTOS.md
+server/sync-acompanhamentos-vps.sh
+server/upload-acompanhamentos.js
+INSTRUCOES-UPLOAD-ACOMPANHAMENTOS.md
+acompanhamentos-export.json
+
 node_modules

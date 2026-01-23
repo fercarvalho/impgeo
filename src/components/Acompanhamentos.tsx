@@ -53,6 +53,30 @@ const Acompanhamentos: React.FC = () => {
   const [chartSubtitle, setChartSubtitle] = useState('')
   const [chartTotal, setChartTotal] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  
+  // Função para converter URL do Google Maps para formato embed
+  const convertMapUrlToEmbed = (url: string): string => {
+    if (!url) return ''
+    
+    // Se já for uma URL embed, retorna como está
+    if (url.includes('/embed')) return url
+    
+    // Extrai o mid (map ID) da URL
+    const midMatch = url.match(/[?&]mid=([^&]+)/)
+    if (midMatch) {
+      const mid = midMatch[1]
+      return `https://www.google.com/maps/d/embed?mid=${mid}`
+    }
+    
+    // Se não encontrar mid, tenta converter edit/viewer para embed
+    let embedUrl = url
+      .replace('/edit', '/embed')
+      .replace('/u/0/viewer', '/embed')
+      .replace('/viewer', '/embed')
+    
+    return embedUrl
+  }
+  
   const [form, setForm] = useState<Partial<Acompanhamento>>({
     codImovel: 0,
     imovel: '',
@@ -1478,9 +1502,19 @@ const Acompanhamentos: React.FC = () => {
 
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
-            <div className="flex justify-between items-center p-6 border-b">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setIsMapModalOpen(false)
+            setSelectedMapUrl('')
+            setSelectedImovel('')
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Mapa do Imóvel</h2>
                 <p className="text-gray-600 mt-1">{selectedImovel}</p>
@@ -1491,33 +1525,37 @@ const Acompanhamentos: React.FC = () => {
                   setSelectedMapUrl('')
                   setSelectedImovel('')
                 }}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="text-gray-400 hover:text-gray-600 text-2xl transition-colors"
               >
                 ✕
               </button>
             </div>
-            <div className="p-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center mb-4">
-                <svg className="w-16 h-16 mx-auto text-blue-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-                <p className="text-gray-700 mb-4">
-                  Clique no botão abaixo para abrir o mapa do imóvel no Google Maps
-                </p>
+            <div className="flex-1 p-6 overflow-hidden">
+              <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
+                <iframe
+                  src={convertMapUrlToEmbed(selectedMapUrl)}
+                  width="100%"
+                  height="100%"
+                  style={{ minHeight: '500px' }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="w-full h-full"
+                  title={`Mapa do imóvel: ${selectedImovel}`}
+                />
+              </div>
+              <div className="mt-4 flex justify-end">
                 <a
                   href={selectedMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  Abrir Mapa no Google Maps
+                  Abrir em nova aba
                 </a>
-              </div>
-              <div className="text-sm text-gray-500 text-center">
-                <p>O mapa será aberto em uma nova aba do navegador</p>
               </div>
             </div>
           </div>
