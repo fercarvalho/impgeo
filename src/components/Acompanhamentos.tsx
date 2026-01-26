@@ -654,7 +654,7 @@ const Acompanhamentos: React.FC = () => {
     }
   }
 
-  const regenerateShareLinkToken = async (oldToken: string, name: string | null, expiresAt: string | null, passwordHash: string | null) => {
+  const regenerateShareLinkToken = async (oldToken: string, name: string | null, expiresAt: string | null) => {
     if (!token) return
 
     if (!window.confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.')) {
@@ -1913,7 +1913,7 @@ const Acompanhamentos: React.FC = () => {
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
-                                    onClick={() => regenerateShareLinkToken(link.token, link.name, link.expiresAt, link.passwordHash)}
+                                    onClick={() => regenerateShareLinkToken(link.token, link.name, link.expiresAt)}
                                     className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
                                     title="Regenerar token"
                                   >
