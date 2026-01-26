@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ChartModal from './modals/ChartModal'
 
@@ -225,9 +225,11 @@ const Acompanhamentos: React.FC = () => {
     setFilteredAcompanhamentos(filtered)
   }, [searchTerm, acompanhamentos])
 
-  // Bloquear scroll do body quando o modal de mapa estiver aberto
+  // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
-    if (isMapModalOpen) {
+    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || chartModalOpen
+    
+    if (anyModalOpen) {
       const scrollY = window.scrollY
       document.body.style.overflow = 'hidden'
       document.body.style.position = 'fixed'
@@ -254,7 +256,7 @@ const Acompanhamentos: React.FC = () => {
         window.scrollTo(0, parseInt(scrollY || '0') * -1)
       }
     }
-  }, [isMapModalOpen])
+  }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, chartModalOpen])
 
   const handleEdit = (acomp: Acompanhamento) => {
     setEditing(acomp)
@@ -864,30 +866,30 @@ const Acompanhamentos: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Acompanhamentos</h1>
             <p className="text-gray-600 mt-1">Gestão de propriedades rurais e cadastros ambientais</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button 
               onClick={generateShareLink}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="h-5 w-5" />
               Gerar Link Compartilhável
             </button>
             <button 
               onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Upload className="h-4 w-4" />
+              <Upload className="h-5 w-5" />
               Importar
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <Download className="h-4 w-4" />
+            <button className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+              <Download className="h-5 w-5" />
               Exportar
             </button>
             <button
               onClick={handleNew}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
               Novo
             </button>
           </div>
@@ -1183,8 +1185,19 @@ const Acompanhamentos: React.FC = () => {
 
       {/* Modal de Edição/Criação */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => {
+            setIsModalOpen(false)
+            setEditing(null)
+            setFormErrors({})
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
@@ -1562,7 +1575,7 @@ const Acompanhamentos: React.FC = () => {
               </div>
 
               {/* Botões */}
-              <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -1570,14 +1583,14 @@ const Acompanhamentos: React.FC = () => {
                     setEditing(null)
                     setFormErrors({})
                   }}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
                   {editing ? 'Atualizar' : 'Salvar'}
                 </button>
@@ -1589,8 +1602,15 @@ const Acompanhamentos: React.FC = () => {
 
       {/* Modal de Importação */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => setIsImportModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-md w-full m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Importar Acompanhamentos</h2>
@@ -1614,16 +1634,16 @@ const Acompanhamentos: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <button
                     onClick={downloadModel}
-                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex items-center justify-center gap-3 flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
                   >
                     Baixar Modelo
                   </button>
                   <button
                     onClick={() => setIsImportModalOpen(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="flex items-center justify-center gap-3 flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                   >
                     Cancelar
                   </button>
@@ -1636,8 +1656,26 @@ const Acompanhamentos: React.FC = () => {
 
       {/* Modal de Gerenciamento de Links Compartilháveis */}
       {isShareModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => {
+            setIsShareModalOpen(false)
+            setShareLink('')
+            setShareLinkName('')
+            setNewLinkExpiresAt('')
+            setNewLinkPassword('')
+            setLinkCopied(false)
+            setEditingLinkToken(null)
+            setEditingLinkName('')
+            setEditingLinkExpiresAt('')
+            setEditingLinkPassword('')
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6 border-b flex-shrink-0">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Gerenciar Links Compartilháveis</h2>
@@ -1710,10 +1748,10 @@ const Acompanhamentos: React.FC = () => {
                       <strong>⚠️ Todos os campos são opcionais.</strong> Você pode preencher apenas os que desejar.
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
                     <button
                       onClick={createNewShareLink}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                     >
                       Criar Link
                     </button>
@@ -1741,7 +1779,7 @@ const Acompanhamentos: React.FC = () => {
                     />
                     <button
                       onClick={copyToClipboard}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                     >
                       {linkCopied ? (
                         <>
@@ -1810,12 +1848,12 @@ const Acompanhamentos: React.FC = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex gap-2">
+                                  <div className="flex gap-3">
                                     <button
                                       onClick={() => {
                                         updateShareLinkName(link.token, editingLinkName, editingLinkExpiresAt, editingLinkPassword)
                                       }}
-                                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                      className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                                     >
                                       Salvar
                                     </button>
@@ -1826,7 +1864,7 @@ const Acompanhamentos: React.FC = () => {
                                         setEditingLinkExpiresAt('')
                                         setEditingLinkPassword('')
                                       }}
-                                      className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                      className="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
                                     >
                                       Cancelar
                                     </button>
@@ -1877,7 +1915,7 @@ const Acompanhamentos: React.FC = () => {
                                         setLinkCopied(true)
                                         setTimeout(() => setLinkCopied(false), 2000)
                                       }}
-                                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                      className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
                                       title="Copiar link"
                                     >
                                       <Copy className="h-4 w-4" />
@@ -1907,21 +1945,21 @@ const Acompanhamentos: React.FC = () => {
                                       }
                                       setEditingLinkPassword('') // Não mostrar senha existente por segurança
                                     }}
-                                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200 transition-colors font-semibold"
                                     title="Editar nome, data e senha"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => regenerateShareLinkToken(link.token, link.name, link.expiresAt)}
-                                    className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                                    className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl hover:bg-yellow-200 transition-colors font-semibold"
                                     title="Regenerar token"
                                   >
                                     <RefreshCw className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => deleteShareLink(link.token)}
-                                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition-colors font-semibold"
                                     title="Excluir"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1953,7 +1991,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsMapModalOpen(false)
@@ -2000,11 +2038,9 @@ const Acompanhamentos: React.FC = () => {
                   href={selectedMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
+                  <ExternalLink className="w-5 h-5" />
                   Abrir em nova aba
                 </a>
               </div>

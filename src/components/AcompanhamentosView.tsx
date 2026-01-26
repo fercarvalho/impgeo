@@ -679,7 +679,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsMapModalOpen(false)
@@ -726,9 +726,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   href={selectedMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-5 h-5" />
                   Abrir em nova aba
                 </a>
               </div>
