@@ -36,6 +36,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [shareLinkName, setShareLinkName] = useState<string | null>(null)
+  const [requiresPassword, setRequiresPassword] = useState(false)
+  const [password, setPassword] = useState<string>('')
+  const [passwordError, setPasswordError] = useState<string>('')
   const [selectedMapUrl, setSelectedMapUrl] = useState<string>('')
   const [selectedImovel, setSelectedImovel] = useState<string>('')
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
@@ -48,13 +51,28 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   useEffect(() => {
     const loadAcompanhamentos = async () => {
       try {
+        // Tentar carregar sem senha primeiro
         const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`)
         const result = await response.json()
+        
         if (result.success) {
           setAcompanhamentos(result.data)
           setShareLinkName(result.shareLinkName)
+          setRequiresPassword(false)
         } else {
-          setError(result.error || 'Erro ao carregar dados')
+          // Verificar se requer senha
+          if (result.requiresPassword || response.status === 403) {
+            setRequiresPassword(true)
+            setLoading(false)
+            return
+          }
+          
+          // Verificar se é erro de expiração (status 410)
+          if (response.status === 410) {
+            setError('Este link compartilhável expirou e não está mais disponível.')
+          } else {
+            setError(result.error || 'Erro ao carregar dados')
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar acompanhamentos:', error)
@@ -65,6 +83,37 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
     loadAcompanhamentos()
   }, [token])
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError('')
+    
+    if (!password.trim()) {
+      setPasswordError('Por favor, informe a senha')
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}?password=${encodeURIComponent(password)}`)
+      const result = await response.json()
+      
+      if (result.success) {
+        setAcompanhamentos(result.data)
+        setShareLinkName(result.shareLinkName)
+        setRequiresPassword(false)
+        setPassword('')
+      } else {
+        if (response.status === 401) {
+          setPasswordError('Senha incorreta. Tente novamente.')
+        } else {
+          setPasswordError(result.error || 'Erro ao validar senha')
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao validar senha:', error)
+      setPasswordError('Erro ao validar senha. Tente novamente.')
+    }
+  }
 
   const formatNumber = (num: number) => {
     return num.toFixed(2).replace('.', ',')
@@ -304,13 +353,67 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     )
   }
 
+  if (requiresPassword) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Acesso Protegido</h1>
+            <p className="text-gray-600">Este link compartilhável está protegido por senha</p>
+          </div>
+          
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Senha
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setPasswordError('')
+                }}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                  passwordError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder="Digite a senha"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="mt-2 text-sm text-red-600">{passwordError}</p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+            >
+              Acessar
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-lg shadow-md max-w-md">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
           <p className="text-gray-700">{error}</p>
-          <p className="text-sm text-gray-500 mt-4">O link pode estar inválido ou expirado.</p>
+          <p className="text-sm text-gray-500 mt-4">
+            {error.includes('expirou') 
+              ? 'Entre em contato com o administrador para obter um novo link.' 
+              : 'O link pode estar inválido ou expirado.'}
+          </p>
         </div>
       </div>
     )

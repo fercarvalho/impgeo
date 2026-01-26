@@ -836,13 +836,32 @@ app.get('/api/acompanhamentos/share-links', authenticateToken, (req, res) => {
 // Rota para gerar link compartilhável de acompanhamentos
 app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, expiresAt, password } = req.body;
+    const bcrypt = require('bcryptjs');
     
     // Gerar token único para compartilhamento
     const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
     
-    // Salvar token com nome no banco
-    db.saveShareLink(token, name);
+    // Converter data de expiração para ISO string se fornecida
+    let expiresAtISO = null;
+    if (expiresAt && expiresAt.trim()) {
+      // Se já estiver em formato ISO, usar diretamente, senão converter de datetime-local
+      if (expiresAt.includes('T') && expiresAt.length === 16) {
+        // Formato datetime-local (YYYY-MM-DDTHH:mm), converter para ISO
+        expiresAtISO = new Date(expiresAt).toISOString();
+      } else {
+        expiresAtISO = new Date(expiresAt).toISOString();
+      }
+    }
+    
+    // Hash da senha se fornecida
+    let passwordHash = null;
+    if (password && password.trim()) {
+      passwordHash = bcrypt.hashSync(password, 10);
+    }
+    
+    // Salvar token com nome, data de expiração e senha no banco
+    db.saveShareLink(token, name, expiresAtISO, passwordHash);
     
     res.json({ 
       success: true, 
@@ -858,7 +877,8 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, re
 app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res) => {
   try {
     const { token } = req.params;
-    const { name, regenerateToken } = req.body;
+    const { name, expiresAt, password, regenerateToken } = req.body;
+    const bcrypt = require('bcryptjs');
     
     if (regenerateToken) {
       // Gerar novo token
@@ -868,8 +888,37 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
         return res.status(404).json({ success: false, error: 'Link não encontrado' });
       }
       
+      // Converter data de expiração se fornecida
+      let expiresAtISO = linkData.expiresAt;
+      if (expiresAt !== undefined) {
+        if (expiresAt && expiresAt.trim()) {
+          if (expiresAt.includes('T') && expiresAt.length === 16) {
+            expiresAtISO = new Date(expiresAt).toISOString();
+          } else {
+            expiresAtISO = new Date(expiresAt).toISOString();
+          }
+        } else {
+          expiresAtISO = null;
+        }
+      }
+      
+      // Hash da senha se fornecida
+      let passwordHash = linkData.passwordHash;
+      if (password !== undefined) {
+        if (password && password.trim()) {
+          passwordHash = bcrypt.hashSync(password, 10);
+        } else {
+          passwordHash = null;
+        }
+      }
+      
       // Criar novo link com o novo token
-      db.saveShareLink(newToken, name !== undefined ? name : linkData.name);
+      db.saveShareLink(
+        newToken, 
+        name !== undefined ? name : linkData.name,
+        expiresAtISO,
+        passwordHash
+      );
       // Excluir o link antigo
       db.deleteShareLink(token);
       
@@ -879,8 +928,34 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
         message: 'Token regenerado com sucesso'
       });
     } else {
-      // Apenas atualizar o nome
-      const updated = db.updateShareLink(token, { name: name || null });
+      // Atualizar nome, data de expiração e/ou senha
+      const bcrypt = require('bcryptjs');
+      const updates = {};
+      if (name !== undefined) updates.name = name || null;
+      if (expiresAt !== undefined) {
+        // Converter data de expiração para ISO string se fornecida
+        if (expiresAt && expiresAt.trim()) {
+          // Se já estiver em formato ISO, usar diretamente, senão converter de datetime-local
+          if (expiresAt.includes('T') && expiresAt.length === 16) {
+            // Formato datetime-local (YYYY-MM-DDTHH:mm), converter para ISO
+            updates.expiresAt = new Date(expiresAt).toISOString();
+          } else {
+            updates.expiresAt = new Date(expiresAt).toISOString();
+          }
+        } else {
+          updates.expiresAt = null;
+        }
+      }
+      if (password !== undefined) {
+        // Se senha for fornecida, fazer hash. Se string vazia ou null, remover senha
+        if (password && password.trim()) {
+          updates.passwordHash = bcrypt.hashSync(password, 10);
+        } else {
+          updates.passwordHash = null;
+        }
+      }
+      
+      const updated = db.updateShareLink(token, updates);
       res.json({ 
         success: true, 
         data: updated,
@@ -906,10 +981,79 @@ app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, (req, r
   }
 });
 
+// Rota para validar senha do link compartilhável
+app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    const bcrypt = require('bcryptjs');
+    
+    // Buscar informações do link compartilhável
+    const shareLink = db.getShareLink(token);
+    
+    if (!shareLink) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Link compartilhável não encontrado' 
+      });
+    }
+    
+    // Verificar se o link expirou
+    if (shareLink.expiresAt) {
+      const expiresAt = new Date(shareLink.expiresAt);
+      const now = new Date();
+      
+      if (now > expiresAt) {
+        return res.status(410).json({ 
+          success: false, 
+          error: 'Este link compartilhável expirou e não está mais disponível' 
+        });
+      }
+    }
+    
+    // Verificar se tem senha
+    if (!shareLink.passwordHash) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Este link não possui senha' 
+      });
+    }
+    
+    // Validar senha
+    if (!password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Senha é obrigatória' 
+      });
+    }
+    
+    const isValid = bcrypt.compareSync(password, shareLink.passwordHash);
+    
+    if (!isValid) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Senha incorreta' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Senha válida' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Erro ao validar senha' 
+    });
+  }
+});
+
 // Rota pública para visualizar acompanhamentos (sem autenticação)
 app.get('/api/acompanhamentos/public/:token', (req, res) => {
   try {
     const { token } = req.params;
+    const { password } = req.query;
+    const bcrypt = require('bcryptjs');
     
     // Validar formato do token
     if (!token || !token.startsWith('view_')) {
@@ -922,13 +1066,54 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
     // Buscar informações do link compartilhável
     const shareLink = db.getShareLink(token);
     
+    if (!shareLink) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Link compartilhável não encontrado' 
+      });
+    }
+    
+    // Verificar se o link expirou
+    if (shareLink.expiresAt) {
+      const expiresAt = new Date(shareLink.expiresAt);
+      const now = new Date();
+      
+      if (now > expiresAt) {
+        return res.status(410).json({ 
+          success: false, 
+          error: 'Este link compartilhável expirou e não está mais disponível' 
+        });
+      }
+    }
+    
+    // Verificar se tem senha e se foi fornecida
+    if (shareLink.passwordHash) {
+      if (!password) {
+        return res.status(403).json({ 
+          success: false, 
+          requiresPassword: true,
+          error: 'Este link requer senha para acesso' 
+        });
+      }
+      
+      // Validar senha
+      const isValid = bcrypt.compareSync(password, shareLink.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ 
+          success: false, 
+          requiresPassword: true,
+          error: 'Senha incorreta' 
+        });
+      }
+    }
+    
     // Buscar todos os acompanhamentos (público)
     const acompanhamentos = db.getAllAcompanhamentos();
     
     res.json({ 
       success: true, 
       data: acompanhamentos,
-      shareLinkName: shareLink ? shareLink.name : null
+      shareLinkName: shareLink.name
     });
   } catch (error) {
     res.status(500).json({ 

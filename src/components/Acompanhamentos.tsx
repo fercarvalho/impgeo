@@ -48,9 +48,13 @@ const Acompanhamentos: React.FC = () => {
   const [shareLink, setShareLink] = useState<string>('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [shareLinkName, setShareLinkName] = useState<string>('')
-  const [shareLinks, setShareLinks] = useState<Array<{token: string; name: string | null; createdAt: string}>>([])
+  const [shareLinks, setShareLinks] = useState<Array<{token: string; name: string | null; expiresAt: string | null; passwordHash: string | null; createdAt: string}>>([])
   const [editingLinkToken, setEditingLinkToken] = useState<string | null>(null)
   const [editingLinkName, setEditingLinkName] = useState<string>('')
+  const [editingLinkExpiresAt, setEditingLinkExpiresAt] = useState<string>('')
+  const [editingLinkPassword, setEditingLinkPassword] = useState<string>('')
+  const [newLinkExpiresAt, setNewLinkExpiresAt] = useState<string>('')
+  const [newLinkPassword, setNewLinkPassword] = useState<string>('')
   const [chartModalOpen, setChartModalOpen] = useState(false)
   const [chartData, setChartData] = useState<Array<{name: string; value: number; color: string}>>([])
   const [chartTitle, setChartTitle] = useState('')
@@ -588,13 +592,17 @@ const Acompanhamentos: React.FC = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: shareLinkName.trim() || undefined
+          name: shareLinkName.trim() || undefined,
+          expiresAt: newLinkExpiresAt || undefined,
+          password: newLinkPassword.trim() || undefined
         })
       })
       
       const result = await response.json()
       if (result.success) {
         setShareLinkName('')
+        setNewLinkExpiresAt('')
+        setNewLinkPassword('')
         await loadShareLinks()
         const fullLink = `${window.location.origin}${window.location.pathname}?token=${result.token}`
         setShareLink(fullLink)
@@ -608,19 +616,26 @@ const Acompanhamentos: React.FC = () => {
     }
   }
 
-  const updateShareLinkName = async (linkToken: string, newName: string) => {
+  const updateShareLinkName = async (linkToken: string, newName: string, newExpiresAt: string, newPassword: string) => {
     if (!token) return
 
     try {
+      const body: any = {
+        name: newName.trim() || null,
+        expiresAt: newExpiresAt || null
+      }
+      
+      // Sempre enviar password quando estiver editando
+      // Se vazio, remove a senha; se tiver conteúdo, atualiza
+      body.password = newPassword || null
+      
       const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${linkToken}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: newName.trim() || null
-        })
+        body: JSON.stringify(body)
       })
       
       const result = await response.json()
@@ -628,6 +643,8 @@ const Acompanhamentos: React.FC = () => {
         await loadShareLinks()
         setEditingLinkToken(null)
         setEditingLinkName('')
+        setEditingLinkExpiresAt('')
+        setEditingLinkPassword('')
       } else {
         alert('Erro ao atualizar link: ' + (result.error || result.message || 'Erro desconhecido'))
       }
@@ -637,7 +654,7 @@ const Acompanhamentos: React.FC = () => {
     }
   }
 
-  const regenerateShareLinkToken = async (oldToken: string, name: string | null) => {
+  const regenerateShareLinkToken = async (oldToken: string, name: string | null, expiresAt: string | null, passwordHash: string | null) => {
     if (!token) return
 
     if (!window.confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.')) {
@@ -653,7 +670,9 @@ const Acompanhamentos: React.FC = () => {
         },
         body: JSON.stringify({
           regenerateToken: true,
-          name: name || undefined
+          name: name || undefined,
+          expiresAt: expiresAt || undefined,
+          // Não enviar senha na regeneração, manter a existente
         })
       })
       
@@ -1627,9 +1646,13 @@ const Acompanhamentos: React.FC = () => {
                     setIsShareModalOpen(false)
                     setShareLink('')
                     setShareLinkName('')
+                    setNewLinkExpiresAt('')
+                    setNewLinkPassword('')
                     setLinkCopied(false)
                     setEditingLinkToken(null)
                     setEditingLinkName('')
+                    setEditingLinkExpiresAt('')
+                    setEditingLinkPassword('')
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
@@ -1642,24 +1665,65 @@ const Acompanhamentos: React.FC = () => {
               {/* Formulário para criar novo link */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Criar Novo Link</h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={shareLinkName}
-                    onChange={(e) => setShareLinkName(e.target.value)}
-                    placeholder="Nome personalizado (opcional)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <button
-                    onClick={createNewShareLink}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Criar Link
-                  </button>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome
+                      </label>
+                      <input
+                        type="text"
+                        value={shareLinkName}
+                        onChange={(e) => setShareLinkName(e.target.value)}
+                        placeholder="Nome personalizado"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Data de Validade
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={newLinkExpiresAt}
+                        onChange={(e) => setNewLinkExpiresAt(e.target.value)}
+                        placeholder="Data de expiração"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Senha
+                      </label>
+                      <input
+                        type="password"
+                        value={newLinkPassword}
+                        onChange={(e) => setNewLinkPassword(e.target.value)}
+                        placeholder="Senha de acesso"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-800">
+                      <strong>⚠️ Todos os campos são opcionais.</strong> Você pode preencher apenas os que desejar.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={createNewShareLink}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Criar Link
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    <strong>Nome:</strong> Aparecerá na página compartilhada como "Bem-vindo(a) [nome]". Se deixar em branco, aparecerá "Bem-vindo Visitante".<br/>
+                    <strong>Data de expiração:</strong> Após esta data, o link deixará de funcionar.<br/>
+                    <strong>Senha:</strong> Se definida, será necessária para acessar o link compartilhado.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Este nome aparecerá na página compartilhada como "Bem-vindo(a) [nome]". Se deixar em branco, aparecerá "Bem-vindo Visitante".
-                </p>
               </div>
 
               {/* Link recém-criado ou copiado */}
@@ -1702,105 +1766,173 @@ const Acompanhamentos: React.FC = () => {
                   <p className="text-gray-500 text-center py-8">Nenhum link compartilhável criado ainda.</p>
                 ) : (
                   <div className="space-y-3">
-                    {shareLinks.map((link) => (
-                      <div key={link.token} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            {editingLinkToken === link.token ? (
-                              <div className="flex gap-2 items-center">
-                                <input
-                                  type="text"
-                                  value={editingLinkName}
-                                  onChange={(e) => setEditingLinkName(e.target.value)}
-                                  placeholder="Nome do link"
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => {
-                                    updateShareLinkName(link.token, editingLinkName)
-                                  }}
-                                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                                >
-                                  Salvar
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingLinkToken(null)
-                                    setEditingLinkName('')
-                                  }}
-                                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="font-semibold text-gray-900">
-                                    {link.name || 'Sem nome'}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    Criado em {formatDate(link.createdAt)}
-                                  </span>
+                    {shareLinks.map((link) => {
+                      const isExpired = link.expiresAt ? new Date(link.expiresAt) < new Date() : false
+                      const expiresAtDate = link.expiresAt ? new Date(link.expiresAt) : null
+                      
+                      return (
+                        <div key={link.token} className={`bg-white border rounded-lg p-4 ${isExpired ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              {editingLinkToken === link.token ? (
+                                <div className="space-y-3">
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="text"
+                                      value={editingLinkName}
+                                      onChange={(e) => setEditingLinkName(e.target.value)}
+                                      placeholder="Nome do link"
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="datetime-local"
+                                      value={editingLinkExpiresAt}
+                                      onChange={(e) => setEditingLinkExpiresAt(e.target.value)}
+                                      placeholder="Data de expiração (opcional)"
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                      min={new Date().toISOString().slice(0, 16)}
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="password"
+                                      value={editingLinkPassword}
+                                      onChange={(e) => setEditingLinkPassword(e.target.value)}
+                                      placeholder={link.passwordHash ? "Deixe em branco para remover senha ou digite nova senha" : "Digite uma senha (opcional)"}
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    {link.passwordHash && (
+                                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                                        (Senha atual será substituída)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        updateShareLinkName(link.token, editingLinkName, editingLinkExpiresAt, editingLinkPassword)
+                                      }}
+                                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                    >
+                                      Salvar
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingLinkToken(null)
+                                        setEditingLinkName('')
+                                        setEditingLinkExpiresAt('')
+                                        setEditingLinkPassword('')
+                                      }}
+                                      className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="flex gap-2 items-center">
-                                  <input
-                                    type="text"
-                                    value={`${window.location.origin}${window.location.pathname}?token=${link.token}`}
-                                    readOnly
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                                  />
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-semibold text-gray-900">
+                                      {link.name || 'Sem nome'}
+                                    </span>
+                                    {isExpired && (
+                                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+                                        Expirado
+                                      </span>
+                                    )}
+                                    {!isExpired && expiresAtDate && (
+                                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
+                                        Expira em {formatDate(link.expiresAt!)}
+                                      </span>
+                                    )}
+                                    {!expiresAtDate && (
+                                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                        Sem expiração
+                                      </span>
+                                    )}
+                                    {link.passwordHash && (
+                                      <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
+                                        🔒 Protegido por senha
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mb-2">
+                                    Criado em {formatDate(link.createdAt)}
+                                  </div>
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="text"
+                                      value={`${window.location.origin}${window.location.pathname}?token=${link.token}`}
+                                      readOnly
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        const fullLink = `${window.location.origin}${window.location.pathname}?token=${link.token}`
+                                        navigator.clipboard.writeText(fullLink)
+                                        setShareLink(fullLink)
+                                        setLinkCopied(true)
+                                        setTimeout(() => setLinkCopied(false), 2000)
+                                      }}
+                                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                      title="Copiar link"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              {editingLinkToken !== link.token && (
+                                <>
                                   <button
                                     onClick={() => {
-                                      const fullLink = `${window.location.origin}${window.location.pathname}?token=${link.token}`
-                                      navigator.clipboard.writeText(fullLink)
-                                      setShareLink(fullLink)
-                                      setLinkCopied(true)
-                                      setTimeout(() => setLinkCopied(false), 2000)
+                                      setEditingLinkToken(link.token)
+                                      setEditingLinkName(link.name || '')
+                                      // Converter data ISO para formato datetime-local (YYYY-MM-DDTHH:mm)
+                                      if (link.expiresAt) {
+                                        const date = new Date(link.expiresAt)
+                                        const year = date.getFullYear()
+                                        const month = String(date.getMonth() + 1).padStart(2, '0')
+                                        const day = String(date.getDate()).padStart(2, '0')
+                                        const hours = String(date.getHours()).padStart(2, '0')
+                                        const minutes = String(date.getMinutes()).padStart(2, '0')
+                                        setEditingLinkExpiresAt(`${year}-${month}-${day}T${hours}:${minutes}`)
+                                      } else {
+                                        setEditingLinkExpiresAt('')
+                                      }
+                                      setEditingLinkPassword('') // Não mostrar senha existente por segurança
                                     }}
-                                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                                    title="Copiar link"
+                                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                                    title="Editar nome, data e senha"
                                   >
-                                    <Copy className="h-4 w-4" />
+                                    <Edit className="h-4 w-4" />
                                   </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {editingLinkToken !== link.token && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setEditingLinkToken(link.token)
-                                    setEditingLinkName(link.name || '')
-                                  }}
-                                  className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-                                  title="Editar nome"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => regenerateShareLinkToken(link.token, link.name)}
-                                  className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
-                                  title="Regenerar token"
-                                >
-                                  <RefreshCw className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteShareLink(link.token)}
-                                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </>
-                            )}
+                                  <button
+                                    onClick={() => regenerateShareLinkToken(link.token, link.name, link.expiresAt, link.passwordHash)}
+                                    className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                                    title="Regenerar token"
+                                  >
+                                    <RefreshCw className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteShareLink(link.token)}
+                                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>

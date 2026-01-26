@@ -806,7 +806,7 @@ class Database {
   }
 
   // Métodos para Links Compartilháveis
-  saveShareLink(token, name) {
+  saveShareLink(token, name, expiresAt, passwordHash) {
     try {
       let shareLinks = [];
       if (fs.existsSync(this.shareLinksFile)) {
@@ -819,6 +819,8 @@ class Database {
       const linkData = {
         token,
         name: name || null,
+        expiresAt: expiresAt || null,
+        passwordHash: passwordHash || null,
         createdAt: new Date().toISOString()
       };
       
@@ -880,6 +882,11 @@ class Database {
         ...updates,
         updatedAt: new Date().toISOString()
       };
+      
+      // Se expiresAt for uma string vazia, definir como null
+      if (updates.expiresAt === '') {
+        shareLinks[index].expiresAt = null;
+      }
       
       fs.writeFileSync(this.shareLinksFile, JSON.stringify(shareLinks, null, 2));
       return shareLinks[index];
