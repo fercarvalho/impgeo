@@ -2857,21 +2857,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
     return (
       <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Dashboard IMPGEO
           </h1>
-        {permissions.canCreate && (
-          <button 
+          {permissions.canCreate && (
+            <button 
               onClick={() => setShowTransactionModal(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 whitespace-nowrap"
+            >
               <Plus className="h-5 w-5" />
-            Nova Transação
-          </button>
-        )}
-      </div>
+              Nova Transação
+            </button>
+          )}
+        </div>
 
         {/* Seção Mês Atual */}
           <div className="space-y-4">
@@ -3196,10 +3196,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <>
             {renderDashboard()}
             {showTransactionModal && (
-              <TransactionsPage 
-                showModal={true}
-                onCloseModal={() => setShowTransactionModal(false)}
-              />
+              <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+                <TransactionsPage 
+                  showModal={true}
+                  onCloseModal={() => setShowTransactionModal(false)}
+                />
+              </Suspense>
             )}
           </>
         )}
