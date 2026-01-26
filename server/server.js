@@ -820,20 +820,86 @@ app.delete('/api/acompanhamentos', (req, res) => {
   }
 });
 
+// Rota para listar todos os links compartilháveis
+app.get('/api/acompanhamentos/share-links', authenticateToken, (req, res) => {
+  try {
+    const shareLinks = db.getAllShareLinks();
+    res.json({ 
+      success: true, 
+      data: shareLinks 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Rota para gerar link compartilhável de acompanhamentos
 app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, res) => {
   try {
+    const { name } = req.body;
+    
     // Gerar token único para compartilhamento
     const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
     
-    // Salvar token no banco (opcional - pode ser apenas um token fixo)
-    // Por simplicidade, vamos usar um token fixo que sempre funciona
-    // Em produção, você pode salvar tokens com expiração
+    // Salvar token com nome no banco
+    db.saveShareLink(token, name);
     
     res.json({ 
       success: true, 
       token: token,
       message: 'Link compartilhável gerado com sucesso'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rota para atualizar um link compartilhável
+app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res) => {
+  try {
+    const { token } = req.params;
+    const { name, regenerateToken } = req.body;
+    
+    if (regenerateToken) {
+      // Gerar novo token
+      const newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
+      const linkData = db.getShareLink(token);
+      if (!linkData) {
+        return res.status(404).json({ success: false, error: 'Link não encontrado' });
+      }
+      
+      // Criar novo link com o novo token
+      db.saveShareLink(newToken, name !== undefined ? name : linkData.name);
+      // Excluir o link antigo
+      db.deleteShareLink(token);
+      
+      res.json({ 
+        success: true, 
+        token: newToken,
+        message: 'Token regenerado com sucesso'
+      });
+    } else {
+      // Apenas atualizar o nome
+      const updated = db.updateShareLink(token, { name: name || null });
+      res.json({ 
+        success: true, 
+        data: updated,
+        message: 'Link atualizado com sucesso'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rota para excluir um link compartilhável
+app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res) => {
+  try {
+    const { token } = req.params;
+    db.deleteShareLink(token);
+    res.json({ 
+      success: true, 
+      message: 'Link excluído com sucesso' 
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -853,12 +919,16 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
       });
     }
     
+    // Buscar informações do link compartilhável
+    const shareLink = db.getShareLink(token);
+    
     // Buscar todos os acompanhamentos (público)
     const acompanhamentos = db.getAllAcompanhamentos();
     
     res.json({ 
       success: true, 
-      data: acompanhamentos 
+      data: acompanhamentos,
+      shareLinkName: shareLink ? shareLink.name : null
     });
   } catch (error) {
     res.status(500).json({ 

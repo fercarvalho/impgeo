@@ -25,6 +25,7 @@ class Database {
     this.faturamentoTotalFile = path.join(this.dbPath, 'faturamentoTotal.json');
     this.resultadoFile = path.join(this.dbPath, 'resultado.json');
     this.acompanhamentosFile = path.join(this.dbPath, 'acompanhamentos.json');
+    this.shareLinksFile = path.join(this.dbPath, 'shareLinks.json');
     
     // Mapeamento de arquivos de projeção para seus backups
     this.projectionFiles = {
@@ -123,6 +124,10 @@ class Database {
     
     if (!fs.existsSync(this.acompanhamentosFile)) {
       fs.writeFileSync(this.acompanhamentosFile, '[]');
+    }
+    
+    if (!fs.existsSync(this.shareLinksFile)) {
+      fs.writeFileSync(this.shareLinksFile, '[]');
     }
     
     if (!fs.existsSync(this.usersFile)) {
@@ -797,6 +802,109 @@ class Database {
       fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(filteredAcompanhamentos, null, 2));
     } catch (error) {
       throw new Error('Erro ao excluir acompanhamentos: ' + error.message);
+    }
+  }
+
+  // Métodos para Links Compartilháveis
+  saveShareLink(token, name) {
+    try {
+      let shareLinks = [];
+      if (fs.existsSync(this.shareLinksFile)) {
+        const data = fs.readFileSync(this.shareLinksFile, 'utf8');
+        shareLinks = JSON.parse(data);
+      }
+      
+      // Verificar se o token já existe
+      const existingIndex = shareLinks.findIndex(link => link.token === token);
+      const linkData = {
+        token,
+        name: name || null,
+        createdAt: new Date().toISOString()
+      };
+      
+      if (existingIndex >= 0) {
+        shareLinks[existingIndex] = linkData;
+      } else {
+        shareLinks.push(linkData);
+      }
+      
+      fs.writeFileSync(this.shareLinksFile, JSON.stringify(shareLinks, null, 2));
+      return linkData;
+    } catch (error) {
+      throw new Error('Erro ao salvar link compartilhável: ' + error.message);
+    }
+  }
+
+  getShareLink(token) {
+    try {
+      if (!fs.existsSync(this.shareLinksFile)) {
+        return null;
+      }
+      const data = fs.readFileSync(this.shareLinksFile, 'utf8');
+      const shareLinks = JSON.parse(data);
+      return shareLinks.find(link => link.token === token) || null;
+    } catch (error) {
+      console.error('Erro ao buscar link compartilhável:', error);
+      return null;
+    }
+  }
+
+  getAllShareLinks() {
+    try {
+      if (!fs.existsSync(this.shareLinksFile)) {
+        return [];
+      }
+      const data = fs.readFileSync(this.shareLinksFile, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Erro ao buscar links compartilháveis:', error);
+      return [];
+    }
+  }
+
+  updateShareLink(token, updates) {
+    try {
+      let shareLinks = [];
+      if (fs.existsSync(this.shareLinksFile)) {
+        const data = fs.readFileSync(this.shareLinksFile, 'utf8');
+        shareLinks = JSON.parse(data);
+      }
+      
+      const index = shareLinks.findIndex(link => link.token === token);
+      if (index === -1) {
+        throw new Error('Link compartilhável não encontrado');
+      }
+      
+      shareLinks[index] = {
+        ...shareLinks[index],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(this.shareLinksFile, JSON.stringify(shareLinks, null, 2));
+      return shareLinks[index];
+    } catch (error) {
+      throw new Error('Erro ao atualizar link compartilhável: ' + error.message);
+    }
+  }
+
+  deleteShareLink(token) {
+    try {
+      if (!fs.existsSync(this.shareLinksFile)) {
+        throw new Error('Link compartilhável não encontrado');
+      }
+      const data = fs.readFileSync(this.shareLinksFile, 'utf8');
+      const shareLinks = JSON.parse(data);
+      const filtered = shareLinks.filter(link => link.token !== token);
+      
+      if (filtered.length === shareLinks.length) {
+        throw new Error('Link compartilhável não encontrado');
+      }
+      
+      fs.writeFileSync(this.shareLinksFile, JSON.stringify(filtered, null, 2));
+      return true;
+    } catch (error) {
+      throw new Error('Erro ao excluir link compartilhável: ' + error.message);
     }
   }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ChartModal from './modals/ChartModal'
 
@@ -47,6 +47,10 @@ const Acompanhamentos: React.FC = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareLink, setShareLink] = useState<string>('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [shareLinkName, setShareLinkName] = useState<string>('')
+  const [shareLinks, setShareLinks] = useState<Array<{token: string; name: string | null; createdAt: string}>>([])
+  const [editingLinkToken, setEditingLinkToken] = useState<string | null>(null)
+  const [editingLinkName, setEditingLinkName] = useState<string>('')
   const [chartModalOpen, setChartModalOpen] = useState(false)
   const [chartData, setChartData] = useState<Array<{name: string; value: number; color: string}>>([])
   const [chartTitle, setChartTitle] = useState('')
@@ -540,38 +544,61 @@ const Acompanhamentos: React.FC = () => {
       return
     }
 
+    // Abrir modal de gerenciamento
+    await loadShareLinks()
+    setIsShareModalOpen(true)
+  }
+
+  const loadShareLinks = async () => {
+    if (!token) return
+    
     try {
-      // Primeiro, recarregar os dados do servidor para garantir que estamos usando a versão mais recente
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const result = await response.json()
+      if (result.success) {
+        setShareLinks(result.data || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar links compartilháveis:', error)
+    }
+  }
+
+  const createNewShareLink = async () => {
+    if (!token) return
+
+    try {
+      // Primeiro, recarregar os dados do servidor
       const refreshResponse = await fetch(`${API_BASE_URL}/acompanhamentos`)
       if (refreshResponse.ok) {
         const refreshResult = await refreshResponse.json()
         if (refreshResult.success && refreshResult.data) {
-          // Atualizar os dados locais com a versão mais recente do servidor
           setAcompanhamentos(refreshResult.data)
           setFilteredAcompanhamentos(refreshResult.data)
         }
       }
 
-      // Agora gerar o link compartilhável
       const response = await fetch(`${API_BASE_URL}/acompanhamentos/generate-share-link`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({
+          name: shareLinkName.trim() || undefined
+        })
       })
       
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text()
-        throw new Error(text || 'Erro desconhecido')
-      }
-
       const result = await response.json()
       if (result.success) {
+        setShareLinkName('')
+        await loadShareLinks()
         const fullLink = `${window.location.origin}${window.location.pathname}?token=${result.token}`
         setShareLink(fullLink)
-        setIsShareModalOpen(true)
+        setLinkCopied(false)
       } else {
         alert('Erro ao gerar link: ' + (result.error || result.message || 'Erro desconhecido'))
       }
@@ -579,6 +606,111 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro ao gerar link:', error)
       alert('Erro ao gerar link compartilhável: ' + (error.message || 'Verifique sua conexão e tente novamente'))
     }
+  }
+
+  const updateShareLinkName = async (linkToken: string, newName: string) => {
+    if (!token) return
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${linkToken}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newName.trim() || null
+        })
+      })
+      
+      const result = await response.json()
+      if (result.success) {
+        await loadShareLinks()
+        setEditingLinkToken(null)
+        setEditingLinkName('')
+      } else {
+        alert('Erro ao atualizar link: ' + (result.error || result.message || 'Erro desconhecido'))
+      }
+    } catch (error: any) {
+      console.error('Erro ao atualizar link:', error)
+      alert('Erro ao atualizar link: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+    }
+  }
+
+  const regenerateShareLinkToken = async (oldToken: string, name: string | null) => {
+    if (!token) return
+
+    if (!window.confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${oldToken}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          regenerateToken: true,
+          name: name || undefined
+        })
+      })
+      
+      const result = await response.json()
+      if (result.success) {
+        await loadShareLinks()
+        const fullLink = `${window.location.origin}${window.location.pathname}?token=${result.token}`
+        setShareLink(fullLink)
+        setLinkCopied(false)
+      } else {
+        alert('Erro ao regenerar token: ' + (result.error || result.message || 'Erro desconhecido'))
+      }
+    } catch (error: any) {
+      console.error('Erro ao regenerar token:', error)
+      alert('Erro ao regenerar token: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+    }
+  }
+
+  const deleteShareLink = async (tokenToDelete: string) => {
+    if (!token) return
+
+    if (!window.confirm('Tem certeza que deseja excluir este link compartilhável?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${tokenToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      const result = await response.json()
+      if (result.success) {
+        await loadShareLinks()
+        if (shareLink.includes(tokenToDelete)) {
+          setShareLink('')
+        }
+      } else {
+        alert('Erro ao excluir link: ' + (result.error || result.message || 'Erro desconhecido'))
+      }
+    } catch (error: any) {
+      console.error('Erro ao excluir link:', error)
+      alert('Erro ao excluir link: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   const copyToClipboard = () => {
@@ -1483,35 +1615,65 @@ const Acompanhamentos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Link Compartilhável */}
+      {/* Modal de Gerenciamento de Links Compartilháveis */}
       {isShareModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">Link Compartilhável</h2>
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b flex-shrink-0">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Gerenciar Links Compartilháveis</h2>
                 <button
                   onClick={() => {
                     setIsShareModalOpen(false)
                     setShareLink('')
+                    setShareLinkName('')
                     setLinkCopied(false)
+                    setEditingLinkToken(null)
+                    setEditingLinkName('')
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
                   ✕
                 </button>
               </div>
-              <div className="space-y-4">
-                <div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Formulário para criar novo link */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Criar Novo Link</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={shareLinkName}
+                    onChange={(e) => setShareLinkName(e.target.value)}
+                    placeholder="Nome personalizado (opcional)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    onClick={createNewShareLink}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Criar Link
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Este nome aparecerá na página compartilhada como "Bem-vindo(a) [nome]". Se deixar em branco, aparecerá "Bem-vindo Visitante".
+                </p>
+              </div>
+
+              {/* Link recém-criado ou copiado */}
+              {shareLink && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Link para visualização pública (somente leitura)
+                    Link gerado:
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={shareLink}
                       readOnly
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white"
                     />
                     <button
                       onClick={copyToClipboard}
@@ -1531,12 +1693,125 @@ const Acompanhamentos: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    <strong>Nota:</strong> Este link permite visualizar todos os acompanhamentos em modo somente leitura, sem necessidade de login. 
-                    Compartilhe este link com quem precisa visualizar os dados.
-                  </p>
-                </div>
+              )}
+
+              {/* Lista de links existentes */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Links Compartilháveis Existentes</h3>
+                {shareLinks.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">Nenhum link compartilhável criado ainda.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {shareLinks.map((link) => (
+                      <div key={link.token} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            {editingLinkToken === link.token ? (
+                              <div className="flex gap-2 items-center">
+                                <input
+                                  type="text"
+                                  value={editingLinkName}
+                                  onChange={(e) => setEditingLinkName(e.target.value)}
+                                  placeholder="Nome do link"
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => {
+                                    updateShareLinkName(link.token, editingLinkName)
+                                  }}
+                                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingLinkToken(null)
+                                    setEditingLinkName('')
+                                  }}
+                                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="font-semibold text-gray-900">
+                                    {link.name || 'Sem nome'}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    Criado em {formatDate(link.createdAt)}
+                                  </span>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                  <input
+                                    type="text"
+                                    value={`${window.location.origin}${window.location.pathname}?token=${link.token}`}
+                                    readOnly
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const fullLink = `${window.location.origin}${window.location.pathname}?token=${link.token}`
+                                      navigator.clipboard.writeText(fullLink)
+                                      setShareLink(fullLink)
+                                      setLinkCopied(true)
+                                      setTimeout(() => setLinkCopied(false), 2000)
+                                    }}
+                                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                    title="Copiar link"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {editingLinkToken !== link.token && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingLinkToken(link.token)
+                                    setEditingLinkName(link.name || '')
+                                  }}
+                                  className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                                  title="Editar nome"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => regenerateShareLinkToken(link.token, link.name)}
+                                  className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                                  title="Regenerar token"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteShareLink(link.token)}
+                                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50 flex-shrink-0">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Nota:</strong> Os links compartilháveis permitem visualizar todos os acompanhamentos em modo somente leitura, sem necessidade de login. 
+                  Compartilhe os links com quem precisa visualizar os dados.
+                </p>
               </div>
             </div>
           </div>

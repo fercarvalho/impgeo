@@ -35,6 +35,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [shareLinkName, setShareLinkName] = useState<string | null>(null)
   const [selectedMapUrl, setSelectedMapUrl] = useState<string>('')
   const [selectedImovel, setSelectedImovel] = useState<string>('')
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
@@ -51,6 +52,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         const result = await response.json()
         if (result.success) {
           setAcompanhamentos(result.data)
+          setShareLinkName(result.shareLinkName)
         } else {
           setError(result.error || 'Erro ao carregar dados')
         }
@@ -332,6 +334,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       </div>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Mensagem de Boas-vindas */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-bold">
+            Bem-vindo(a) {shareLinkName ? shareLinkName : 'Visitante'}
+          </h2>
+          <p className="text-blue-100 mt-2">Visualização somente leitura dos acompanhamentos de imóveis</p>
+        </div>
+
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div 
