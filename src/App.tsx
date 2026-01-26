@@ -20,20 +20,22 @@ import {
   ClipboardList,
   Shield
 } from 'lucide-react'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
-import Reports from './components/Reports'
-import { TransactionsPage } from './components/Transactions'
-import Clients from './components/Clients'
-import DRE from './components/DRE'
-import Projects from './components/Projects'
-import Services from './components/Services'
+// PDF libraries serão carregadas dinamicamente quando necessário
+// Dynamic imports para componentes pesados (lazy loading)
+import { lazy, Suspense } from 'react'
 import Login from './components/Login'
-import Projection from './components/Projection'
-import Acompanhamentos from './components/Acompanhamentos'
-import AcompanhamentosView from './components/AcompanhamentosView'
 import ChartModal from './components/modals/ChartModal'
-import AdminPanel from './components/AdminPanel'
+
+const Reports = lazy(() => import('./components/Reports'))
+const TransactionsPage = lazy(() => import('./components/Transactions').then(module => ({ default: module.TransactionsPage })))
+const Clients = lazy(() => import('./components/Clients'))
+const DRE = lazy(() => import('./components/DRE'))
+const Projects = lazy(() => import('./components/Projects'))
+const Services = lazy(() => import('./components/Services'))
+const Projection = lazy(() => import('./components/Projection'))
+const Acompanhamentos = lazy(() => import('./components/Acompanhamentos'))
+const AcompanhamentosView = lazy(() => import('./components/AcompanhamentosView'))
+const AdminPanel = lazy(() => import('./components/AdminPanel'))
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -2500,6 +2502,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       document.body.appendChild(tempElement)
       
       // Capturar o elemento como imagem
+      // Carregar html2canvas dinamicamente
+      const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(tempElement, {
         scale: 2,
         useCORS: true,
@@ -2512,6 +2516,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       
       // Criar PDF
       const imgData = canvas.toDataURL('image/png')
+      // Carregar jsPDF dinamicamente
+      const jsPDF = (await import('jspdf')).default
       const pdf = new jsPDF('p', 'mm', 'a4')
       const imgWidth = 210
       const pageHeight = 295
@@ -3196,16 +3202,24 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         )}
         {activeTab === 'metas' && renderMetas()}
         {activeTab === 'reports' && (
-          <Reports transactions={transactions} />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Reports transactions={transactions} />
+          </Suspense>
         )}
         {activeTab === 'transactions' && (
-          <TransactionsPage />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <TransactionsPage />
+          </Suspense>
         )}
         {activeTab === 'projects' && (
-          <Projects />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Projects />
+          </Suspense>
         )}
         {activeTab === 'services' && (
-          <Services />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Services />
+          </Suspense>
         )}
         {/* removido placeholder duplicado de Relatórios */}
         {activeTab === 'metas' && (
@@ -3215,19 +3229,29 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
         )}
         {activeTab === 'projecao' && (
-          <Projection />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Projection />
+          </Suspense>
         )}
         {activeTab === 'clients' && (
-          <Clients />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Clients />
+          </Suspense>
         )}
         {activeTab === 'dre' && (
-          <DRE />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <DRE />
+          </Suspense>
         )}
         {activeTab === 'acompanhamentos' && (
-          <Acompanhamentos />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Acompanhamentos />
+          </Suspense>
         )}
         {activeTab === 'admin' && user.role === 'admin' && (
-          <AdminPanel />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <AdminPanel />
+          </Suspense>
         )}
       </main>
 
