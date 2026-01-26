@@ -798,7 +798,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const NavigationBar = () => (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 min-w-0">
+        {/* Primeira linha: Logo, nome, subtítulo, usuário e botão sair */}
+        <div className="flex justify-between items-center h-16 py-2">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
               <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-8 w-8 mr-2 object-contain" />
@@ -807,54 +808,6 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <p className="text-blue-200 text-sm">Sistema de Gestão Financeira</p>
               </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-4 overflow-x-auto scrollbar-hide nav-scroll min-w-0 flex-1">
-            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Home className="h-4 w-4 mb-3" />
-              Dashboard
-            </button>
-            <button onClick={() => setActiveTab('projects')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'projects' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Map className="h-4 w-4 mb-3" />
-              Projetos
-            </button>
-            <button onClick={() => setActiveTab('services')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'services' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Target className="h-4 w-4 mb-3" />
-              Serviços
-            </button>
-            <button onClick={() => setActiveTab('reports')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'reports' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <BarChart3 className="h-4 w-4 mb-3" />
-              Relatórios
-            </button>
-            <button onClick={() => setActiveTab('metas')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'metas' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <TrendingUp className="h-4 w-4 mb-3" />
-              Metas
-            </button>
-            <button onClick={() => setActiveTab('projecao')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'projecao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Calculator className="h-4 w-4 mb-3" />
-              <span className="text-center leading-tight">Projeção</span>
-            </button>
-            <button onClick={() => setActiveTab('transactions')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'transactions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <FileText className="h-4 w-4 mb-3" />
-              Transações
-            </button>
-            <button onClick={() => setActiveTab('clients')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'clients' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Building className="h-4 w-4 mb-3" />
-              Clientes
-            </button>
-            <button onClick={() => setActiveTab('dre')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <BarChart3 className="h-4 w-4 mb-3" />
-              DRE
-            </button>
-            <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <ClipboardList className="h-4 w-4 mb-3" />
-              Acompanhamentos
-            </button>
-            {user.role === 'admin' && (
-              <button onClick={() => setActiveTab('admin')} className={`px-3 py-3 rounded-md text-base font-bold transition-colors flex flex-col items-center justify-start ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-                <Shield className="h-4 w-4 mb-3" />
-                Admin
-              </button>
-            )}
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-white text-sm">
@@ -869,6 +822,56 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
+        </div>
+        
+        {/* Segunda linha: Menus */}
+        <div className="flex items-center justify-center space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2">
+          <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <Home className="h-4 w-4 mb-2" />
+            Dashboard
+          </button>
+          <button onClick={() => setActiveTab('projects')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projects' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <Map className="h-4 w-4 mb-2" />
+            Projetos
+          </button>
+          <button onClick={() => setActiveTab('services')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'services' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <Target className="h-4 w-4 mb-2" />
+            Serviços
+          </button>
+          <button onClick={() => setActiveTab('reports')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'reports' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <BarChart3 className="h-4 w-4 mb-2" />
+            Relatórios
+          </button>
+          <button onClick={() => setActiveTab('metas')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'metas' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <TrendingUp className="h-4 w-4 mb-2" />
+            Metas
+          </button>
+          <button onClick={() => setActiveTab('projecao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projecao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <Calculator className="h-4 w-4 mb-2" />
+            <span className="text-center leading-tight">Projeção</span>
+          </button>
+          <button onClick={() => setActiveTab('transactions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'transactions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <FileText className="h-4 w-4 mb-2" />
+            Transações
+          </button>
+          <button onClick={() => setActiveTab('clients')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'clients' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <Building className="h-4 w-4 mb-2" />
+            Clientes
+          </button>
+          <button onClick={() => setActiveTab('dre')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <BarChart3 className="h-4 w-4 mb-2" />
+            DRE
+          </button>
+          <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            <ClipboardList className="h-4 w-4 mb-2" />
+            Acompanhamentos
+          </button>
+          {user.role === 'admin' && (
+            <button onClick={() => setActiveTab('admin')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <Shield className="h-4 w-4 mb-2" />
+              Admin
+            </button>
+          )}
         </div>
       </div>
     </nav>
@@ -3188,7 +3191,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     <div className="min-h-screen bg-gray-100">
       <NavigationBar />
       
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
         {activeTab === 'dashboard' && (
           <>
             {renderDashboard()}

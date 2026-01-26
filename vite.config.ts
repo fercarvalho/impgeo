@@ -3,11 +3,22 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [
+    react({
+      jsxRuntime: 'automatic'
+    })
+  ],
+  define: {
+    __HMR_CONFIG_NAME__: JSON.stringify('vite')
+  },
   server: {
     port: 9000,
     open: true,
     host: '0.0.0.0',
+    hmr: {
+      clientPort: 9000,
+      overlay: true
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:9001',
