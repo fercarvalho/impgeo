@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
+import { ChartCard } from './projection/charts/ChartCard'
+import { buildMonthlyMktComponentsData, buildMonthlyScenarioData } from './projection/charts/buildData'
+import { GrowthPercentBarChart } from './projection/charts/GrowthPercentBarChart'
+import { MultiLineChart, type MultiLineSeries } from './projection/charts/MultiLineChart'
+import { StackedMktChart } from './projection/charts/StackedMktChart'
+import { ThreeScenarioLineChart } from './projection/charts/ThreeScenarioLineChart'
+import { computeSeriesKpis, formatCurrencyBRL, formatPercentBR } from './projection/charts/formatters'
 
 interface ProjectionData {
   despesasVariaveis: number[]
@@ -66,6 +73,24 @@ interface FaturamentoData {
   maximo: number[]
 }
 
+type ProjectionSectionId =
+  | 'resultadoFinanceiro'
+  | 'resultadoAnoAnterior'
+  | 'crescimentoAnual'
+  | 'composicaoMkt'
+  | 'mkt'
+  | 'despesasFixas'
+  | 'despesasVariaveis'
+  | 'despesasFixoVariavel'
+  | 'investimentos'
+  | 'orcamento'
+  | 'faturamentoReurb'
+  | 'faturamentoGeo'
+  | 'faturamentoPlan'
+  | 'faturamentoReg'
+  | 'faturamentoNn'
+  | 'faturamentoTotal'
+
 const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
@@ -92,190 +117,13 @@ const Projection: React.FC = () => {
   
   // Estado para controlar visualização (tabela/gráfico)
   const [isChartView, setIsChartView] = useState(false)
+
+  const [pendingScrollSectionId, setPendingScrollSectionId] = useState<ProjectionSectionId | null>(null)
   
   // Estados para modal de limpeza seletiva
   const [showSelectiveClearModal, setShowSelectiveClearModal] = useState(false)
   const [selectedTablesToClear, setSelectedTablesToClear] = useState<string[]>([])
-  
-  // Função para criar gráfico de barras simples
-  const createLineChart = (previsto: number[], medio: number[], maximo: number[], title: string) => {
-    // PROPRIEDADES PADRÃO DO GRÁFICO - REUTILIZÁVEIS PARA PRÓXIMOS GRÁFICOS
-    const CHART_CONFIG = {
-      height: 280,                    // Altura do gráfico
-      width: 1200,                    // Largura base (usado no viewBox)
-      paddingX: 100,                  // Padding horizontal para labels
-      paddingYTop: 25,                // Padding superior para evitar cortes
-      paddingYBottom: 50,             // Padding inferior para labels dos meses
-      marginPercent: 0.05,             // Margem percentual (5%) para não colar nas bordas
-      gridIntervals: 10,              // Número de intervalos no grid (10)
-      lineWidth: 3,                   // Espessura das linhas
-      pointRadius: 4,                 // Raio dos pontos nas linhas
-      hoverRadius: 6,                 // Raio dos pontos no hover
-      fontSize: 'text-xs',            // Tamanho da fonte dos labels
-      colors: {
-        previsto: '#3b82f6',          // Azul para Previsto
-        medio: '#10b981',             // Verde para Médio
-        maximo: '#8b5cf6'             // Roxo para Máximo
-      }
-    }
-    
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    const allValues = [...previsto, ...medio, ...maximo]
-    const rawMinValue = Math.min(...allValues) // Valor mínimo real
-    const rawMaxValue = Math.max(...allValues) // Valor máximo real
-    
-    // Adicionar uma pequena margem para que as linhas não fiquem coladas nas bordas
-    const range = rawMaxValue - rawMinValue
-    const margin = range * CHART_CONFIG.marginPercent
-    const minValue = rawMinValue - margin
-    const maxValue = rawMaxValue + margin
-    
-    // Usar as propriedades padrão
-    const chartHeight = CHART_CONFIG.height
-    const chartWidth = CHART_CONFIG.width
-    const paddingX = CHART_CONFIG.paddingX
-    const paddingYTop = CHART_CONFIG.paddingYTop
-    const paddingYBottom = CHART_CONFIG.paddingYBottom
-    
-    // Função para calcular coordenadas Y (escala entre minValue e maxValue)
-    const getY = (value: number) => {
-      if (maxValue === minValue) return paddingYTop + chartHeight / 2 // Se todos os valores são iguais
-      return paddingYTop + chartHeight - ((value - minValue) / (maxValue - minValue)) * chartHeight
-    }
-    
-    // Função para calcular coordenadas X (com padding para evitar cortes)
-    const getX = (index: number) => paddingX + (index / (months.length - 1)) * (chartWidth - 2 * paddingX)
-    
-    return (
-      <div className="bg-white rounded-xl p-6 shadow-lg border">
-        <h3 className="text-lg font-semibold mb-4 text-center">{title}</h3>
-        
-        {/* Legenda */}
-        <div className="flex justify-center gap-6 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-blue-500"></div>
-            <span className="text-sm text-gray-600">Previsto</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-green-500"></div>
-            <span className="text-sm text-gray-600">Médio</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-purple-500"></div>
-            <span className="text-sm text-gray-600">Máximo</span>
-          </div>
-        </div>
-        
-        {/* Gráfico SVG */}
-        <div className="overflow-x-auto w-full">
-          <svg width="100%" height={chartHeight + paddingYTop + paddingYBottom} className="mx-auto" viewBox={`0 0 ${chartWidth} ${chartHeight + paddingYTop + paddingYBottom}`}>
-            {/* Grid horizontal com intervalos configuráveis */}
-            {Array.from({ length: CHART_CONFIG.gridIntervals + 1 }, (_, i) => i / CHART_CONFIG.gridIntervals).map((ratio, i) => {
-              const value = minValue + (maxValue - minValue) * (1 - ratio)
-              return (
-                <g key={i}>
-                  <line
-                    x1={paddingX}
-                    y1={paddingYTop + chartHeight * ratio}
-                    x2={chartWidth - paddingX}
-                    y2={paddingYTop + chartHeight * ratio}
-                    stroke={i % 2 === 0 ? "#e5e7eb" : "#f3f4f6"} // Linhas principais mais destacadas
-                    strokeWidth={i % 2 === 0 ? 1 : 0.5}
-                  />
-                  <text
-                    x={paddingX - 25}
-                    y={paddingYTop + chartHeight * ratio + 4}
-                    textAnchor="end"
-                    className={`${CHART_CONFIG.fontSize} fill-gray-500`}
-                  >
-                    R$ {Math.round(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </text>
-                </g>
-              )
-            })}
-            
-            {/* Linha Previsto */}
-            <polyline
-              points={previsto.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
-              fill="none"
-              stroke={CHART_CONFIG.colors.previsto}
-              strokeWidth={CHART_CONFIG.lineWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* Linha Médio */}
-            <polyline
-              points={medio.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
-              fill="none"
-              stroke={CHART_CONFIG.colors.medio}
-              strokeWidth={CHART_CONFIG.lineWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* Linha Máximo */}
-            <polyline
-              points={maximo.map((value, index) => `${getX(index)},${getY(value)}`).join(' ')}
-              fill="none"
-              stroke={CHART_CONFIG.colors.maximo}
-              strokeWidth={CHART_CONFIG.lineWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* Pontos nas linhas */}
-            {previsto.map((value, index) => (
-              <circle
-                key={`previsto-${index}`}
-                cx={getX(index)}
-                cy={getY(value)}
-                r={CHART_CONFIG.pointRadius}
-                fill={CHART_CONFIG.colors.previsto}
-                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
-              />
-            ))}
-            
-            {medio.map((value, index) => (
-              <circle
-                key={`medio-${index}`}
-                cx={getX(index)}
-                cy={getY(value)}
-                r={CHART_CONFIG.pointRadius}
-                fill={CHART_CONFIG.colors.medio}
-                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
-              />
-            ))}
-            
-            {maximo.map((value, index) => (
-              <circle
-                key={`maximo-${index}`}
-                cx={getX(index)}
-                cy={getY(value)}
-                r={CHART_CONFIG.pointRadius}
-                fill={CHART_CONFIG.colors.maximo}
-                className={`hover:r-${CHART_CONFIG.hoverRadius} transition-all duration-200`}
-              />
-            ))}
-            
-            {/* Labels dos meses */}
-            {months.map((month, index) => (
-              <text
-                key={month}
-                x={getX(index)}
-                y={paddingYTop + chartHeight + 30}
-                textAnchor="middle"
-                className={`${CHART_CONFIG.fontSize} fill-gray-600 font-medium`}
-              >
-                {month}
-              </text>
-            ))}
-          </svg>
-        </div>
-      </div>
-    )
-  }
-  
+
   // Estados para rastrear edições manuais
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
@@ -2606,6 +2454,501 @@ Continuar mesmo assim?`)
     }
   }
 
+  const handleEditSection = (sectionId: ProjectionSectionId) => {
+    setPendingScrollSectionId(sectionId)
+    setIsChartView(false)
+  }
+
+  useEffect(() => {
+    if (!pendingScrollSectionId) return
+    if (isChartView) return
+
+    // Aguarda o DOM renderizar o modo Tabela antes de dar scroll
+    const id = `projection-section-${pendingScrollSectionId}`
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(id)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setPendingScrollSectionId(null)
+    }, 0)
+
+    return () => window.clearTimeout(t)
+  }, [pendingScrollSectionId, isChartView])
+
+  const chartMonths = useMemo(() => ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], [])
+
+  const ChartsView: React.FC<{ onEditSection: (sectionId: ProjectionSectionId) => void }> = ({ onEditSection }) => {
+    // Séries (Previsto/Médio/Máximo)
+    const resultadoChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoResultadoMes,
+          calcMedio: calcularMedioResultadoMes,
+          calcMaximo: calcularMaximoResultadoMes
+        }),
+      [chartMonths, data, fixedExpensesData, variableExpensesData, budgetData, investmentsData, faturamentoTotalData]
+    )
+
+    const mkScenarioKpis = (points: { month: string; previsto: number }[]) => {
+      const values = points.map(p => Number(p.previsto ?? 0))
+      const k = computeSeriesKpis(values, chartMonths)
+      return [
+        { label: 'Total anual (Previsto)', value: formatCurrencyBRL(k.total) },
+        { label: 'Média mensal (Previsto)', value: formatCurrencyBRL(k.average) },
+        { label: 'Melhor mês (Previsto)', value: `${k.best.month}: ${formatCurrencyBRL(k.best.value)}` },
+        { label: 'Pior mês (Previsto)', value: `${k.worst.month}: ${formatCurrencyBRL(k.worst.value)}` }
+      ]
+    }
+
+    const crescimentoData = useMemo(
+      () => [
+        { name: 'Mínimo', value: data.growth?.minimo ?? 0 },
+        { name: 'Médio', value: data.growth?.medio ?? 0 },
+        { name: 'Máximo', value: data.growth?.maximo ?? 0 }
+      ],
+      [data.growth?.minimo, data.growth?.medio, data.growth?.maximo]
+    )
+
+    // Resultado do Ano Anterior (base) — 3 blocos com seleção de séries
+    const [baseDespesasEnabled, setBaseDespesasEnabled] = useState({
+      despesasVariaveis: true,
+      despesasFixas: true,
+      investimentos: true,
+      despesasTotais: true
+    })
+    const [baseMktEnabled, setBaseMktEnabled] = useState({
+      trafego: true,
+      socialMedia: true,
+      producaoConteudo: true,
+      total: true
+    })
+    const [baseFaturamentoEnabled, setBaseFaturamentoEnabled] = useState({
+      reurb: true,
+      geo: true,
+      plan: true,
+      reg: true,
+      nn: true,
+      total: true
+    })
+
+    const baseDespesasData = useMemo(
+      () =>
+        chartMonths.map((m, i) => {
+          const despesasVariaveis = Number(data.despesasVariaveis?.[i] ?? 0)
+          const despesasFixas = Number(data.despesasFixas?.[i] ?? 0)
+          const investimentos = Number(data.investimentos?.[i] ?? 0)
+          return {
+            month: m,
+            despesasVariaveis,
+            despesasFixas,
+            investimentos,
+            despesasTotais: despesasVariaveis + despesasFixas
+          }
+        }),
+      [chartMonths, data.despesasVariaveis, data.despesasFixas, data.investimentos]
+    )
+
+    const baseDespesasSeries: MultiLineSeries[] = [
+      { key: 'despesasVariaveis', name: 'Despesas Variáveis', color: '#3b82f6', enabled: baseDespesasEnabled.despesasVariaveis },
+      { key: 'despesasFixas', name: 'Despesas Fixas', color: '#8b5cf6', enabled: baseDespesasEnabled.despesasFixas },
+      { key: 'investimentos', name: 'Investimentos', color: '#f59e0b', enabled: baseDespesasEnabled.investimentos },
+      { key: 'despesasTotais', name: 'Despesas Totais', color: '#111827', enabled: baseDespesasEnabled.despesasTotais }
+    ]
+
+    const baseDespesasKpis = useMemo(() => {
+      const values = baseDespesasData.map((p: any) => Number(p.despesasTotais ?? 0))
+      const k = computeSeriesKpis(values, chartMonths)
+      return [
+        { label: 'Total anual (Despesas Totais)', value: formatCurrencyBRL(k.total) },
+        { label: 'Média mensal (Despesas Totais)', value: formatCurrencyBRL(k.average) },
+        { label: 'Maior mês (Despesas Totais)', value: `${k.best.month}: ${formatCurrencyBRL(k.best.value)}` },
+        { label: 'Menor mês (Despesas Totais)', value: `${k.worst.month}: ${formatCurrencyBRL(k.worst.value)}` }
+      ]
+    }, [baseDespesasData, chartMonths])
+
+    const baseMktData = useMemo(() => {
+      const c = data.mktComponents
+      return buildMonthlyMktComponentsData({
+        months: chartMonths,
+        trafego: c?.trafego ?? new Array(12).fill(0),
+        socialMedia: c?.socialMedia ?? new Array(12).fill(0),
+        producaoConteudo: c?.producaoConteudo ?? new Array(12).fill(0)
+      })
+    }, [chartMonths, data.mktComponents])
+
+    const baseMktKpis = useMemo(() => {
+      const values = baseMktData.map((p: any) => Number(p.total ?? 0))
+      const k = computeSeriesKpis(values, chartMonths)
+      return [
+        { label: 'Total anual (MKT)', value: formatCurrencyBRL(k.total) },
+        { label: 'Média mensal (MKT)', value: formatCurrencyBRL(k.average) },
+        { label: 'Maior mês (MKT)', value: `${k.best.month}: ${formatCurrencyBRL(k.best.value)}` },
+        { label: 'Menor mês (MKT)', value: `${k.worst.month}: ${formatCurrencyBRL(k.worst.value)}` }
+      ]
+    }, [baseMktData, chartMonths])
+
+    const baseFaturamentoData = useMemo(
+      () =>
+        chartMonths.map((m, i) => {
+          const reurb = Number(data.faturamentoReurb?.[i] ?? 0)
+          const geo = Number(data.faturamentoGeo?.[i] ?? 0)
+          const plan = Number(data.faturamentoPlan?.[i] ?? 0)
+          const reg = Number(data.faturamentoReg?.[i] ?? 0)
+          const nn = Number(data.faturamentoNn?.[i] ?? 0)
+          const total = reurb + geo + plan + reg + nn
+          return { month: m, reurb, geo, plan, reg, nn, total }
+        }),
+      [chartMonths, data.faturamentoReurb, data.faturamentoGeo, data.faturamentoPlan, data.faturamentoReg, data.faturamentoNn]
+    )
+
+    const baseFaturamentoSeries: MultiLineSeries[] = [
+      { key: 'reurb', name: 'REURB', color: '#ef4444', enabled: baseFaturamentoEnabled.reurb },
+      { key: 'geo', name: 'GEO', color: '#22c55e', enabled: baseFaturamentoEnabled.geo },
+      { key: 'plan', name: 'PLAN', color: '#3b82f6', enabled: baseFaturamentoEnabled.plan },
+      { key: 'reg', name: 'REG', color: '#eab308', enabled: baseFaturamentoEnabled.reg },
+      { key: 'nn', name: 'NN', color: '#6b7280', enabled: baseFaturamentoEnabled.nn },
+      { key: 'total', name: 'Total', color: '#111827', enabled: baseFaturamentoEnabled.total }
+    ]
+
+    const baseFaturamentoKpis = useMemo(() => {
+      const values = baseFaturamentoData.map((p: any) => Number(p.total ?? 0))
+      const k = computeSeriesKpis(values, chartMonths)
+      return [
+        { label: 'Total anual (Faturamento Total)', value: formatCurrencyBRL(k.total) },
+        { label: 'Média mensal (Faturamento Total)', value: formatCurrencyBRL(k.average) },
+        { label: 'Maior mês (Faturamento Total)', value: `${k.best.month}: ${formatCurrencyBRL(k.best.value)}` },
+        { label: 'Menor mês (Faturamento Total)', value: `${k.worst.month}: ${formatCurrencyBRL(k.worst.value)}` }
+      ]
+    }, [baseFaturamentoData, chartMonths])
+
+    // Outras seções em cenário (Previsto/Médio/Máximo)
+    const despesasFixasChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoFixedMes,
+          calcMedio: calcularMediaFixedMes,
+          calcMaximo: calcularMaximoFixedMes
+        }),
+      [chartMonths, data]
+    )
+
+    const despesasVariaveisChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoVariableMes,
+          calcMedio: calcularMedioVariableMes,
+          calcMaximo: calcularMaximoVariableMes
+        }),
+      [chartMonths, data]
+    )
+
+    const despesasFixoVariavelChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoFixoVariavelMes,
+          calcMedio: calcularMedioFixoVariavelMes,
+          calcMaximo: calcularMaximoFixoVariavelMes
+        }),
+      [chartMonths, data]
+    )
+
+    const investimentosChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoInvestimentoMes,
+          calcMedio: calcularMedioInvestimentoMes,
+          calcMaximo: calcularMaximoInvestimentoMes
+        }),
+      [chartMonths, data]
+    )
+
+    const mktChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoMktMes,
+          calcMedio: calcularMedioMktMes,
+          calcMaximo: calcularMaximoMktMes
+        }),
+      [chartMonths, data, data.mktComponents]
+    )
+
+    const orcamentoChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoOrcamentoMes,
+          calcMedio: calcularMedioOrcamentoMes,
+          calcMaximo: calcularMaximoOrcamentoMes
+        }),
+      [chartMonths, data, data.mktComponents]
+    )
+
+    const faturamentoTotalChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoTotalMes,
+          calcMedio: calcularMedioTotalMes,
+          calcMaximo: calcularMaximoTotalMes
+        }),
+      [chartMonths, data]
+    )
+
+    const faturamentoReurbChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoReurbMes,
+          calcMedio: calcularMedioReurbMes,
+          calcMaximo: calcularMaximoReurbMes
+        }),
+      [chartMonths, data]
+    )
+    const faturamentoGeoChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoGeoMes,
+          calcMedio: calcularMedioGeoMes,
+          calcMaximo: calcularMaximoGeoMes
+        }),
+      [chartMonths, data]
+    )
+    const faturamentoPlanChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoPlanMes,
+          calcMedio: calcularMedioPlanMes,
+          calcMaximo: calcularMaximoPlanMes
+        }),
+      [chartMonths, data]
+    )
+    const faturamentoRegChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoRegMes,
+          calcMedio: calcularMedioRegMes,
+          calcMaximo: calcularMaximoRegMes
+        }),
+      [chartMonths, data]
+    )
+    const faturamentoNnChartData = useMemo(
+      () =>
+        buildMonthlyScenarioData({
+          months: chartMonths,
+          calcPrevisto: calcularPrevistoNnMes,
+          calcMedio: calcularMedioNnMes,
+          calcMaximo: calcularMaximoNnMes
+        }),
+      [chartMonths, data]
+    )
+
+    return (
+      <div className="space-y-6">
+        <ChartCard
+          title="Resultado Financeiro"
+          subtitle="Visualização em gráfico (somente leitura)"
+          onEditSection={() => onEditSection('resultadoFinanceiro')}
+          kpis={mkScenarioKpis(resultadoChartData)}
+        >
+          <ThreeScenarioLineChart data={resultadoChartData} valueFormat="currency" showZeroReferenceLine />
+        </ChartCard>
+
+        <ChartCard
+          title="Resultado do Ano Anterior — Despesas"
+          subtitle="Selecione as séries para visualizar (somente leitura)"
+          onEditSection={() => onEditSection('resultadoAnoAnterior')}
+          kpis={baseDespesasKpis}
+        >
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(
+              [
+                { key: 'despesasVariaveis', label: 'Despesas Variáveis' },
+                { key: 'despesasFixas', label: 'Despesas Fixas' },
+                { key: 'investimentos', label: 'Investimentos' },
+                { key: 'despesasTotais', label: 'Despesas Totais' }
+              ] as const
+            ).map(({ key, label }) => {
+              const enabled = baseDespesasEnabled[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={enabled}
+                  onClick={() => setBaseDespesasEnabled(prev => ({ ...prev, [key]: !prev[key] }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                    enabled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  title={enabled ? 'Ocultar série' : 'Mostrar série'}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <MultiLineChart data={baseDespesasData} series={baseDespesasSeries} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard
+          title="Resultado do Ano Anterior — MKT"
+          subtitle="Composição empilhada (somente leitura)"
+          onEditSection={() => onEditSection('resultadoAnoAnterior')}
+          kpis={baseMktKpis}
+        >
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(
+              [
+                { key: 'trafego', label: 'Tráfego' },
+                { key: 'socialMedia', label: 'Social Media' },
+                { key: 'producaoConteudo', label: 'Produção Conteúdo' },
+                { key: 'total', label: 'Total' }
+              ] as const
+            ).map(({ key, label }) => {
+              const enabled = baseMktEnabled[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={enabled}
+                  onClick={() => setBaseMktEnabled(prev => ({ ...prev, [key]: !prev[key] }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                    enabled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  title={enabled ? 'Ocultar série' : 'Mostrar série'}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <StackedMktChart
+            data={baseMktData}
+            enabled={{
+              trafego: baseMktEnabled.trafego,
+              socialMedia: baseMktEnabled.socialMedia,
+              producaoConteudo: baseMktEnabled.producaoConteudo,
+              total: baseMktEnabled.total
+            }}
+          />
+        </ChartCard>
+
+        <ChartCard
+          title="Resultado do Ano Anterior — Faturamentos"
+          subtitle="Selecione as séries para visualizar (somente leitura)"
+          onEditSection={() => onEditSection('resultadoAnoAnterior')}
+          kpis={baseFaturamentoKpis}
+        >
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(
+              [
+                { key: 'reurb', label: 'REURB' },
+                { key: 'geo', label: 'GEO' },
+                { key: 'plan', label: 'PLAN' },
+                { key: 'reg', label: 'REG' },
+                { key: 'nn', label: 'NN' },
+                { key: 'total', label: 'Total' }
+              ] as const
+            ).map(({ key, label }) => {
+              const enabled = baseFaturamentoEnabled[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={enabled}
+                  onClick={() => setBaseFaturamentoEnabled(prev => ({ ...prev, [key]: !prev[key] }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                    enabled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  title={enabled ? 'Ocultar série' : 'Mostrar série'}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <MultiLineChart data={baseFaturamentoData} series={baseFaturamentoSeries} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard
+          title="Percentual de Crescimento Anual"
+          onEditSection={() => onEditSection('crescimentoAnual')}
+          kpis={[
+            { label: 'Mínimo', value: formatPercentBR(data.growth?.minimo ?? 0) },
+            { label: 'Médio', value: formatPercentBR(data.growth?.medio ?? 0) },
+            { label: 'Máximo', value: formatPercentBR(data.growth?.maximo ?? 0) }
+          ]}
+        >
+          <GrowthPercentBarChart data={crescimentoData} />
+        </ChartCard>
+
+        <ChartCard title="Composição MKT" onEditSection={() => onEditSection('composicaoMkt')} kpis={baseMktKpis}>
+          <StackedMktChart data={baseMktData} />
+        </ChartCard>
+
+        <ChartCard title="MKT" onEditSection={() => onEditSection('mkt')} kpis={mkScenarioKpis(mktChartData)}>
+          <ThreeScenarioLineChart data={mktChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard title="Despesas Fixas" onEditSection={() => onEditSection('despesasFixas')} kpis={mkScenarioKpis(despesasFixasChartData)}>
+          <ThreeScenarioLineChart data={despesasFixasChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard
+          title="Despesas Variáveis"
+          onEditSection={() => onEditSection('despesasVariaveis')}
+          kpis={mkScenarioKpis(despesasVariaveisChartData)}
+        >
+          <ThreeScenarioLineChart data={despesasVariaveisChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard
+          title="Despesas Fixas + Variáveis"
+          onEditSection={() => onEditSection('despesasFixoVariavel')}
+          kpis={mkScenarioKpis(despesasFixoVariavelChartData)}
+        >
+          <ThreeScenarioLineChart data={despesasFixoVariavelChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard title="Investimentos" onEditSection={() => onEditSection('investimentos')} kpis={mkScenarioKpis(investimentosChartData)}>
+          <ThreeScenarioLineChart data={investimentosChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <ChartCard title="Orçamento" onEditSection={() => onEditSection('orcamento')} kpis={mkScenarioKpis(orcamentoChartData)}>
+          <ThreeScenarioLineChart data={orcamentoChartData} valueFormat="currency" />
+        </ChartCard>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <ChartCard title="Faturamento REURB" onEditSection={() => onEditSection('faturamentoReurb')} kpis={mkScenarioKpis(faturamentoReurbChartData)}>
+            <ThreeScenarioLineChart data={faturamentoReurbChartData} valueFormat="currency" />
+          </ChartCard>
+          <ChartCard title="Faturamento GEO" onEditSection={() => onEditSection('faturamentoGeo')} kpis={mkScenarioKpis(faturamentoGeoChartData)}>
+            <ThreeScenarioLineChart data={faturamentoGeoChartData} valueFormat="currency" />
+          </ChartCard>
+          <ChartCard title="Faturamento PLAN" onEditSection={() => onEditSection('faturamentoPlan')} kpis={mkScenarioKpis(faturamentoPlanChartData)}>
+            <ThreeScenarioLineChart data={faturamentoPlanChartData} valueFormat="currency" />
+          </ChartCard>
+          <ChartCard title="Faturamento REG" onEditSection={() => onEditSection('faturamentoReg')} kpis={mkScenarioKpis(faturamentoRegChartData)}>
+            <ThreeScenarioLineChart data={faturamentoRegChartData} valueFormat="currency" />
+          </ChartCard>
+          <ChartCard title="Faturamento NN" onEditSection={() => onEditSection('faturamentoNn')} kpis={mkScenarioKpis(faturamentoNnChartData)}>
+            <ThreeScenarioLineChart data={faturamentoNnChartData} valueFormat="currency" />
+          </ChartCard>
+        </div>
+
+        <ChartCard title="Faturamento Total" onEditSection={() => onEditSection('faturamentoTotal')} kpis={mkScenarioKpis(faturamentoTotalChartData)}>
+          <ThreeScenarioLineChart data={faturamentoTotalChartData} valueFormat="currency" />
+        </ChartCard>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -2715,14 +3058,13 @@ Continuar mesmo assim?`)
         </div>
       </div>
 
+      {isChartView ? (
+        <ChartsView onEditSection={handleEditSection} />
+      ) : (
+        <>
       {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
-      <div className="mb-8">
-        {isChartView ? (
-          <div className="flex justify-center">
-            {createLineChart(resultadoData.previsto, resultadoData.medio, resultadoData.maximo, 'Resultado Financeiro')}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
+      <div id="projection-section-resultadoFinanceiro" className="mb-8">
+        <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
@@ -2879,7 +3221,6 @@ Continuar mesmo assim?`)
             </tbody>
           </table>
         </div>
-        )}
       </div>
 
       {/* Legenda Resultado Financeiro */}
@@ -2903,7 +3244,7 @@ Continuar mesmo assim?`)
           <span className="ml-2 text-gray-600">Carregando dados...</span>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-resultadoAnoAnterior" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             {/* Cabeçalho */}
@@ -3688,7 +4029,7 @@ Continuar mesmo assim?`)
 
       {/* Percentual de Crescimento Anual */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-crescimentoAnual" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px]">
               <thead className="bg-gray-800 text-white">
@@ -3772,7 +4113,7 @@ Continuar mesmo assim?`)
 
       {/* Composição MKT */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-composicaoMkt" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
@@ -4027,7 +4368,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela MKT */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-mkt" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-orange-700 text-white">
@@ -4204,7 +4545,7 @@ Continuar mesmo assim?`)
 
       {/* Despesas Fixas */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-despesasFixas" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
@@ -4563,7 +4904,7 @@ Continuar mesmo assim?`)
 
       {/* Despesas Variáveis */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-despesasVariaveis" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead className="bg-blue-700 text-white">
@@ -4874,7 +5215,7 @@ Continuar mesmo assim?`)
 
       {/* Despesas Fixas + Variáveis */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-despesasFixoVariavel" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead className="bg-green-700 text-white">
@@ -5053,7 +5394,7 @@ Continuar mesmo assim?`)
 
       {/* Investimentos */}
       {!isLoading && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-investimentos" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead className="bg-purple-700 text-white">
@@ -5363,7 +5704,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Orçamento */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-orcamento" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-indigo-700 text-white">
@@ -5539,7 +5880,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Faturamento REURB */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-faturamentoReurb" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-red-700 text-white">
@@ -5871,7 +6212,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Faturamento GEO */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-faturamentoGeo" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-green-700 text-white">
@@ -6203,7 +6544,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Faturamento PLAN */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-faturamentoPlan" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-blue-700 text-white">
@@ -6535,7 +6876,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Faturamento REG */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-faturamentoReg" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-yellow-700 text-white">
@@ -6867,7 +7208,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela Faturamento NN */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div id="projection-section-faturamentoNn" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-gray-700 text-white">
@@ -7197,7 +7538,7 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Tabela FATURAMENTO TOTAL */}
-      <div className="mb-8">
+      <div id="projection-section-faturamentoTotal" className="mb-8">
         <div className="overflow-x-auto rounded-lg bg-white shadow-lg">
           <table className="w-full border-collapse">
             <thead>
@@ -7463,6 +7804,9 @@ Continuar mesmo assim?`)
           </div>
         </div>
       </div>
+
+        </>
+      )}
 
       {/* Modal de Limpeza Seletiva das Tabelas da Projeção */}
       {showSelectiveClearModal && (
