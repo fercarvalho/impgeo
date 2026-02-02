@@ -874,6 +874,24 @@ const Acompanhamentos: React.FC = () => {
     }))
   }
 
+  const getSaldoReservaLegalChartData = () => {
+    const { deficitTotal, excedenteTotal } = acompanhamentos.reduce(
+      (acc, a) => {
+        const required = (a.areaTotal || 0) * 0.2
+        const saldo = (a.reservaLegal || 0) - required
+        if (saldo < 0) acc.deficitTotal += Math.abs(saldo)
+        else acc.excedenteTotal += saldo
+        return acc
+      },
+      { deficitTotal: 0, excedenteTotal: 0 }
+    )
+
+    return [
+      { name: 'Déficit', value: deficitTotal, color: '#ef4444' },
+      { name: 'Excedente', value: excedenteTotal, color: '#22c55e' }
+    ].filter(item => item.value > 0)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1010,7 +1028,7 @@ const Acompanhamentos: React.FC = () => {
       </div>
 
       {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
@@ -1045,6 +1063,25 @@ const Acompanhamentos: React.FC = () => {
           <p className="text-sm text-gray-600">20% Reserva Legal</p>
           <p className="text-2xl font-bold text-gray-900">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
+          </p>
+        </div>
+        <div
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('Saldo Reserva Legal', 'Déficit vs excedente total (ha)', getSaldoReservaLegalChartData())}
+        >
+          <p className="text-sm text-gray-600">Saldo Reserva Legal</p>
+          <p className={`text-2xl font-bold ${
+            acompanhamentos.reduce((sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)), 0) >= 0
+              ? 'text-green-700'
+              : 'text-red-600'
+          }`}>
+            {(() => {
+              const totalSaldo = acompanhamentos.reduce(
+                (sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)),
+                0
+              )
+              return `${totalSaldo >= 0 ? '+' : '-'}${formatNumber(Math.abs(totalSaldo))} ha`
+            })()}
           </p>
         </div>
         <div 
