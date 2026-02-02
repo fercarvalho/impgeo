@@ -625,6 +625,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">GEO REGISTRO</th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA TOTAL (ha)</th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">20% RESERVA LEGAL (ha)</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">SALDO RESERVA LEGAL (ha)</th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
@@ -684,6 +685,22 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 font-semibold">{formatNumber(acomp.areaTotal)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.reservaLegal)}</td>
+                    <td
+                      className="px-3 py-2 whitespace-nowrap text-sm font-semibold"
+                      title="Saldo = Reserva Legal (ha) - 20% da Área Total (ha)"
+                    >
+                      {(() => {
+                        const required = (acomp.areaTotal || 0) * 0.2
+                        const saldo = (acomp.reservaLegal || 0) - required
+                        const isOk = saldo >= 0
+                        return (
+                          <span className={isOk ? 'text-green-700' : 'text-red-600'}>
+                            {isOk ? '+' : '-'}
+                            {formatNumber(Math.abs(saldo))} ha
+                          </span>
+                        )
+                      })()}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura1}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaCultura1)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura2}</td>
