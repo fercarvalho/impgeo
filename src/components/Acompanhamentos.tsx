@@ -857,6 +857,23 @@ const Acompanhamentos: React.FC = () => {
     }))
   }
 
+  const getReservaLegalData = () => {
+    const data = acompanhamentos
+      .map(acomp => ({
+        imovel: acomp.imovel,
+        area: acomp.reservaLegal || 0
+      }))
+      .filter(item => item.area > 0)
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 10) // Top 10
+
+    return data.map((item, index) => ({
+      name: item.imovel,
+      value: item.area,
+      color: chartColors[index % chartColors.length]
+    }))
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -992,8 +1009,8 @@ const Acompanhamentos: React.FC = () => {
         </div>
       </div>
 
-      {/* Estatísticas de APP e Remanescente Florestal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
@@ -1019,6 +1036,15 @@ const Acompanhamentos: React.FC = () => {
           <p className="text-sm text-gray-600">APP Não Vegetada</p>
           <p className="text-2xl font-bold text-orange-600">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
+          </p>
+        </div>
+        <div
+          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openChart('20% Reserva Legal', 'Distribuição de área por imóvel (ha)', getReservaLegalData())}
+        >
+          <p className="text-sm text-gray-600">20% Reserva Legal</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
           </p>
         </div>
         <div 
