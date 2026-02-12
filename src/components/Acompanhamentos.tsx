@@ -1113,31 +1113,31 @@ const Acompanhamentos: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Acompanhamentos</h1>
             <p className="text-gray-600 mt-1">Gestão de propriedades rurais e cadastros ambientais</p>
           </div>
-          <div className="flex w-full sm:w-auto flex-wrap gap-2 sm:gap-3">
+          <div className="flex w-full sm:w-auto flex-wrap md:flex-nowrap gap-2 sm:gap-3 md:gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
             <button 
               onClick={generateShareLink}
-              className="h-10 sm:h-12 w-full sm:w-auto whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
               Gerar Link Compartilhável
             </button>
             <button
               onClick={openManageShareLinks}
-              className="h-10 sm:h-12 w-full sm:w-auto whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
               Gerenciar Links
             </button>
             <button 
               onClick={() => setIsImportModalOpen(true)}
-              className="h-10 sm:h-12 w-full sm:w-auto whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
               Importar/Exportar
             </button>
             <button
               onClick={handleNew}
-              className="h-10 sm:h-12 w-full sm:w-auto whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Novo
