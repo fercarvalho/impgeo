@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Map as MapIcon, ExternalLink } from 'lucide-react'
 import ChartModal from './modals/ChartModal'
 
@@ -31,6 +31,64 @@ interface Acompanhamento {
 
 const API_BASE_URL = '/api'
 
+const normalizeAcompanhamento = (raw: any): Acompanhamento => ({
+  id: String(raw?.id ?? ''),
+  codImovel: Number(raw?.codImovel ?? raw?.cod_imovel ?? 0),
+  imovel: raw?.imovel ?? raw?.endereco ?? '',
+  municipio: raw?.municipio ?? '',
+  mapaUrl: raw?.mapaUrl ?? raw?.mapa_url ?? '',
+  matriculas: raw?.matriculas ?? '',
+  nIncraCcir: raw?.nIncraCcir ?? raw?.n_incra_ccir ?? '',
+  car: raw?.car ?? '',
+  statusCar: raw?.statusCar ?? raw?.status_car ?? '',
+  itr: raw?.itr ?? '',
+  geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
+  geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
+  areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
+  reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
+  cultura1: raw?.cultura1 ?? '',
+  areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
+  cultura2: raw?.cultura2 ?? '',
+  areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
+  outros: raw?.outros ?? '',
+  areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
+  appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
+  appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
+  appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
+  remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
+})
+
+const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
+  Array.isArray(rows) ? rows.map(normalizeAcompanhamento) : []
+
+const formatCodImovel = (value: number): string => String(Number(value || 0)).padStart(3, '0')
+
+type SortField =
+  | 'codImovel'
+  | 'imovel'
+  | 'municipio'
+  | 'nIncraCcir'
+  | 'car'
+  | 'statusCar'
+  | 'itr'
+  | 'geoCertificacao'
+  | 'geoRegistro'
+  | 'areaTotal'
+  | 'reservaLegal'
+  | 'saldoReservaLegal'
+  | 'cultura1'
+  | 'areaCultura1'
+  | 'cultura2'
+  | 'areaCultura2'
+  | 'outros'
+  | 'areaOutros'
+  | 'appCodigoFlorestal'
+  | 'appVegetada'
+  | 'appNaoVegetada'
+  | 'remanescenteFlorestal'
+
+type SortDirection = 'asc' | 'desc'
+
 const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,6 +105,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [chartTitle, setChartTitle] = useState('')
   const [chartSubtitle, setChartSubtitle] = useState('')
   const [chartTotal, setChartTotal] = useState(0)
+  const [chartValueUnit, setChartValueUnit] = useState('ha')
+  const [chartValueFormat, setChartValueFormat] = useState<'area' | 'number'>('area')
+  const [sortField, setSortField] = useState<SortField>('codImovel')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
     const loadAcompanhamentos = async () => {
@@ -56,7 +118,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         const result = await response.json()
         
         if (result.success) {
-          setAcompanhamentos(result.data)
+          setAcompanhamentos(normalizeAcompanhamentos(result.data))
           setShareLinkName(result.shareLinkName)
           setRequiresPassword(false)
         } else {
@@ -98,7 +160,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       const result = await response.json()
       
       if (result.success) {
-        setAcompanhamentos(result.data)
+        setAcompanhamentos(normalizeAcompanhamentos(result.data))
         setShareLinkName(result.shareLinkName)
         setRequiresPassword(false)
         setPassword('')
@@ -118,6 +180,46 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const formatNumber = (num: number) => {
     return num.toFixed(2).replace('.', ',')
   }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setSortField(field)
+    setSortDirection('asc')
+  }
+
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) return '↕'
+    return sortDirection === 'asc' ? '▲' : '▼'
+  }
+
+  const getSortValue = (acomp: Acompanhamento, field: SortField): string | number => {
+    if (field === 'saldoReservaLegal') {
+      return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+    }
+    return acomp[field]
+  }
+
+  const sortedAcompanhamentos = useMemo(() => {
+    const rows = [...acompanhamentos]
+    const direction = sortDirection === 'asc' ? 1 : -1
+
+    rows.sort((a, b) => {
+      const aValue = getSortValue(a, sortField)
+      const bValue = getSortValue(b, sortField)
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return (aValue - bValue) * direction
+      }
+
+      return String(aValue ?? '')
+        .localeCompare(String(bValue ?? ''), 'pt-BR', { sensitivity: 'base' }) * direction
+    })
+
+    return rows
+  }, [acompanhamentos, sortField, sortDirection])
 
   // Função para converter URL do Google Maps para formato embed
   const convertMapUrlToEmbed = (url: string): string => {
@@ -157,7 +259,12 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   ]
 
   // Função para abrir gráfico
-  const openChart = (title: string, subtitle: string, data: Array<{name: string; value: number; color: string}>) => {
+  const openChart = (
+    title: string,
+    subtitle: string,
+    data: Array<{name: string; value: number; color: string}>,
+    options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
+  ) => {
     if (!data || data.length === 0) {
       alert('Não há dados disponíveis para exibir o gráfico.')
       return
@@ -171,6 +278,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     setChartSubtitle(subtitle)
     setChartData(data)
     setChartTotal(total)
+    setChartValueUnit(options?.valueUnit ?? 'ha')
+    setChartValueFormat(options?.valueFormat ?? 'area')
     setChartModalOpen(true)
   }
 
@@ -328,24 +437,6 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }))
   }
 
-  const getSaldoReservaLegalChartData = () => {
-    const { deficitTotal, excedenteTotal } = acompanhamentos.reduce(
-      (acc, a) => {
-        const required = (a.areaTotal || 0) * 0.2
-        const saldo = (a.reservaLegal || 0) - required
-        if (saldo < 0) acc.deficitTotal += Math.abs(saldo)
-        else acc.excedenteTotal += saldo
-        return acc
-      },
-      { deficitTotal: 0, excedenteTotal: 0 }
-    )
-
-    return [
-      { name: 'Déficit', value: deficitTotal, color: '#ef4444' },
-      { name: 'Excedente', value: excedenteTotal, color: '#22c55e' }
-    ].filter(item => item.value > 0)
-  }
-
   // Bloquear scroll do body quando o modal de mapa estiver aberto
   useEffect(() => {
     if (isMapModalOpen) {
@@ -375,6 +466,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         window.scrollTo(0, parseInt(scrollY || '0') * -1)
       }
     }
+  }, [isMapModalOpen])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !isMapModalOpen) return
+      setIsMapModalOpen(false)
+      setSelectedMapUrl('')
+      setSelectedImovel('')
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [isMapModalOpen])
 
   if (loading) {
@@ -484,7 +587,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData())}
+            onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-sm text-gray-600">Total de Imóveis</p>
             <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
@@ -500,7 +603,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData())}
+            onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData(), { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-sm text-gray-600">Com Geo Certificação</p>
             <p className="text-2xl font-bold text-green-600">
@@ -509,7 +612,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData())}
+            onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData(), { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-sm text-gray-600">Com Geo Registro</p>
             <p className="text-2xl font-bold text-green-600">
@@ -519,7 +622,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         </div>
 
         {/* Estatísticas de Área por Tipo de Cultura */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
@@ -565,6 +668,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               {formatNumber(getAreaByCulturaType('Servidão'))} ha
             </p>
           </div>
+        </div>
+
+        {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
@@ -574,10 +681,6 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
             </p>
           </div>
-        </div>
-
-        {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
@@ -614,30 +717,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
             </p>
           </div>
-          <div
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => openChart('Saldo Reserva Legal', 'Déficit vs excedente total (ha)', getSaldoReservaLegalChartData())}
-          >
-            <p className="text-sm text-gray-600">Saldo Reserva Legal</p>
-            <p className={`text-2xl font-bold ${
-              acompanhamentos.reduce((sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)), 0) >= 0
-                ? 'text-green-700'
-                : 'text-red-600'
-            }`}>
-              {(() => {
-                const totalSaldo = acompanhamentos.reduce(
-                  (sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)),
-                  0
-                )
-                return `${totalSaldo >= 0 ? '+' : '-'}${formatNumber(Math.abs(totalSaldo))} ha`
-              })()}
-            </p>
-          </div>
           <div 
             className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
           >
-            <p className="text-sm text-gray-600">Remanescente Florestal</p>
+            <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
             <p className="text-2xl font-bold text-green-700">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
             </p>
@@ -650,38 +734,126 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             <table className="w-full min-w-[2000px]">
               <thead>
                 <tr className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">COD. IMP</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">IMÓVEL</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">MUNICÍPIO</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      COD. IMP <span>{getSortIndicator('codImovel')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      IMÓVEL <span>{getSortIndicator('imovel')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
+                    </button>
+                  </th>
                   <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">MATRÍCULAS</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">N INCRA / CCIR</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CAR</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">STATUS CAR</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ITR</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">GEO CERTIFICAÇÃO</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">GEO REGISTRO</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA TOTAL (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">20% RESERVA LEGAL (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">SALDO RESERVA LEGAL (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">OUTROS</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (CÓDIGO FLORESTAL)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (VEGETADA)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (NÃO VEGETADA)</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">REMANESCENTE FLORESTAL (ha)</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('nIncraCcir')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      N INCRA / CCIR <span>{getSortIndicator('nIncraCcir')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('car')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      CAR <span>{getSortIndicator('car')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('statusCar')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      STATUS CAR <span>{getSortIndicator('statusCar')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('itr')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      ITR <span>{getSortIndicator('itr')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('geoCertificacao')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      GEO CERTIFICAÇÃO <span>{getSortIndicator('geoCertificacao')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('geoRegistro')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      GEO REGISTRO <span>{getSortIndicator('geoRegistro')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('areaTotal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      ÁREA TOTAL (ha) <span>{getSortIndicator('areaTotal')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('reservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      20% RESERVA LEGAL (ha) <span>{getSortIndicator('reservaLegal')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('saldoReservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      SALDO RESERVA LEGAL (ha) <span>{getSortIndicator('saldoReservaLegal')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('cultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      CULTURAS <span>{getSortIndicator('cultura1')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('areaCultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      ÁREA (ha) <span>{getSortIndicator('areaCultura1')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('cultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      CULTURAS <span>{getSortIndicator('cultura2')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('areaCultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      ÁREA (ha) <span>{getSortIndicator('areaCultura2')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('outros')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      OUTROS <span>{getSortIndicator('outros')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('areaOutros')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      ÁREA (ha) <span>{getSortIndicator('areaOutros')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('appCodigoFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      APP (CÓDIGO FLORESTAL) <span>{getSortIndicator('appCodigoFlorestal')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('appVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      APP (VEGETADA) <span>{getSortIndicator('appVegetada')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('appNaoVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      APP (NÃO VEGETADA) <span>{getSortIndicator('appNaoVegetada')}</span>
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                    <button type="button" onClick={() => handleSort('remanescenteFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                      REMANESCENTE FLORESTAL (ha) <span>{getSortIndicator('remanescenteFlorestal')}</span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {acompanhamentos.map((acomp, index) => (
+                {sortedAcompanhamentos.map((acomp, index) => (
                   <tr
                     key={acomp.id}
                     className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50 hover:bg-blue-100'}
                   >
-                    <td className="px-3 py-2 whitespace-nowrap font-semibold">{acomp.codImovel}</td>
+                    <td className="px-3 py-2 whitespace-nowrap font-semibold">{formatCodImovel(acomp.codImovel)}</td>
                     <td className="px-3 py-2 whitespace-nowrap font-semibold">
                       {acomp.mapaUrl ? (
                         <button
@@ -825,7 +997,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         subtitle={chartSubtitle}
         data={chartData}
         totalValue={chartTotal}
-        valueUnit="ha"
+        valueFormat={chartValueFormat}
+        valueUnit={chartValueUnit}
       />
     </div>
   )

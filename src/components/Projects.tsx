@@ -118,6 +118,31 @@ const Projects: React.FC = () => {
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen, isServicesModalOpen])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      if (isServicesModalOpen) {
+        setIsServicesModalOpen(false)
+        return
+      }
+
+      if (isImportExportOpen) {
+        setIsImportExportOpen(false)
+        return
+      }
+
+      if (isModalOpen) {
+        setIsModalOpen(false)
+        setEditing(null)
+        setFormErrors({})
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isServicesModalOpen, isImportExportOpen, isModalOpen])
+
   const handleSort = (field: keyof Project) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig.field === field && sortConfig.direction === 'asc') direction = 'desc'

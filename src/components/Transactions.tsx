@@ -88,6 +88,35 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      if (isRemoveSubcategoryOpen) {
+        setIsRemoveSubcategoryOpen(false)
+        return
+      }
+
+      if (isAddSubcategoryOpen) {
+        setIsAddSubcategoryOpen(false)
+        setNewSubcategoryError('')
+        return
+      }
+
+      if (isImportExportOpen) {
+        setIsImportExportOpen(false)
+        return
+      }
+
+      if (isModalOpen) {
+        closeModal()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isRemoveSubcategoryOpen, isAddSubcategoryOpen, isImportExportOpen, isModalOpen])
+
   // Controlar modal externamente (apenas se showModal for fornecido)
   useEffect(() => {
     if (showModal !== undefined) {

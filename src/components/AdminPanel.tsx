@@ -39,6 +39,34 @@ const AdminPanel: React.FC = () => {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      if (deleteConfirm) {
+        setDeleteConfirm(null);
+        return;
+      }
+
+      if (showEditModal) {
+        setShowEditModal(false);
+        setEditingUser(null);
+        setFormData({ username: '', password: '', role: 'user' });
+        setError(null);
+        return;
+      }
+
+      if (showCreateModal) {
+        setShowCreateModal(false);
+        setFormData({ username: '', password: '', role: 'user' });
+        setError(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showCreateModal, showEditModal, deleteConfirm]);
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -328,8 +356,15 @@ const AdminPanel: React.FC = () => {
 
       {/* Modal de Criação */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowCreateModal(false);
+            setFormData({ username: '', password: '', role: 'user' });
+            setError(null);
+          }}
+        >
+          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Criar Novo Usuário</h2>
               <button
@@ -411,8 +446,16 @@ const AdminPanel: React.FC = () => {
 
       {/* Modal de Edição */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowEditModal(false);
+            setEditingUser(null);
+            setFormData({ username: '', password: '', role: 'user' });
+            setError(null);
+          }}
+        >
+          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Editar Usuário</h2>
               <button
@@ -496,9 +539,17 @@ const AdminPanel: React.FC = () => {
 
       {/* Modal de Confirmação de Exclusão */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Confirmar Exclusão</h2>
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Confirmar Exclusão</h2>
+              <button onClick={() => setDeleteConfirm(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <p className="text-gray-600 mb-6">
               Tem certeza que deseja excluir o usuário <strong>{users.find(u => u.id === deleteConfirm)?.username}</strong>?
               Esta ação não pode ser desfeita.

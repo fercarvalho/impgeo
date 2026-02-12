@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const XLSX = require('xlsx');
@@ -6,12 +7,12 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const Database = require('./database');
+const Database = require('./database-pg');
 
 const app = express();
 const port = 9001;
 const db = new Database();
-const JWT_SECRET = 'impgeo_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 
 // Middleware
 app.use(cors());
@@ -240,7 +241,7 @@ function processProjects(worksheet) {
 }
 
 // Rota para baixar modelo de arquivo
-app.get('/api/modelo/:type', (req, res) => {
+app.get('/api/modelo/:type', async (req, res) => {
   try {
     const { type } = req.params;
     if (!['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
@@ -384,7 +385,7 @@ app.get('/api/modelo/:type', (req, res) => {
 });
 
 // Rota para importar arquivos
-app.post('/api/import', upload.single('file'), (req, res) => {
+app.post('/api/import', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Nenhum arquivo foi enviado!' });
@@ -420,13 +421,13 @@ app.post('/api/import', upload.single('file'), (req, res) => {
       message = `${processedData.length} projetos importados com sucesso!`;
       
       // Salvar projetos processados no banco de dados
-      processedData.forEach(project => {
+      for (const project of processedData) {
         try {
-          db.saveProject(project);
+          await db.saveProject(project);
         } catch (error) {
           console.error('Erro ao salvar projeto:', error);
         }
-      });
+      }
     } else if (type === 'acompanhamentos') {
       processedData = processAcompanhamentos(worksheet);
       console.log(`Processados ${processedData.length} acompanhamentos do arquivo`);
@@ -434,14 +435,14 @@ app.post('/api/import', upload.single('file'), (req, res) => {
       
       // Salvar acompanhamentos processados no banco de dados
       let savedCount = 0;
-      processedData.forEach(acompanhamento => {
+      for (const acompanhamento of processedData) {
         try {
-          db.saveAcompanhamento(acompanhamento);
+          await db.saveAcompanhamento(acompanhamento);
           savedCount++;
         } catch (error) {
           console.error('Erro ao salvar acompanhamento:', error);
         }
-      });
+      }
       console.log(`${savedCount} acompanhamentos salvos no banco de dados`);
     }
 
@@ -480,7 +481,7 @@ app.post('/api/import', upload.single('file'), (req, res) => {
 });
 
 // Rota para exportar dados (futura implementação)
-app.post('/api/export', (req, res) => {
+app.post('/api/export', async (req, res) => {
   const { type, data } = req.body;
   
   try {
@@ -524,6 +525,34 @@ app.post('/api/export', (req, res) => {
       }));
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+    } else if (type === 'acompanhamentos') {
+      const excelData = data.map(a => ({
+        'Código do Imóvel': a.codImovel ?? a.cod_imovel ?? '',
+        'Imóvel': a.imovel ?? a.endereco ?? '',
+        'Município': a.municipio ?? '',
+        'Mapa URL': a.mapaUrl ?? a.mapa_url ?? '',
+        'Matrículas': a.matriculas ?? '',
+        'N INCRA/CCIR': a.nIncraCcir ?? a.n_incra_ccir ?? '',
+        'CAR': a.car ?? '',
+        'Status CAR': a.statusCar ?? a.status_car ?? a.status ?? '',
+        'ITR': a.itr ?? '',
+        'Geo Certificação': a.geoCertificacao ?? a.geo_certificacao ?? 'NÃO',
+        'Geo Registro': a.geoRegistro ?? a.geo_registro ?? 'NÃO',
+        'Área Total (ha)': a.areaTotal ?? a.area_total ?? 0,
+        'Reserva Legal (ha)': a.reservaLegal ?? a.reserva_legal ?? 0,
+        'Cultura 1': a.cultura1 ?? '',
+        'Área Cultura 1 (ha)': a.areaCultura1 ?? a.area_cultura1 ?? 0,
+        'Cultura 2': a.cultura2 ?? '',
+        'Área Cultura 2 (ha)': a.areaCultura2 ?? a.area_cultura2 ?? 0,
+        'Outros': a.outros ?? '',
+        'Área Outros (ha)': a.areaOutros ?? a.area_outros ?? 0,
+        'APP Código Florestal (ha)': a.appCodigoFlorestal ?? a.app_codigo_florestal ?? 0,
+        'APP Vegetada (ha)': a.appVegetada ?? a.app_vegetada ?? 0,
+        'APP Não Vegetada (ha)': a.appNaoVegetada ?? a.app_nao_vegetada ?? 0,
+        'Remanescente Florestal (ha)': a.remanescenteFlorestal ?? a.remanescente_florestal ?? 0
+      }));
+      worksheet = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Acompanhamentos');
     }
 
     // Gerar buffer do arquivo
@@ -549,51 +578,51 @@ app.post('/api/export', (req, res) => {
 });
 
 // APIs para Transações
-app.get('/api/transactions', (req, res) => {
+app.get('/api/transactions', async (req, res) => {
   try {
-    const transactions = db.getAllTransactions();
+    const transactions = await db.getAllTransactions();
     res.json({ success: true, data: transactions });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/transactions', (req, res) => {
+app.post('/api/transactions', async (req, res) => {
   try {
-    const transaction = db.saveTransaction(req.body);
+    const transaction = await db.saveTransaction(req.body);
     res.json({ success: true, data: transaction });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/transactions/:id', (req, res) => {
+app.put('/api/transactions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const transaction = db.updateTransaction(id, req.body);
+    const transaction = await db.updateTransaction(id, req.body);
     res.json({ success: true, data: transaction });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/transactions/:id', (req, res) => {
+app.delete('/api/transactions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteTransaction(id);
+    await db.deleteTransaction(id);
     res.json({ success: true, message: 'Transação deletada com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/transactions', (req, res) => {
+app.delete('/api/transactions', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    db.deleteMultipleTransactions(ids);
+    await db.deleteMultipleTransactions(ids);
     res.json({ success: true, message: `${ids.length} transações deletadas com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -601,23 +630,23 @@ app.delete('/api/transactions', (req, res) => {
 });
 
 // APIs para Subcategorias
-app.get('/api/subcategories', (req, res) => {
+app.get('/api/subcategories', async (req, res) => {
   try {
-    const subcategories = db.getAllSubcategories();
+    const subcategories = await db.getAllSubcategories();
     res.json({ success: true, data: subcategories });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/subcategories', (req, res) => {
+app.post('/api/subcategories', async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
     }
     
-    const subcategory = db.saveSubcategory(name.trim());
+    const subcategory = await db.saveSubcategory(name.trim());
     res.json({ success: true, data: subcategory });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -625,51 +654,51 @@ app.post('/api/subcategories', (req, res) => {
 });
 
 // APIs para Clientes
-app.get('/api/clients', (req, res) => {
+app.get('/api/clients', async (req, res) => {
   try {
-    const clients = db.getAllClients();
+    const clients = await db.getAllClients();
     res.json({ success: true, data: clients });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/clients', (req, res) => {
+app.post('/api/clients', async (req, res) => {
   try {
-    const client = db.saveClient(req.body);
+    const client = await db.saveClient(req.body);
     res.json({ success: true, data: client });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/clients/:id', (req, res) => {
+app.put('/api/clients/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const client = db.updateClient(id, req.body);
+    const client = await db.updateClient(id, req.body);
     res.json({ success: true, data: client });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/clients/:id', (req, res) => {
+app.delete('/api/clients/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteClient(id);
+    await db.deleteClient(id);
     res.json({ success: true, message: 'Cliente deletado com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/clients', (req, res) => {
+app.delete('/api/clients', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    db.deleteMultipleClients(ids);
+    await db.deleteMultipleClients(ids);
     res.json({ success: true, message: `${ids.length} clientes deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -677,52 +706,52 @@ app.delete('/api/clients', (req, res) => {
 });
 
 // APIs para Projetos
-app.get('/api/projects', (req, res) => {
+app.get('/api/projects', async (req, res) => {
   try {
-    const projects = db.getAllProjects();
+    const projects = await db.getAllProjects();
     res.json({ success: true, data: projects });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/projects', (req, res) => {
+app.post('/api/projects', async (req, res) => {
   try {
-    const project = db.saveProject(req.body);
+    const project = await db.saveProject(req.body);
     res.json({ success: true, data: project });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/projects/:id', (req, res) => {
+app.put('/api/projects/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedProject = db.updateProject(id, req.body);
+    const updatedProject = await db.updateProject(id, req.body);
     res.json({ success: true, data: updatedProject });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/projects/:id', (req, res) => {
+app.delete('/api/projects/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteProject(id);
+    await db.deleteProject(id);
     res.json({ success: true, message: 'Projeto excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/projects', (req, res) => {
+app.delete('/api/projects', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
     
-    db.deleteMultipleProjects(ids);
+    await db.deleteMultipleProjects(ids);
     res.json({ success: true, message: `${ids.length} projetos deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -730,38 +759,38 @@ app.delete('/api/projects', (req, res) => {
 });
 
 // APIs para Serviços
-app.get('/api/services', (req, res) => {
+app.get('/api/services', async (req, res) => {
   try {
-    const services = db.getAllServices();
+    const services = await db.getAllServices();
     res.json({ success: true, data: services });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/services', (req, res) => {
+app.post('/api/services', async (req, res) => {
   try {
-    const service = db.saveService(req.body);
+    const service = await db.saveService(req.body);
     res.json({ success: true, data: service });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/services/:id', (req, res) => {
+app.put('/api/services/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedService = db.updateService(id, req.body);
+    const updatedService = await db.updateService(id, req.body);
     res.json({ success: true, data: updatedService });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/services/:id', (req, res) => {
+app.delete('/api/services/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteService(id);
+    await db.deleteService(id);
     res.json({ success: true, message: 'Serviço excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -769,51 +798,51 @@ app.delete('/api/services/:id', (req, res) => {
 });
 
 // APIs para Acompanhamentos
-app.get('/api/acompanhamentos', (req, res) => {
+app.get('/api/acompanhamentos', async (req, res) => {
   try {
-    const acompanhamentos = db.getAllAcompanhamentos();
+    const acompanhamentos = await db.getAllAcompanhamentos();
     res.json({ success: true, data: acompanhamentos });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/acompanhamentos', (req, res) => {
+app.post('/api/acompanhamentos', async (req, res) => {
   try {
-    const acompanhamento = db.saveAcompanhamento(req.body);
+    const acompanhamento = await db.saveAcompanhamento(req.body);
     res.json({ success: true, data: acompanhamento });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/acompanhamentos/:id', (req, res) => {
+app.put('/api/acompanhamentos/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const acompanhamento = db.updateAcompanhamento(id, req.body);
+    const acompanhamento = await db.updateAcompanhamento(id, req.body);
     res.json({ success: true, data: acompanhamento });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/acompanhamentos/:id', (req, res) => {
+app.delete('/api/acompanhamentos/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteAcompanhamento(id);
+    await db.deleteAcompanhamento(id);
     res.json({ success: true, message: 'Acompanhamento deletado com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/acompanhamentos', (req, res) => {
+app.delete('/api/acompanhamentos', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    db.deleteMultipleAcompanhamentos(ids);
+    await db.deleteMultipleAcompanhamentos(ids);
     res.json({ success: true, message: `${ids.length} acompanhamentos deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -821,9 +850,9 @@ app.delete('/api/acompanhamentos', (req, res) => {
 });
 
 // Rota para listar todos os links compartilháveis
-app.get('/api/acompanhamentos/share-links', authenticateToken, (req, res) => {
+app.get('/api/acompanhamentos/share-links', authenticateToken, async (req, res) => {
   try {
-    const shareLinks = db.getAllShareLinks();
+    const shareLinks = await db.getAllShareLinks();
     res.json({ 
       success: true, 
       data: shareLinks 
@@ -834,10 +863,17 @@ app.get('/api/acompanhamentos/share-links', authenticateToken, (req, res) => {
 });
 
 // Rota para gerar link compartilhável de acompanhamentos
-app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, res) => {
+app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (req, res) => {
   try {
-    const { name, expiresAt, password } = req.body;
+    const { name, expiresAt, password, selectedIds } = req.body;
     const bcrypt = require('bcryptjs');
+
+    if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Selecione pelo menos um registro para compartilhar'
+      });
+    }
     
     // Gerar token único para compartilhamento
     const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
@@ -861,7 +897,7 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, re
     }
     
     // Salvar token com nome, data de expiração e senha no banco
-    db.saveShareLink(token, name, expiresAtISO, passwordHash);
+    await db.saveShareLink(token, name, expiresAtISO, passwordHash, selectedIds);
     
     res.json({ 
       success: true, 
@@ -874,7 +910,7 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, (req, re
 });
 
 // Rota para atualizar um link compartilhável
-app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res) => {
+app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req, res) => {
   try {
     const { token } = req.params;
     const { name, expiresAt, password, regenerateToken } = req.body;
@@ -883,13 +919,21 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
     if (regenerateToken) {
       // Gerar novo token
       const newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
-      const linkData = db.getShareLink(token);
+      const linkData = await db.getShareLink(token);
       if (!linkData) {
         return res.status(404).json({ success: false, error: 'Link não encontrado' });
       }
       
       // Converter data de expiração se fornecida
-      let expiresAtISO = linkData.expiresAt;
+      const linkExpiresAt = linkData.expiresAt || linkData.expires_at || null;
+      const linkPasswordHash = linkData.passwordHash || linkData.password_hash || null;
+      const linkSelectedIds = Array.isArray(linkData.selectedIds)
+        ? linkData.selectedIds
+        : Array.isArray(linkData.selected_ids)
+          ? linkData.selected_ids
+          : null;
+
+      let expiresAtISO = linkExpiresAt;
       if (expiresAt !== undefined) {
         if (expiresAt && expiresAt.trim()) {
           if (expiresAt.includes('T') && expiresAt.length === 16) {
@@ -903,7 +947,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
       }
       
       // Hash da senha se fornecida
-      let passwordHash = linkData.passwordHash;
+      let passwordHash = linkPasswordHash;
       if (password !== undefined) {
         if (password && password.trim()) {
           passwordHash = bcrypt.hashSync(password, 10);
@@ -913,14 +957,15 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
       }
       
       // Criar novo link com o novo token
-      db.saveShareLink(
+      await db.saveShareLink(
         newToken, 
         name !== undefined ? name : linkData.name,
         expiresAtISO,
-        passwordHash
+        passwordHash,
+        linkSelectedIds
       );
       // Excluir o link antigo
-      db.deleteShareLink(token);
+      await db.deleteShareLink(token);
       
       res.json({ 
         success: true, 
@@ -955,7 +1000,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
         }
       }
       
-      const updated = db.updateShareLink(token, updates);
+      const updated = await db.updateShareLink(token, updates);
       res.json({ 
         success: true, 
         data: updated,
@@ -968,10 +1013,10 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res)
 });
 
 // Rota para excluir um link compartilhável
-app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, (req, res) => {
+app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, async (req, res) => {
   try {
     const { token } = req.params;
-    db.deleteShareLink(token);
+    await db.deleteShareLink(token);
     res.json({ 
       success: true, 
       message: 'Link excluído com sucesso' 
@@ -982,14 +1027,14 @@ app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, (req, r
 });
 
 // Rota para validar senha do link compartilhável
-app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
+app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
     const bcrypt = require('bcryptjs');
     
     // Buscar informações do link compartilhável
-    const shareLink = db.getShareLink(token);
+    const shareLink = await db.getShareLink(token);
     
     if (!shareLink) {
       return res.status(404).json({ 
@@ -999,8 +1044,11 @@ app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
     }
     
     // Verificar se o link expirou
-    if (shareLink.expiresAt) {
-      const expiresAt = new Date(shareLink.expiresAt);
+    const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
+    const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
+
+    if (linkExpiresAt) {
+      const expiresAt = new Date(linkExpiresAt);
       const now = new Date();
       
       if (now > expiresAt) {
@@ -1012,7 +1060,7 @@ app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
     }
     
     // Verificar se tem senha
-    if (!shareLink.passwordHash) {
+    if (!linkPasswordHash) {
       return res.status(400).json({ 
         success: false, 
         error: 'Este link não possui senha' 
@@ -1027,7 +1075,7 @@ app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
       });
     }
     
-    const isValid = bcrypt.compareSync(password, shareLink.passwordHash);
+    const isValid = bcrypt.compareSync(password, linkPasswordHash);
     
     if (!isValid) {
       return res.status(401).json({ 
@@ -1049,7 +1097,7 @@ app.post('/api/acompanhamentos/public/:token/validate-password', (req, res) => {
 });
 
 // Rota pública para visualizar acompanhamentos (sem autenticação)
-app.get('/api/acompanhamentos/public/:token', (req, res) => {
+app.get('/api/acompanhamentos/public/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.query;
@@ -1064,7 +1112,7 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
     }
     
     // Buscar informações do link compartilhável
-    const shareLink = db.getShareLink(token);
+    const shareLink = await db.getShareLink(token);
     
     if (!shareLink) {
       return res.status(404).json({ 
@@ -1074,8 +1122,16 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
     }
     
     // Verificar se o link expirou
-    if (shareLink.expiresAt) {
-      const expiresAt = new Date(shareLink.expiresAt);
+    const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
+    const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
+    const linkSelectedIds = Array.isArray(shareLink.selectedIds)
+      ? shareLink.selectedIds
+      : Array.isArray(shareLink.selected_ids)
+        ? shareLink.selected_ids
+        : [];
+
+    if (linkExpiresAt) {
+      const expiresAt = new Date(linkExpiresAt);
       const now = new Date();
       
       if (now > expiresAt) {
@@ -1087,7 +1143,7 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
     }
     
     // Verificar se tem senha e se foi fornecida
-    if (shareLink.passwordHash) {
+    if (linkPasswordHash) {
       if (!password) {
         return res.status(403).json({ 
           success: false, 
@@ -1097,7 +1153,7 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
       }
       
       // Validar senha
-      const isValid = bcrypt.compareSync(password, shareLink.passwordHash);
+      const isValid = bcrypt.compareSync(password, linkPasswordHash);
       if (!isValid) {
         return res.status(401).json({ 
           success: false, 
@@ -1108,11 +1164,14 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
     }
     
     // Buscar todos os acompanhamentos (público)
-    const acompanhamentos = db.getAllAcompanhamentos();
+    const acompanhamentos = await db.getAllAcompanhamentos();
+    const filteredAcompanhamentos = linkSelectedIds.length > 0
+      ? acompanhamentos.filter((item) => linkSelectedIds.includes(String(item.id)))
+      : acompanhamentos;
     
     res.json({ 
       success: true, 
-      data: acompanhamentos,
+      data: filteredAcompanhamentos,
       shareLinkName: shareLink.name
     });
   } catch (error) {
@@ -1124,51 +1183,51 @@ app.get('/api/acompanhamentos/public/:token', (req, res) => {
 });
 
 // APIs para Produtos
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
-    const products = db.getAllProducts();
+    const products = await db.getAllProducts();
     res.json({ success: true, data: products });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
   try {
-    const product = db.saveProduct(req.body);
+    const product = await db.saveProduct(req.body);
     res.json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const product = db.updateProduct(id, req.body);
+    const product = await db.updateProduct(id, req.body);
     res.json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.deleteProduct(id);
+    await db.deleteProduct(id);
     res.json({ success: true, message: 'Produto deletado com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/products', (req, res) => {
+app.delete('/api/products', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    db.deleteMultipleProducts(ids);
+    await db.deleteMultipleProducts(ids);
     res.json({ success: true, message: `${ids.length} produtos deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1176,9 +1235,9 @@ app.delete('/api/products', (req, res) => {
 });
 
 // APIs de Projeção
-app.get('/api/projection', (req, res) => {
+app.get('/api/projection', async (req, res) => {
   try {
-    const projectionData = db.getProjectionData();
+    const projectionData = await db.getProjectionData();
     if (!projectionData) {
       return res.status(404).json({ error: 'Dados de projeção não encontrados' });
     }
@@ -1189,9 +1248,9 @@ app.get('/api/projection', (req, res) => {
 });
 
 // Rota para sincronizar dados de projeção
-app.post('/api/projection/sync', authenticateToken, (req, res) => {
+app.post('/api/projection/sync', authenticateToken, async (req, res) => {
   try {
-    const syncedData = db.syncProjectionData();
+    const syncedData = await db.syncProjectionData();
     res.json({ success: true, data: syncedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao sincronizar dados de projeção' });
@@ -1199,10 +1258,10 @@ app.post('/api/projection/sync', authenticateToken, (req, res) => {
 });
 
 // Rota para atualizar dados de projeção
-app.put('/api/projection', authenticateToken, (req, res) => {
+app.put('/api/projection', authenticateToken, async (req, res) => {
   try {
     const projectionData = req.body;
-    const updatedData = db.updateProjectionData(projectionData);
+    const updatedData = await db.updateProjectionData(projectionData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1210,10 +1269,10 @@ app.put('/api/projection', authenticateToken, (req, res) => {
 });
 
 // APIs de Backup Automático
-app.post('/api/backup/create/:tableName', authenticateToken, (req, res) => {
+app.post('/api/backup/create/:tableName', authenticateToken, async (req, res) => {
   try {
     const { tableName } = req.params;
-    const result = db.createAutoBackup(tableName);
+    const result = await db.createAutoBackup(tableName);
     
     if (result.success) {
       res.json({ success: true, message: result.message, timestamp: result.timestamp });
@@ -1225,10 +1284,10 @@ app.post('/api/backup/create/:tableName', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/backup/restore/:tableName', authenticateToken, (req, res) => {
+app.post('/api/backup/restore/:tableName', authenticateToken, async (req, res) => {
   try {
     const { tableName } = req.params;
-    const result = db.restoreFromBackup(tableName);
+    const result = await db.restoreFromBackup(tableName);
     
     if (result.success) {
       res.json({ success: true, message: result.message, timestamp: result.timestamp });
@@ -1241,9 +1300,9 @@ app.post('/api/backup/restore/:tableName', authenticateToken, (req, res) => {
 });
 
 // APIs de Despesas Fixas
-app.get('/api/fixed-expenses', (req, res) => {
+app.get('/api/fixed-expenses', async (req, res) => {
   try {
-    const fixedExpensesData = db.getFixedExpensesData();
+    const fixedExpensesData = await db.getFixedExpensesData();
     if (!fixedExpensesData) {
       return res.status(404).json({ error: 'Dados de despesas fixas não encontrados' });
     }
@@ -1253,10 +1312,10 @@ app.get('/api/fixed-expenses', (req, res) => {
   }
 });
 
-app.put('/api/fixed-expenses', authenticateToken, (req, res) => {
+app.put('/api/fixed-expenses', authenticateToken, async (req, res) => {
   try {
     const fixedExpensesData = req.body;
-    const updatedData = db.updateFixedExpensesData(fixedExpensesData);
+    const updatedData = await db.updateFixedExpensesData(fixedExpensesData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1264,17 +1323,17 @@ app.put('/api/fixed-expenses', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Despesas Fixas
-app.delete('/api/fixed-expenses', (req, res) => {
+app.delete('/api/fixed-expenses', async (req, res) => {
   try {
-    db.createAutoBackup('fixedExpenses');
-    const cleared = db.updateFixedExpensesData({
+    await db.createAutoBackup('fixedExpenses');
+    const cleared = await db.updateFixedExpensesData({
       previsto: new Array(12).fill(0),
       media: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
     
     // Sincronizar dados de projeção após limpeza
-    db.syncProjectionData();
+    await db.syncProjectionData();
     
     res.json({ success: true, data: cleared });
   } catch (error) {
@@ -1283,9 +1342,9 @@ app.delete('/api/fixed-expenses', (req, res) => {
 });
 
 // APIs de Despesas Variáveis
-app.get('/api/variable-expenses', (req, res) => {
+app.get('/api/variable-expenses', async (req, res) => {
   try {
-    const variableExpensesData = db.getVariableExpensesData();
+    const variableExpensesData = await db.getVariableExpensesData();
     if (!variableExpensesData) {
       return res.status(404).json({ error: 'Dados de despesas variáveis não encontrados' });
     }
@@ -1295,10 +1354,10 @@ app.get('/api/variable-expenses', (req, res) => {
   }
 });
 
-app.put('/api/variable-expenses', authenticateToken, (req, res) => {
+app.put('/api/variable-expenses', authenticateToken, async (req, res) => {
   try {
     const variableExpensesData = req.body;
-    const updatedData = db.updateVariableExpensesData(variableExpensesData);
+    const updatedData = await db.updateVariableExpensesData(variableExpensesData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1306,15 +1365,15 @@ app.put('/api/variable-expenses', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Despesas Variáveis
-app.delete('/api/variable-expenses', (req, res) => {
+app.delete('/api/variable-expenses', async (req, res) => {
   try {
-    db.createAutoBackup('variableExpenses');
-    const cleared = db.updateVariableExpensesData({
+    await db.createAutoBackup('variableExpenses');
+    const cleared = await db.updateVariableExpensesData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1322,9 +1381,9 @@ app.delete('/api/variable-expenses', (req, res) => {
 });
 
 // APIs de MKT
-app.get('/api/mkt', (req, res) => {
+app.get('/api/mkt', async (req, res) => {
   try {
-    const mktData = db.getMktData();
+    const mktData = await db.getMktData();
     if (!mktData) {
       return res.status(404).json({ error: 'Dados de MKT não encontrados' });
     }
@@ -1334,10 +1393,10 @@ app.get('/api/mkt', (req, res) => {
   }
 });
 
-app.put('/api/mkt', authenticateToken, (req, res) => {
+app.put('/api/mkt', authenticateToken, async (req, res) => {
   try {
     const mktData = req.body;
-    const updatedData = db.updateMktData(mktData);
+    const updatedData = await db.updateMktData(mktData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1345,15 +1404,15 @@ app.put('/api/mkt', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: MKT
-app.delete('/api/mkt', (req, res) => {
+app.delete('/api/mkt', async (req, res) => {
   try {
-    db.createAutoBackup('mkt');
-    const cleared = db.updateMktData({
+    await db.createAutoBackup('mkt');
+    const cleared = await db.updateMktData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1361,9 +1420,9 @@ app.delete('/api/mkt', (req, res) => {
 });
 
 // APIs de Orçamento
-app.get('/api/budget', (req, res) => {
+app.get('/api/budget', async (req, res) => {
   try {
-    const budgetData = db.getBudgetData();
+    const budgetData = await db.getBudgetData();
     if (!budgetData) {
       return res.status(404).json({ error: 'Dados de orçamento não encontrados' });
     }
@@ -1373,10 +1432,10 @@ app.get('/api/budget', (req, res) => {
   }
 });
 
-app.put('/api/budget', authenticateToken, (req, res) => {
+app.put('/api/budget', authenticateToken, async (req, res) => {
   try {
     const budgetData = req.body;
-    const updatedData = db.updateBudgetData(budgetData);
+    const updatedData = await db.updateBudgetData(budgetData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1384,9 +1443,9 @@ app.put('/api/budget', authenticateToken, (req, res) => {
 });
 
 // APIs de Investimentos
-app.get('/api/investments', (req, res) => {
+app.get('/api/investments', async (req, res) => {
   try {
-    const investmentsData = db.getInvestmentsData();
+    const investmentsData = await db.getInvestmentsData();
     if (!investmentsData) {
       return res.status(404).json({ error: 'Dados de investimentos não encontrados' });
     }
@@ -1396,10 +1455,10 @@ app.get('/api/investments', (req, res) => {
   }
 });
 
-app.put('/api/investments', authenticateToken, (req, res) => {
+app.put('/api/investments', authenticateToken, async (req, res) => {
   try {
     const investmentsData = req.body;
-    const updatedData = db.updateInvestmentsData(investmentsData);
+    const updatedData = await db.updateInvestmentsData(investmentsData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1407,15 +1466,15 @@ app.put('/api/investments', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Investimentos
-app.delete('/api/investments', (req, res) => {
+app.delete('/api/investments', async (req, res) => {
   try {
-    db.createAutoBackup('investments');
-    const cleared = db.updateInvestmentsData({
+    await db.createAutoBackup('investments');
+    const cleared = await db.updateInvestmentsData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1423,9 +1482,9 @@ app.delete('/api/investments', (req, res) => {
 });
 
 // APIs de Faturamento REURB
-app.get('/api/faturamento-reurb', (req, res) => {
+app.get('/api/faturamento-reurb', async (req, res) => {
   try {
-    const faturamentoReurbData = db.getFaturamentoReurbData();
+    const faturamentoReurbData = await db.getFaturamentoReurbData();
     if (!faturamentoReurbData) {
       return res.status(404).json({ error: 'Dados de faturamento REURB não encontrados' });
     }
@@ -1435,10 +1494,10 @@ app.get('/api/faturamento-reurb', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-reurb', authenticateToken, (req, res) => {
+app.put('/api/faturamento-reurb', authenticateToken, async (req, res) => {
   try {
     const faturamentoReurbData = req.body;
-    const updatedData = db.updateFaturamentoReurbData(faturamentoReurbData);
+    const updatedData = await db.updateFaturamentoReurbData(faturamentoReurbData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1446,15 +1505,15 @@ app.put('/api/faturamento-reurb', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Faturamento REURB
-app.delete('/api/faturamento-reurb', (req, res) => {
+app.delete('/api/faturamento-reurb', async (req, res) => {
   try {
-    db.createAutoBackup('faturamentoReurb');
-    const cleared = db.updateFaturamentoReurbData({
+    await db.createAutoBackup('faturamentoReurb');
+    const cleared = await db.updateFaturamentoReurbData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1462,9 +1521,9 @@ app.delete('/api/faturamento-reurb', (req, res) => {
 });
 
 // APIs de Faturamento GEO
-app.get('/api/faturamento-geo', (req, res) => {
+app.get('/api/faturamento-geo', async (req, res) => {
   try {
-    const faturamentoGeoData = db.getFaturamentoGeoData();
+    const faturamentoGeoData = await db.getFaturamentoGeoData();
     if (!faturamentoGeoData) {
       return res.status(404).json({ error: 'Dados de faturamento GEO não encontrados' });
     }
@@ -1474,10 +1533,10 @@ app.get('/api/faturamento-geo', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-geo', authenticateToken, (req, res) => {
+app.put('/api/faturamento-geo', authenticateToken, async (req, res) => {
   try {
     const faturamentoGeoData = req.body;
-    const updatedData = db.updateFaturamentoGeoData(faturamentoGeoData);
+    const updatedData = await db.updateFaturamentoGeoData(faturamentoGeoData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1485,15 +1544,15 @@ app.put('/api/faturamento-geo', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Faturamento GEO
-app.delete('/api/faturamento-geo', (req, res) => {
+app.delete('/api/faturamento-geo', async (req, res) => {
   try {
-    db.createAutoBackup('faturamentoGeo');
-    const cleared = db.updateFaturamentoGeoData({
+    await db.createAutoBackup('faturamentoGeo');
+    const cleared = await db.updateFaturamentoGeoData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1501,9 +1560,9 @@ app.delete('/api/faturamento-geo', (req, res) => {
 });
 
 // APIs de Faturamento PLAN
-app.get('/api/faturamento-plan', (req, res) => {
+app.get('/api/faturamento-plan', async (req, res) => {
   try {
-    const faturamentoPlanData = db.getFaturamentoPlanData();
+    const faturamentoPlanData = await db.getFaturamentoPlanData();
     if (!faturamentoPlanData) {
       return res.status(404).json({ error: 'Dados de faturamento PLAN não encontrados' });
     }
@@ -1513,10 +1572,10 @@ app.get('/api/faturamento-plan', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-plan', authenticateToken, (req, res) => {
+app.put('/api/faturamento-plan', authenticateToken, async (req, res) => {
   try {
     const faturamentoPlanData = req.body;
-    const updatedData = db.updateFaturamentoPlanData(faturamentoPlanData);
+    const updatedData = await db.updateFaturamentoPlanData(faturamentoPlanData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1524,15 +1583,15 @@ app.put('/api/faturamento-plan', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Faturamento PLAN
-app.delete('/api/faturamento-plan', (req, res) => {
+app.delete('/api/faturamento-plan', async (req, res) => {
   try {
-    db.createAutoBackup('faturamentoPlan');
-    const cleared = db.updateFaturamentoPlanData({
+    await db.createAutoBackup('faturamentoPlan');
+    const cleared = await db.updateFaturamentoPlanData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1540,9 +1599,9 @@ app.delete('/api/faturamento-plan', (req, res) => {
 });
 
 // APIs de Faturamento REG
-app.get('/api/faturamento-reg', (req, res) => {
+app.get('/api/faturamento-reg', async (req, res) => {
   try {
-    const faturamentoRegData = db.getFaturamentoRegData();
+    const faturamentoRegData = await db.getFaturamentoRegData();
     if (!faturamentoRegData) {
       return res.status(404).json({ error: 'Dados de faturamento REG não encontrados' });
     }
@@ -1552,10 +1611,10 @@ app.get('/api/faturamento-reg', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-reg', authenticateToken, (req, res) => {
+app.put('/api/faturamento-reg', authenticateToken, async (req, res) => {
   try {
     const faturamentoRegData = req.body;
-    const updatedData = db.updateFaturamentoRegData(faturamentoRegData);
+    const updatedData = await db.updateFaturamentoRegData(faturamentoRegData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1563,15 +1622,15 @@ app.put('/api/faturamento-reg', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Faturamento REG
-app.delete('/api/faturamento-reg', (req, res) => {
+app.delete('/api/faturamento-reg', async (req, res) => {
   try {
-    db.createAutoBackup('faturamentoReg');
-    const cleared = db.updateFaturamentoRegData({
+    await db.createAutoBackup('faturamentoReg');
+    const cleared = await db.updateFaturamentoRegData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1579,9 +1638,9 @@ app.delete('/api/faturamento-reg', (req, res) => {
 });
 
 // APIs de Faturamento NN
-app.get('/api/faturamento-nn', (req, res) => {
+app.get('/api/faturamento-nn', async (req, res) => {
   try {
-    const faturamentoNnData = db.getFaturamentoNnData();
+    const faturamentoNnData = await db.getFaturamentoNnData();
     if (!faturamentoNnData) {
       return res.status(404).json({ error: 'Dados de faturamento NN não encontrados' });
     }
@@ -1591,10 +1650,10 @@ app.get('/api/faturamento-nn', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-nn', authenticateToken, (req, res) => {
+app.put('/api/faturamento-nn', authenticateToken, async (req, res) => {
   try {
     const faturamentoNnData = req.body;
-    const updatedData = db.updateFaturamentoNnData(faturamentoNnData);
+    const updatedData = await db.updateFaturamentoNnData(faturamentoNnData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1602,15 +1661,15 @@ app.put('/api/faturamento-nn', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Faturamento NN
-app.delete('/api/faturamento-nn', (req, res) => {
+app.delete('/api/faturamento-nn', async (req, res) => {
   try {
-    db.createAutoBackup('faturamentoNn');
-    const cleared = db.updateFaturamentoNnData({
+    await db.createAutoBackup('faturamentoNn');
+    const cleared = await db.updateFaturamentoNnData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1618,9 +1677,9 @@ app.delete('/api/faturamento-nn', (req, res) => {
 });
 
 // APIs para Faturamento Total
-app.get('/api/faturamento-total', (req, res) => {
+app.get('/api/faturamento-total', async (req, res) => {
   try {
-    const faturamentoTotalData = db.getFaturamentoTotalData();
+    const faturamentoTotalData = await db.getFaturamentoTotalData();
     if (!faturamentoTotalData) {
       return res.status(404).json({ error: 'Dados de faturamento total não encontrados' });
     }
@@ -1630,10 +1689,10 @@ app.get('/api/faturamento-total', (req, res) => {
   }
 });
 
-app.put('/api/faturamento-total', authenticateToken, (req, res) => {
+app.put('/api/faturamento-total', authenticateToken, async (req, res) => {
   try {
     const faturamentoTotalData = req.body;
-    const updatedData = db.updateFaturamentoTotalData(faturamentoTotalData);
+    const updatedData = await db.updateFaturamentoTotalData(faturamentoTotalData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1641,9 +1700,9 @@ app.put('/api/faturamento-total', authenticateToken, (req, res) => {
 });
 
 // APIs para Resultado
-app.get('/api/resultado', (req, res) => {
+app.get('/api/resultado', async (req, res) => {
   try {
-    const resultadoData = db.getResultadoData();
+    const resultadoData = await db.getResultadoData();
     if (!resultadoData) {
       return res.status(404).json({ error: 'Dados de resultado não encontrados' });
     }
@@ -1653,10 +1712,10 @@ app.get('/api/resultado', (req, res) => {
   }
 });
 
-app.put('/api/resultado', authenticateToken, (req, res) => {
+app.put('/api/resultado', authenticateToken, async (req, res) => {
   try {
     const resultadoData = req.body;
-    const updatedData = db.updateResultadoData(resultadoData);
+    const updatedData = await db.updateResultadoData(resultadoData);
     res.json({ success: true, data: updatedData });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1664,15 +1723,15 @@ app.put('/api/resultado', authenticateToken, (req, res) => {
 });
 
 // Limpeza seletiva: Resultado do ano anterior
-app.delete('/api/resultado', (req, res) => {
+app.delete('/api/resultado', async (req, res) => {
   try {
-    db.createAutoBackup('resultado');
-    const cleared = db.updateResultadoData({
+    await db.createAutoBackup('resultado');
+    const cleared = await db.updateResultadoData({
       previsto: new Array(12).fill(0),
       medio: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    db.syncProjectionData();
+    await db.syncProjectionData();
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1680,7 +1739,7 @@ app.delete('/api/resultado', (req, res) => {
 });
 
 // APIs de Autenticação
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
@@ -1688,7 +1747,7 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
     }
 
-    const user = db.getUserByUsername(username);
+    const user = await db.getUserByUsername(username);
     if (!user) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
@@ -1718,7 +1777,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-app.post('/api/auth/verify', authenticateToken, (req, res) => {
+app.post('/api/auth/verify', authenticateToken, async (req, res) => {
   res.json({
     success: true,
     user: req.user
@@ -1736,9 +1795,9 @@ const requireAdmin = (req, res, next) => {
 
 // APIs de Gerenciamento de Usuários (apenas para admins)
 // GET /api/users - Listar todos os usuários
-app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
+app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const users = db.getAllUsers();
+    const users = await db.getAllUsers();
     // Remover senhas dos usuários antes de enviar
     const usersWithoutPasswords = users.map(user => ({
       id: user.id,
@@ -1754,7 +1813,7 @@ app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // POST /api/users - Criar novo usuário
-app.post('/api/users', authenticateToken, requireAdmin, (req, res) => {
+app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username, password, role } = req.body;
     
@@ -1769,7 +1828,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req, res) => {
     }
 
     // Verificar se o usuário já existe
-    const existingUser = db.getUserByUsername(username);
+    const existingUser = await db.getUserByUsername(username);
     if (existingUser) {
       return res.status(400).json({ error: 'Usuário já existe' });
     }
@@ -1778,7 +1837,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, 10);
 
     // Criar usuário
-    const newUser = db.saveUser({
+    const newUser = await db.saveUser({
       username,
       password: hashedPassword,
       role
@@ -1793,7 +1852,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // PUT /api/users/:id - Atualizar usuário
-app.put('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
+app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { username, password, role } = req.body;
@@ -1816,14 +1875,14 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
 
     // Verificar se está tentando mudar o username para um que já existe
     if (username) {
-      const existingUser = db.getUserByUsername(username);
+      const existingUser = await db.getUserByUsername(username);
       if (existingUser && existingUser.id !== id) {
         return res.status(400).json({ error: 'Username já está em uso' });
       }
     }
 
     // Atualizar usuário
-    const updatedUser = db.updateUser(id, updateData);
+    const updatedUser = await db.updateUser(id, updateData);
 
     // Remover senha antes de enviar
     const { password: _, ...userWithoutPassword } = updatedUser;
@@ -1834,7 +1893,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // DELETE /api/users/:id - Excluir usuário
-app.delete('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
+app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -1843,7 +1902,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Você não pode excluir seu próprio usuário' });
     }
 
-    db.deleteUser(id);
+    await db.deleteUser(id);
     res.json({ success: true, message: 'Usuário excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1851,7 +1910,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Rota de teste
-app.get('/api/test', (req, res) => {
+app.get('/api/test', async (req, res) => {
   res.json({ 
     message: 'API funcionando!',
     timestamp: new Date().toISOString(),
@@ -1918,10 +1977,10 @@ app.use((error, req, res, next) => {
 });
 
 // Limpar todos os dados de projeção
-app.delete('/api/clear-all-projection-data', authenticateToken, (req, res) => {
+app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res) => {
   try {
     console.log('Endpoint de limpeza de dados chamado')
-    const result = db.clearAllProjectionData()
+    const result = await db.clearAllProjectionData()
     
     if (result.success) {
       res.json({ 

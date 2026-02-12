@@ -51,6 +51,18 @@ const Services: React.FC = () => {
     return () => { body.classList.remove('modal-open') }
   }, [isModalOpen])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !isModalOpen) return
+      setIsModalOpen(false)
+      setEditing(null)
+      setFormErrors({})
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isModalOpen])
+
   const validateForm = () => {
     const errors: {[key: string]: string} = {}
     

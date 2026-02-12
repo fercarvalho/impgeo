@@ -124,6 +124,16 @@ const Projection: React.FC = () => {
   const [showSelectiveClearModal, setShowSelectiveClearModal] = useState(false)
   const [selectedTablesToClear, setSelectedTablesToClear] = useState<string[]>([])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !showSelectiveClearModal) return
+      setShowSelectiveClearModal(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showSelectiveClearModal])
+
   // Estados para rastrear edições manuais
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean

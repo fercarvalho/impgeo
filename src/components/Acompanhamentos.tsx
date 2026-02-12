@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ChartModal from './modals/ChartModal'
@@ -32,6 +32,64 @@ interface Acompanhamento {
 
 const API_BASE_URL = '/api'
 
+const normalizeAcompanhamento = (raw: any): Acompanhamento => ({
+  id: String(raw?.id ?? ''),
+  codImovel: Number(raw?.codImovel ?? raw?.cod_imovel ?? 0),
+  imovel: raw?.imovel ?? raw?.endereco ?? '',
+  municipio: raw?.municipio ?? '',
+  mapaUrl: raw?.mapaUrl ?? raw?.mapa_url ?? '',
+  matriculas: raw?.matriculas ?? '',
+  nIncraCcir: raw?.nIncraCcir ?? raw?.n_incra_ccir ?? '',
+  car: raw?.car ?? '',
+  statusCar: raw?.statusCar ?? raw?.status_car ?? '',
+  itr: raw?.itr ?? '',
+  geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
+  geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
+  areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
+  reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
+  cultura1: raw?.cultura1 ?? '',
+  areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
+  cultura2: raw?.cultura2 ?? '',
+  areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
+  outros: raw?.outros ?? '',
+  areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
+  appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
+  appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
+  appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
+  remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
+})
+
+const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
+  Array.isArray(rows) ? rows.map(normalizeAcompanhamento) : []
+
+const formatCodImovel = (value: number): string => String(Number(value || 0)).padStart(3, '0')
+
+type SortField =
+  | 'codImovel'
+  | 'imovel'
+  | 'municipio'
+  | 'nIncraCcir'
+  | 'car'
+  | 'statusCar'
+  | 'itr'
+  | 'geoCertificacao'
+  | 'geoRegistro'
+  | 'areaTotal'
+  | 'reservaLegal'
+  | 'saldoReservaLegal'
+  | 'cultura1'
+  | 'areaCultura1'
+  | 'cultura2'
+  | 'areaCultura2'
+  | 'outros'
+  | 'areaOutros'
+  | 'appCodigoFlorestal'
+  | 'appVegetada'
+  | 'appNaoVegetada'
+  | 'remanescenteFlorestal'
+
+type SortDirection = 'asc' | 'desc'
+
 const Acompanhamentos: React.FC = () => {
   const { token } = useAuth()
   const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
@@ -45,6 +103,8 @@ const Acompanhamentos: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareModalMode, setShareModalMode] = useState<'create' | 'manage'>('create')
+  const [isShareSelectionWarningOpen, setIsShareSelectionWarningOpen] = useState(false)
   const [shareLink, setShareLink] = useState<string>('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [shareLinkName, setShareLinkName] = useState<string>('')
@@ -60,6 +120,10 @@ const Acompanhamentos: React.FC = () => {
   const [chartTitle, setChartTitle] = useState('')
   const [chartSubtitle, setChartSubtitle] = useState('')
   const [chartTotal, setChartTotal] = useState(0)
+  const [chartValueUnit, setChartValueUnit] = useState('ha')
+  const [chartValueFormat, setChartValueFormat] = useState<'area' | 'number'>('area')
+  const [sortField, setSortField] = useState<SortField>('codImovel')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   // Função para converter URL do Google Maps para formato embed
@@ -199,8 +263,9 @@ const Acompanhamentos: React.FC = () => {
         const response = await fetch(`${API_BASE_URL}/acompanhamentos`)
         const result = await response.json()
         if (result.success) {
-          setAcompanhamentos(result.data)
-          setFilteredAcompanhamentos(result.data)
+          const normalized = normalizeAcompanhamentos(result.data)
+          setAcompanhamentos(normalized)
+          setFilteredAcompanhamentos(normalized)
         } else {
           // Se não houver dados, usar dados de exemplo
           setAcompanhamentos(exemploDados)
@@ -218,16 +283,56 @@ const Acompanhamentos: React.FC = () => {
 
   useEffect(() => {
     const filtered = acompanhamentos.filter(acomp =>
-      acomp.imovel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acomp.municipio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acomp.codImovel.toString().includes(searchTerm)
+      (acomp.imovel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (acomp.municipio || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(acomp.codImovel ?? '').includes(searchTerm)
     )
     setFilteredAcompanhamentos(filtered)
   }, [searchTerm, acompanhamentos])
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setSortField(field)
+    setSortDirection('asc')
+  }
+
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) return '↕'
+    return sortDirection === 'asc' ? '▲' : '▼'
+  }
+
+  const getSortValue = (acomp: Acompanhamento, field: SortField): string | number => {
+    if (field === 'saldoReservaLegal') {
+      return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+    }
+    return acomp[field]
+  }
+
+  const sortedAcompanhamentos = useMemo(() => {
+    const rows = [...filteredAcompanhamentos]
+    const direction = sortDirection === 'asc' ? 1 : -1
+
+    rows.sort((a, b) => {
+      const aValue = getSortValue(a, sortField)
+      const bValue = getSortValue(b, sortField)
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return (aValue - bValue) * direction
+      }
+
+      return String(aValue ?? '')
+        .localeCompare(String(bValue ?? ''), 'pt-BR', { sensitivity: 'base' }) * direction
+    })
+
+    return rows
+  }, [filteredAcompanhamentos, sortField, sortDirection])
+
   // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
-    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || chartModalOpen
+    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || isShareSelectionWarningOpen || chartModalOpen
     
     if (anyModalOpen) {
       const scrollY = window.scrollY
@@ -256,7 +361,54 @@ const Acompanhamentos: React.FC = () => {
         window.scrollTo(0, parseInt(scrollY || '0') * -1)
       }
     }
-  }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, chartModalOpen])
+  }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      if (isMapModalOpen) {
+        setIsMapModalOpen(false)
+        setSelectedMapUrl('')
+        setSelectedImovel('')
+        return
+      }
+
+      if (isShareModalOpen) {
+        setIsShareModalOpen(false)
+        setShareModalMode('create')
+        setShareLink('')
+        setShareLinkName('')
+        setNewLinkExpiresAt('')
+        setNewLinkPassword('')
+        setLinkCopied(false)
+        setEditingLinkToken(null)
+        setEditingLinkName('')
+        setEditingLinkExpiresAt('')
+        setEditingLinkPassword('')
+        return
+      }
+
+      if (isShareSelectionWarningOpen) {
+        setIsShareSelectionWarningOpen(false)
+        return
+      }
+
+      if (isImportModalOpen) {
+        setIsImportModalOpen(false)
+        return
+      }
+
+      if (isModalOpen) {
+        setIsModalOpen(false)
+        setEditing(null)
+        setFormErrors({})
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, isMapModalOpen])
 
   const handleEdit = (acomp: Acompanhamento) => {
     setEditing(acomp)
@@ -351,7 +503,8 @@ const Acompanhamentos: React.FC = () => {
         
         const result = await response.json()
         if (result.success) {
-          const updated = acompanhamentos.map(a => a.id === editing.id ? { ...result.data, id: editing.id } : a)
+          const normalizedUpdated = normalizeAcompanhamento(result.data)
+          const updated = acompanhamentos.map(a => a.id === editing.id ? { ...normalizedUpdated, id: editing.id } : a)
           setAcompanhamentos(updated)
           setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
@@ -375,7 +528,7 @@ const Acompanhamentos: React.FC = () => {
         
         const result = await response.json()
         if (result.success) {
-          const updated = [...acompanhamentos, result.data]
+          const updated = [...acompanhamentos, normalizeAcompanhamento(result.data)]
           setAcompanhamentos(updated)
           setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
@@ -522,7 +675,7 @@ const Acompanhamentos: React.FC = () => {
       })
       .then(data => {
         if (data.success) {
-          const updated = [...acompanhamentos, ...data.data]
+          const updated = [...acompanhamentos, ...normalizeAcompanhamentos(data.data)]
           setAcompanhamentos(updated)
           setFilteredAcompanhamentos(updated)
           alert(`${data.data.length} acompanhamentos importados com sucesso!`)
@@ -544,15 +697,77 @@ const Acompanhamentos: React.FC = () => {
     window.open(`${API_BASE_URL}/modelo/acompanhamentos`, '_blank')
   }
 
+  const handleExportSelected = async () => {
+    const selectedIds = new Set(Array.from(selectedItems).map((id) => String(id)))
+    const selectedRows = acompanhamentos.filter((item) => selectedIds.has(String(item.id)))
+
+    if (selectedRows.length === 0) {
+      setIsShareSelectionWarningOpen(true)
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'acompanhamentos',
+          data: selectedRows
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Falha ao exportar registros selecionados')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const today = new Date().toISOString().split('T')[0]
+      link.href = url
+      link.download = `acompanhamentos_selecionados_${today}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      console.error('Erro ao exportar acompanhamentos selecionados:', error)
+      alert('Erro ao exportar registros selecionados: ' + (error.message || 'Tente novamente'))
+    }
+  }
+
   const generateShareLink = async () => {
     if (!token) {
       alert('Você precisa estar autenticado para gerar um link compartilhável')
       return
     }
 
+    if (selectedItems.size === 0) {
+      setIsShareSelectionWarningOpen(true)
+      return
+    }
+
+    setShareModalMode('create')
+    await openShareLinkManager()
+  }
+
+  const openShareLinkManager = async () => {
+    if (!token) {
+      alert('Você precisa estar autenticado para gerenciar links compartilháveis')
+      return
+    }
+
     // Abrir modal de gerenciamento
     await loadShareLinks()
     setIsShareModalOpen(true)
+  }
+
+  const openManageShareLinks = async () => {
+    setShareModalMode('manage')
+    await openShareLinkManager()
   }
 
   const loadShareLinks = async () => {
@@ -575,6 +790,12 @@ const Acompanhamentos: React.FC = () => {
 
   const createNewShareLink = async () => {
     if (!token) return
+    const selectedIds = Array.from(selectedItems)
+
+    if (selectedIds.length === 0) {
+      setIsShareSelectionWarningOpen(true)
+      return
+    }
 
     try {
       // Primeiro, recarregar os dados do servidor
@@ -582,8 +803,9 @@ const Acompanhamentos: React.FC = () => {
       if (refreshResponse.ok) {
         const refreshResult = await refreshResponse.json()
         if (refreshResult.success && refreshResult.data) {
-          setAcompanhamentos(refreshResult.data)
-          setFilteredAcompanhamentos(refreshResult.data)
+          const normalized = normalizeAcompanhamentos(refreshResult.data)
+          setAcompanhamentos(normalized)
+          setFilteredAcompanhamentos(normalized)
         }
       }
 
@@ -596,7 +818,8 @@ const Acompanhamentos: React.FC = () => {
         body: JSON.stringify({
           name: shareLinkName.trim() || undefined,
           expiresAt: newLinkExpiresAt || undefined,
-          password: newLinkPassword.trim() || undefined
+          password: newLinkPassword.trim() || undefined,
+          selectedIds
         })
       })
       
@@ -756,7 +979,12 @@ const Acompanhamentos: React.FC = () => {
   ]
 
   // Função para abrir gráfico
-  const openChart = (title: string, subtitle: string, data: Array<{name: string; value: number; color: string}>) => {
+  const openChart = (
+    title: string,
+    subtitle: string,
+    data: Array<{name: string; value: number; color: string}>,
+    options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
+  ) => {
     if (!data || data.length === 0) {
       alert('Não há dados disponíveis para exibir o gráfico.')
       return
@@ -770,6 +998,8 @@ const Acompanhamentos: React.FC = () => {
     setChartSubtitle(subtitle)
     setChartData(data)
     setChartTotal(total)
+    setChartValueUnit(options?.valueUnit ?? 'ha')
+    setChartValueFormat(options?.valueFormat ?? 'area')
     setChartModalOpen(true)
   }
 
@@ -874,24 +1104,6 @@ const Acompanhamentos: React.FC = () => {
     }))
   }
 
-  const getSaldoReservaLegalChartData = () => {
-    const { deficitTotal, excedenteTotal } = acompanhamentos.reduce(
-      (acc, a) => {
-        const required = (a.areaTotal || 0) * 0.2
-        const saldo = (a.reservaLegal || 0) - required
-        if (saldo < 0) acc.deficitTotal += Math.abs(saldo)
-        else acc.excedenteTotal += saldo
-        return acc
-      },
-      { deficitTotal: 0, excedenteTotal: 0 }
-    )
-
-    return [
-      { name: 'Déficit', value: deficitTotal, color: '#ef4444' },
-      { name: 'Excedente', value: excedenteTotal, color: '#22c55e' }
-    ].filter(item => item.value > 0)
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -904,25 +1116,28 @@ const Acompanhamentos: React.FC = () => {
           <div className="flex gap-3">
             <button 
               onClick={generateShareLink}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-12 whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Share2 className="h-5 w-5" />
               Gerar Link Compartilhável
             </button>
+            <button
+              onClick={openManageShareLinks}
+              className="h-12 whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <ExternalLink className="h-5 w-5" />
+              Gerenciar Links
+            </button>
             <button 
               onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-12 whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Upload className="h-5 w-5" />
-              Importar
-            </button>
-            <button className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
-              <Download className="h-5 w-5" />
-              Exportar
+              Importar/Exportar
             </button>
             <button
               onClick={handleNew}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="h-12 whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-5 w-5" />
               Novo
@@ -935,7 +1150,7 @@ const Acompanhamentos: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData())}
+          onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
         >
           <p className="text-sm text-gray-600">Total de Imóveis</p>
           <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
@@ -951,7 +1166,7 @@ const Acompanhamentos: React.FC = () => {
         </div>
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData())}
+          onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData(), { valueFormat: 'number', valueUnit: '' })}
         >
           <p className="text-sm text-gray-600">Com Geo Certificação</p>
           <p className="text-2xl font-bold text-green-600">
@@ -960,7 +1175,7 @@ const Acompanhamentos: React.FC = () => {
         </div>
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData())}
+          onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData(), { valueFormat: 'number', valueUnit: '' })}
         >
           <p className="text-sm text-gray-600">Com Geo Registro</p>
           <p className="text-2xl font-bold text-green-600">
@@ -970,7 +1185,7 @@ const Acompanhamentos: React.FC = () => {
       </div>
 
       {/* Estatísticas de Área por Tipo de Cultura */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
@@ -1016,6 +1231,10 @@ const Acompanhamentos: React.FC = () => {
             {formatNumber(getAreaByCulturaType('Servidão'))} ha
           </p>
         </div>
+      </div>
+
+      {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
@@ -1025,10 +1244,6 @@ const Acompanhamentos: React.FC = () => {
             {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
           </p>
         </div>
-      </div>
-
-      {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
@@ -1065,30 +1280,11 @@ const Acompanhamentos: React.FC = () => {
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
           </p>
         </div>
-        <div
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openChart('Saldo Reserva Legal', 'Déficit vs excedente total (ha)', getSaldoReservaLegalChartData())}
-        >
-          <p className="text-sm text-gray-600">Saldo Reserva Legal</p>
-          <p className={`text-2xl font-bold ${
-            acompanhamentos.reduce((sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)), 0) >= 0
-              ? 'text-green-700'
-              : 'text-red-600'
-          }`}>
-            {(() => {
-              const totalSaldo = acompanhamentos.reduce(
-                (sum, a) => sum + ((a.reservaLegal || 0) - ((a.areaTotal || 0) * 0.2)),
-                0
-              )
-              return `${totalSaldo >= 0 ? '+' : '-'}${formatNumber(Math.abs(totalSaldo))} ha`
-            })()}
-          </p>
-        </div>
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
         >
-          <p className="text-sm text-gray-600">Remanescente Florestal</p>
+          <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
           <p className="text-2xl font-bold text-green-700">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
           </p>
@@ -1129,34 +1325,122 @@ const Acompanhamentos: React.FC = () => {
                     className="rounded"
                   />
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">COD. IMP</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">IMÓVEL</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">MUNICÍPIO</th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    COD. IMP <span>{getSortIndicator('codImovel')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    IMÓVEL <span>{getSortIndicator('imovel')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
+                  </button>
+                </th>
                 <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">MATRÍCULAS</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">N INCRA / CCIR</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CAR</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">STATUS CAR</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ITR</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">GEO CERTIFICAÇÃO</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">GEO REGISTRO</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA TOTAL (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">20% RESERVA LEGAL (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">SALDO RESERVA LEGAL (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">CULTURAS</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">OUTROS</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">ÁREA (ha)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (CÓDIGO FLORESTAL)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (VEGETADA)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">APP (NÃO VEGETADA)</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">REMANESCENTE FLORESTAL (ha)</th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('nIncraCcir')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    N INCRA / CCIR <span>{getSortIndicator('nIncraCcir')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('car')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    CAR <span>{getSortIndicator('car')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('statusCar')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    STATUS CAR <span>{getSortIndicator('statusCar')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('itr')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    ITR <span>{getSortIndicator('itr')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('geoCertificacao')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    GEO CERTIFICAÇÃO <span>{getSortIndicator('geoCertificacao')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('geoRegistro')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    GEO REGISTRO <span>{getSortIndicator('geoRegistro')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('areaTotal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    ÁREA TOTAL (ha) <span>{getSortIndicator('areaTotal')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('reservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    20% RESERVA LEGAL (ha) <span>{getSortIndicator('reservaLegal')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('saldoReservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    SALDO RESERVA LEGAL (ha) <span>{getSortIndicator('saldoReservaLegal')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('cultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    CULTURAS <span>{getSortIndicator('cultura1')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('areaCultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    ÁREA (ha) <span>{getSortIndicator('areaCultura1')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('cultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    CULTURAS <span>{getSortIndicator('cultura2')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('areaCultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    ÁREA (ha) <span>{getSortIndicator('areaCultura2')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('outros')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    OUTROS <span>{getSortIndicator('outros')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('areaOutros')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    ÁREA (ha) <span>{getSortIndicator('areaOutros')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('appCodigoFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    APP (CÓDIGO FLORESTAL) <span>{getSortIndicator('appCodigoFlorestal')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('appVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    APP (VEGETADA) <span>{getSortIndicator('appVegetada')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('appNaoVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    APP (NÃO VEGETADA) <span>{getSortIndicator('appNaoVegetada')}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <button type="button" onClick={() => handleSort('remanescenteFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
+                    REMANESCENTE FLORESTAL (ha) <span>{getSortIndicator('remanescenteFlorestal')}</span>
+                  </button>
+                </th>
                 <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAcompanhamentos.map((acomp, index) => (
+              {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
                   className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50 hover:bg-blue-100'}
@@ -1169,7 +1453,7 @@ const Acompanhamentos: React.FC = () => {
                       className="rounded"
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap font-semibold">{acomp.codImovel}</td>
+                  <td className="px-3 py-2 whitespace-nowrap font-semibold">{formatCodImovel(acomp.codImovel)}</td>
                   <td className="px-3 py-2 whitespace-nowrap font-semibold">
                     {acomp.mapaUrl ? (
                       <button
@@ -1266,7 +1550,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Edição/Criação */}
       {isModalOpen && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsModalOpen(false)
@@ -1693,7 +1977,7 @@ const Acompanhamentos: React.FC = () => {
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Importar Acompanhamentos</h2>
+                <h2 className="text-xl font-bold text-gray-900">Importar / Exportar Acompanhamentos</h2>
                 <button
                   onClick={() => setIsImportModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -1702,6 +1986,20 @@ const Acompanhamentos: React.FC = () => {
                 </button>
               </div>
               <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 mb-3">
+                    Para exportar, os registros precisam estar selecionados na tabela.
+                  </p>
+                  <button
+                    onClick={handleExportSelected}
+                    className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <Download className="h-5 w-5" />
+                    Exportar Selecionados
+                  </button>
+                </div>
+
+                <div className="border-t pt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Selecione o arquivo Excel (.xlsx)
@@ -1728,6 +2026,44 @@ const Acompanhamentos: React.FC = () => {
                     Cancelar
                   </button>
                 </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Aviso de Seleção para Compartilhar */}
+      {isShareSelectionWarningOpen && (
+        <div
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => setIsShareSelectionWarningOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Nenhum registro selecionado</h2>
+                <button
+                  onClick={() => setIsShareSelectionWarningOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-gray-700 mb-6">
+                Selecione pelo menos um registro para compartilhar ou exportar. Caso queira usar todos, marque a caixa de seleção do cabeçalho da tabela.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setIsShareSelectionWarningOpen(false)}
+                  className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+                >
+                  Entendi
+                </button>
               </div>
             </div>
           </div>
@@ -1741,6 +2077,7 @@ const Acompanhamentos: React.FC = () => {
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsShareModalOpen(false)
+            setShareModalMode('create')
             setShareLink('')
             setShareLinkName('')
             setNewLinkExpiresAt('')
@@ -1762,6 +2099,7 @@ const Acompanhamentos: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsShareModalOpen(false)
+                    setShareModalMode('create')
                     setShareLink('')
                     setShareLinkName('')
                     setNewLinkExpiresAt('')
@@ -1780,7 +2118,7 @@ const Acompanhamentos: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Formulário para criar novo link */}
+              {shareModalMode === 'create' && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Criar Novo Link</h3>
                 <div className="space-y-4">
@@ -1843,9 +2181,10 @@ const Acompanhamentos: React.FC = () => {
                   </p>
                 </div>
               </div>
+              )}
 
               {/* Link recém-criado ou copiado */}
-              {shareLink && (
+              {shareModalMode === 'create' && shareLink && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Link gerado:
@@ -2137,7 +2476,8 @@ const Acompanhamentos: React.FC = () => {
         subtitle={chartSubtitle}
         data={chartData}
         totalValue={chartTotal}
-        valueUnit="ha"
+        valueFormat={chartValueFormat}
+        valueUnit={chartValueUnit}
       />
     </div>
   )

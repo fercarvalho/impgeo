@@ -61,6 +61,26 @@ const Clients: React.FC = () => {
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      if (isImportExportOpen) {
+        setIsImportExportOpen(false)
+        return
+      }
+
+      if (isModalOpen) {
+        setIsModalOpen(false)
+        setEditing(null)
+        setFormErrors({})
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isImportExportOpen, isModalOpen])
+
   const handleSort = (field: keyof Client) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig.field === field && sortConfig.direction === 'asc') direction = 'desc'
