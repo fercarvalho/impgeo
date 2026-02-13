@@ -48,17 +48,17 @@ class Database {
 
   getDefaultModulesCatalog() {
     return [
-      { moduleKey: 'dashboard', moduleName: 'Dashboard' },
-      { moduleKey: 'projects', moduleName: 'Projetos' },
-      { moduleKey: 'services', moduleName: 'Serviços' },
-      { moduleKey: 'reports', moduleName: 'Relatórios' },
-      { moduleKey: 'metas', moduleName: 'Metas' },
-      { moduleKey: 'projecao', moduleName: 'Projeção' },
-      { moduleKey: 'transactions', moduleName: 'Transações' },
-      { moduleKey: 'clients', moduleName: 'Clientes' },
-      { moduleKey: 'dre', moduleName: 'DRE' },
-      { moduleKey: 'acompanhamentos', moduleName: 'Acompanhamentos' },
-      { moduleKey: 'admin', moduleName: 'Admin' }
+      { moduleKey: 'dashboard', moduleName: 'Dashboard', iconName: 'BarChart3', routePath: 'dashboard', isSystem: true, description: 'Visão geral do sistema' },
+      { moduleKey: 'projects', moduleName: 'Projetos', iconName: 'FolderOpen', routePath: 'projects', isSystem: true, description: 'Gestão de projetos' },
+      { moduleKey: 'services', moduleName: 'Serviços', iconName: 'Briefcase', routePath: 'services', isSystem: true, description: 'Gestão de serviços' },
+      { moduleKey: 'reports', moduleName: 'Relatórios', iconName: 'FileText', routePath: 'reports', isSystem: true, description: 'Relatórios e análises' },
+      { moduleKey: 'metas', moduleName: 'Metas', iconName: 'Target', routePath: 'metas', isSystem: true, description: 'Definição e acompanhamento de metas' },
+      { moduleKey: 'projecao', moduleName: 'Projeção', iconName: 'LineChart', routePath: 'projecao', isSystem: true, description: 'Projeções financeiras' },
+      { moduleKey: 'transactions', moduleName: 'Transações', iconName: 'Wallet', routePath: 'transactions', isSystem: true, description: 'Transações financeiras' },
+      { moduleKey: 'clients', moduleName: 'Clientes', iconName: 'Users', routePath: 'clients', isSystem: true, description: 'Cadastro de clientes' },
+      { moduleKey: 'dre', moduleName: 'DRE', iconName: 'Calculator', routePath: 'dre', isSystem: true, description: 'Demonstrativo de resultados' },
+      { moduleKey: 'acompanhamentos', moduleName: 'Acompanhamentos', iconName: 'ClipboardList', routePath: 'acompanhamentos', isSystem: true, description: 'Acompanhamento operacional' },
+      { moduleKey: 'admin', moduleName: 'Admin', iconName: 'Shield', routePath: 'admin', isSystem: true, description: 'Painel administrativo' }
     ];
   }
 
@@ -139,11 +139,20 @@ class Database {
         CREATE TABLE IF NOT EXISTS modules_catalog (
           module_key VARCHAR(100) PRIMARY KEY,
           module_name VARCHAR(255) NOT NULL,
+          icon_name VARCHAR(100),
+          description TEXT,
+          route_path VARCHAR(255),
+          is_system BOOLEAN DEFAULT FALSE,
           is_active BOOLEAN DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS icon_name VARCHAR(100)');
+      await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS description TEXT');
+      await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS route_path VARCHAR(255)');
+      await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE');
+      await this.queryWithRetry('CREATE UNIQUE INDEX IF NOT EXISTS idx_modules_catalog_key_unique ON modules_catalog(module_key)');
 
       await this.queryWithRetry(`
         CREATE TABLE IF NOT EXISTS user_module_permissions (
@@ -166,20 +175,68 @@ class Database {
         ON user_module_permissions(module_key)
       `);
 
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS activity_logs (
+          id VARCHAR(255) PRIMARY KEY,
+          user_id VARCHAR(255),
+          username VARCHAR(255),
+          action VARCHAR(100) NOT NULL,
+          module_key VARCHAR(100),
+          entity_type VARCHAR(100),
+          entity_id VARCHAR(255),
+          details JSONB,
+          ip_address VARCHAR(100),
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at
+        ON activity_logs(created_at DESC)
+      `);
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id
+        ON activity_logs(user_id)
+      `);
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_activity_logs_module_key
+        ON activity_logs(module_key)
+      `);
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_activity_logs_action
+        ON activity_logs(action)
+      `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS admin_stats_cache (
+          cache_key VARCHAR(100) PRIMARY KEY,
+          payload JSONB NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       const defaultModules = this.getDefaultModulesCatalog();
       for (const module of defaultModules) {
         await this.queryWithRetry(
           `
-            INSERT INTO modules_catalog (module_key, module_name, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO modules_catalog
+              (module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (module_key) DO UPDATE SET
               module_name = EXCLUDED.module_name,
+              icon_name = COALESCE(modules_catalog.icon_name, EXCLUDED.icon_name),
+              description = COALESCE(modules_catalog.description, EXCLUDED.description),
+              route_path = COALESCE(modules_catalog.route_path, EXCLUDED.route_path),
+              is_system = TRUE,
               is_active = EXCLUDED.is_active,
               updated_at = EXCLUDED.updated_at
           `,
           [
             module.moduleKey,
             module.moduleName,
+            module.iconName || null,
+            module.description || null,
+            module.routePath || null,
+            module.isSystem === true,
             true,
             new Date().toISOString(),
             new Date().toISOString()
@@ -1179,13 +1236,151 @@ class Database {
   async getModulesCatalog() {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
-      'SELECT module_key, module_name, is_active FROM modules_catalog ORDER BY module_name ASC'
+      `
+        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        FROM modules_catalog
+        ORDER BY module_name ASC
+      `
     );
     return result.rows.map((row) => ({
       moduleKey: row.module_key,
       moduleName: row.module_name,
-      isActive: row.is_active !== false
+      iconName: row.icon_name || null,
+      description: row.description || null,
+      routePath: row.route_path || null,
+      isSystem: row.is_system === true,
+      isActive: row.is_active !== false,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
     }));
+  }
+
+  async getModuleByKey(moduleKey) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `
+        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        FROM modules_catalog
+        WHERE module_key = $1
+        LIMIT 1
+      `,
+      [moduleKey]
+    );
+
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      moduleKey: row.module_key,
+      moduleName: row.module_name,
+      iconName: row.icon_name || null,
+      description: row.description || null,
+      routePath: row.route_path || null,
+      isSystem: row.is_system === true,
+      isActive: row.is_active !== false,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
+    };
+  }
+
+  async createModule(moduleData) {
+    await this.ensureProfileSchema();
+    const now = new Date().toISOString();
+    const result = await this.queryWithRetry(
+      `
+        INSERT INTO modules_catalog
+          (module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+      `,
+      [
+        moduleData.moduleKey,
+        moduleData.moduleName,
+        moduleData.iconName || null,
+        moduleData.description || null,
+        moduleData.routePath || null,
+        moduleData.isSystem === true,
+        moduleData.isActive !== false,
+        now,
+        now
+      ]
+    );
+    const row = result.rows[0];
+    return {
+      moduleKey: row.module_key,
+      moduleName: row.module_name,
+      iconName: row.icon_name || null,
+      description: row.description || null,
+      routePath: row.route_path || null,
+      isSystem: row.is_system === true,
+      isActive: row.is_active !== false,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
+    };
+  }
+
+  async updateModule(moduleKey, moduleData) {
+    await this.ensureProfileSchema();
+    const existing = await this.getModuleByKey(moduleKey);
+    if (!existing) {
+      throw new Error('Módulo não encontrado');
+    }
+
+    if (existing.isSystem && moduleData.moduleKey && moduleData.moduleKey !== moduleKey) {
+      throw new Error('Não é permitido alterar a chave de um módulo de sistema');
+    }
+
+    const targetKey = moduleData.moduleKey || moduleKey;
+    const result = await this.queryWithRetry(
+      `
+        UPDATE modules_catalog
+        SET
+          module_key = $1,
+          module_name = $2,
+          icon_name = $3,
+          description = $4,
+          route_path = $5,
+          is_active = $6,
+          updated_at = $7
+        WHERE module_key = $8
+        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+      `,
+      [
+        targetKey,
+        moduleData.moduleName ?? existing.moduleName,
+        moduleData.iconName !== undefined ? moduleData.iconName : existing.iconName,
+        moduleData.description !== undefined ? moduleData.description : existing.description,
+        moduleData.routePath !== undefined ? moduleData.routePath : existing.routePath,
+        moduleData.isActive !== undefined ? moduleData.isActive : existing.isActive,
+        new Date().toISOString(),
+        moduleKey
+      ]
+    );
+
+    const row = result.rows[0];
+    return {
+      moduleKey: row.module_key,
+      moduleName: row.module_name,
+      iconName: row.icon_name || null,
+      description: row.description || null,
+      routePath: row.route_path || null,
+      isSystem: row.is_system === true,
+      isActive: row.is_active !== false,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
+    };
+  }
+
+  async deleteModule(moduleKey) {
+    await this.ensureProfileSchema();
+    const module = await this.getModuleByKey(moduleKey);
+    if (!module) {
+      throw new Error('Módulo não encontrado');
+    }
+    if (module.isSystem) {
+      throw new Error('Não é permitido excluir módulo de sistema');
+    }
+    await this.queryWithRetry('DELETE FROM modules_catalog WHERE module_key = $1', [moduleKey]);
+    return true;
   }
 
   async getUserModulePermissions(userId) {
@@ -1222,9 +1417,17 @@ class Database {
       await client.query('DELETE FROM user_module_permissions WHERE user_id = $1', [userId]);
 
       const uniqueModuleKeys = [...new Set(moduleKeys || [])];
+      let validModuleKeys = [];
+      if (uniqueModuleKeys.length > 0) {
+        const validResult = await client.query(
+          'SELECT module_key FROM modules_catalog WHERE module_key = ANY($1)',
+          [uniqueModuleKeys]
+        );
+        validModuleKeys = validResult.rows.map((row) => row.module_key);
+      }
       const now = new Date().toISOString();
 
-      for (const moduleKey of uniqueModuleKeys) {
+      for (const moduleKey of validModuleKeys) {
         await client.query(
           `
             INSERT INTO user_module_permissions
@@ -1243,6 +1446,411 @@ class Database {
     } finally {
       client.release();
     }
+  }
+
+  async createActivityLog(logData) {
+    await this.ensureProfileSchema();
+    const now = new Date().toISOString();
+    await this.queryWithRetry(
+      `
+        INSERT INTO activity_logs
+          (id, user_id, username, action, module_key, entity_type, entity_id, details, ip_address, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `,
+      [
+        this.generateId(),
+        logData.userId || null,
+        logData.username || null,
+        logData.action,
+        logData.moduleKey || null,
+        logData.entityType || null,
+        logData.entityId || null,
+        JSON.stringify(logData.details || {}),
+        logData.ipAddress || null,
+        now
+      ]
+    );
+    return true;
+  }
+
+  async trimActivityLogs(maxRows = 100000) {
+    await this.ensureProfileSchema();
+    await this.queryWithRetry(
+      `
+        DELETE FROM activity_logs
+        WHERE id IN (
+          SELECT id
+          FROM activity_logs
+          ORDER BY created_at DESC
+          OFFSET $1
+        )
+      `,
+      [maxRows]
+    );
+  }
+
+  async getActivityLogs(filters = {}) {
+    await this.ensureProfileSchema();
+    const page = Math.max(Number(filters.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(filters.pageSize) || 20, 1), 100);
+    const offset = (page - 1) * pageSize;
+    const conditions = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (filters.userId) {
+      conditions.push(`user_id = $${paramIndex++}`);
+      values.push(filters.userId);
+    }
+    if (filters.moduleKey) {
+      conditions.push(`module_key = $${paramIndex++}`);
+      values.push(filters.moduleKey);
+    }
+    if (filters.action) {
+      conditions.push(`action = $${paramIndex++}`);
+      values.push(filters.action);
+    }
+    if (filters.startDate) {
+      conditions.push(`created_at >= $${paramIndex++}`);
+      values.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      conditions.push(`created_at <= $${paramIndex++}`);
+      values.push(filters.endDate);
+    }
+    if (filters.search) {
+      conditions.push(`(username ILIKE $${paramIndex} OR action ILIKE $${paramIndex} OR module_key ILIKE $${paramIndex})`);
+      values.push(`%${filters.search}%`);
+      paramIndex += 1;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const dataValues = [...values, pageSize, offset];
+
+    const totalResult = await this.queryWithRetry(
+      `SELECT COUNT(*)::int AS total FROM activity_logs ${whereClause}`,
+      values
+    );
+    const dataResult = await this.queryWithRetry(
+      `
+        SELECT id, user_id, username, action, module_key, entity_type, entity_id, details, ip_address, created_at
+        FROM activity_logs
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex++} OFFSET $${paramIndex}
+      `,
+      dataValues
+    );
+
+    return {
+      data: dataResult.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id || null,
+        username: row.username || null,
+        action: row.action,
+        moduleKey: row.module_key || null,
+        entityType: row.entity_type || null,
+        entityId: row.entity_id || null,
+        details: row.details && typeof row.details === 'object' ? row.details : {},
+        ipAddress: row.ip_address || null,
+        createdAt: row.created_at
+      })),
+      page,
+      pageSize,
+      total: totalResult.rows[0]?.total || 0
+    };
+  }
+
+  async getSystemStatisticsLive() {
+    await this.ensureProfileSchema();
+    const [
+      usersCount,
+      activeUsersCount,
+      modulesCount,
+      activeModulesCount,
+      activity24hCount,
+      transactionsCount
+    ] = await Promise.all([
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM users'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM users WHERE is_active = TRUE'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM modules_catalog'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM modules_catalog WHERE is_active = TRUE'),
+      this.queryWithRetry("SELECT COUNT(*)::int AS value FROM activity_logs WHERE created_at >= NOW() - INTERVAL '24 hours'"),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM transactions')
+    ]);
+
+    return {
+      usersTotal: usersCount.rows[0]?.value || 0,
+      usersActive: activeUsersCount.rows[0]?.value || 0,
+      usersInactive: Math.max((usersCount.rows[0]?.value || 0) - (activeUsersCount.rows[0]?.value || 0), 0),
+      modulesTotal: modulesCount.rows[0]?.value || 0,
+      modulesActive: activeModulesCount.rows[0]?.value || 0,
+      activityLast24h: activity24hCount.rows[0]?.value || 0,
+      transactionsTotal: transactionsCount.rows[0]?.value || 0
+    };
+  }
+
+  async getUsageTimeline(days = 30) {
+    await this.ensureProfileSchema();
+    const safeDays = Math.min(Math.max(Number(days) || 30, 1), 180);
+    const result = await this.queryWithRetry(
+      `
+        SELECT
+          TO_CHAR(created_at::date, 'YYYY-MM-DD') AS day,
+          COUNT(*)::int AS total
+        FROM activity_logs
+        WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+        GROUP BY created_at::date
+        ORDER BY day ASC
+      `,
+      [safeDays]
+    );
+    return result.rows.map((row) => ({
+      day: row.day,
+      total: row.total
+    }));
+  }
+
+  async getUsageTimelineByDateRange(startDate, endDate, groupBy = 'day') {
+    await this.ensureProfileSchema();
+    const safeGroupBy = groupBy === 'month' ? 'month' : 'day';
+    const truncExpr = safeGroupBy === 'month' ? "date_trunc('month', created_at)" : "created_at::date";
+    const formatExpr = safeGroupBy === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
+    const result = await this.queryWithRetry(
+      `
+        SELECT
+          TO_CHAR(${truncExpr}, '${formatExpr}') AS date,
+          COUNT(*)::int AS count
+        FROM activity_logs
+        WHERE created_at >= $1::date
+          AND created_at < ($2::date + INTERVAL '1 day')
+        GROUP BY ${truncExpr}
+        ORDER BY ${truncExpr} ASC
+      `,
+      [startDate, endDate]
+    );
+    return result.rows.map((row) => ({
+      date: row.date,
+      count: row.count
+    }));
+  }
+
+  async getTopModulesUsage(limit = 10) {
+    await this.ensureProfileSchema();
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+    const result = await this.queryWithRetry(
+      `
+        SELECT module_key, COUNT(*)::int AS total
+        FROM activity_logs
+        WHERE module_key IS NOT NULL AND module_key <> ''
+        GROUP BY module_key
+        ORDER BY total DESC
+        LIMIT $1
+      `,
+      [safeLimit]
+    );
+    return result.rows.map((row) => ({
+      moduleKey: row.module_key,
+      total: row.total
+    }));
+  }
+
+  async getTopUsersUsage(limit = 10) {
+    await this.ensureProfileSchema();
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+    const result = await this.queryWithRetry(
+      `
+        SELECT COALESCE(username, user_id, 'desconhecido') AS actor, COUNT(*)::int AS total
+        FROM activity_logs
+        GROUP BY COALESCE(username, user_id, 'desconhecido')
+        ORDER BY total DESC
+        LIMIT $1
+      `,
+      [safeLimit]
+    );
+    return result.rows.map((row) => ({
+      actor: row.actor,
+      total: row.total
+    }));
+  }
+
+  async getCachedAdminStats(cacheKey = 'global') {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      'SELECT payload, updated_at FROM admin_stats_cache WHERE cache_key = $1 LIMIT 1',
+      [cacheKey]
+    );
+    if (result.rows.length === 0) return null;
+    return {
+      payload: result.rows[0].payload,
+      updatedAt: result.rows[0].updated_at
+    };
+  }
+
+  async refreshAdminStatsCache(cacheKey = 'global') {
+    await this.ensureProfileSchema();
+    const [timeline, topModules, topUsers] = await Promise.all([
+      this.getUsageTimeline(30),
+      this.getTopModulesUsage(10),
+      this.getTopUsersUsage(10)
+    ]);
+    const payload = { timeline, topModules, topUsers };
+    await this.queryWithRetry(
+      `
+        INSERT INTO admin_stats_cache (cache_key, payload, updated_at)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (cache_key) DO UPDATE SET
+          payload = EXCLUDED.payload,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [cacheKey, JSON.stringify(payload), new Date().toISOString()]
+    );
+    return payload;
+  }
+
+  async getHybridAdminStatistics(cacheKey = 'global', cacheTtlMinutes = 10) {
+    await this.ensureProfileSchema();
+    const live = await this.getSystemStatisticsLive();
+    const cached = await this.getCachedAdminStats(cacheKey);
+    const ttlMs = Math.max(Number(cacheTtlMinutes) || 10, 1) * 60 * 1000;
+    const shouldRefresh = !cached || (Date.now() - new Date(cached.updatedAt).getTime()) > ttlMs;
+    const aggregates = shouldRefresh
+      ? await this.refreshAdminStatsCache(cacheKey)
+      : cached.payload;
+
+    return {
+      live,
+      aggregates,
+      cacheUpdatedAt: shouldRefresh ? new Date().toISOString() : cached.updatedAt
+    };
+  }
+
+  async getAdminStatisticsForPanel() {
+    await this.ensureProfileSchema();
+    const [
+      usersTotalResult,
+      usersActiveResult,
+      usersByRoleResult,
+      totalLoginsResult,
+      totalActionsResult,
+      actionsLast30DaysResult,
+      byModuleResult,
+      topUsersResult,
+      topModulesResult,
+      transactionsResult,
+      productsResult,
+      clientsResult,
+      modulesResult
+    ] = await Promise.all([
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM users'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM users WHERE is_active = TRUE'),
+      this.queryWithRetry(
+        `
+          SELECT role, COUNT(*)::int AS value
+          FROM users
+          GROUP BY role
+        `
+      ),
+      this.queryWithRetry("SELECT COUNT(*)::int AS value FROM activity_logs WHERE action = 'login'"),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM activity_logs'),
+      this.queryWithRetry("SELECT COUNT(*)::int AS value FROM activity_logs WHERE created_at >= NOW() - INTERVAL '30 days'"),
+      this.queryWithRetry(
+        `
+          SELECT
+            COALESCE(module_key, 'unknown') AS module_key,
+            COUNT(*)::int AS actions,
+            COUNT(DISTINCT COALESCE(user_id, username))::int AS users
+          FROM activity_logs
+          GROUP BY COALESCE(module_key, 'unknown')
+        `
+      ),
+      this.queryWithRetry(
+        `
+          SELECT
+            COALESCE(username, user_id, 'desconhecido') AS username,
+            COUNT(*)::int AS count
+          FROM activity_logs
+          GROUP BY COALESCE(username, user_id, 'desconhecido')
+          ORDER BY count DESC
+          LIMIT 5
+        `
+      ),
+      this.queryWithRetry(
+        `
+          SELECT
+            COALESCE(module_key, 'unknown') AS key,
+            COUNT(*)::int AS count
+          FROM activity_logs
+          GROUP BY COALESCE(module_key, 'unknown')
+          ORDER BY count DESC
+          LIMIT 10
+        `
+      ),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM transactions'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM products'),
+      this.queryWithRetry('SELECT COUNT(*)::int AS value FROM clients'),
+      this.queryWithRetry(
+        `
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE is_active = TRUE)::int AS active,
+            COUNT(*) FILTER (WHERE is_system = TRUE)::int AS system,
+            COUNT(*) FILTER (WHERE is_system = FALSE)::int AS custom
+          FROM modules_catalog
+        `
+      )
+    ]);
+
+    const usersTotal = usersTotalResult.rows[0]?.value || 0;
+    const usersActive = usersActiveResult.rows[0]?.value || 0;
+    const usersByRole = { admin: 0, user: 0, guest: 0 };
+    for (const item of usersByRoleResult.rows) {
+      if (item.role === 'admin' || item.role === 'user' || item.role === 'guest') {
+        usersByRole[item.role] = item.value || 0;
+      }
+    }
+
+    const byModule = {};
+    for (const item of byModuleResult.rows) {
+      byModule[item.module_key] = {
+        actions: item.actions || 0,
+        users: item.users || 0
+      };
+    }
+
+    return {
+      users: {
+        total: usersTotal,
+        active: usersActive,
+        inactive: Math.max(usersTotal - usersActive, 0),
+        byRole: usersByRole
+      },
+      activity: {
+        totalLogins: totalLoginsResult.rows[0]?.value || 0,
+        totalActions: totalActionsResult.rows[0]?.value || 0,
+        actionsLast30Days: actionsLast30DaysResult.rows[0]?.value || 0,
+        byModule,
+        topUsers: topUsersResult.rows.map((item) => ({
+          username: item.username,
+          count: item.count
+        })),
+        topModules: topModulesResult.rows.map((item) => ({
+          key: item.key,
+          count: item.count
+        }))
+      },
+      data: {
+        transactions: transactionsResult.rows[0]?.value || 0,
+        products: productsResult.rows[0]?.value || 0,
+        clients: clientsResult.rows[0]?.value || 0
+      },
+      modules: {
+        total: modulesResult.rows[0]?.total || 0,
+        active: modulesResult.rows[0]?.active || 0,
+        system: modulesResult.rows[0]?.system || 0,
+        custom: modulesResult.rows[0]?.custom || 0
+      }
+    };
   }
 
   async seedUserModulePermissionsFromRole(userId, role, skipEnsure = false) {

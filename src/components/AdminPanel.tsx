@@ -53,7 +53,11 @@ const DEFAULT_CREATE_FORM = {
   role: 'user' as RoleType
 };
 
-const AdminPanel: React.FC = () => {
+interface AdminPanelProps {
+  embedded?: boolean;
+}
+
+const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -461,24 +465,26 @@ const AdminPanel: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Painel Administrativo</h1>
-          <p className="text-gray-600">Gerencie usuários, permissões e credenciais</p>
+    <div className={embedded ? '' : 'p-6 max-w-7xl mx-auto'}>
+      {!embedded && (
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Painel Administrativo</h1>
+            <p className="text-gray-600">Gerencie usuários, permissões e credenciais</p>
+          </div>
+          <button
+            onClick={() => {
+              clearFeedback();
+              setCreateForm(DEFAULT_CREATE_FORM);
+              setShowCreateModal(true);
+            }}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <UserPlus className="h-5 w-5" />
+            Novo Usuário
+          </button>
         </div>
-        <button
-          onClick={() => {
-            clearFeedback();
-            setCreateForm(DEFAULT_CREATE_FORM);
-            setShowCreateModal(true);
-          }}
-          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-        >
-          <UserPlus className="h-5 w-5" />
-          Novo Usuário
-        </button>
-      </div>
+      )}
 
       {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">{error}</div>}
       {successMessage && <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">{successMessage}</div>}

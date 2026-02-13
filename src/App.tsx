@@ -36,7 +36,7 @@ const Services = lazy(() => import('./components/Services'))
 const Projection = lazy(() => import('./components/Projection'))
 const Acompanhamentos = lazy(() => import('./components/Acompanhamentos'))
 const AcompanhamentosView = lazy(() => import('./components/AcompanhamentosView'))
-const AdminPanel = lazy(() => import('./components/AdminPanel'))
+const AdminPanel = lazy(() => import('./components/admin/AdminTabs'))
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -134,6 +134,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [isReloadingProjection, setIsReloadingProjection] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [catalogModuleKeys, setCatalogModuleKeys] = useState<string[] | null>(null)
 
   const getDefaultModulesByRole = (role: string): string[] => {
     const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
@@ -149,9 +150,38 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         .filter((moduleKey: string | undefined): moduleKey is string => Boolean(moduleKey))
     : [];
 
-  const availableModuleKeys = new Set(modulesFromApi.length > 0 ? modulesFromApi : getDefaultModulesByRole(user?.role));
+  const permissionKeys = modulesFromApi.length > 0 ? modulesFromApi : getDefaultModulesByRole(user?.role);
+  const availableModuleKeys = new Set(
+    Array.isArray(catalogModuleKeys) && catalogModuleKeys.length > 0
+      ? permissionKeys.filter((key: string) => catalogModuleKeys.includes(key))
+      : permissionKeys
+  );
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
+
+  useEffect(() => {
+    const loadModulesCatalog = async () => {
+      try {
+        if (!localStorage.getItem('authToken')) return;
+        const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
+          }
+        });
+        const result = await response.json();
+        if (response.ok && result?.success && Array.isArray(result.data)) {
+          const keys = result.data
+            .map((item: any) => item?.moduleKey)
+            .filter((key: string | undefined): key is string => Boolean(key));
+          setCatalogModuleKeys(keys);
+        }
+      } catch (error) {
+        setCatalogModuleKeys(null);
+      }
+    };
+
+    loadModulesCatalog();
+  }, [user?.id]);
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {

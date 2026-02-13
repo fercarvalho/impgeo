@@ -92,6 +92,42 @@ function mapUserToClient(user) {
   };
 }
 
+function normalizeModuleKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]/g, '');
+}
+
+function sanitizeAction(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_:-]/g, '_')
+    .slice(0, 100);
+}
+
+async function logActivity(req, payload) {
+  try {
+    await db.createActivityLog({
+      userId: req.user?.id || null,
+      username: req.user?.username || null,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || null,
+      action: sanitizeAction(payload.action),
+      moduleKey: payload.moduleKey || null,
+      entityType: payload.entityType || null,
+      entityId: payload.entityId || null,
+      details: payload.details || {}
+    });
+    if (Math.random() < 0.05) {
+      await db.trimActivityLogs(100000);
+    }
+  } catch (error) {
+    console.log('Falha ao registrar atividade:', error.message);
+  }
+}
+
 function deleteAvatarFile(photoUrl) {
   try {
     if (!photoUrl) return;
@@ -582,6 +618,13 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       count: processedData.length,
       type: type
     });
+    await logActivity(req, {
+      action: 'import',
+      moduleKey: type,
+      entityType: 'batch',
+      entityId: String(processedData.length),
+      details: { type, count: processedData.length }
+    });
 
   } catch (error) {
     console.error('Erro ao processar arquivo:', error);
@@ -691,6 +734,12 @@ app.post('/api/export', async (req, res) => {
     });
 
     res.send(buffer);
+    await logActivity(req, {
+      action: 'export',
+      moduleKey: type || 'export',
+      entityType: 'batch',
+      details: { type, count: Array.isArray(data) ? data.length : 0 }
+    });
 
   } catch (error) {
     console.error('Erro ao exportar dados:', error);
@@ -715,6 +764,12 @@ app.post('/api/transactions', async (req, res) => {
   try {
     const transaction = await db.saveTransaction(req.body);
     res.json({ success: true, data: transaction });
+    await logActivity(req, {
+      action: 'financial_create',
+      moduleKey: 'transactions',
+      entityType: 'transaction',
+      entityId: transaction?.id || null
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -725,6 +780,12 @@ app.put('/api/transactions/:id', async (req, res) => {
     const { id } = req.params;
     const transaction = await db.updateTransaction(id, req.body);
     res.json({ success: true, data: transaction });
+    await logActivity(req, {
+      action: 'financial_edit',
+      moduleKey: 'transactions',
+      entityType: 'transaction',
+      entityId: id
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -735,6 +796,12 @@ app.delete('/api/transactions/:id', async (req, res) => {
     const { id } = req.params;
     await db.deleteTransaction(id);
     res.json({ success: true, message: 'Transação deletada com sucesso' });
+    await logActivity(req, {
+      action: 'financial_delete',
+      moduleKey: 'transactions',
+      entityType: 'transaction',
+      entityId: id
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1387,6 +1454,12 @@ app.put('/api/projection', authenticateToken, async (req, res) => {
     const projectionData = req.body;
     const updatedData = await db.updateProjectionData(projectionData);
     res.json({ success: true, data: updatedData });
+    await logActivity(req, {
+      action: 'financial_edit',
+      moduleKey: 'projecao',
+      entityType: 'projection',
+      entityId: 'main'
+    });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -1895,6 +1968,16 @@ app.post('/api/auth/login', async (req, res) => {
     );
 
     const updatedUserProfile = await db.getUserProfileById(user.id);
+    await db.createActivityLog({
+      userId: user.id,
+      username: user.username,
+      action: 'login',
+      moduleKey: 'auth',
+      entityType: 'user',
+      entityId: user.id,
+      details: { role: user.role },
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || null
+    });
 
     res.json({
       success: true,
@@ -1920,6 +2003,12 @@ app.post('/api/auth/verify', authenticateToken, async (req, res) => {
     const nowISO = new Date().toISOString();
     await db.updateUser(currentUser.id, { lastLogin: nowISO });
     const refreshedUser = await db.getUserProfileById(currentUser.id);
+    await logActivity(req, {
+      action: 'auth_verify',
+      moduleKey: 'auth',
+      entityType: 'user',
+      entityId: currentUser.id
+    });
 
     return res.json({
       success: true,
@@ -1927,6 +2016,16 @@ app.post('/api/auth/verify', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.get('/api/modules-catalog', authenticateToken, async (req, res) => {
+  try {
+    const catalog = await db.getModulesCatalog();
+    const activeModules = catalog.filter((module) => module.isActive !== false);
+    return res.json({ success: true, data: activeModules });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro ao carregar catálogo de módulos' });
   }
 });
 
@@ -2219,6 +2318,204 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+// APIs de Módulos (apenas para admins)
+app.get('/api/admin/modules', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const modules = await db.getModulesCatalog();
+    return res.json({ success: true, data: modules });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao buscar módulos' });
+  }
+});
+
+app.post('/api/admin/modules', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const {
+      moduleKey,
+      moduleName,
+      iconName,
+      description,
+      routePath,
+      isActive
+    } = req.body || {};
+
+    const normalizedKey = normalizeModuleKey(moduleKey);
+    if (!normalizedKey || normalizedKey.length < 2) {
+      return res.status(400).json({ error: 'moduleKey inválido. Use letras, números, "_" ou "-"' });
+    }
+    if (!moduleName || String(moduleName).trim().length < 2) {
+      return res.status(400).json({ error: 'moduleName é obrigatório' });
+    }
+
+    const existing = await db.getModuleByKey(normalizedKey);
+    if (existing) {
+      return res.status(400).json({ error: 'Já existe um módulo com esta chave' });
+    }
+
+    const created = await db.createModule({
+      moduleKey: normalizedKey,
+      moduleName: String(moduleName).trim(),
+      iconName: iconName ? String(iconName).trim() : null,
+      description: description ? String(description).trim() : null,
+      routePath: routePath ? String(routePath).trim() : null,
+      isActive: isActive !== false,
+      isSystem: false
+    });
+
+    await logActivity(req, {
+      action: 'create',
+      moduleKey: 'admin',
+      entityType: 'module',
+      entityId: created.moduleKey,
+      details: { targetModuleKey: created.moduleKey }
+    });
+
+    return res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao criar módulo' });
+  }
+});
+
+app.put('/api/admin/modules/:moduleKey', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { moduleKey } = req.params;
+    const existing = await db.getModuleByKey(moduleKey);
+    if (!existing) {
+      return res.status(404).json({ error: 'Módulo não encontrado' });
+    }
+
+    const updatePayload = {};
+    if (req.body.moduleName !== undefined) {
+      if (!String(req.body.moduleName).trim()) {
+        return res.status(400).json({ error: 'moduleName inválido' });
+      }
+      updatePayload.moduleName = String(req.body.moduleName).trim();
+    }
+    if (req.body.moduleKey !== undefined) {
+      const normalizedKey = normalizeModuleKey(req.body.moduleKey);
+      if (!normalizedKey || normalizedKey.length < 2) {
+        return res.status(400).json({ error: 'moduleKey inválido' });
+      }
+      updatePayload.moduleKey = normalizedKey;
+    }
+    if (req.body.iconName !== undefined) updatePayload.iconName = req.body.iconName ? String(req.body.iconName).trim() : null;
+    if (req.body.description !== undefined) updatePayload.description = req.body.description ? String(req.body.description).trim() : null;
+    if (req.body.routePath !== undefined) updatePayload.routePath = req.body.routePath ? String(req.body.routePath).trim() : null;
+    if (req.body.isActive !== undefined) updatePayload.isActive = req.body.isActive === true;
+
+    const updated = await db.updateModule(moduleKey, updatePayload);
+
+    await logActivity(req, {
+      action: 'edit',
+      moduleKey: 'admin',
+      entityType: 'module',
+      entityId: updated.moduleKey,
+      details: { targetModuleKey: updated.moduleKey, previousModuleKey: moduleKey }
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    const status = /não encontrado/i.test(error.message) ? 404 : 400;
+    return res.status(status).json({ error: error.message || 'Erro ao atualizar módulo' });
+  }
+});
+
+app.delete('/api/admin/modules/:moduleKey', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { moduleKey } = req.params;
+    await db.deleteModule(moduleKey);
+    await logActivity(req, {
+      action: 'delete',
+      moduleKey: 'admin',
+      entityType: 'module',
+      entityId: moduleKey
+    });
+    return res.json({ success: true, message: 'Módulo removido com sucesso' });
+  } catch (error) {
+    const status = /sistema|não encontrado/i.test(error.message) ? 400 : 500;
+    return res.status(status).json({ error: error.message || 'Erro ao remover módulo' });
+  }
+});
+
+app.get('/api/admin/activity-log', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await db.getActivityLogs({
+      page: req.query.page,
+      pageSize: req.query.pageSize,
+      userId: req.query.userId,
+      moduleKey: req.query.moduleKey,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      search: req.query.search
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar logs de atividade' });
+  }
+});
+
+app.get('/api/admin/statistics', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const stats = await db.getAdminStatisticsForPanel();
+    return res.json({ success: true, data: stats });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar estatísticas' });
+  }
+});
+
+app.get('/api/admin/statistics/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const logs = await db.getActivityLogs({
+      page: req.query.page || 1,
+      pageSize: req.query.pageSize || 20,
+      userId: req.params.userId
+    });
+    return res.json({ success: true, ...logs });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar estatísticas do usuário' });
+  }
+});
+
+app.get('/api/admin/statistics/modules/:moduleKey', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const logs = await db.getActivityLogs({
+      page: req.query.page || 1,
+      pageSize: req.query.pageSize || 20,
+      moduleKey: req.params.moduleKey
+    });
+    return res.json({ success: true, ...logs });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar estatísticas do módulo' });
+  }
+});
+
+app.get('/api/admin/statistics/usage-timeline', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const startDateParam = req.query.startDate ? String(req.query.startDate) : null;
+    const endDateParam = req.query.endDate ? String(req.query.endDate) : null;
+    const groupBy = req.query.groupBy ? String(req.query.groupBy) : 'day';
+
+    if (startDateParam) {
+      const endDate = endDateParam || new Date().toISOString().split('T')[0];
+      const timeline = await db.getUsageTimelineByDateRange(startDateParam, endDate, groupBy);
+      return res.json({ success: true, data: timeline });
+    }
+
+    const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 180);
+    const timeline = await db.getUsageTimeline(days);
+    return res.json({
+      success: true,
+      data: timeline.map((item) => ({
+        date: item.day,
+        count: item.total
+      }))
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar timeline de uso' });
+  }
+});
+
 // APIs de Gerenciamento de Usuários (apenas para admins)
 // GET /api/users - Listar todos os usuários
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
@@ -2282,6 +2579,12 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     // Remover senha antes de enviar
     const { password: _, ...userWithoutPassword } = newUser;
     res.status(201).json({ success: true, data: userWithoutPassword });
+    await logActivity(req, {
+      action: 'create',
+      moduleKey: 'admin',
+      entityType: 'user',
+      entityId: newUser.id
+    });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao criar usuário: ' + error.message });
   }
@@ -2377,6 +2680,13 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
         updatedAt: safeUser.updated_at || null
       }
     });
+    await logActivity(req, {
+      action: 'edit',
+      moduleKey: 'admin',
+      entityType: 'user',
+      entityId: id,
+      details: { fields: Object.keys(updateData) }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2427,6 +2737,13 @@ app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, r
     const filteredKeys = [...new Set(moduleKeys)].filter((key) => validKeys.has(key));
 
     await db.setUserModulePermissions(id, filteredKeys, 'view');
+    await logActivity(req, {
+      action: 'permission_change',
+      moduleKey: 'admin',
+      entityType: 'user_modules',
+      entityId: id,
+      details: { moduleCount: filteredKeys.length }
+    });
 
     return res.json({ success: true, message: 'Módulos atualizados com sucesso' });
   } catch (error) {
@@ -2447,6 +2764,12 @@ app.post('/api/users/:id/reset-password', authenticateToken, requireAdmin, async
     const temporaryPassword = crypto.randomBytes(6).toString('base64url').slice(0, 10);
     const hashedPassword = bcrypt.hashSync(temporaryPassword, 10);
     await db.updateUser(id, { password: hashedPassword });
+    await logActivity(req, {
+      action: 'reset_password',
+      moduleKey: 'admin',
+      entityType: 'user',
+      entityId: id
+    });
 
     return res.json({
       success: true,
@@ -2470,6 +2793,12 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
 
     await db.deleteUser(id);
     res.json({ success: true, message: 'Usuário excluído com sucesso' });
+    await logActivity(req, {
+      action: 'delete',
+      moduleKey: 'admin',
+      entityType: 'user',
+      entityId: id
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
