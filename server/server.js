@@ -5,6 +5,7 @@ const XLSX = require('xlsx');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Database = require('./database-pg');
@@ -17,6 +18,101 @@ const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+const avatarsDir = path.join(__dirname, 'uploads', 'avatars');
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
+
+app.use('/api/avatars', express.static(avatarsDir, {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true
+}));
+
+function validateEmailFormat(email) {
+  if (!email || typeof email !== 'string') return false;
+  const trimmed = email.trim();
+  if (trimmed.length < 5 || trimmed.length > 254) return false;
+  if (
+    trimmed.startsWith('.') ||
+    trimmed.startsWith('-') ||
+    trimmed.endsWith('.') ||
+    trimmed.endsWith('-')
+  ) {
+    return false;
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const parts = trimmed.split('@');
+  if (parts.length !== 2 || !parts[1].includes('.')) return false;
+  return emailRegex.test(trimmed);
+}
+
+function parseAddress(addressValue) {
+  if (!addressValue) return null;
+  if (typeof addressValue === 'object') return addressValue;
+  if (typeof addressValue === 'string') {
+    try {
+      return JSON.parse(addressValue);
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
+}
+
+function mapUserToClient(user) {
+  const address = parseAddress(user.address);
+  const modulesAccess = Array.isArray(user.modulesAccess)
+    ? user.modulesAccess.map((item) => ({
+        moduleKey: item.moduleKey || item.module_key,
+        moduleName: item.moduleName || item.module_name,
+        accessLevel: item.accessLevel || item.access_level || 'view'
+      }))
+    : [];
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    firstName: user.first_name || null,
+    lastName: user.last_name || null,
+    email: user.email || null,
+    phone: user.phone || null,
+    photoUrl: user.photo_url || null,
+    cpf: user.cpf || null,
+    birthDate: user.birth_date || null,
+    gender: user.gender || null,
+    position: user.position || null,
+    address,
+    isActive: user.is_active !== false && user.isActive !== false,
+    lastLogin: user.last_login || user.lastLogin || null,
+    createdAt: user.created_at || user.createdAt || null,
+    updatedAt: user.updated_at || user.updatedAt || null,
+    modulesAccess
+  };
+}
+
+function deleteAvatarFile(photoUrl) {
+  try {
+    if (!photoUrl) return;
+    let filename = photoUrl;
+    if (photoUrl.includes('/')) {
+      filename = photoUrl.split('/').pop();
+    }
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return;
+    }
+    const filePath = path.join(avatarsDir, filename);
+    const resolvedPath = path.resolve(filePath);
+    const resolvedAvatarsDir = path.resolve(avatarsDir);
+    if (!resolvedPath.startsWith(resolvedAvatarsDir)) return;
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    console.log('Erro ao remover avatar antigo:', error.message);
+  }
+}
 
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
@@ -64,6 +160,34 @@ const upload = multer({
   },
   limits: {
     fileSize: 10 * 1024 * 1024 // Limite de 10MB
+  }
+});
+
+const avatarStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    if (!fs.existsSync(avatarsDir)) {
+      fs.mkdirSync(avatarsDir, { recursive: true });
+    }
+    cb(null, avatarsDir);
+  },
+  filename: function (req, file, cb) {
+    const userId = req.user?.id || crypto.randomUUID();
+    cb(null, `${userId}-${Date.now()}.webp`);
+  }
+});
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.webp' && file.mimetype === 'image/webp') {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos WebP são permitidos!'), false);
+    }
+  },
+  limits: {
+    fileSize: 2 * 1024 * 1024
   }
 });
 
@@ -1752,10 +1876,17 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
+    if (user.is_active === false) {
+      return res.status(403).json({ error: 'Usuário inativo. Contate um administrador.' });
+    }
+
     const isValidPassword = bcrypt.compareSync(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+
+    const nowISO = new Date().toISOString();
+    await db.updateUser(user.id, { lastLogin: nowISO });
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
@@ -1763,14 +1894,12 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    const updatedUserProfile = await db.getUserProfileById(user.id);
+
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role
-      }
+      user: mapUserToClient(updatedUserProfile || { ...user, last_login: nowISO })
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1778,10 +1907,307 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/verify', authenticateToken, async (req, res) => {
-  res.json({
-    success: true,
-    user: req.user
-  });
+  try {
+    const currentUser = await db.getUserById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    if (currentUser.is_active === false) {
+      return res.status(403).json({ success: false, error: 'Usuário inativo. Contate um administrador.' });
+    }
+
+    const nowISO = new Date().toISOString();
+    await db.updateUser(currentUser.id, { lastLogin: nowISO });
+    const refreshedUser = await db.getUserProfileById(currentUser.id);
+
+    return res.json({
+      success: true,
+      user: mapUserToClient(refreshedUser || { ...currentUser, last_login: nowISO })
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// API do próprio usuário autenticado
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const profile = await db.getUserProfileById(req.user.id);
+    if (!profile) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    return res.json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/user/upload-photo', authenticateToken, uploadAvatar.single('photo'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+    }
+
+    if (req.file.mimetype !== 'image/webp' || !req.file.filename.endsWith('.webp')) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ success: false, error: 'Apenas arquivos WebP são permitidos' });
+    }
+
+    const photoUrl = `/api/avatars/${req.file.filename}`;
+    return res.json({
+      success: true,
+      data: { photoUrl }
+    });
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (deleteError) {
+        console.log('Erro ao remover arquivo após falha de upload:', deleteError.message);
+      }
+    }
+    return res.status(500).json({ success: false, error: 'Erro ao fazer upload da foto' });
+  }
+});
+
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      photoUrl,
+      password,
+      cpf,
+      birthDate,
+      gender,
+      position,
+      address
+    } = req.body;
+
+    const currentUser = await db.getUserById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ success: false, error: 'Senha atual é obrigatória para atualizar o perfil' });
+    }
+
+    const isValidPassword = bcrypt.compareSync(password, currentUser.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
+    }
+
+    if (!firstName || String(firstName).trim().length < 2) {
+      return res.status(400).json({ success: false, error: 'Nome é obrigatório e deve ter pelo menos 2 caracteres' });
+    }
+    if (!lastName || String(lastName).trim().length < 2) {
+      return res.status(400).json({ success: false, error: 'Sobrenome é obrigatório e deve ter pelo menos 2 caracteres' });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ success: false, error: 'Email é obrigatório' });
+    }
+    if (!validateEmailFormat(String(email))) {
+      return res.status(400).json({ success: false, error: 'Formato de email inválido' });
+    }
+
+    const phoneDigits = String(phone || '').replace(/\D/g, '');
+    if (phoneDigits.length !== 10 && phoneDigits.length !== 11) {
+      return res.status(400).json({ success: false, error: 'Telefone deve ter 10 ou 11 dígitos' });
+    }
+
+    const cpfDigits = String(cpf || '').replace(/\D/g, '');
+    if (cpfDigits.length !== 11) {
+      return res.status(400).json({ success: false, error: 'CPF deve ter 11 dígitos' });
+    }
+
+    if (!birthDate) {
+      return res.status(400).json({ success: false, error: 'Data de nascimento é obrigatória' });
+    }
+    if (!gender) {
+      return res.status(400).json({ success: false, error: 'Gênero é obrigatório' });
+    }
+    if (!position || !String(position).trim()) {
+      return res.status(400).json({ success: false, error: 'Cargo é obrigatório' });
+    }
+
+    if (!address || !address.cep) {
+      return res.status(400).json({ success: false, error: 'CEP é obrigatório' });
+    }
+    const cepDigits = String(address.cep).replace(/\D/g, '');
+    if (cepDigits.length !== 8) {
+      return res.status(400).json({ success: false, error: 'CEP deve ter 8 dígitos' });
+    }
+    if (!address.street || !String(address.street).trim()) {
+      return res.status(400).json({ success: false, error: 'Rua/Logradouro é obrigatório' });
+    }
+    if (!address.number || !String(address.number).trim()) {
+      return res.status(400).json({ success: false, error: 'Número do endereço é obrigatório' });
+    }
+    if (!address.neighborhood || !String(address.neighborhood).trim()) {
+      return res.status(400).json({ success: false, error: 'Bairro é obrigatório' });
+    }
+    if (!address.city || !String(address.city).trim()) {
+      return res.status(400).json({ success: false, error: 'Cidade é obrigatória' });
+    }
+    if (!address.state || String(address.state).trim().length !== 2) {
+      return res.status(400).json({ success: false, error: 'Estado (UF) é obrigatório e deve ter 2 caracteres' });
+    }
+
+    const updateData = {
+      firstName: String(firstName).trim(),
+      lastName: String(lastName).trim(),
+      email: String(email).trim(),
+      phone: phoneDigits,
+      cpf: cpfDigits,
+      birthDate,
+      gender: String(gender),
+      position: String(position).trim(),
+      address: {
+        cep: cepDigits,
+        street: String(address.street).trim(),
+        number: String(address.number).trim(),
+        complement: address.complement ? String(address.complement).trim() : '',
+        neighborhood: String(address.neighborhood).trim(),
+        city: String(address.city).trim(),
+        state: String(address.state).trim().toUpperCase()
+      }
+    };
+
+    if (photoUrl !== undefined) {
+      if (currentUser.photo_url && currentUser.photo_url !== photoUrl) {
+        deleteAvatarFile(currentUser.photo_url);
+      }
+      updateData.photoUrl = photoUrl || null;
+    }
+
+    const updatedUser = await db.updateUser(req.user.id, updateData);
+    const token = jwt.sign(
+      { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return res.json({
+      success: true,
+      data: mapUserToClient(updatedUser),
+      token
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// APIs do próprio usuário autenticado
+app.put('/api/user/username', authenticateToken, async (req, res) => {
+  try {
+    const { newUsername, currentPassword } = req.body;
+
+    if (!newUsername || !String(newUsername).trim()) {
+      return res.status(400).json({ success: false, error: 'Novo username é obrigatório' });
+    }
+
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, error: 'Senha atual é obrigatória' });
+    }
+
+    const normalizedUsername = String(newUsername).trim();
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ success: false, error: 'Username deve ter pelo menos 3 caracteres' });
+    }
+
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!usernameRegex.test(normalizedUsername)) {
+      return res.status(400).json({ success: false, error: 'Username inválido. Use apenas letras, números, underscore (_) ou hífen (-)' });
+    }
+
+    const currentUser = await db.getUserById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    const isValidPassword = bcrypt.compareSync(currentPassword, currentUser.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
+    }
+
+    if (currentUser.username === normalizedUsername) {
+      return res.status(400).json({ success: false, error: 'O novo username deve ser diferente do atual' });
+    }
+
+    const existingUser = await db.getUserByUsername(normalizedUsername);
+    if (existingUser && existingUser.id !== currentUser.id) {
+      return res.status(400).json({ success: false, error: 'Username já está em uso' });
+    }
+
+    const updatedUser = await db.updateUser(currentUser.id, { username: normalizedUsername });
+    const newToken = jwt.sign(
+      { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Username alterado com sucesso',
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        role: updatedUser.role
+      },
+      token: newToken
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.put('/api/user/password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Senha atual e nova senha são obrigatórias' });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, error: 'A nova senha deve ter pelo menos 6 caracteres' });
+    }
+
+    const currentUser = await db.getUserById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    const isValidPassword = bcrypt.compareSync(currentPassword, currentUser.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
+    }
+
+    const isSamePassword = bcrypt.compareSync(newPassword, currentUser.password);
+    if (isSamePassword) {
+      return res.status(400).json({ success: false, error: 'A nova senha deve ser diferente da senha atual' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await db.updateUser(currentUser.id, { password: hashedPassword });
+
+    return res.json({
+      success: true,
+      message: 'Senha alterada com sucesso'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
 });
 
 // Middleware para verificar se o usuário é admin
@@ -1798,13 +2224,23 @@ const requireAdmin = (req, res, next) => {
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await db.getAllUsers();
-    // Remover senhas dos usuários antes de enviar
+    // Remover senha e mapear campos snake_case -> camelCase
     const usersWithoutPasswords = users.map(user => ({
       id: user.id,
       username: user.username,
       role: user.role,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      firstName: user.first_name ?? null,
+      lastName: user.last_name ?? null,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      cpf: user.cpf ?? null,
+      birthDate: user.birth_date ?? null,
+      gender: user.gender ?? null,
+      address: parseAddress(user.address),
+      position: user.position ?? null,
+      isActive: user.is_active !== false,
+      createdAt: user.created_at || user.createdAt || null,
+      updatedAt: user.updated_at || user.updatedAt || null
     }));
     res.json({ success: true, data: usersWithoutPasswords });
   } catch (error) {
@@ -1855,7 +2291,21 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, password, role } = req.body;
+    const {
+      username,
+      password,
+      role,
+      isActive,
+      firstName,
+      lastName,
+      email,
+      phone,
+      position,
+      cpf,
+      birthDate,
+      gender,
+      address
+    } = req.body;
 
     // Validar role se fornecido
     if (role) {
@@ -1869,6 +2319,21 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     const updateData = {};
     if (username) updateData.username = username;
     if (role) updateData.role = role;
+    if (typeof isActive === 'boolean') {
+      if (req.user.id === id && isActive === false) {
+        return res.status(400).json({ error: 'Você não pode desativar seu próprio usuário' });
+      }
+      updateData.isActive = isActive;
+    }
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (position !== undefined) updateData.position = position;
+    if (cpf !== undefined) updateData.cpf = cpf;
+    if (birthDate !== undefined) updateData.birthDate = birthDate;
+    if (gender !== undefined) updateData.gender = gender;
+    if (address !== undefined) updateData.address = address;
     if (password) {
       updateData.password = bcrypt.hashSync(password, 10);
     }
@@ -1884,11 +2349,112 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     // Atualizar usuário
     const updatedUser = await db.updateUser(id, updateData);
 
+    if (role) {
+      const defaultModuleKeys = db.getDefaultModuleKeysByRole(role);
+      const accessLevel = db.getDefaultAccessLevelByRole(role);
+      await db.setUserModulePermissions(id, defaultModuleKeys, accessLevel);
+    }
+
     // Remover senha antes de enviar
-    const { password: _, ...userWithoutPassword } = updatedUser;
-    res.json({ success: true, data: userWithoutPassword });
+    const { password: _, ...safeUser } = updatedUser;
+    res.json({
+      success: true,
+      data: {
+        id: safeUser.id,
+        username: safeUser.username,
+        role: safeUser.role,
+        firstName: safeUser.first_name ?? null,
+        lastName: safeUser.last_name ?? null,
+        email: safeUser.email ?? null,
+        phone: safeUser.phone ?? null,
+        cpf: safeUser.cpf ?? null,
+        birthDate: safeUser.birth_date ?? null,
+        gender: safeUser.gender ?? null,
+        address: parseAddress(safeUser.address),
+        position: safeUser.position ?? null,
+        isActive: safeUser.is_active !== false,
+        createdAt: safeUser.created_at || null,
+        updatedAt: safeUser.updated_at || null
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/users/:id/modules - Listar módulos e permissões do usuário
+app.get('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    const catalog = await db.getModulesCatalog();
+    const userModules = await db.getUserModulePermissions(id);
+    const enabledSet = new Set(userModules.map((item) => item.moduleKey));
+
+    const data = catalog.map((module) => ({
+      moduleKey: module.moduleKey,
+      moduleName: module.moduleName,
+      enabled: enabledSet.has(module.moduleKey)
+    }));
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar módulos do usuário' });
+  }
+});
+
+// PUT /api/users/:id/modules - Atualizar módulos de acesso do usuário
+app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { moduleKeys } = req.body;
+
+    if (!Array.isArray(moduleKeys)) {
+      return res.status(400).json({ error: 'moduleKeys deve ser um array' });
+    }
+
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    const catalog = await db.getModulesCatalog();
+    const validKeys = new Set(catalog.map((item) => item.moduleKey));
+    const filteredKeys = [...new Set(moduleKeys)].filter((key) => validKeys.has(key));
+
+    await db.setUserModulePermissions(id, filteredKeys, 'view');
+
+    return res.json({ success: true, message: 'Módulos atualizados com sucesso' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao atualizar módulos do usuário' });
+  }
+});
+
+// POST /api/users/:id/reset-password - Resetar senha de usuário
+app.post('/api/users/:id/reset-password', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const targetUser = await db.getUserById(id);
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    const temporaryPassword = crypto.randomBytes(6).toString('base64url').slice(0, 10);
+    const hashedPassword = bcrypt.hashSync(temporaryPassword, 10);
+    await db.updateUser(id, { password: hashedPassword });
+
+    return res.json({
+      success: true,
+      message: 'Senha resetada com sucesso',
+      temporaryPassword
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao resetar senha' });
   }
 });
 

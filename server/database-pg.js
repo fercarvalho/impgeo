@@ -15,6 +15,8 @@ class Database {
     });
     this.shareLinksSchemaEnsured = false;
     this.shareLinksSchemaEnsuring = null;
+    this.profileSchemaEnsured = false;
+    this.profileSchemaEnsuring = null;
   }
 
   // Método auxiliar para gerar IDs únicos
@@ -42,6 +44,167 @@ class Database {
         throw error;
       }
     }
+  }
+
+  getDefaultModulesCatalog() {
+    return [
+      { moduleKey: 'dashboard', moduleName: 'Dashboard' },
+      { moduleKey: 'projects', moduleName: 'Projetos' },
+      { moduleKey: 'services', moduleName: 'Serviços' },
+      { moduleKey: 'reports', moduleName: 'Relatórios' },
+      { moduleKey: 'metas', moduleName: 'Metas' },
+      { moduleKey: 'projecao', moduleName: 'Projeção' },
+      { moduleKey: 'transactions', moduleName: 'Transações' },
+      { moduleKey: 'clients', moduleName: 'Clientes' },
+      { moduleKey: 'dre', moduleName: 'DRE' },
+      { moduleKey: 'acompanhamentos', moduleName: 'Acompanhamentos' },
+      { moduleKey: 'admin', moduleName: 'Admin' }
+    ];
+  }
+
+  getDefaultModuleKeysByRole(role) {
+    const allModuleKeys = this.getDefaultModulesCatalog().map((module) => module.moduleKey);
+    switch (role) {
+      case 'admin':
+        return allModuleKeys;
+      case 'user':
+        return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin');
+      case 'guest':
+        return allModuleKeys.filter(
+          (moduleKey) => !['admin', 'dre', 'acompanhamentos'].includes(moduleKey)
+        );
+      default:
+        return [];
+    }
+  }
+
+  getDefaultAccessLevelByRole(role) {
+    switch (role) {
+      case 'admin':
+        return 'edit';
+      case 'user':
+        return 'write';
+      case 'guest':
+      default:
+        return 'view';
+    }
+  }
+
+  async ensureProfileSchema() {
+    if (this.profileSchemaEnsured) return;
+    if (this.profileSchemaEnsuring) {
+      await this.profileSchemaEnsuring;
+      return;
+    }
+
+    this.profileSchemaEnsuring = (async () => {
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(20)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(50)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(255)');
+      await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS address JSONB');
+      await this.queryWithRetry('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+      await this.queryWithRetry('CREATE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf)');
+
+      const lastLoginColumn = await this.queryWithRetry(
+        `
+          SELECT data_type
+          FROM information_schema.columns
+          WHERE table_name = 'users'
+            AND column_name = 'last_login'
+          LIMIT 1
+        `
+      );
+
+      const lastLoginDataType = lastLoginColumn.rows[0]?.data_type;
+      if (lastLoginDataType === 'timestamp without time zone') {
+        await this.queryWithRetry(
+          `
+            ALTER TABLE users
+            ALTER COLUMN last_login
+            TYPE TIMESTAMPTZ
+            USING last_login AT TIME ZONE 'UTC'
+          `
+        );
+      }
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS modules_catalog (
+          module_key VARCHAR(100) PRIMARY KEY,
+          module_name VARCHAR(255) NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS user_module_permissions (
+          id VARCHAR(255) PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          module_key VARCHAR(100) NOT NULL REFERENCES modules_catalog(module_key) ON DELETE CASCADE,
+          access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'write', 'edit')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, module_key)
+        )
+      `);
+
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_user_module_permissions_user_id
+        ON user_module_permissions(user_id)
+      `);
+      await this.queryWithRetry(`
+        CREATE INDEX IF NOT EXISTS idx_user_module_permissions_module_key
+        ON user_module_permissions(module_key)
+      `);
+
+      const defaultModules = this.getDefaultModulesCatalog();
+      for (const module of defaultModules) {
+        await this.queryWithRetry(
+          `
+            INSERT INTO modules_catalog (module_key, module_name, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (module_key) DO UPDATE SET
+              module_name = EXCLUDED.module_name,
+              is_active = EXCLUDED.is_active,
+              updated_at = EXCLUDED.updated_at
+          `,
+          [
+            module.moduleKey,
+            module.moduleName,
+            true,
+            new Date().toISOString(),
+            new Date().toISOString()
+          ]
+        );
+      }
+
+      const usersWithoutPermissions = await this.queryWithRetry(`
+        SELECT u.id, u.role
+        FROM users u
+        LEFT JOIN user_module_permissions ump ON ump.user_id = u.id
+        GROUP BY u.id, u.role
+        HAVING COUNT(ump.id) = 0
+      `);
+
+      for (const user of usersWithoutPermissions.rows) {
+        await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
+      }
+
+      this.profileSchemaEnsured = true;
+    })().finally(() => {
+      this.profileSchemaEnsuring = null;
+    });
+
+    await this.profileSchemaEnsuring;
   }
 
   // Métodos para Transações
@@ -829,6 +992,7 @@ class Database {
   // Métodos para Usuários
   async getAllUsers() {
     try {
+      await this.ensureProfileSchema();
       const result = await this.queryWithRetry('SELECT * FROM users ORDER BY username');
       return result.rows;
     } catch (error) {
@@ -839,6 +1003,7 @@ class Database {
 
   async getUserByUsername(username) {
     try {
+      await this.ensureProfileSchema();
       const result = await this.queryWithRetry(
         'SELECT * FROM users WHERE username = $1',
         [username]
@@ -850,22 +1015,56 @@ class Database {
     }
   }
 
+  async getUserById(id) {
+    try {
+      await this.ensureProfileSchema();
+      const result = await this.queryWithRetry(
+        'SELECT * FROM users WHERE id = $1',
+        [id]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Erro ao buscar usuário por id:', error);
+      return null;
+    }
+  }
+
   async saveUser(userData) {
     try {
+      await this.ensureProfileSchema();
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO users (id, username, password, role, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (
+          id, username, password, first_name, last_name, email, phone, photo_url, cpf, birth_date,
+          gender, position, address, role, is_active, last_login, created_at, updated_at
+        )
+         VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15, $16, $17, $18
+        )
          RETURNING *`,
         [
           id,
           userData.username || null,
           userData.password || null,
+          userData.firstName || null,
+          userData.lastName || null,
+          userData.email || null,
+          userData.phone || null,
+          userData.photoUrl || null,
+          userData.cpf || null,
+          userData.birthDate || null,
+          userData.gender || null,
+          userData.position || null,
+          userData.address ? JSON.stringify(userData.address) : null,
           userData.role || 'user',
+          userData.isActive !== undefined ? userData.isActive : true,
+          userData.lastLogin || null,
           new Date().toISOString(),
           new Date().toISOString()
         ]
       );
+      await this.seedUserModulePermissionsFromRole(id, userData.role || 'user', true);
       return result.rows[0];
     } catch (error) {
       throw new Error('Erro ao salvar usuário: ' + error.message);
@@ -874,6 +1073,7 @@ class Database {
 
   async updateUser(id, updatedData) {
     try {
+      await this.ensureProfileSchema();
       const setClause = [];
       const values = [];
       let paramIndex = 1;
@@ -889,6 +1089,58 @@ class Database {
       if (updatedData.role !== undefined) {
         setClause.push(`role = $${paramIndex++}`);
         values.push(updatedData.role);
+      }
+      if (updatedData.isActive !== undefined) {
+        setClause.push(`is_active = $${paramIndex++}`);
+        values.push(updatedData.isActive);
+      }
+      if (updatedData.photoUrl !== undefined) {
+        setClause.push(`photo_url = $${paramIndex++}`);
+        values.push(updatedData.photoUrl);
+      }
+      if (updatedData.lastLogin !== undefined) {
+        setClause.push(`last_login = $${paramIndex++}`);
+        values.push(updatedData.lastLogin);
+      }
+      if (updatedData.firstName !== undefined) {
+        setClause.push(`first_name = $${paramIndex++}`);
+        values.push(updatedData.firstName);
+      }
+      if (updatedData.lastName !== undefined) {
+        setClause.push(`last_name = $${paramIndex++}`);
+        values.push(updatedData.lastName);
+      }
+      if (updatedData.email !== undefined) {
+        setClause.push(`email = $${paramIndex++}`);
+        values.push(updatedData.email);
+      }
+      if (updatedData.phone !== undefined) {
+        setClause.push(`phone = $${paramIndex++}`);
+        values.push(updatedData.phone);
+      }
+      if (updatedData.cpf !== undefined) {
+        setClause.push(`cpf = $${paramIndex++}`);
+        values.push(updatedData.cpf);
+      }
+      if (updatedData.birthDate !== undefined) {
+        setClause.push(`birth_date = $${paramIndex++}`);
+        values.push(updatedData.birthDate);
+      }
+      if (updatedData.gender !== undefined) {
+        setClause.push(`gender = $${paramIndex++}`);
+        values.push(updatedData.gender);
+      }
+      if (updatedData.position !== undefined) {
+        setClause.push(`position = $${paramIndex++}`);
+        values.push(updatedData.position);
+      }
+      if (updatedData.address !== undefined) {
+        setClause.push(`address = $${paramIndex++}`);
+        values.push(
+          updatedData.address && typeof updatedData.address === 'object'
+            ? JSON.stringify(updatedData.address)
+            : updatedData.address
+        );
       }
 
       setClause.push(`updated_at = $${paramIndex++}`);
@@ -910,6 +1162,7 @@ class Database {
 
   async deleteUser(id) {
     try {
+      await this.ensureProfileSchema();
       const result = await this.queryWithRetry(
         'DELETE FROM users WHERE id = $1 RETURNING id',
         [id]
@@ -921,6 +1174,182 @@ class Database {
     } catch (error) {
       throw new Error('Erro ao excluir usuário: ' + error.message);
     }
+  }
+
+  async getModulesCatalog() {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      'SELECT module_key, module_name, is_active FROM modules_catalog ORDER BY module_name ASC'
+    );
+    return result.rows.map((row) => ({
+      moduleKey: row.module_key,
+      moduleName: row.module_name,
+      isActive: row.is_active !== false
+    }));
+  }
+
+  async getUserModulePermissions(userId) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `
+        SELECT
+          ump.module_key,
+          mc.module_name,
+          ump.access_level
+        FROM user_module_permissions ump
+        JOIN modules_catalog mc ON mc.module_key = ump.module_key
+        WHERE ump.user_id = $1
+          AND mc.is_active = TRUE
+        ORDER BY mc.module_name ASC
+      `,
+      [userId]
+    );
+
+    return result.rows.map((row) => ({
+      moduleKey: row.module_key,
+      moduleName: row.module_name,
+      accessLevel: row.access_level
+    }));
+  }
+
+  async setUserModulePermissions(userId, moduleKeys, accessLevel = 'view') {
+    await this.ensureProfileSchema();
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query('DELETE FROM user_module_permissions WHERE user_id = $1', [userId]);
+
+      const uniqueModuleKeys = [...new Set(moduleKeys || [])];
+      const now = new Date().toISOString();
+
+      for (const moduleKey of uniqueModuleKeys) {
+        await client.query(
+          `
+            INSERT INTO user_module_permissions
+              (id, user_id, module_key, access_level, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [this.generateId(), userId, moduleKey, accessLevel, now, now]
+        );
+      }
+
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao definir permissões de módulos: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  async seedUserModulePermissionsFromRole(userId, role, skipEnsure = false) {
+    if (!skipEnsure) {
+      await this.ensureProfileSchema();
+    }
+
+    const moduleKeys = this.getDefaultModuleKeysByRole(role);
+    const accessLevel = this.getDefaultAccessLevelByRole(role);
+    const now = new Date().toISOString();
+
+    for (const moduleKey of moduleKeys) {
+      await this.queryWithRetry(
+        `
+          INSERT INTO user_module_permissions
+            (id, user_id, module_key, access_level, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (user_id, module_key) DO UPDATE SET
+            access_level = EXCLUDED.access_level,
+            updated_at = EXCLUDED.updated_at
+        `,
+        [
+          this.generateId(),
+          userId,
+          moduleKey,
+          accessLevel,
+          now,
+          now
+        ]
+      );
+    }
+  }
+
+  async getUserProfileById(userId) {
+    await this.ensureProfileSchema();
+    const userResult = await this.queryWithRetry(
+      `
+        SELECT
+          id,
+          username,
+          role,
+          first_name,
+          last_name,
+          email,
+          phone,
+          cpf,
+          birth_date,
+          gender,
+          position,
+          address,
+          photo_url,
+          is_active,
+          last_login,
+          created_at,
+          updated_at
+        FROM users
+        WHERE id = $1
+      `,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return null;
+    }
+
+    const user = userResult.rows[0];
+    let parsedAddress = null;
+    if (user.address && typeof user.address === 'object') {
+      parsedAddress = user.address;
+    } else if (typeof user.address === 'string') {
+      try {
+        parsedAddress = JSON.parse(user.address);
+      } catch (error) {
+        parsedAddress = null;
+      }
+    }
+
+    let modulesAccess = await this.getUserModulePermissions(userId);
+    let permissionsSource = 'persisted';
+
+    if (modulesAccess.length === 0) {
+      await this.seedUserModulePermissionsFromRole(userId, user.role, true);
+      modulesAccess = await this.getUserModulePermissions(userId);
+      permissionsSource = 'fallback';
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      firstName: user.first_name || null,
+      lastName: user.last_name || null,
+      email: user.email || null,
+      phone: user.phone || null,
+      cpf: user.cpf || null,
+      birthDate: user.birth_date || null,
+      gender: user.gender || null,
+      position: user.position || null,
+      address: parsedAddress,
+      photoUrl: user.photo_url || null,
+      isActive: user.is_active !== false,
+      lastLogin: user.last_login || null,
+      createdAt: user.created_at || null,
+      updatedAt: user.updated_at || null,
+      modulesAccess,
+      permissionsSource
+    };
   }
 
   // Métodos para Projeção

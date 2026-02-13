@@ -8,12 +8,81 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(255) PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    cpf VARCHAR(20),
+    birth_date DATE,
+    gender VARCHAR(50),
+    position VARCHAR(255),
+    address JSONB,
     role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'user', 'guest')),
+    photo_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMPTZ,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_username ON users(username);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cpf VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'users'
+          AND column_name = 'last_login'
+          AND data_type = 'timestamp without time zone'
+    ) THEN
+        ALTER TABLE users
+            ALTER COLUMN last_login
+            TYPE TIMESTAMPTZ
+            USING last_login AT TIME ZONE 'UTC';
+    END IF;
+END $$;
+
+-- Catálogo de módulos
+CREATE TABLE IF NOT EXISTS modules_catalog (
+    module_key VARCHAR(100) PRIMARY KEY,
+    module_name VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_modules_catalog_name ON modules_catalog(module_name);
+
+-- Permissões por usuário e módulo
+CREATE TABLE IF NOT EXISTS user_module_permissions (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    module_key VARCHAR(100) NOT NULL REFERENCES modules_catalog(module_key) ON DELETE CASCADE,
+    access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'write', 'edit')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, module_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_module_permissions_user_id ON user_module_permissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_module_permissions_module_key ON user_module_permissions(module_key);
 
 -- Transações
 CREATE TABLE IF NOT EXISTS transactions (

@@ -4,6 +4,33 @@ interface User {
   id: string;
   username: string;
   role: string;
+  modulesAccess?: Array<{
+    moduleKey: string;
+    moduleName?: string;
+    accessLevel?: string;
+  }>;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  cpf?: string;
+  birthDate?: string;
+  gender?: string;
+  position?: string;
+  address?: {
+    cep?: string;
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+  };
+  isActive?: boolean;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AuthContextType {
@@ -11,6 +38,8 @@ interface AuthContextType {
   token: string | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (userData: Partial<User>, newToken?: string) => void;
+  refreshUser: () => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -114,11 +143,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('authToken');
   };
 
+  const updateUser = (userData: Partial<User>, newToken?: string) => {
+    if (user) {
+      setUser({ ...user, ...userData });
+    }
+    if (newToken) {
+      setToken(newToken);
+      localStorage.setItem('authToken', newToken);
+    }
+  };
+
+  const refreshUser = async (): Promise<boolean> => {
+    if (!token) return false;
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (!data?.success || !data.user) return false;
+      setUser(data.user);
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      return false;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
     login,
     logout,
+    updateUser,
+    refreshUser,
     isLoading
   };
 

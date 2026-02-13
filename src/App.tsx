@@ -25,6 +25,7 @@ import {
 import { lazy, Suspense } from 'react'
 import Login from './components/Login'
 import ChartModal from './components/modals/ChartModal'
+import MenuUsuario from './components/MenuUsuario'
 
 const Reports = lazy(() => import('./components/Reports'))
 const TransactionsPage = lazy(() => import('./components/Transactions').then(module => ({ default: module.TransactionsPage })))
@@ -134,6 +135,32 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
 
+  const getDefaultModulesByRole = (role: string): string[] => {
+    const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
+    if (role === 'admin') return [...allWithoutAdmin, 'admin'];
+    if (role === 'user') return allWithoutAdmin;
+    if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'acompanhamentos');
+    return [];
+  };
+
+  const modulesFromApi = Array.isArray(user?.modulesAccess)
+    ? user.modulesAccess
+        .map((item: any) => item?.moduleKey)
+        .filter((moduleKey: string | undefined): moduleKey is string => Boolean(moduleKey))
+    : [];
+
+  const availableModuleKeys = new Set(modulesFromApi.length > 0 ? modulesFromApi : getDefaultModulesByRole(user?.role));
+
+  const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
+
+  useEffect(() => {
+    if (!hasModuleAccess(activeTab)) {
+      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin'];
+      const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
+      setActiveTab(fallbackTab);
+    }
+  }, [activeTab, user]);
+
   // Resetar modal quando trocar de aba
   useEffect(() => {
     setShowTransactionModal(false)
@@ -159,6 +186,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   
   // Estados para Metas
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
+  const [dashboardSelectedMonth, setDashboardSelectedMonth] = useState<number>(new Date().getMonth())
   
   // Estados para modal de gráficos
   const [chartModal, setChartModal] = useState<{
@@ -574,14 +602,6 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     )
   }
 
-  // Função para calcular totais
-  const calculateTotals = () => {
-    const receitas = transactions.filter(t => t.type === 'Receita').reduce((s, t) => s + t.value, 0)
-    const despesas = transactions.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.value, 0)
-    const resultado = receitas - despesas
-    return { receitas, despesas, resultado }
-  }
-
   // Funções para abrir gráficos
   const openChart = (title: string, data: Array<{name: string; value: number; color: string}>, subtitle?: string) => {
     const totalValue = data.reduce((sum, item) => sum + item.value, 0)
@@ -810,9 +830,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="text-white text-sm">
-              <span className="text-blue-200">Olá,</span> {user.username}
-            </div>
+            <MenuUsuario />
             <button 
               onClick={logout}
               className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -826,47 +844,67 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         
         {/* Segunda linha: Menus */}
         <div className="flex items-center justify-center space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2">
-          <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+          {hasModuleAccess('dashboard') && (
+            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Home className="h-4 w-4 mb-2" />
             Dashboard
-          </button>
-          <button onClick={() => setActiveTab('projects')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projects' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('projects') && (
+            <button onClick={() => setActiveTab('projects')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projects' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Map className="h-4 w-4 mb-2" />
             Projetos
-          </button>
-          <button onClick={() => setActiveTab('services')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'services' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('services') && (
+            <button onClick={() => setActiveTab('services')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'services' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Target className="h-4 w-4 mb-2" />
             Serviços
-          </button>
-          <button onClick={() => setActiveTab('reports')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'reports' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('reports') && (
+            <button onClick={() => setActiveTab('reports')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'reports' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <BarChart3 className="h-4 w-4 mb-2" />
             Relatórios
-          </button>
-          <button onClick={() => setActiveTab('metas')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'metas' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('metas') && (
+            <button onClick={() => setActiveTab('metas')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'metas' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <TrendingUp className="h-4 w-4 mb-2" />
             Metas
-          </button>
-          <button onClick={() => setActiveTab('projecao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projecao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('projecao') && (
+            <button onClick={() => setActiveTab('projecao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projecao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Calculator className="h-4 w-4 mb-2" />
             <span className="text-center leading-tight">Projeção</span>
-          </button>
-          <button onClick={() => setActiveTab('transactions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'transactions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('transactions') && (
+            <button onClick={() => setActiveTab('transactions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'transactions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <FileText className="h-4 w-4 mb-2" />
             Transações
-          </button>
-          <button onClick={() => setActiveTab('clients')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'clients' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('clients') && (
+            <button onClick={() => setActiveTab('clients')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'clients' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Building className="h-4 w-4 mb-2" />
             Clientes
-          </button>
-          <button onClick={() => setActiveTab('dre')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('dre') && (
+            <button onClick={() => setActiveTab('dre')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <BarChart3 className="h-4 w-4 mb-2" />
             DRE
-          </button>
-          <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+            </button>
+          )}
+          {hasModuleAccess('acompanhamentos') && (
+            <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <ClipboardList className="h-4 w-4 mb-2" />
             Acompanhamentos
-          </button>
-          {user.role === 'admin' && (
+            </button>
+          )}
+          {hasModuleAccess('admin') && (
             <button onClick={() => setActiveTab('admin')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
               <Shield className="h-4 w-4 mb-2" />
               Admin
@@ -2762,13 +2800,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   // Render Dashboard
   const renderDashboard = () => {
-    const { receitas, despesas, resultado } = calculateTotals()
-    
-    
-    // Usar dados reais das transações para o mês atual
-    const totalReceitasMes = receitas
-    const totalDespesasMes = despesas
-    const lucroLiquidoMes = resultado
+    const currentYear = new Date().getFullYear()
+    const transacoesMesSelecionado = transactions.filter(t => {
+      const transactionDate = new Date(t.date)
+      return transactionDate.getMonth() === dashboardSelectedMonth && transactionDate.getFullYear() === currentYear
+    })
+
+    const totalReceitasMes = transacoesMesSelecionado
+      .filter(t => t.type === 'Receita')
+      .reduce((sum, t) => sum + t.value, 0)
+    const totalDespesasMes = transacoesMesSelecionado
+      .filter(t => t.type === 'Despesa')
+      .reduce((sum, t) => sum + t.value, 0)
+    const lucroLiquidoMes = totalReceitasMes - totalDespesasMes
     
     // Função para determinar o trimestre de um mês (0-11)
     const getQuarter = (month: number) => Math.floor(month / 3)
@@ -2790,7 +2834,6 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const lucroLiquidoTrimestre = totalReceitasTrimestre - totalDespesasTrimestre
     
     // Cálculos anuais
-    const currentYear = new Date().getFullYear()
     const transacoesAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
@@ -2873,14 +2916,22 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           )}
         </div>
 
-        {/* Seção Mês Atual */}
+        {/* Seção Mês */}
           <div className="space-y-4">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-gray-600" />
-            Mês Atual
-            <span className="text-lg font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
-              {nomesMeses[new Date().getMonth()]}
-            </span>
+            Mês
+            <select
+              value={dashboardSelectedMonth}
+              onChange={(e) => setDashboardSelectedMonth(Number(e.target.value))}
+              className="text-lg font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 outline-none cursor-pointer"
+            >
+              {nomesMeses.map((mes, index) => (
+                <option key={mes} value={index}>
+                  {mes}
+                </option>
+              ))}
+            </select>
           </h2>
           
           <div className="space-y-4">
@@ -2949,7 +3000,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
           </div>
         </div>
-                {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[new Date().getMonth()]})`)}
+                {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[dashboardSelectedMonth]})`)}
       </div>
         </div>
       </div>
@@ -3192,7 +3243,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
-        {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && hasModuleAccess('dashboard') && (
           <>
             {renderDashboard()}
             {showTransactionModal && (
@@ -3205,55 +3256,55 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             )}
           </>
         )}
-        {activeTab === 'metas' && renderMetas()}
-        {activeTab === 'reports' && (
+        {activeTab === 'metas' && hasModuleAccess('metas') && renderMetas()}
+        {activeTab === 'reports' && hasModuleAccess('reports') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Reports transactions={transactions} />
           </Suspense>
         )}
-        {activeTab === 'transactions' && (
+        {activeTab === 'transactions' && hasModuleAccess('transactions') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <TransactionsPage />
           </Suspense>
         )}
-        {activeTab === 'projects' && (
+        {activeTab === 'projects' && hasModuleAccess('projects') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Projects />
           </Suspense>
         )}
-        {activeTab === 'services' && (
+        {activeTab === 'services' && hasModuleAccess('services') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Services />
           </Suspense>
         )}
         {/* removido placeholder duplicado de Relatórios */}
-        {activeTab === 'metas' && (
+        {activeTab === 'metas' && hasModuleAccess('metas') && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Metas</h1>
             <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
             </div>
         )}
-        {activeTab === 'projecao' && (
+        {activeTab === 'projecao' && hasModuleAccess('projecao') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Projection />
           </Suspense>
         )}
-        {activeTab === 'clients' && (
+        {activeTab === 'clients' && hasModuleAccess('clients') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Clients />
           </Suspense>
         )}
-        {activeTab === 'dre' && (
+        {activeTab === 'dre' && hasModuleAccess('dre') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <DRE />
           </Suspense>
         )}
-        {activeTab === 'acompanhamentos' && (
+        {activeTab === 'acompanhamentos' && hasModuleAccess('acompanhamentos') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Acompanhamentos />
           </Suspense>
         )}
-        {activeTab === 'admin' && user.role === 'admin' && (
+        {activeTab === 'admin' && hasModuleAccess('admin') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <AdminPanel />
           </Suspense>
