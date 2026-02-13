@@ -150,6 +150,13 @@ function deleteAvatarFile(photoUrl) {
   }
 }
 
+function generateRandomPassword() {
+  return crypto.randomBytes(16).toString('base64').slice(0, 16).replace(/[+/=]/g, (char) => {
+    const replacements = { '+': 'A', '/': 'B', '=': 'C' };
+    return replacements[char] || char;
+  });
+}
+
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -1953,13 +1960,28 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ error: 'Usuário inativo. Contate um administrador.' });
     }
 
-    const isValidPassword = bcrypt.compareSync(password, user.password);
+    const isFirstLogin = !user.last_login;
+    let isValidPassword = false;
+    let newPassword = null;
+
+    if (isFirstLogin) {
+      isValidPassword = true;
+      newPassword = generateRandomPassword();
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      const nowISO = new Date().toISOString();
+      await db.updateUser(user.id, { password: hashedPassword, lastLogin: nowISO });
+    } else {
+      isValidPassword = bcrypt.compareSync(password, user.password);
+    }
+
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
-    const nowISO = new Date().toISOString();
-    await db.updateUser(user.id, { lastLogin: nowISO });
+    if (!isFirstLogin) {
+      const nowISO = new Date().toISOString();
+      await db.updateUser(user.id, { lastLogin: nowISO });
+    }
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
@@ -1979,11 +2001,18 @@ app.post('/api/auth/login', async (req, res) => {
       ipAddress: req.ip || req.headers['x-forwarded-for'] || null
     });
 
-    res.json({
+    const response = {
       success: true,
       token,
-      user: mapUserToClient(updatedUserProfile || { ...user, last_login: nowISO })
-    });
+      user: mapUserToClient(updatedUserProfile || user)
+    };
+
+    if (isFirstLogin && newPassword) {
+      response.firstLogin = true;
+      response.newPassword = newPassword;
+    }
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
@@ -2318,6 +2347,61 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+app.post('/api/auth/reset-first-login', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Username é obrigatório' });
+    }
+
+    const user = await db.getUserByUsername(username);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    await db.updateUser(user.id, { lastLogin: null });
+    await logActivity(req, {
+      action: 'reset_password',
+      moduleKey: 'admin',
+      entityType: 'user',
+      entityId: user.id
+    });
+
+    return res.json({
+      success: true,
+      message: `Primeiro login resetado para o usuário ${username}. Agora você pode fazer login com qualquer senha novamente.`
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/auth/reset-all-passwords', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const allUsers = await db.getAllUsers();
+    let resetCount = 0;
+
+    for (const user of allUsers) {
+      await db.updateUser(user.id, { lastLogin: null });
+      resetCount += 1;
+    }
+
+    await logActivity(req, {
+      action: 'reset_all_passwords',
+      moduleKey: 'admin',
+      entityType: 'system'
+    });
+
+    return res.json({
+      success: true,
+      message: `Senhas resetadas para ${resetCount} usuário(s). Todos os usuários precisarão fazer primeiro login novamente.`,
+      resetCount
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // APIs de Módulos (apenas para admins)
 app.get('/api/admin/modules', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -2548,10 +2632,10 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 // POST /api/users - Criar novo usuário
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, role } = req.body;
     
-    if (!username || !password || !role) {
-      return res.status(400).json({ error: 'Username, password e role são obrigatórios' });
+    if (!username || !role) {
+      return res.status(400).json({ error: 'Username e role são obrigatórios' });
     }
 
     // Validar role
@@ -2566,14 +2650,15 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Usuário já existe' });
     }
 
-    // Hash da senha
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    // Placeholder de primeiro login (igual ao alya)
+    const placeholderPassword = bcrypt.hashSync('FIRST_LOGIN_PLACEHOLDER', 10);
 
     // Criar usuário
     const newUser = await db.saveUser({
       username,
-      password: hashedPassword,
-      role
+      password: placeholderPassword,
+      role,
+      lastLogin: null
     });
 
     // Remover senha antes de enviar

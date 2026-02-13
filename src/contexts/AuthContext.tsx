@@ -36,11 +36,19 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<LoginResponse>;
+  completeFirstLogin: () => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>, newToken?: string) => void;
   refreshUser: () => Promise<boolean>;
   isLoading: boolean;
+}
+
+interface LoginResponse {
+  success: boolean;
+  firstLogin?: boolean;
+  newPassword?: string;
+  error?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -110,7 +118,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<LoginResponse> => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -122,18 +130,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
+        if (data.firstLogin && data.newPassword) {
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('pendingFirstLogin', 'true');
+          return {
+            success: true,
+            firstLogin: true,
+            newPassword: data.newPassword
+          };
+        }
+
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem('authToken', data.token);
-        return true;
+        localStorage.removeItem('pendingFirstLogin');
+        return { success: true, firstLogin: false };
       } else {
         const errorData = await response.json();
         console.error('Erro no login:', errorData.error);
-        return false;
+        return { success: false };
       }
     } catch (error) {
       console.error('Erro ao fazer login:', error);
-      return false;
+      return { success: false };
+    }
+  };
+
+  const completeFirstLogin = async () => {
+    const savedToken = localStorage.getItem('authToken');
+    if (savedToken) {
+      await verifyToken(savedToken);
+      localStorage.removeItem('pendingFirstLogin');
     }
   };
 
@@ -141,6 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('authToken');
+    localStorage.removeItem('pendingFirstLogin');
   };
 
   const updateUser = (userData: Partial<User>, newToken?: string) => {
@@ -178,6 +206,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     token,
     login,
+    completeFirstLogin,
     logout,
     updateUser,
     refreshUser,
