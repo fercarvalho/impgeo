@@ -50,23 +50,27 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - Status e cronograma de projetos
 - Valores e faturamento por projeto
 
+### 👥 Gestão de Usuários e Perfis
+- Menu de usuário completo com upload e recorte de foto de perfil
+- Sistema avançado de segurança de conta (alterar senha e username)
+- Recuperação e reset de senha via e-mail (integração SendGrid)
+- Painel Administrativo para controle de acessos e permissões
+
+### 📑 Gestão de Acompanhamentos
+- Módulo dedicado para registros de acompanhamentos e relatórios
+- Sincronização e upload de arquivos associados
+
 ### 📥 Importação e Exportação
 - Importação via Excel/CSV para onboarding ágil
 - Exportação de relatórios em PDF
 - Templates personalizáveis
-- Backup e restore por tabela
+- Backup e restore dos dados
 
 ### 👤 Autenticação e Segurança
-- Sistema de login com JWT
-- Níveis de acesso (admin, financeiro, gestor, leitura)
+- Sistema de login com JWT e sessões seguras
+- Níveis de acesso e RBAC ativo (admin, financeiro, gestor, leitura)
 - Middleware de autenticação
 - Hash de senhas com bcryptjs
-
-### 🔄 Backup e Restauração
-- Backup automático por tabela
-- Restauração seletiva de dados
-- Histórico de backups
-- Proteção contra perda de dados
 
 ## 🛠️ Stack Tecnológica
 
@@ -78,24 +82,27 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - **Recharts** para gráficos interativos
 - **html2canvas** e **jsPDF** para exportação em PDF
 - **date-fns** para manipulação de datas
+- **react-easy-crop** para tratamento de imagens de avatar
 
 ### Backend
 - **Node.js** com Express
-- **JSON local** como banco de dados (MVP)
-- **JWT** para autenticação
+- **PostgreSQL** como banco de dados relacional principal
+- **JWT** para autenticação e sessões
 - **bcryptjs** para hash de senhas
 - **Multer** para upload de arquivos
 - **XLSX** para processamento de planilhas Excel
+- **SendGrid** para envio de e-mails transacionais (reset de senha)
 - **CORS** para comunicação frontend/backend
 
 ### Infraestrutura
-- Preparado para migração para **PostgreSQL** ou **MongoDB**
 - Suporte a deploy em VPS
 - Arquitetura modular e escalável
+- Sistema estruturado de migrações (`migrations/`) para banco de dados
 
 ## 📋 Pré-requisitos
 
 - Node.js 18+
+- PostgreSQL 14+
 - npm ou yarn
 - Git (para clonar o repositório)
 
@@ -125,15 +132,30 @@ cd ..
 Crie um arquivo `.env` na pasta `server/`:
 
 ```env
+# Server
+PORT=9001
+FRONTEND_PORT=9000
+
 # JWT
 JWT_SECRET=sua_chave_secreta_super_segura_aqui
 
-# Portas
-PORT=9001
-FRONTEND_PORT=9000
+# PostgreSQL Database
+DB_USER=seu_usuario_pg
+DB_HOST=localhost
+DB_NAME=impgeo_db
+DB_PASSWORD=sua_senha_pg
+DB_PORT=5432
+
+# SendGrid (Recuperação de Senhas)
+SENDGRID_API_KEY=sua_chave_api_sendgrid
+FROM_EMAIL=seu_email_remetente@dominio.com
 ```
 
-### 4. Inicie o servidor
+### 4. Configure o Banco de Dados
+
+Certifique-se de que o **PostgreSQL** está rodando e execute as migrações/scripts localizados em `server/migrations/` ou no arquivo de setup correspondente para construir a estrutura do banco.
+
+### 5. Inicie o servidor
 
 **Desenvolvimento:**
 
@@ -159,7 +181,7 @@ cd server
 npm start
 ```
 
-### 5. Acesse a aplicação
+### 6. Acesse a aplicação
 
 - **Frontend:** http://localhost:9000
 - **API Backend:** http://localhost:9001
@@ -175,121 +197,43 @@ O projeto está em constante evolução. Documentação adicional será adiciona
 impgeo/
 ├── src/                      # Aplicação React (Frontend)
 │   ├── components/           # Componentes React
-│   │   ├── modals/          # Modais (Chart, Product, Transaction)
+│   │   ├── admin/           # Painel de Controle e Usuários
+│   │   ├── modals/          # Modais (Chart, Product, Transaction, Senhas, Perfil)
 │   │   ├── Acompanhamentos.tsx
-│   │   ├── Clients.tsx
 │   │   ├── Dashboard.tsx
-│   │   ├── DRE.tsx
 │   │   ├── Login.tsx
-│   │   ├── Products.tsx
-│   │   ├── Projection.tsx
-│   │   ├── Projects.tsx
-│   │   ├── Reports.tsx
-│   │   ├── Services.tsx
-│   │   └── Transactions.tsx
-│   ├── contexts/            # Contextos React
-│   │   ├── AuthContext.tsx
-│   │   ├── ProductContext.tsx
-│   │   └── TransactionContext.tsx
+│   │   ├── MenuUsuario.tsx  # Navegação de Perfil e Conta
+│   │   ├── PhotoUpload.tsx  # Gestão de Avatares
+│   │   └── ... (outras views)
+│   ├── contexts/            # Contextos React (Autenticação, Dados)
 │   ├── hooks/               # Custom hooks
-│   │   └── usePermissions.ts
 │   ├── lib/                 # Bibliotecas e utilitários
-│   │   └── database.ts
 │   ├── types/               # Tipos TypeScript
-│   │   └── index.ts
 │   ├── App.tsx              # Componente principal
 │   ├── main.tsx             # Entry point
 │   └── index.css            # Estilos globais
 ├── server/                  # Backend (Express)
-│   ├── database/            # Banco de dados JSON
-│   │   ├── transactions.json
-│   │   ├── projects.json
-│   │   ├── clients.json
-│   │   ├── products.json
-│   │   ├── budget.json
-│   │   └── ... (outros arquivos JSON)
-│   ├── uploads/             # Arquivos enviados
-│   ├── database.js          # Classe Database para gerenciamento
+│   ├── migrations/          # Scripts de inicialização do PostgreSQL
+│   ├── uploads/             # Avatares, Arquivos e Acompanhamentos enviados
+│   ├── database-pg.js       # Configuração e queries do PostgreSQL
 │   ├── server.js            # Servidor Express principal
 │   └── package.json
 ├── public/                  # Arquivos estáticos
 ├── dist/                    # Build de produção
-├── docs/                    # Documentação e deploy
+├── docs/                    # Documentação e setup VPS
 ├── package.json             # Dependências do frontend
 ├── vite.config.ts           # Configuração do Vite
 ├── tailwind.config.js       # Configuração do Tailwind
 └── tsconfig.json            # Configuração TypeScript
 ```
 
-## 🔌 API Endpoints Principais
-
-### Autenticação
-- `POST /api/auth/login` - Fazer login
-- `POST /api/auth/verify` - Verificar token JWT
-
-### Transações
-- `GET /api/transactions` - Obter todas as transações
-- `POST /api/transactions` - Criar nova transação
-- `PUT /api/transactions/:id` - Atualizar transação
-- `DELETE /api/transactions/:id` - Deletar transação
-
-### Projetos
-- `GET /api/projects` - Obter todos os projetos
-- `POST /api/projects` - Criar novo projeto
-- `PUT /api/projects/:id` - Atualizar projeto
-- `DELETE /api/projects/:id` - Deletar projeto
-
-### Clientes
-- `GET /api/clients` - Obter todos os clientes
-- `POST /api/clients` - Criar novo cliente
-- `PUT /api/clients/:id` - Atualizar cliente
-- `DELETE /api/clients/:id` - Deletar cliente
-
-### Produtos e Serviços
-- `GET /api/products` - Obter todos os produtos
-- `POST /api/products` - Criar novo produto
-- `DELETE /api/products/:id` - Deletar produto
-- `GET /api/services` - Obter todos os serviços
-- `POST /api/services` - Criar novo serviço
-
-### Metas e Orçamento
-- `GET /api/budget` - Obter orçamento/metas
-- `PUT /api/budget` - Atualizar orçamento/metas
-
-### Projeções
-- `GET /api/projection` - Obter projeções
-- `POST /api/projection` - Criar/atualizar projeções
-- `DELETE /api/clear-all-projection-data` - Limpar dados de projeção
-
-### Relatórios e Análises
-- `GET /api/faturamentoGeo` - Faturamento Geo
-- `GET /api/faturamentoNn` - Faturamento NN
-- `GET /api/faturamentoPlan` - Faturamento Plan
-- `GET /api/faturamentoReg` - Faturamento Reg
-- `GET /api/faturamentoReurb` - Faturamento Reurb
-- `GET /api/faturamentoTotal` - Faturamento Total
-- `GET /api/resultado` - Resultado financeiro
-- `GET /api/investments` - Investimentos
-- `GET /api/fixedExpenses` - Despesas fixas
-- `GET /api/variableExpenses` - Despesas variáveis
-
-### Importação e Exportação
-- `POST /api/import` - Importar dados via Excel/CSV
-- `POST /api/export` - Exportar dados
-
-### Backup e Restore
-- `POST /api/backup/restore/:tableName` - Restaurar backup de uma tabela
-
-### Utilitários
-- `GET /api/test` - Teste de conexão
-- `GET /api/subcategories` - Obter subcategorias
-- `POST /api/subcategories` - Criar subcategoria
-
 ## 🔒 Segurança
 
 - Senhas hasheadas com bcryptjs
-- Tokens JWT para autenticação
+- Tokens JWT para autenticação e sessões
+- Integração de verificação via SendGrid para reset de credenciais
 - Middleware de autenticação em rotas protegidas
+- Controle rígido de nível de acesso (RBAC) via Painel Administrativo
 - Validação de inputs
 - CORS configurado para comunicação segura
 - Headers de segurança configurados
@@ -320,6 +264,11 @@ Este é um projeto pessoal, mas sugestões e feedback são sempre bem-vindos!
 ## 📝 Changelog
 
 ### Versão Atual
+- ✅ **Base de Dados**: Transição bem-sucedida para PostgreSQL estruturado
+- ✅ **Controle de Acessos**: Implementado RBAC funcional com Painel Administrativo gerencial
+- ✅ **Segurança da Conta**: Fluxo completo de reset e recuperação de senha disparado via SendGrid
+- ✅ **Perfil Mobile/Desktop**: Novo menu de usuário com suporte a upload flexível e recorte de avatares
+- ✅ **Acompanhamentos**: Nova timeline de acompanhamentos com suporte a anexos (uploads/sync)
 - ✅ Sistema completo de autenticação com JWT
 - ✅ Dashboard executivo com métricas em tempo real
 - ✅ Sistema de metas mensais e anuais
@@ -327,22 +276,16 @@ Este é um projeto pessoal, mas sugestões e feedback são sempre bem-vindos!
 - ✅ Gestão completa de transações, projetos e clientes
 - ✅ Exportação de relatórios em PDF
 - ✅ Importação de dados via Excel/CSV
-- ✅ Sistema de backup e restore
-- ✅ Interface responsiva e moderna
-- ✅ Gráficos interativos com Recharts
 - ✅ DRE (Demonstração do Resultado do Exercício)
-- ✅ E muito mais...
 
 ### Roadmap de Evolução
-- 🔄 Migração de dados de JSON para **PostgreSQL** (produção)
-- 🔄 **RBAC avançado** (permissões por recurso/ação) e logs de auditoria
 - 🔄 Exportação **em lote** (PDF/Excel) + templates customizáveis
-- 🔄 **Agendamentos** (e.g., e-mail automático com DRE/previstos)
-- 🔄 **CI/CD** com Docker, testes e deploy orquestrado
-- 🔄 Integração com sistemas de pagamento
-- 🔄 Notificações em tempo real
+- 🔄 **Agendamentos** (e.g., e-mail automático com DRE/previstos periodicamente)
+- 🔄 **CI/CD** com Docker, testes automatizados e workflows
+- 🔄 Integração com sistemas de pagamento/PIX
+- 🔄 Notificações em tempo real via WebSockets
 - 🔄 API pública para integrações
 
 ---
 
-**IMPGEO** — feito com ❤️ para transformar dados em decisões financeiras inteligentes.
+**IMPGEO** — feito com ❤️ para transformar dados em decisões inteligentes.

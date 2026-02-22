@@ -8,16 +8,64 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const Database = require('./database-pg');
+const { enviarEmailRecuperacao } = require('./services/email');
 
 const app = express();
 const port = 9001;
 const db = new Database();
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
+  Math.max(Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES) || 60, 5),
+  24 * 60
+);
+const PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES = Math.min(
+  Math.max(Number(process.env.PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES) || 60, 5),
+  24 * 60
+);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+const passwordRecoveryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const identifier = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
+    return `${req.ip}:${identifier || 'anonymous'}`;
+  },
+  message: {
+    success: false,
+    error: 'Muitas tentativas de recuperação. Tente novamente em alguns minutos.'
+  }
+});
+
+const passwordTokenValidationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Muitas tentativas de validação de token. Aguarde alguns minutos.'
+  }
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Muitas tentativas de redefinição. Tente novamente em alguns minutos.'
+  }
+});
 
 const avatarsDir = path.join(__dirname, 'uploads', 'avatars');
 if (!fs.existsSync(avatarsDir)) {
@@ -155,6 +203,11 @@ function generateRandomPassword() {
     const replacements = { '+': 'A', '/': 'B', '=': 'C' };
     return replacements[char] || char;
   });
+}
+
+function buildPasswordResetUrl(token) {
+  const normalizedBase = String(BASE_URL || '').trim().replace(/\/$/, '');
+  return `${normalizedBase}/?token=${encodeURIComponent(token)}`;
 }
 
 // Middleware de autenticação
@@ -2048,6 +2101,155 @@ app.post('/api/auth/verify', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/auth/recuperar-senha', passwordRecoveryLimiter, async (req, res) => {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  try {
+    const rawEmail = req.body?.email;
+    const rawUsername = req.body?.username;
+    const email = rawEmail ? String(rawEmail).trim().toLowerCase() : '';
+    const username = rawUsername ? String(rawUsername).trim() : '';
+
+    if (!email && !username) {
+      return res.status(400).json({ success: false, error: 'Email ou nome de usuário é obrigatório' });
+    }
+
+    let user = null;
+
+    if (email && username) {
+      if (!validateEmailFormat(email)) {
+        return res.status(400).json({ success: false, error: 'Formato de email inválido' });
+      }
+      user = await db.getUserByUsername(username);
+      if (!user || !user.email || String(user.email).trim().toLowerCase() !== email) {
+        return res.status(400).json({
+          success: false,
+          error: 'O nome de usuário informado não está associado a este email.'
+        });
+      }
+    } else if (username) {
+      user = await db.getUserByUsername(username);
+    } else if (email) {
+      if (!validateEmailFormat(email)) {
+        return res.status(400).json({ success: false, error: 'Formato de email inválido' });
+      }
+      const usersByEmail = await db.getUsersByEmail(email);
+      if (usersByEmail.length > 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'MULTIPLE_USERS',
+          message: 'Este email está associado a múltiplas contas. Informe também o nome de usuário.'
+        });
+      }
+      user = usersByEmail[0] || null;
+    }
+
+    // Resposta neutra para reduzir enumeração de usuários.
+    if (!user || !user.email) {
+      return res.json({
+        success: true,
+        message: 'Se o email/nome de usuário estiver cadastrado, você receberá um link de recuperação.'
+      });
+    }
+
+    const tokenData = await db.criarTokenRecuperacao(user.id, PASSWORD_RESET_TOKEN_TTL_MINUTES);
+    const resetUrl = buildPasswordResetUrl(tokenData.token);
+
+    await enviarEmailRecuperacao({
+      toEmail: String(user.email).trim(),
+      username: user.username,
+      resetUrl,
+      expiresMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES
+    });
+
+    await db.createActivityLog({
+      userId: user.id,
+      username: user.username,
+      action: 'password_recovery_requested',
+      moduleKey: 'auth',
+      entityType: 'user',
+      entityId: user.id,
+      details: { requestId },
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Se o email/nome de usuário estiver cadastrado, você receberá um link de recuperação.'
+    });
+  } catch (error) {
+    console.error(`[password-recovery][${requestId}]`, error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Erro ao processar solicitação de recuperação'
+    });
+  }
+});
+
+app.get('/api/auth/validar-token/:token', passwordTokenValidationLimiter, async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || String(token).trim().length < 20) {
+      return res.status(400).json({ success: false, error: 'Token inválido ou expirado' });
+    }
+
+    const tokenData = await db.validarTokenRecuperacao(String(token).trim());
+    if (!tokenData) {
+      return res.status(400).json({ success: false, error: 'Token inválido ou expirado' });
+    }
+
+    return res.json({
+      success: true,
+      valid: true,
+      username: tokenData.username
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Erro ao validar token' });
+  }
+});
+
+app.post('/api/auth/resetar-senha', passwordResetLimiter, async (req, res) => {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  try {
+    const { token, novaSenha } = req.body || {};
+
+    if (!token || !novaSenha) {
+      return res.status(400).json({ success: false, error: 'Token e nova senha são obrigatórios' });
+    }
+
+    if (String(novaSenha).length < 6) {
+      return res.status(400).json({ success: false, error: 'A nova senha deve ter pelo menos 6 caracteres' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(String(novaSenha), 10);
+    const updatedUser = await db.resetarSenhaComToken(String(token).trim(), hashedPassword);
+
+    await db.createActivityLog({
+      userId: updatedUser.userId,
+      username: updatedUser.username,
+      action: 'password_reset_completed',
+      moduleKey: 'auth',
+      entityType: 'user',
+      entityId: updatedUser.userId,
+      details: { requestId },
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Senha redefinida com sucesso!'
+    });
+  } catch (error) {
+    const isTokenError = error.message === 'Token inválido ou expirado';
+    const statusCode = isTokenError ? 400 : 500;
+    const safeMessage = isTokenError ? error.message : 'Erro ao redefinir senha';
+    console.error(`[password-reset][${requestId}]`, error.message);
+    return res.status(statusCode).json({
+      success: false,
+      error: safeMessage
+    });
+  }
+});
+
 app.get('/api/modules-catalog', authenticateToken, async (req, res) => {
   try {
     const catalog = await db.getModulesCatalog();
@@ -2987,4 +3189,19 @@ app.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
   console.log(`📡 API disponível em http://localhost:${port}`);
   console.log(`🧪 Teste a API em http://localhost:${port}/api/test`);
+
+  const cleanupIntervalMs = PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES * 60 * 1000;
+  const timer = setInterval(async () => {
+    try {
+      const removed = await db.cleanupExpiredPasswordResetTokens();
+      if (removed > 0) {
+        console.log(`[password-reset] limpeza automática removeu ${removed} token(s)`);
+      }
+    } catch (error) {
+      console.log('[password-reset] erro na limpeza automática:', error.message);
+    }
+  }, cleanupIntervalMs);
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
 });

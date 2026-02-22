@@ -24,6 +24,7 @@ import {
 // Dynamic imports para componentes pesados (lazy loading)
 import { lazy, Suspense } from 'react'
 import Login from './components/Login'
+import ResetarSenhaModal from './components/ResetarSenhaModal'
 import ChartModal from './components/modals/ChartModal'
 import MenuUsuario from './components/MenuUsuario'
 
@@ -83,6 +84,8 @@ type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'tr
 const AppContent: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
   const [viewToken, setViewToken] = useState<string | null>(null);
+  const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
 
   // Verificar se há token de visualização pública na URL
   useEffect(() => {
@@ -92,6 +95,14 @@ const AppContent: React.FC = () => {
     
     if (token && token.startsWith('view_')) {
       setViewToken(token);
+      return;
+    }
+
+    if (token) {
+      setPasswordResetToken(token);
+      setShowPasswordResetModal(true);
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
     }
   }, []);
 
@@ -112,7 +123,21 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    return <Login />;
+    return (
+      <>
+        <Login />
+        {passwordResetToken ? (
+          <ResetarSenhaModal
+            isOpen={showPasswordResetModal}
+            token={passwordResetToken}
+            onClose={() => {
+              setShowPasswordResetModal(false);
+              setPasswordResetToken(null);
+            }}
+          />
+        ) : null}
+      </>
+    );
   }
 
   return <AppMain user={user} logout={logout} />;

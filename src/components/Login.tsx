@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, User, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import EsqueciSenhaModal from './EsqueciSenhaModal';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -9,6 +10,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showEsqueciSenhaModal, setShowEsqueciSenhaModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordCopied, setPasswordCopied] = useState(false);
   const { login, completeFirstLogin } = useAuth();
@@ -120,6 +122,17 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setShowEsqueciSenhaModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+              disabled={isLoading}
+            >
+              Esqueci minha senha
+            </button>
+          </div>
         </form>
 
       </div>
@@ -176,6 +189,11 @@ const Login: React.FC = () => {
           </div>
         </div>
       )}
+
+      <EsqueciSenhaModal
+        isOpen={showEsqueciSenhaModal}
+        onClose={() => setShowEsqueciSenhaModal(false)}
+      />
     </div>
   );
 };

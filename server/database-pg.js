@@ -17,6 +17,8 @@ class Database {
     this.shareLinksSchemaEnsuring = null;
     this.profileSchemaEnsured = false;
     this.profileSchemaEnsuring = null;
+    this.passwordResetSchemaEnsured = false;
+    this.passwordResetSchemaEnsuring = null;
   }
 
   // Método auxiliar para gerar IDs únicos
@@ -262,6 +264,42 @@ class Database {
     });
 
     await this.profileSchemaEnsuring;
+  }
+
+  async ensurePasswordResetSchema() {
+    if (this.passwordResetSchemaEnsured) return;
+    if (this.passwordResetSchemaEnsuring) {
+      await this.passwordResetSchemaEnsuring;
+      return;
+    }
+
+    this.passwordResetSchemaEnsuring = (async () => {
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id VARCHAR(255) PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          used_at TIMESTAMPTZ
+        )
+      `);
+      await this.queryWithRetry(
+        'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)'
+      );
+      await this.queryWithRetry(
+        'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)'
+      );
+      await this.queryWithRetry(
+        'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_used ON password_reset_tokens(used)'
+      );
+      this.passwordResetSchemaEnsured = true;
+    })().finally(() => {
+      this.passwordResetSchemaEnsuring = null;
+    });
+
+    await this.passwordResetSchemaEnsuring;
   }
 
   // Métodos para Transações
@@ -1069,6 +1107,38 @@ class Database {
     } catch (error) {
       console.error('Erro ao buscar usuário:', error);
       return null;
+    }
+  }
+
+  async getUserByEmail(email) {
+    try {
+      await this.ensureProfileSchema();
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (!normalizedEmail) return null;
+      const result = await this.queryWithRetry(
+        'SELECT * FROM users WHERE LOWER(email) = $1 LIMIT 1',
+        [normalizedEmail]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Erro ao buscar usuário por email:', error);
+      return null;
+    }
+  }
+
+  async getUsersByEmail(email) {
+    try {
+      await this.ensureProfileSchema();
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (!normalizedEmail) return [];
+      const result = await this.queryWithRetry(
+        'SELECT * FROM users WHERE LOWER(email) = $1 ORDER BY username ASC',
+        [normalizedEmail]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao buscar usuários por email:', error);
+      return [];
     }
   }
 
@@ -1958,6 +2028,166 @@ class Database {
       modulesAccess,
       permissionsSource
     };
+  }
+
+  async criarTokenRecuperacao(userId, ttlMinutes = 60) {
+    await this.ensurePasswordResetSchema();
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const safeTtl = Math.min(Math.max(Number(ttlMinutes) || 60, 5), 24 * 60);
+    const expiresAt = new Date(Date.now() + safeTtl * 60 * 1000).toISOString();
+    const tokenId = this.generateId();
+
+    await this.queryWithRetry(
+      `
+        UPDATE password_reset_tokens
+        SET used = TRUE, used_at = NOW()
+        WHERE user_id = $1
+          AND used = FALSE
+          AND expires_at > NOW()
+      `,
+      [userId]
+    );
+
+    const result = await this.queryWithRetry(
+      `
+        INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used, created_at)
+        VALUES ($1, $2, $3, $4, FALSE, NOW())
+        RETURNING id, token, expires_at, created_at
+      `,
+      [tokenId, userId, token, expiresAt]
+    );
+
+    return {
+      id: result.rows[0].id,
+      token: result.rows[0].token,
+      expiresAt: result.rows[0].expires_at,
+      createdAt: result.rows[0].created_at
+    };
+  }
+
+  async validarTokenRecuperacao(token) {
+    await this.ensurePasswordResetSchema();
+    const result = await this.queryWithRetry(
+      `
+        SELECT
+          prt.id,
+          prt.user_id,
+          prt.token,
+          prt.expires_at,
+          prt.used,
+          prt.created_at,
+          u.username,
+          u.email
+        FROM password_reset_tokens prt
+        JOIN users u ON u.id = prt.user_id
+        WHERE prt.token = $1
+          AND prt.used = FALSE
+          AND prt.expires_at > NOW()
+        LIMIT 1
+      `,
+      [token]
+    );
+
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      token: row.token,
+      expiresAt: row.expires_at,
+      used: row.used === true,
+      createdAt: row.created_at,
+      username: row.username,
+      email: row.email || null
+    };
+  }
+
+  async marcarTokenComoUsado(token) {
+    await this.ensurePasswordResetSchema();
+    await this.queryWithRetry(
+      `
+        UPDATE password_reset_tokens
+        SET used = TRUE, used_at = NOW()
+        WHERE token = $1
+      `,
+      [token]
+    );
+    return true;
+  }
+
+  async resetarSenhaComToken(token, newPasswordHash) {
+    await this.ensurePasswordResetSchema();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const tokenResult = await client.query(
+        `
+          SELECT
+            prt.id,
+            prt.user_id,
+            prt.expires_at,
+            u.username,
+            u.email
+          FROM password_reset_tokens prt
+          JOIN users u ON u.id = prt.user_id
+          WHERE prt.token = $1
+            AND prt.used = FALSE
+            AND prt.expires_at > NOW()
+          FOR UPDATE
+          LIMIT 1
+        `,
+        [token]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        throw new Error('Token inválido ou expirado');
+      }
+
+      const tokenRow = tokenResult.rows[0];
+
+      await client.query(
+        `
+          UPDATE users
+          SET password = $1, updated_at = $2
+          WHERE id = $3
+        `,
+        [newPasswordHash, new Date().toISOString(), tokenRow.user_id]
+      );
+
+      await client.query(
+        `
+          UPDATE password_reset_tokens
+          SET used = TRUE, used_at = NOW()
+          WHERE id = $1
+        `,
+        [tokenRow.id]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        userId: tokenRow.user_id,
+        username: tokenRow.username,
+        email: tokenRow.email || null
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async cleanupExpiredPasswordResetTokens() {
+    await this.ensurePasswordResetSchema();
+    const result = await this.queryWithRetry(
+      `
+        DELETE FROM password_reset_tokens
+        WHERE expires_at <= NOW() OR used = TRUE
+      `
+    );
+    return result.rowCount || 0;
   }
 
   // Métodos para Projeção
