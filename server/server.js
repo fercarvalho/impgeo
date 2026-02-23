@@ -113,29 +113,37 @@ function mapUserToClient(user) {
   const address = parseAddress(user.address);
   const modulesAccess = Array.isArray(user.modulesAccess)
     ? user.modulesAccess.map((item) => ({
-        moduleKey: item.moduleKey || item.module_key,
-        moduleName: item.moduleName || item.module_name,
-        accessLevel: item.accessLevel || item.access_level || 'view'
-      }))
+      moduleKey: item.moduleKey || item.module_key,
+      moduleName: item.moduleName || item.module_name,
+      accessLevel: item.accessLevel || item.access_level || 'view'
+    }))
     : [];
+
+  let formattedBirthDate = user.birthDate || user.birth_date || null;
+  if (formattedBirthDate instanceof Date) {
+    formattedBirthDate = formattedBirthDate.toISOString().split('T')[0];
+  } else if (typeof formattedBirthDate === 'string' && formattedBirthDate.includes('T')) {
+    formattedBirthDate = formattedBirthDate.split('T')[0];
+  }
+
   return {
     id: user.id,
     username: user.username,
     role: user.role,
-    firstName: user.first_name || null,
-    lastName: user.last_name || null,
+    firstName: user.firstName || user.first_name || null,
+    lastName: user.lastName || user.last_name || null,
     email: user.email || null,
     phone: user.phone || null,
-    photoUrl: user.photo_url || null,
+    photoUrl: user.photoUrl || user.photo_url || null,
     cpf: user.cpf || null,
-    birthDate: user.birth_date || null,
+    birthDate: formattedBirthDate,
     gender: user.gender || null,
     position: user.position || null,
     address,
-    isActive: user.is_active !== false && user.isActive !== false,
-    lastLogin: user.last_login || user.lastLogin || null,
-    createdAt: user.created_at || user.createdAt || null,
-    updatedAt: user.updated_at || user.updatedAt || null,
+    isActive: user.isActive !== undefined ? user.isActive : (user.is_active !== false),
+    lastLogin: user.lastLogin || user.last_login || null,
+    createdAt: user.createdAt || user.created_at || null,
+    updatedAt: user.updatedAt || user.updated_at || null,
     modulesAccess
   };
 }
@@ -244,7 +252,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     // Aceitar apenas arquivos .xlsx
@@ -434,7 +442,7 @@ function processProjects(worksheet) {
       // Mapear colunas do Excel para o formato esperado
       const servicesString = row['Serviços'] || row['servicos'] || row['services'] || row['Services'] || '';
       const services = servicesString ? servicesString.split(',').map(s => s.trim()).filter(s => s) : [];
-      
+
       const project = {
         id: Date.now() + index,
         name: row['Nome'] || row['name'] || row['Name'] || '',
@@ -588,10 +596,10 @@ app.get('/api/modelo/:type', async (req, res) => {
     }
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' : 
-                    type === 'clients' ? 'modelo-clientes.xlsx' : 
-                    type === 'projects' ? 'modelo-projetos.xlsx' :
-                    type === 'acompanhamentos' ? 'modelo-acompanhamentos.xlsx' : 'modelo-produtos.xlsx';
+    const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' :
+      type === 'clients' ? 'modelo-clientes.xlsx' :
+        type === 'projects' ? 'modelo-projetos.xlsx' :
+          type === 'acompanhamentos' ? 'modelo-acompanhamentos.xlsx' : 'modelo-produtos.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -612,7 +620,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
     }
 
     const { type } = req.body; // 'transactions', 'products', 'clients', 'projects' ou 'acompanhamentos'
-    
+
     if (!type || !['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
       return res.status(400).json({ success: false, error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "acompanhamentos"' });
     }
@@ -639,7 +647,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
     } else if (type === 'projects') {
       processedData = processProjects(worksheet);
       message = `${processedData.length} projetos importados com sucesso!`;
-      
+
       // Salvar projetos processados no banco de dados
       for (const project of processedData) {
         try {
@@ -652,7 +660,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       processedData = processAcompanhamentos(worksheet);
       console.log(`Processados ${processedData.length} acompanhamentos do arquivo`);
       message = `${processedData.length} acompanhamentos importados com sucesso!`;
-      
+
       // Salvar acompanhamentos processados no banco de dados
       let savedCount = 0;
       for (const acompanhamento of processedData) {
@@ -689,7 +697,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('Erro ao processar arquivo:', error);
     console.error('Stack trace:', error.stack);
-    
+
     // Limpar arquivo em caso de erro
     if (req.file && fs.existsSync(req.file.path)) {
       try {
@@ -698,8 +706,8 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
         console.error('Erro ao limpar arquivo temporário:', unlinkError);
       }
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
       message: error.message || 'Erro desconhecido ao processar arquivo'
@@ -710,7 +718,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
 // Rota para exportar dados (futura implementação)
 app.post('/api/export', async (req, res) => {
   const { type, data } = req.body;
-  
+
   try {
     // Criar um novo workbook
     const workbook = XLSX.utils.book_new();
@@ -803,9 +811,9 @@ app.post('/api/export', async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao exportar dados:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Erro ao exportar dados',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -896,7 +904,7 @@ app.post('/api/subcategories', async (req, res) => {
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
     }
-    
+
     const subcategory = await db.saveSubcategory(name.trim());
     res.json({ success: true, data: subcategory });
   } catch (error) {
@@ -1001,7 +1009,7 @@ app.delete('/api/projects', async (req, res) => {
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    
+
     await db.deleteMultipleProjects(ids);
     res.json({ success: true, message: `${ids.length} projetos deletados com sucesso` });
   } catch (error) {
@@ -1104,9 +1112,9 @@ app.delete('/api/acompanhamentos', async (req, res) => {
 app.get('/api/acompanhamentos/share-links', authenticateToken, async (req, res) => {
   try {
     const shareLinks = await db.getAllShareLinks();
-    res.json({ 
-      success: true, 
-      data: shareLinks 
+    res.json({
+      success: true,
+      data: shareLinks
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1125,10 +1133,10 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
         error: 'Selecione pelo menos um registro para compartilhar'
       });
     }
-    
+
     // Gerar token único para compartilhamento
     const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
-    
+
     // Converter data de expiração para ISO string se fornecida
     let expiresAtISO = null;
     if (expiresAt && expiresAt.trim()) {
@@ -1140,18 +1148,18 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
         expiresAtISO = new Date(expiresAt).toISOString();
       }
     }
-    
+
     // Hash da senha se fornecida
     let passwordHash = null;
     if (password && password.trim()) {
       passwordHash = bcrypt.hashSync(password, 10);
     }
-    
+
     // Salvar token com nome, data de expiração e senha no banco
     await db.saveShareLink(token, name, expiresAtISO, passwordHash, selectedIds);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       token: token,
       message: 'Link compartilhável gerado com sucesso'
     });
@@ -1166,7 +1174,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
     const { token } = req.params;
     const { name, expiresAt, password, regenerateToken } = req.body;
     const bcrypt = require('bcryptjs');
-    
+
     if (regenerateToken) {
       // Gerar novo token
       const newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
@@ -1174,7 +1182,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
       if (!linkData) {
         return res.status(404).json({ success: false, error: 'Link não encontrado' });
       }
-      
+
       // Converter data de expiração se fornecida
       const linkExpiresAt = linkData.expiresAt || linkData.expires_at || null;
       const linkPasswordHash = linkData.passwordHash || linkData.password_hash || null;
@@ -1196,7 +1204,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
           expiresAtISO = null;
         }
       }
-      
+
       // Hash da senha se fornecida
       let passwordHash = linkPasswordHash;
       if (password !== undefined) {
@@ -1206,10 +1214,10 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
           passwordHash = null;
         }
       }
-      
+
       // Criar novo link com o novo token
       await db.saveShareLink(
-        newToken, 
+        newToken,
         name !== undefined ? name : linkData.name,
         expiresAtISO,
         passwordHash,
@@ -1217,9 +1225,9 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
       );
       // Excluir o link antigo
       await db.deleteShareLink(token);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         token: newToken,
         message: 'Token regenerado com sucesso'
       });
@@ -1250,10 +1258,10 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
           updates.passwordHash = null;
         }
       }
-      
+
       const updated = await db.updateShareLink(token, updates);
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         data: updated,
         message: 'Link atualizado com sucesso'
       });
@@ -1268,9 +1276,9 @@ app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, async (
   try {
     const { token } = req.params;
     await db.deleteShareLink(token);
-    res.json({ 
-      success: true, 
-      message: 'Link excluído com sucesso' 
+    res.json({
+      success: true,
+      message: 'Link excluído com sucesso'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1283,17 +1291,17 @@ app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res
     const { token } = req.params;
     const { password } = req.body;
     const bcrypt = require('bcryptjs');
-    
+
     // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);
-    
+
     if (!shareLink) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Link compartilhável não encontrado' 
+      return res.status(404).json({
+        success: false,
+        error: 'Link compartilhável não encontrado'
       });
     }
-    
+
     // Verificar se o link expirou
     const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
     const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
@@ -1301,48 +1309,48 @@ app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res
     if (linkExpiresAt) {
       const expiresAt = new Date(linkExpiresAt);
       const now = new Date();
-      
+
       if (now > expiresAt) {
-        return res.status(410).json({ 
-          success: false, 
-          error: 'Este link compartilhável expirou e não está mais disponível' 
+        return res.status(410).json({
+          success: false,
+          error: 'Este link compartilhável expirou e não está mais disponível'
         });
       }
     }
-    
+
     // Verificar se tem senha
     if (!linkPasswordHash) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Este link não possui senha' 
+      return res.status(400).json({
+        success: false,
+        error: 'Este link não possui senha'
       });
     }
-    
+
     // Validar senha
     if (!password) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Senha é obrigatória' 
+      return res.status(400).json({
+        success: false,
+        error: 'Senha é obrigatória'
       });
     }
-    
+
     const isValid = bcrypt.compareSync(password, linkPasswordHash);
-    
+
     if (!isValid) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Senha incorreta' 
+      return res.status(401).json({
+        success: false,
+        error: 'Senha incorreta'
       });
     }
-    
-    res.json({ 
-      success: true, 
-      message: 'Senha válida' 
+
+    res.json({
+      success: true,
+      message: 'Senha válida'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Erro ao validar senha' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao validar senha'
     });
   }
 });
@@ -1353,25 +1361,25 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
     const { token } = req.params;
     const { password } = req.query;
     const bcrypt = require('bcryptjs');
-    
+
     // Validar formato do token
     if (!token || !token.startsWith('view_')) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Token inválido' 
+      return res.status(400).json({
+        success: false,
+        error: 'Token inválido'
       });
     }
-    
+
     // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);
-    
+
     if (!shareLink) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Link compartilhável não encontrado' 
+      return res.status(404).json({
+        success: false,
+        error: 'Link compartilhável não encontrado'
       });
     }
-    
+
     // Verificar se o link expirou
     const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
     const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
@@ -1384,51 +1392,51 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
     if (linkExpiresAt) {
       const expiresAt = new Date(linkExpiresAt);
       const now = new Date();
-      
+
       if (now > expiresAt) {
-        return res.status(410).json({ 
-          success: false, 
-          error: 'Este link compartilhável expirou e não está mais disponível' 
+        return res.status(410).json({
+          success: false,
+          error: 'Este link compartilhável expirou e não está mais disponível'
         });
       }
     }
-    
+
     // Verificar se tem senha e se foi fornecida
     if (linkPasswordHash) {
       if (!password) {
-        return res.status(403).json({ 
-          success: false, 
+        return res.status(403).json({
+          success: false,
           requiresPassword: true,
-          error: 'Este link requer senha para acesso' 
+          error: 'Este link requer senha para acesso'
         });
       }
-      
+
       // Validar senha
       const isValid = bcrypt.compareSync(password, linkPasswordHash);
       if (!isValid) {
-        return res.status(401).json({ 
-          success: false, 
+        return res.status(401).json({
+          success: false,
           requiresPassword: true,
-          error: 'Senha incorreta' 
+          error: 'Senha incorreta'
         });
       }
     }
-    
+
     // Buscar todos os acompanhamentos (público)
     const acompanhamentos = await db.getAllAcompanhamentos();
     const filteredAcompanhamentos = linkSelectedIds.length > 0
       ? acompanhamentos.filter((item) => linkSelectedIds.includes(String(item.id)))
       : acompanhamentos;
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       data: filteredAcompanhamentos,
       shareLinkName: shareLink.name
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Erro ao carregar dados' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao carregar dados'
     });
   }
 });
@@ -1530,7 +1538,7 @@ app.post('/api/backup/create/:tableName', authenticateToken, async (req, res) =>
   try {
     const { tableName } = req.params;
     const result = await db.createAutoBackup(tableName);
-    
+
     if (result.success) {
       res.json({ success: true, message: result.message, timestamp: result.timestamp });
     } else {
@@ -1545,7 +1553,7 @@ app.post('/api/backup/restore/:tableName', authenticateToken, async (req, res) =
   try {
     const { tableName } = req.params;
     const result = await db.restoreFromBackup(tableName);
-    
+
     if (result.success) {
       res.json({ success: true, message: result.message, timestamp: result.timestamp });
     } else {
@@ -1588,10 +1596,10 @@ app.delete('/api/fixed-expenses', async (req, res) => {
       media: new Array(12).fill(0),
       maximo: new Array(12).fill(0)
     });
-    
+
     // Sincronizar dados de projeção após limpeza
     await db.syncProjectionData();
-    
+
     res.json({ success: true, data: cleared });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1999,7 +2007,7 @@ app.delete('/api/resultado', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
       return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
     }
@@ -2835,7 +2843,7 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username, role } = req.body;
-    
+
     if (!username || !role) {
       return res.status(400).json({ error: 'Username e role são obrigatórios' });
     }
@@ -3093,7 +3101,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
 
 // Rota de teste
 app.get('/api/test', async (req, res) => {
-  res.json({ 
+  res.json({
     message: 'API funcionando!',
     timestamp: new Date().toISOString(),
     endpoints: [
@@ -3150,11 +3158,11 @@ app.use((error, req, res, next) => {
     }
     return res.status(400).json({ success: false, error: 'Erro no upload: ' + error.message });
   }
-  
+
   if (error.message) {
     return res.status(400).json({ success: false, error: error.message });
   }
-  
+
   res.status(500).json({ success: false, error: 'Erro interno do servidor' });
 });
 
@@ -3163,23 +3171,23 @@ app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res)
   try {
     console.log('Endpoint de limpeza de dados chamado')
     const result = await db.clearAllProjectionData()
-    
+
     if (result.success) {
-      res.json({ 
-        success: true, 
-        message: 'Todos os dados de projeção foram limpos com sucesso!' 
+      res.json({
+        success: true,
+        message: 'Todos os dados de projeção foram limpos com sucesso!'
       })
     } else {
-      res.status(500).json({ 
-        success: false, 
-        message: result.message 
+      res.status(500).json({
+        success: false,
+        message: result.message
       })
     }
   } catch (error) {
     console.error('Erro no endpoint de limpeza:', error)
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erro interno do servidor ao limpar dados' 
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor ao limpar dados'
     })
   }
 })
