@@ -73,7 +73,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
 
   const handleRemovePhoto = () => {
     setSelectedFile(null);
-    setPreviewUrl(initialPhotoUrl || null);
+    setPreviewUrl(null);
     setImageToCrop(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     onPhotoRemoved?.();
@@ -85,11 +85,10 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
         {!previewUrl ? (
           <div
             onClick={() => !disabled && fileInputRef.current?.click()}
-            className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 min-h-[120px] flex items-center justify-center ${
-              disabled
+            className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 min-h-[120px] flex items-center justify-center ${disabled
                 ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
                 : 'border-blue-300 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-400 cursor-pointer'
-            }`}
+              }`}
           >
             <input
               ref={fileInputRef}

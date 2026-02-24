@@ -15,7 +15,7 @@ interface EditarPerfilModalProps {
 
 const API_BASE_URL =
   typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
     : ((import.meta as any).env?.VITE_API_URL || '/api');
 
@@ -62,23 +62,23 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
         position: user.position || '',
         address: user.address
           ? {
-              cep: user.address.cep ? applyCepMask(user.address.cep) : '',
-              street: user.address.street || '',
-              number: user.address.number || '',
-              complement: user.address.complement || '',
-              neighborhood: user.address.neighborhood || '',
-              city: user.address.city || '',
-              state: user.address.state || '',
-            }
+            cep: user.address.cep ? applyCepMask(user.address.cep) : '',
+            street: user.address.street || '',
+            number: user.address.number || '',
+            complement: user.address.complement || '',
+            neighborhood: user.address.neighborhood || '',
+            city: user.address.city || '',
+            state: user.address.state || '',
+          }
           : {
-              cep: '',
-              street: '',
-              number: '',
-              complement: '',
-              neighborhood: '',
-              city: '',
-              state: '',
-            },
+            cep: '',
+            street: '',
+            number: '',
+            complement: '',
+            neighborhood: '',
+            city: '',
+            state: '',
+          },
       });
       setPhotoUrl(user.photoUrl || null);
       setPassword('');
@@ -222,7 +222,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
     setIsSubmitting(true);
     try {
       let finalPhotoUrl = photoUrl;
-      if (photoFile && !photoUrl) {
+      if (photoFile) {
         finalPhotoUrl = await uploadPhoto(photoFile);
         setPhotoUrl(finalPhotoUrl);
       }
@@ -312,9 +312,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 setPassword(event.target.value);
                 clearError('password');
               }}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                errors.password ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-              }`}
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.password ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                }`}
               placeholder="Digite sua senha atual"
               disabled={isSubmitting}
             />
@@ -328,9 +327,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 type="text"
                 value={formData.firstName}
                 onChange={(event) => handleInputChange('firstName', event.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors.firstName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.firstName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 disabled={isSubmitting}
               />
               {errors.firstName ? <p className="mt-1 text-sm text-red-600">{errors.firstName}</p> : null}
@@ -341,9 +339,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 type="text"
                 value={formData.lastName}
                 onChange={(event) => handleInputChange('lastName', event.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors.lastName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.lastName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 disabled={isSubmitting}
               />
               {errors.lastName ? <p className="mt-1 text-sm text-red-600">{errors.lastName}</p> : null}
@@ -358,9 +355,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 value={formData.email}
                 onChange={(event) => handleInputChange('email', event.target.value)}
                 onBlur={() => formData.email && clearError('email')}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors.email ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.email ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 disabled={isSubmitting}
               />
               {errors.email ? <p className="mt-1 text-sm text-red-600">{errors.email}</p> : null}
@@ -371,9 +367,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 type="text"
                 value={formData.phone}
                 onChange={(event) => handleInputChange('phone', event.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors.phone ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.phone ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 placeholder="(00) 00000-0000"
                 disabled={isSubmitting}
               />
@@ -389,9 +384,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 value={formData.cpf}
                 onChange={(event) => handleInputChange('cpf', event.target.value)}
                 maxLength={14}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors.cpf ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.cpf ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 placeholder="000.000.000-00"
                 disabled={isSubmitting}
               />
@@ -450,9 +444,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
                 onChange={(event) => handleInputChange('address.cep', event.target.value)}
                 onBlur={handleCepBlur}
                 maxLength={9}
-                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
-                }`}
+                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'
+                  }`}
                 disabled={isSubmitting || isSearchingCep}
               />
               {isSearchingCep ? (
