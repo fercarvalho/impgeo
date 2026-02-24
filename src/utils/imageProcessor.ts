@@ -14,6 +14,7 @@ export async function processImage(file: File): Promise<File> {
     // Check if the file is HEIC/HEIF
     if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().match(/\.(heic|heif)$/)) {
       // Import heic2any dynamically only when needed to save bundle size
+      // @ts-ignore
       const heic2any = (await import('heic2any')).default;
       const convertedBlob = await heic2any({
         blob: file,
@@ -42,6 +43,7 @@ export async function cropImage(
 
   if (imageFile.type === 'image/heic' || imageFile.type === 'image/heif' || imageFile.name.toLowerCase().match(/\.(heic|heif)$/)) {
     try {
+      // @ts-ignore
       const heic2any = (await import('heic2any')).default;
       const convertedBlob = await heic2any({
         blob: imageFile,
