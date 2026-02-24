@@ -9,6 +9,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const { z } = require('zod');
 const Database = require('./database-pg');
 const { enviarEmailRecuperacao } = require('./services/email');
 
@@ -26,19 +28,34 @@ const PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES = Math.min(
   24 * 60
 );
 
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET MUST be defined in production environment.');
+  process.exit(1);
+}
+
 // Middleware
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*'
+}));
 app.use(express.json());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Muitas tentativas de login. Tente novamente em alguns minutos.'
+  }
+});
 
 const passwordRecoveryLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const identifier = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
-    return `${req.ip}:${identifier || 'anonymous'}`;
-  },
   message: {
     success: false,
     error: 'Muitas tentativas de recuperação. Tente novamente em alguns minutos.'
@@ -220,6 +237,8 @@ function buildPasswordResetUrl(token) {
 
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
+  if (req.user) return next();
+
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -235,6 +254,29 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+const publicApiRoutes = [
+  '/auth/login',
+  '/auth/recuperar-senha',
+  '/auth/resetar-senha'
+];
+
+const publicApiPrefixes = [
+  '/avatars',
+  '/auth/validar-token/',
+  '/acompanhamentos/public',
+  '/modelo/'
+];
+
+app.use('/api', (req, res, next) => {
+  if (publicApiRoutes.includes(req.path)) {
+    return next();
+  }
+  if (publicApiPrefixes.some(prefix => req.path.startsWith(prefix))) {
+    return next();
+  }
+  return authenticateToken(req, res, next);
+});
 
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
@@ -828,9 +870,19 @@ app.get('/api/transactions', async (req, res) => {
   }
 });
 
+const transactionSchema = z.object({
+  date: z.string().optional(),
+  description: z.string().min(1, 'A descrição é obrigatória'),
+  value: z.number().or(z.string().transform(v => parseFloat(v))),
+  type: z.string().min(1),
+  category: z.string().min(1),
+  subcategory: z.string().optional()
+}).passthrough();
+
 app.post('/api/transactions', async (req, res) => {
   try {
-    const transaction = await db.saveTransaction(req.body);
+    const validatedData = transactionSchema.parse(req.body);
+    const transaction = await db.saveTransaction(validatedData);
     res.json({ success: true, data: transaction });
     await logActivity(req, {
       action: 'financial_create',
@@ -839,6 +891,9 @@ app.post('/api/transactions', async (req, res) => {
       entityId: transaction?.id || null
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: 'Dados inválidos', details: error.errors });
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1152,7 +1207,7 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
     // Hash da senha se fornecida
     let passwordHash = null;
     if (password && password.trim()) {
-      passwordHash = bcrypt.hashSync(password, 10);
+      passwordHash = await bcrypt.hash(password, 10);
     }
 
     // Salvar token com nome, data de expiração e senha no banco
@@ -1209,7 +1264,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
       let passwordHash = linkPasswordHash;
       if (password !== undefined) {
         if (password && password.trim()) {
-          passwordHash = bcrypt.hashSync(password, 10);
+          passwordHash = await bcrypt.hash(password, 10);
         } else {
           passwordHash = null;
         }
@@ -1253,7 +1308,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
       if (password !== undefined) {
         // Se senha for fornecida, fazer hash. Se string vazia ou null, remover senha
         if (password && password.trim()) {
-          updates.passwordHash = bcrypt.hashSync(password, 10);
+          updates.passwordHash = await bcrypt.hash(password, 10);
         } else {
           updates.passwordHash = null;
         }
@@ -1334,7 +1389,7 @@ app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res
       });
     }
 
-    const isValid = bcrypt.compareSync(password, linkPasswordHash);
+    const isValid = await bcrypt.compare(password, linkPasswordHash);
 
     if (!isValid) {
       return res.status(401).json({
@@ -1412,7 +1467,7 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
       }
 
       // Validar senha
-      const isValid = bcrypt.compareSync(password, linkPasswordHash);
+      const isValid = await bcrypt.compare(password, linkPasswordHash);
       if (!isValid) {
         return res.status(401).json({
           success: false,
@@ -2004,11 +2059,19 @@ app.delete('/api/resultado', async (req, res) => {
 });
 
 // APIs de Autenticação
+const loginSchema = z.object({
+  username: z.string().min(1, 'Usuário é obrigatório'),
+  password: z.string().min(1, 'Senha é obrigatória')
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
+    let username, password;
+    try {
+      const parsed = loginSchema.parse(req.body);
+      username = parsed.username;
+      password = parsed.password;
+    } catch (validationError) {
       return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
     }
 
@@ -2028,11 +2091,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (isFirstLogin) {
       isValidPassword = true;
       newPassword = generateRandomPassword();
-      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
       const nowISO = new Date().toISOString();
       await db.updateUser(user.id, { password: hashedPassword, lastLogin: nowISO });
     } else {
-      isValidPassword = bcrypt.compareSync(password, user.password);
+      isValidPassword = await bcrypt.compare(password, user.password);
     }
 
     if (!isValidPassword) {
@@ -2228,7 +2291,7 @@ app.post('/api/auth/resetar-senha', passwordResetLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: 'A nova senha deve ter pelo menos 6 caracteres' });
     }
 
-    const hashedPassword = bcrypt.hashSync(String(novaSenha), 10);
+    const hashedPassword = await bcrypt.hash(String(novaSenha), 10);
     const updatedUser = await db.resetarSenhaComToken(String(token).trim(), hashedPassword);
 
     await db.createActivityLog({
@@ -2340,7 +2403,7 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Senha atual é obrigatória para atualizar o perfil' });
     }
 
-    const isValidPassword = bcrypt.compareSync(password, currentUser.password);
+    const isValidPassword = await bcrypt.compare(password, currentUser.password);
     if (!isValidPassword) {
       return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
     }
@@ -2473,7 +2536,7 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     }
 
-    const isValidPassword = bcrypt.compareSync(currentPassword, currentUser.password);
+    const isValidPassword = await bcrypt.compare(currentPassword, currentUser.password);
     if (!isValidPassword) {
       return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
     }
@@ -2526,17 +2589,17 @@ app.put('/api/user/password', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     }
 
-    const isValidPassword = bcrypt.compareSync(currentPassword, currentUser.password);
+    const isValidPassword = await bcrypt.compare(currentPassword, currentUser.password);
     if (!isValidPassword) {
       return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
     }
 
-    const isSamePassword = bcrypt.compareSync(newPassword, currentUser.password);
+    const isSamePassword = await bcrypt.compare(newPassword, currentUser.password);
     if (isSamePassword) {
       return res.status(400).json({ success: false, error: 'A nova senha deve ser diferente da senha atual' });
     }
 
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await db.updateUser(currentUser.id, { password: hashedPassword });
 
     return res.json({
@@ -2861,7 +2924,7 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     // Placeholder de primeiro login (igual ao alya)
-    const placeholderPassword = bcrypt.hashSync('FIRST_LOGIN_PLACEHOLDER', 10);
+    const placeholderPassword = await bcrypt.hash('FIRST_LOGIN_PLACEHOLDER', 10);
 
     // Criar usuário
     const newUser = await db.saveUser({
@@ -2933,7 +2996,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (gender !== undefined) updateData.gender = gender;
     if (address !== undefined) updateData.address = address;
     if (password) {
-      updateData.password = bcrypt.hashSync(password, 10);
+      updateData.password = await bcrypt.hash(password, 10);
     }
 
     // Verificar se está tentando mudar o username para um que já existe
@@ -3057,7 +3120,7 @@ app.post('/api/users/:id/reset-password', authenticateToken, requireAdmin, async
     }
 
     const temporaryPassword = crypto.randomBytes(6).toString('base64url').slice(0, 10);
-    const hashedPassword = bcrypt.hashSync(temporaryPassword, 10);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
     await db.updateUser(id, { password: hashedPassword });
     await logActivity(req, {
       action: 'reset_password',
