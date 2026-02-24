@@ -41,13 +41,16 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      alert('Selecione uma imagem válida (JPG, PNG ou WebP).');
+    const validTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'
+    ];
+    if (!validTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp|heic|heif)$/)) {
+      alert('Selecione uma imagem válida (JPG, PNG, WebP ou HEIC).');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      alert('A imagem deve ter no máximo 2MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 10MB (será otimizada automaticamente).');
       return;
     }
 
@@ -56,6 +59,15 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
     reader.onloadend = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
     setImageToCrop(file);
+
+    // UX FIX: Automatically process the original file right away so the parent component 
+    // receives the file state. If they later choose to crop it, it will be updated again.
+    try {
+      const processedFile = await processImage(file);
+      onPhotoProcessed?.(processedFile);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleCropComplete = async (croppedFile: File) => {
@@ -86,14 +98,14 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
           <div
             onClick={() => !disabled && fileInputRef.current?.click()}
             className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 min-h-[120px] flex items-center justify-center ${disabled
-                ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-                : 'border-blue-300 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-400 cursor-pointer'
+              ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+              : 'border-blue-300 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-400 cursor-pointer'
               }`}
           >
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
               onChange={handleFileSelect}
               className="hidden"
               disabled={disabled}
@@ -103,7 +115,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
               <span className={`text-sm ${disabled ? 'text-gray-500' : 'text-gray-700'}`}>
                 Clique para selecionar uma foto
               </span>
-              <span className="text-xs text-gray-500">JPG, PNG ou WebP (máx. 2MB)</span>
+              <span className="text-xs text-gray-500">JPG, PNG, WebP ou HEIC (máx. 10MB)</span>
             </div>
           </div>
         ) : (

@@ -222,6 +222,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({ isOpen, onClose }
     setIsSubmitting(true);
     try {
       let finalPhotoUrl = photoUrl;
+      console.log('handleSubmit -> photoFile:', photoFile, 'photoUrl:', photoUrl);
       if (photoFile) {
         finalPhotoUrl = await uploadPhoto(photoFile);
         setPhotoUrl(finalPhotoUrl);

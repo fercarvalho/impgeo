@@ -318,22 +318,31 @@ const avatarStorage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const userId = req.user?.id || crypto.randomUUID();
-    cb(null, `${userId}-${Date.now()}.webp`);
+    let ext = path.extname(file.originalname).toLowerCase();
+    if (!ext) {
+      if (file.mimetype === 'image/jpeg') ext = '.jpg';
+      else if (file.mimetype === 'image/png') ext = '.png';
+      else if (file.mimetype === 'image/webp') ext = '.webp';
+    }
+    cb(null, `${userId}-${Date.now()}${ext}`);
   }
 });
 
 const uploadAvatar = multer({
   storage: avatarStorage,
   fileFilter: (req, file, cb) => {
+    const validMimetypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.webp' && file.mimetype === 'image/webp') {
+    const validExts = ['.jpeg', '.jpg', '.png', '.webp', '']; // empty string allows blobs
+
+    if (validMimetypes.includes(file.mimetype) && validExts.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Apenas arquivos WebP são permitidos!'), false);
+      cb(new Error('Apenas arquivos JPG, PNG ou WebP são permitidos!'), false);
     }
   },
   limits: {
-    fileSize: 2 * 1024 * 1024
+    fileSize: 10 * 1024 * 1024 // 10MB
   }
 });
 
@@ -2349,6 +2358,10 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/user/upload-photo', authenticateToken, uploadAvatar.single('photo'), (req, res) => {
+  fs.appendFileSync('multer_debug.log', JSON.stringify({
+    file: req.file,
+    body: req.body
+  }) + '\n');
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
