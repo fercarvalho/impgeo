@@ -734,17 +734,17 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             <table className="w-full min-w-[2000px]">
               <thead>
                 <tr className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-900" style={{ width: '100px', minWidth: '100px' }}>
                     <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       COD. IMP <span>{getSortIndicator('codImovel')}</span>
                     </button>
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[100px] z-20 bg-blue-900" style={{ width: '250px', minWidth: '250px' }}>
                     <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       IMÓVEL <span>{getSortIndicator('imovel')}</span>
                     </button>
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[350px] z-20 bg-blue-900" style={{ width: '150px', minWidth: '150px' }}>
                     <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
                     </button>
@@ -851,10 +851,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 {sortedAcompanhamentos.map((acomp, index) => (
                   <tr
                     key={acomp.id}
-                    className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50 hover:bg-blue-100'}
+                    className={index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'}
                   >
-                    <td className="px-3 py-2 whitespace-nowrap font-semibold">{formatCodImovel(acomp.codImovel)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap font-semibold">
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '250px', minWidth: '250px' }}>
                       {acomp.mapaUrl ? (
                         <button
                           onClick={() => {
@@ -872,7 +872,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                         <span>{acomp.imovel}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap font-semibold">{acomp.municipio}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.matriculas}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.nIncraCcir}</td>
                     <td className="px-3 py-2 text-sm text-gray-700 max-w-xs truncate" title={acomp.car}>{acomp.car}</td>

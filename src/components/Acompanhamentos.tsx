@@ -1233,8 +1233,8 @@ const Acompanhamentos: React.FC = () => {
         </div>
       </div>
 
-      {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Estatísticas de APP e Reserva Legal */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div 
           className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
@@ -1280,15 +1280,6 @@ const Acompanhamentos: React.FC = () => {
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
           </p>
         </div>
-        <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
-        >
-          <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
-          <p className="text-2xl font-bold text-green-700">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
-          </p>
-        </div>
       </div>
 
       {/* Filtros e Busca */}
@@ -1317,7 +1308,7 @@ const Acompanhamentos: React.FC = () => {
           <table className="w-full min-w-[2000px]">
             <thead>
               <tr className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-900" style={{ width: '50px', minWidth: '50px' }}>
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -1325,17 +1316,17 @@ const Acompanhamentos: React.FC = () => {
                     className="rounded"
                   />
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[50px] z-20 bg-blue-900" style={{ width: '100px', minWidth: '100px' }}>
                   <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     COD. IMP <span>{getSortIndicator('codImovel')}</span>
                   </button>
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[150px] z-20 bg-blue-900" style={{ width: '250px', minWidth: '250px' }}>
                   <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     IMÓVEL <span>{getSortIndicator('imovel')}</span>
                   </button>
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[400px] z-20 bg-blue-900" style={{ width: '150px', minWidth: '150px' }}>
                   <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
                   </button>
@@ -1443,9 +1434,9 @@ const Acompanhamentos: React.FC = () => {
               {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
-                  className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50 hover:bg-blue-100'}
+                  className={index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'}
                 >
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '50px', minWidth: '50px' }}>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(acomp.id)}
@@ -1453,8 +1444,8 @@ const Acompanhamentos: React.FC = () => {
                       className="rounded"
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap font-semibold">{formatCodImovel(acomp.codImovel)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap font-semibold">
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '250px', minWidth: '250px' }}>
                     {acomp.mapaUrl ? (
                       <button
                         onClick={() => {
@@ -1474,7 +1465,7 @@ const Acompanhamentos: React.FC = () => {
                       <span>{acomp.imovel}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap font-semibold">{acomp.municipio}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.matriculas}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.nIncraCcir}</td>
                   <td className="px-3 py-2 text-sm text-gray-700 max-w-xs truncate" title={acomp.car}>{acomp.car}</td>
