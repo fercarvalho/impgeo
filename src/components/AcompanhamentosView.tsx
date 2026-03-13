@@ -569,6 +569,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             </div>
             <div className="flex items-center gap-2">
               <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-10 w-10 object-contain" />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 leading-tight">IMPGEO</h1>
+              </div>
             </div>
           </div>
         </div>

@@ -880,7 +880,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-8 w-8 mr-2 object-contain" />
               <div>
                 <span className="text-white text-xl font-bold">IMPGEO</span>
-                <p className="text-blue-200 text-sm">Sistema de Gestão Financeira</p>
+                <p className="text-blue-200 text-sm">Sistema de Gestão Inteligente</p>
               </div>
             </div>
           </div>
@@ -3383,7 +3383,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 </div>
               </div>
               <p className="text-gray-400 text-sm">
-                Sistema de Gestão Financeira por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreeendedores.
+                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreeendedores.
                 <br /><br />
                 Autor: Fernando Carvalho Gomes dos Santos 39063242816.
               </p>
