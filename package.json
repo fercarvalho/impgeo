@@ -12,9 +12,11 @@
   "dependencies": {
     "browser-image-compression": "^2.0.2",
     "date-fns": "^2.30.0",
+    "file-saver": "^2.0.5",
     "heic2any": "^0.0.4",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -24,6 +26,7 @@
     "recharts": "^3.2.1"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^8.56.0",

@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS acompanhamentos (
     matriculas TEXT,
     n_incra_ccir VARCHAR(255),
     car TEXT,
+    car_url TEXT,
     status_car VARCHAR(100),
     itr TEXT,
     geo_certificacao VARCHAR(10),

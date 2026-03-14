@@ -19,6 +19,8 @@ class Database {
     this.profileSchemaEnsuring = null;
     this.passwordResetSchemaEnsured = false;
     this.passwordResetSchemaEnsuring = null;
+    this.acompanhamentosSchemaEnsured = false;
+    this.acompanhamentosSchemaEnsuring = null;
   }
 
   // Método auxiliar para gerar IDs únicos
@@ -769,6 +771,7 @@ class Database {
   // Métodos para Acompanhamentos
   async getAllAcompanhamentos() {
     try {
+      await this.ensureAcompanhamentosSchema();
       const result = await this.queryWithRetry('SELECT * FROM acompanhamentos ORDER BY cod_imovel');
       return result.rows;
     } catch (error) {
@@ -779,10 +782,11 @@ class Database {
 
   async saveAcompanhamento(acompanhamentoData) {
     try {
+      await this.ensureAcompanhamentosSchema();
       const id = this.generateId();
       const result = await this.queryWithRetry(
         `INSERT INTO acompanhamentos (
-           id, cod_imovel, imovel, municipio, mapa_url, matriculas, n_incra_ccir, car, status_car, itr,
+           id, cod_imovel, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
            geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
            cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,
            app_nao_vegetada, remanescente_florestal, endereco, status, observacoes, created_at, updated_at
@@ -790,7 +794,7 @@ class Database {
          VALUES (
            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-           $21, $22, $23, $24, $25, $26, $27, $28, $29
+           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
          )
          RETURNING *`,
         [
@@ -800,10 +804,14 @@ class Database {
           acompanhamentoData.municipio || null,
           acompanhamentoData.mapa_url || acompanhamentoData.mapaUrl || null,
           acompanhamentoData.matriculas || null,
+          acompanhamentoData.matriculas_dados ? JSON.stringify(acompanhamentoData.matriculas_dados) : (acompanhamentoData.matriculasDados ? JSON.stringify(acompanhamentoData.matriculasDados) : null),
           acompanhamentoData.n_incra_ccir || acompanhamentoData.nIncraCcir || null,
+          acompanhamentoData.ccir_dados ? JSON.stringify(acompanhamentoData.ccir_dados) : (acompanhamentoData.ccirDados ? JSON.stringify(acompanhamentoData.ccirDados) : null),
           acompanhamentoData.car || null,
+          acompanhamentoData.car_url || acompanhamentoData.carUrl || null,
           acompanhamentoData.status_car || acompanhamentoData.statusCar || acompanhamentoData.status || null,
           acompanhamentoData.itr || null,
+          acompanhamentoData.itr_dados ? JSON.stringify(acompanhamentoData.itr_dados) : (acompanhamentoData.itrDados ? JSON.stringify(acompanhamentoData.itrDados) : null),
           acompanhamentoData.geo_certificacao || acompanhamentoData.geoCertificacao || 'NÃO',
           acompanhamentoData.geo_registro || acompanhamentoData.geoRegistro || 'NÃO',
           acompanhamentoData.area_total ?? acompanhamentoData.areaTotal ?? 0,
@@ -833,6 +841,7 @@ class Database {
 
   async updateAcompanhamento(id, updatedData) {
     try {
+      await this.ensureAcompanhamentosSchema();
       const result = await this.queryWithRetry(
         `UPDATE acompanhamentos 
          SET cod_imovel = $1,
@@ -840,29 +849,33 @@ class Database {
              municipio = $3,
              mapa_url = $4,
              matriculas = $5,
-             n_incra_ccir = $6,
-             car = $7,
-             status_car = $8,
-             itr = $9,
-             geo_certificacao = $10,
-             geo_registro = $11,
-             area_total = $12,
-             reserva_legal = $13,
-             cultura1 = $14,
-             area_cultura1 = $15,
-             cultura2 = $16,
-             area_cultura2 = $17,
-             outros = $18,
-             area_outros = $19,
-             app_codigo_florestal = $20,
-             app_vegetada = $21,
-             app_nao_vegetada = $22,
-             remanescente_florestal = $23,
-             endereco = $24,
-             status = $25,
-             observacoes = $26,
-             updated_at = $27
-         WHERE id = $28
+             matriculas_dados = $6,
+             n_incra_ccir = $7,
+             ccir_dados = $8,
+             car = $9,
+             car_url = $10,
+             status_car = $11,
+             itr = $12,
+             itr_dados = $13,
+             geo_certificacao = $14,
+             geo_registro = $15,
+             area_total = $16,
+             reserva_legal = $17,
+             cultura1 = $18,
+             area_cultura1 = $19,
+             cultura2 = $20,
+             area_cultura2 = $21,
+             outros = $22,
+             area_outros = $23,
+             app_codigo_florestal = $24,
+             app_vegetada = $25,
+             app_nao_vegetada = $26,
+             remanescente_florestal = $27,
+             endereco = $28,
+             status = $29,
+             observacoes = $30,
+             updated_at = $31
+         WHERE id = $32
          RETURNING *`,
         [
           this.formatCodImovel(updatedData.cod_imovel || updatedData.codImovel),
@@ -870,10 +883,14 @@ class Database {
           updatedData.municipio || null,
           updatedData.mapa_url || updatedData.mapaUrl || null,
           updatedData.matriculas || null,
+          updatedData.matriculas_dados ? JSON.stringify(updatedData.matriculas_dados) : (updatedData.matriculasDados ? JSON.stringify(updatedData.matriculasDados) : null),
           updatedData.n_incra_ccir || updatedData.nIncraCcir || null,
+          updatedData.ccir_dados ? JSON.stringify(updatedData.ccir_dados) : (updatedData.ccirDados ? JSON.stringify(updatedData.ccirDados) : null),
           updatedData.car || null,
+          updatedData.car_url || updatedData.carUrl || null,
           updatedData.status_car || updatedData.statusCar || updatedData.status || null,
           updatedData.itr || null,
+          updatedData.itr_dados ? JSON.stringify(updatedData.itr_dados) : (updatedData.itrDados ? JSON.stringify(updatedData.itrDados) : null),
           updatedData.geo_certificacao || updatedData.geoCertificacao || 'NÃO',
           updatedData.geo_registro || updatedData.geoRegistro || 'NÃO',
           updatedData.area_total ?? updatedData.areaTotal ?? 0,
@@ -934,6 +951,29 @@ class Database {
     } finally {
       client.release();
     }
+  }
+
+  async ensureAcompanhamentosSchema() {
+    if (this.acompanhamentosSchemaEnsured) return;
+    if (this.acompanhamentosSchemaEnsuring) {
+      await this.acompanhamentosSchemaEnsuring;
+      return;
+    }
+
+    this.acompanhamentosSchemaEnsuring = (async () => {
+      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS car_url TEXT');
+      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS matriculas_dados JSONB');
+      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS itr_dados JSONB');
+      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS ccir_dados JSONB');
+    })()
+      .then(() => {
+        this.acompanhamentosSchemaEnsured = true;
+      })
+      .finally(() => {
+        this.acompanhamentosSchemaEnsuring = null;
+      });
+
+    await this.acompanhamentosSchemaEnsuring;
   }
 
   async ensureShareLinksSchema() {

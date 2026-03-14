@@ -89,7 +89,18 @@ if (!fs.existsSync(avatarsDir)) {
   fs.mkdirSync(avatarsDir, { recursive: true });
 }
 
+const documentsDir = path.join(__dirname, 'uploads', 'documents');
+if (!fs.existsSync(documentsDir)) {
+  fs.mkdirSync(documentsDir, { recursive: true });
+}
+
 app.use('/api/avatars', express.static(avatarsDir, {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true
+}));
+
+app.use('/api/documents', express.static(documentsDir, {
   maxAge: '1y',
   etag: true,
   lastModified: true
@@ -263,6 +274,7 @@ const publicApiRoutes = [
 
 const publicApiPrefixes = [
   '/avatars',
+  '/documents',
   '/auth/validar-token/',
   '/acompanhamentos/public',
   '/modelo/'
@@ -343,6 +355,33 @@ const uploadAvatar = multer({
   },
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
+
+const documentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    if (!fs.existsSync(documentsDir)) {
+      fs.mkdirSync(documentsDir, { recursive: true });
+    }
+    cb(null, documentsDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `car-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`);
+  }
+});
+
+const uploadDocument = multer({
+  storage: documentStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf' || path.extname(file.originalname).toLowerCase() === '.pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos PDF são permitidos!'), false);
+    }
+  },
+  limits: {
+    fileSize: 20 * 1024 * 1024 // 20MB
   }
 });
 
@@ -660,6 +699,19 @@ app.get('/api/modelo/:type', async (req, res) => {
   } catch (error) {
     console.error('Erro ao baixar modelo:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/acompanhamentos/upload-car', authenticateToken, uploadDocument.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+    }
+    const fileUrl = `/api/documents/${req.file.filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error) {
+    console.error('Erro no upload de documento do CAR:', error);
+    res.status(500).json({ success: false, error: 'Erro ao fazer upload do documento' });
   }
 });
 
