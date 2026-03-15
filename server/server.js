@@ -1570,6 +1570,7 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
         return res.status(403).json({
           success: false,
           requiresPassword: true,
+          shareLinkName: shareLink.name,
           error: 'Este link requer senha para acesso'
         });
       }
@@ -1580,6 +1581,7 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
         return res.status(401).json({
           success: false,
           requiresPassword: true,
+          shareLinkName: shareLink.name,
           error: 'Senha incorreta'
         });
       }

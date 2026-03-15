@@ -233,6 +233,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           // Verificar se requer senha
           if (result.requiresPassword || response.status === 403) {
             setRequiresPassword(true)
+            if (result.shareLinkName) setShareLinkName(result.shareLinkName)
             setLoading(false)
             return
           }
@@ -273,6 +274,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         setRequiresPassword(false)
         setPassword('')
       } else {
+        if (result.shareLinkName) setShareLinkName(result.shareLinkName)
         if (response.status === 401) {
           setPasswordError('Senha incorreta. Tente novamente.')
         } else {
@@ -856,8 +858,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Acesso Protegido</h1>
-            <p className="text-gray-600">Este link compartilhável está protegido por senha</p>
+            {shareLinkName ? (
+              <>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Bem vindo</h1>
+                <p className="text-lg font-semibold text-purple-600 mb-1">{shareLinkName}</p>
+                <p className="text-gray-500 text-sm">Este link está protegido por senha</p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Acesso Protegido</h1>
+                <p className="text-gray-600">Este link compartilhável está protegido por senha</p>
+              </>
+            )}
           </div>
           
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
