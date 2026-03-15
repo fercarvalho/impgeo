@@ -67,3 +67,9 @@ server/backup-json-data.js
 # Documentation files (keep only README.md)
 *.md
 !README.md
+
+# Documentos para Importação (PDFs locais)
+/server/importar/
+
+# Scripts de Utilidade Local
+/server/scripts/restore-import.js
