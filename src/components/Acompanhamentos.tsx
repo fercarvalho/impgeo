@@ -2610,11 +2610,22 @@ const Acompanhamentos: React.FC = () => {
                             </div>
                             
                             {matricula.url && (
-                              <div className="absolute -bottom-2 left-3 bg-white px-2 flex items-center gap-1 text-[10px] text-green-600 border border-green-100 rounded-full">
+                              <div className="absolute -bottom-2 left-3 bg-white px-2 flex items-center gap-1 text-[10px] text-green-600 border border-green-100 rounded-full shadow-sm">
                                 <Check className="w-3 h-3" /> PDF
                                 <a href={matricula.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1 inline-flex items-center">
                                   Ver <ExternalLink className="w-2 h-2 ml-[2px]" />
                                 </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setForm({
+                                    ...form,
+                                    matriculasDados: (form.matriculasDados || []).map(m => m.id === matricula.id ? { ...m, url: undefined } : m)
+                                  })}
+                                  className="ml-1 text-red-500 hover:text-red-700 transition-colors"
+                                  title="Remover PDF"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
                               </div>
                             )}
                           </div>
@@ -2686,6 +2697,17 @@ const Acompanhamentos: React.FC = () => {
                                   <ExternalLink className="w-3 h-3 mr-1" />
                                   Ver documento
                                 </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setForm({
+                                    ...form,
+                                    ccirDados: (form.ccirDados || []).map(c => c.id === ccir.id ? { ...c, url: undefined } : c)
+                                  })}
+                                  className="ml-1 text-red-500 hover:text-red-700 transition-colors p-0.5 rounded-full hover:bg-red-50"
+                                  title="Remover PDF"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
                               </div>
                             )}
                           </div>
@@ -2754,6 +2776,14 @@ const Acompanhamentos: React.FC = () => {
                             <ExternalLink className="w-3 h-3 mr-1" />
                             Ver atual
                           </a>
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, carUrl: undefined })}
+                            className="ml-1 text-red-500 hover:text-red-700 transition-colors p-0.5 rounded-full hover:bg-red-50"
+                            title="Remover PDF"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2868,6 +2898,17 @@ const Acompanhamentos: React.FC = () => {
                                     <a href={item.declaracaoUrl || item.url} target="_blank" rel="noopener noreferrer" className="hover:underline font-bold inline-flex items-center">
                                       Ver <ExternalLink className="w-2 h-2 ml-[2px]" />
                                     </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm({
+                                        ...form,
+                                        itrDados: (form.itrDados || []).map(i => i.id === item.id ? { ...i, declaracaoUrl: undefined, url: undefined } : i)
+                                      })}
+                                      className="text-red-500 hover:text-red-700 ml-0.5"
+                                      title="Remover PDF"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
                                   </div>
                                 )}
                                 {item.reciboUrl && (
@@ -2876,6 +2917,17 @@ const Acompanhamentos: React.FC = () => {
                                     <a href={item.reciboUrl} target="_blank" rel="noopener noreferrer" className="hover:underline font-bold inline-flex items-center">
                                       Ver <ExternalLink className="w-2 h-2 ml-[2px]" />
                                     </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm({
+                                        ...form,
+                                        itrDados: (form.itrDados || []).map(i => i.id === item.id ? { ...i, reciboUrl: undefined } : i)
+                                      })}
+                                      className="text-red-500 hover:text-red-700 ml-0.5"
+                                      title="Remover PDF"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
                                   </div>
                                 )}
                               </div>
