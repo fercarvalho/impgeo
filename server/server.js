@@ -28,6 +28,20 @@ const PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES = Math.min(
   24 * 60
 );
 
+// Helper para transformar texto em slug amigável
+const slugify = (text) => {
+  if (!text) return '';
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize('NFD') // Decompor caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+    .replace(/\s+/g, '-') // Espaços para -
+    .replace(/[^\w-]+/g, '') // Remover caracteres não-word
+    .replace(/--+/g, '-'); // Múltiplos - para um único -
+};
+
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error('FATAL ERROR: JWT_SECRET MUST be defined in production environment.');
   process.exit(1);
@@ -1251,7 +1265,21 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
     }
 
     // Gerar token único para compartilhamento
-    const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
+    let token = '';
+    if (name && name.trim()) {
+      const baseSlug = slugify(name);
+      token = baseSlug;
+
+      // Verificar se o slug já existe
+      const existingLink = await db.getShareLink(token);
+      if (existingLink) {
+        // Se existir, adiciona um sufixo aleatório curto
+        const suffix = require('crypto').randomBytes(3).toString('hex');
+        token = `${baseSlug}-${suffix}`;
+      }
+    } else {
+      token = 'view_' + require('crypto').randomBytes(32).toString('hex');
+    }
 
     // Converter data de expiração para ISO string se fornecida
     let expiresAtISO = null;
@@ -1292,8 +1320,22 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
     const bcrypt = require('bcryptjs');
 
     if (regenerateToken) {
-      // Gerar novo token
-      const newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
+      // Gerar novo token personalizado ou aleatório
+      let newToken = '';
+      const effectiveName = name !== undefined ? name : (await db.getShareLink(token))?.name;
+      
+      if (effectiveName && effectiveName.trim()) {
+        const baseSlug = slugify(effectiveName);
+        newToken = baseSlug;
+        const existingLink = await db.getShareLink(newToken);
+        if (existingLink && existingLink.token !== token) {
+           const suffix = require('crypto').randomBytes(3).toString('hex');
+           newToken = `${baseSlug}-${suffix}`;
+        }
+      } else {
+        newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
+      }
+
       const linkData = await db.getShareLink(token);
       if (!linkData) {
         return res.status(404).json({ success: false, error: 'Link não encontrado' });
@@ -1477,14 +1519,6 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
     const { token } = req.params;
     const { password } = req.query;
     const bcrypt = require('bcryptjs');
-
-    // Validar formato do token
-    if (!token || !token.startsWith('view_')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Token inválido'
-      });
-    }
 
     // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);
