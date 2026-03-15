@@ -477,11 +477,16 @@ const Acompanhamentos: React.FC = () => {
         window.scrollTo(0, parseInt(scrollY || '0') * -1)
       }
     }
-  }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen])
+  }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen, itrDownloadModal])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+
+      if (itrDownloadModal) {
+        setItrDownloadModal(null)
+        return
+      }
 
       if (isMapModalOpen) {
         setIsMapModalOpen(false)
@@ -524,7 +529,7 @@ const Acompanhamentos: React.FC = () => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, isMapModalOpen])
+  }, [isModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, isMapModalOpen, itrDownloadModal])
 
   const handleEdit = (acomp: Acompanhamento) => {
     setEditing(acomp)
@@ -3657,9 +3662,13 @@ const Acompanhamentos: React.FC = () => {
       />
       {/* Modal de Download ITR */}
       {itrDownloadModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => setItrDownloadModal(null)}
+        >
           <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">

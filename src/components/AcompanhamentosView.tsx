@@ -788,7 +788,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
   // Bloquear scroll do body quando o modal de mapa estiver aberto
   useEffect(() => {
-    if (isMapModalOpen) {
+    const isAnyModalOpen = isMapModalOpen || !!itrDownloadModal || chartModalOpen
+    
+    if (isAnyModalOpen) {
       const scrollY = window.scrollY
       document.body.style.overflow = 'hidden'
       document.body.style.position = 'fixed'
@@ -806,28 +808,32 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
     
     return () => {
-      const scrollY = document.body.style.top
       document.body.style.overflow = ''
       document.body.style.position = ''
       document.body.style.top = ''
       document.body.style.width = ''
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1)
-      }
     }
-  }, [isMapModalOpen])
+  }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !isMapModalOpen) return
-      setIsMapModalOpen(false)
-      setSelectedMapUrl('')
-      setSelectedImovel('')
+      if (event.key !== 'Escape') return
+
+      if (itrDownloadModal) {
+        setItrDownloadModal(null)
+        return
+      }
+
+      if (isMapModalOpen) {
+        setIsMapModalOpen(false)
+        setSelectedMapUrl('')
+        setSelectedImovel('')
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isMapModalOpen])
+  }, [isMapModalOpen, itrDownloadModal])
 
   if (loading) {
     return (
@@ -1562,9 +1568,13 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       />
       {/* Modal de Download ITR */}
       {itrDownloadModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          style={{ margin: 0, padding: 0 }}
+          onClick={() => setItrDownloadModal(null)}
+        >
           <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
