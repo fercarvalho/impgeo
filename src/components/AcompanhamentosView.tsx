@@ -1522,11 +1522,23 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               <div className="space-y-2 text-gray-400">
                 <div className="flex items-center">
                   <Phone className="h-4 w-4 mr-2" />
-                  <span>(11) 91611-1900</span>
+                  <a 
+                    href="https://wa.me/5511916111900" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    (11) 91611-1900
+                  </a>
                 </div>
                 <div className="flex items-center">
                   <Mail className="h-4 w-4 mr-2" />
-                  <span>vem@viverdepj.com.br</span>
+                  <a 
+                    href="mailto:vem@viverdepj.com.br" 
+                    className="hover:text-white transition-colors"
+                  >
+                    vem@viverdepj.com.br
+                  </a>
                 </div>
                 <div className="flex items-center">
                   <MapIcon className="h-4 w-4 mr-2" />
@@ -1539,7 +1551,6 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               <h3 className="text-lg font-semibold mb-3">Serviços</h3>
               <div className="space-y-2 text-gray-400">
                 <p>Consultoria Estratégica de Negócios</p>
-                <p>Consultoria em Negócios</p>
                 <p>Sistema de Gestão</p>
                 <p>Sistema Financeiro</p>
                 <p>CRM</p>
