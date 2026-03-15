@@ -18,7 +18,7 @@ const app = express();
 const port = 9001;
 const db = new Database();
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
   Math.max(Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES) || 60, 5),
   24 * 60
@@ -27,6 +27,20 @@ const PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES = Math.min(
   Math.max(Number(process.env.PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES) || 60, 5),
   24 * 60
 );
+
+// Helper para transformar texto em slug amigável
+const slugify = (text) => {
+  if (!text) return '';
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize('NFD') // Decompor caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+    .replace(/\s+/g, '-') // Espaços para -
+    .replace(/[^\w-]+/g, '') // Remover caracteres não-word
+    .replace(/--+/g, '-'); // Múltiplos - para um único -
+};
 
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
@@ -1252,7 +1266,21 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
     }
 
     // Gerar token único para compartilhamento
-    const token = 'view_' + require('crypto').randomBytes(32).toString('hex');
+    let token = '';
+    if (name && name.trim()) {
+      const baseSlug = slugify(name);
+      token = baseSlug;
+
+      // Verificar se o slug já existe
+      const existingLink = await db.getShareLink(token);
+      if (existingLink) {
+        // Se existir, adiciona um sufixo aleatório curto
+        const suffix = require('crypto').randomBytes(3).toString('hex');
+        token = `${baseSlug}-${suffix}`;
+      }
+    } else {
+      token = 'view_' + require('crypto').randomBytes(32).toString('hex');
+    }
 
     // Converter data de expiração para ISO string se fornecida
     let expiresAtISO = null;
@@ -1293,8 +1321,21 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
     const bcrypt = require('bcryptjs');
 
     if (regenerateToken) {
-      // Gerar novo token
-      const newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
+      // Gerar novo token personalizado ou aleatório
+      let newToken = '';
+      const effectiveName = name !== undefined ? name : (await db.getShareLink(token))?.name;
+      
+      if (effectiveName && effectiveName.trim()) {
+        const baseSlug = slugify(effectiveName);
+        newToken = baseSlug;
+        const existingLink = await db.getShareLink(newToken);
+        if (existingLink && existingLink.token !== token) {
+           const suffix = require('crypto').randomBytes(3).toString('hex');
+           newToken = `${baseSlug}-${suffix}`;
+        }
+      } else {
+        newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
+      }
 
       const linkData = await db.getShareLink(token);
       if (!linkData) {
@@ -1473,20 +1514,24 @@ app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res
   }
 });
 
+// Rota de Redirecionamento Curto (/v/:token)
+app.get('/v/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    // Redirecionar para a página de visualização com o token na query
+    const normalizedBase = String(BASE_URL || '').trim().replace(/\/$/, '');
+    res.redirect(`${normalizedBase}/?token=${token}`);
+  } catch (error) {
+    res.status(500).send('Erro ao redirecionar');
+  }
+});
+
 // Rota pública para visualizar acompanhamentos (sem autenticação)
 app.get('/api/acompanhamentos/public/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.query;
     const bcrypt = require('bcryptjs');
-
-    // Validar formato do token
-    if (!token || !token.startsWith('view_')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Token inválido'
-      });
-    }
 
     // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);

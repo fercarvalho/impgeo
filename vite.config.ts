@@ -24,6 +24,11 @@ export default defineConfig({
         target: 'http://localhost:9001',
         changeOrigin: true,
         rewrite: (path) => path
+      },
+      '/v': {
+        target: 'http://localhost:9001',
+        changeOrigin: true,
+        rewrite: (path) => path
       }
     }
   },

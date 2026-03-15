@@ -93,8 +93,11 @@ const AppContent: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash.substring(1);
     const token = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
+    const isPasswordResetToken = token && /^[0-9a-f]{64}$/i.test(token);
+    const isViewRoute = window.location.pathname.includes('/acompanhamentos-view');
     
-    if (token && token.startsWith('view_')) {
+    // Se o token existe e não é de reset de senha, ou se estamos na rota de visualização
+    if (token && (!isPasswordResetToken || isViewRoute || token.startsWith('view_'))) {
       setViewToken(token);
       return;
     }
@@ -107,7 +110,7 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  if (viewToken && viewToken.startsWith('view_')) {
+  if (viewToken) {
     // Renderizar visualização pública sem autenticação
     return <AcompanhamentosView token={viewToken} />;
   }

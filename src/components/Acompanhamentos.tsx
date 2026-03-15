@@ -1535,7 +1535,7 @@ const Acompanhamentos: React.FC = () => {
         setNewLinkExpiresAt('')
         setNewLinkPassword('')
         await loadShareLinks()
-        const fullLink = `${window.location.origin}${window.location.pathname}?token=${result.token}`
+        const fullLink = `${window.location.origin}/v/${result.token}`
         setShareLink(fullLink)
         setLinkCopied(false)
       } else {
@@ -1610,7 +1610,7 @@ const Acompanhamentos: React.FC = () => {
       const result = await response.json()
       if (result.success) {
         await loadShareLinks()
-        const fullLink = `${window.location.origin}${window.location.pathname}?token=${result.token}`
+        const fullLink = `${window.location.origin}/v/${result.token}`
         setShareLink(fullLink)
         setLinkCopied(false)
       } else {
@@ -3551,13 +3551,13 @@ const Acompanhamentos: React.FC = () => {
                                   <div className="flex gap-2 items-center">
                                     <input
                                       type="text"
-                                      value={`${window.location.origin}${window.location.pathname}?token=${link.token}`}
+                                      value={`${window.location.origin}/v/${link.token}`}
                                       readOnly
                                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
                                     />
                                     <button
                                       onClick={() => {
-                                        const fullLink = `${window.location.origin}${window.location.pathname}?token=${link.token}`
+                                        const fullLink = `${window.location.origin}/v/${link.token}`
                                         navigator.clipboard.writeText(fullLink)
                                         setShareLink(fullLink)
                                         setLinkCopied(true)
