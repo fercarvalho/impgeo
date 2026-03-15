@@ -1535,12 +1535,12 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 <div className="flex items-center">
                   <Phone className="h-4 w-4 mr-2" />
                   <a 
-                    href="https://wa.me/5511916111900" 
+                    href="https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20site%20da%20IMPGEO%20e%20fiquei%20interessado%20pelo%20trabalho%20da%20Viver%20de%20PJ%20e%20gostaria%20de%20saber%20mais" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors"
                   >
-                    (11) 91611-1900
+                    (11) 97103-9181
                   </a>
                 </div>
                 <div className="flex items-center">
