@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail } from 'lucide-react'
+import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe } from 'lucide-react'
 import ChartModal from './modals/ChartModal'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -1541,8 +1541,19 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   </a>
                 </div>
                 <div className="flex items-center">
+                  <Globe className="h-4 w-4 mr-2" />
+                  <a 
+                    href="https://viverdepj.com.br" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    viverdepj.com.br
+                  </a>
+                </div>
+                <div className="flex items-center">
                   <MapIcon className="h-4 w-4 mr-2" />
-                  <span>São Paulo, SP</span>
+                  <span>Brasil</span>
                 </div>
               </div>
             </div>

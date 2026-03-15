@@ -18,7 +18,8 @@ import {
   Calculator,
   Download,
   ClipboardList,
-  Shield
+  Shield,
+  Globe
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -3413,8 +3414,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                   </a>
                 </div>
                 <div className="flex items-center">
+                  <Globe className="h-4 w-4 mr-2" />
+                  <a 
+                    href="https://viverdepj.com.br" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    viverdepj.com.br
+                  </a>
+                </div>
+                <div className="flex items-center">
                   <Map className="h-4 w-4 mr-2" />
-                  <span>São Paulo, SP</span>
+                  <span>Brasil</span>
                 </div>
               </div>
             </div>
