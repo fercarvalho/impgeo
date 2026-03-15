@@ -1212,10 +1212,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 {sortedAcompanhamentos.map((acomp, index) => (
                   <tr
                     key={acomp.id}
-                    className={index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'}
+                    className={`group ${index % 2 === 0 ? 'bg-white hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100'}`}
                   >
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '250px', minWidth: '250px' }}>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '250px', minWidth: '250px' }}>
                       {acomp.mapaUrl ? (
                         <button
                           onClick={() => {
@@ -1233,7 +1233,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                         <span>{acomp.imovel}</span>
                       )}
                     </td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                     <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex flex-wrap gap-1 w-full">
@@ -1463,7 +1463,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appVegetada)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appNaoVegetada)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.remanescenteFlorestal)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
+                    <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
                       {(() => {
                         const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
                         return (

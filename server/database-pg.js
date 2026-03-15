@@ -786,7 +786,7 @@ class Database {
       const id = this.generateId();
       const result = await this.queryWithRetry(
         `INSERT INTO acompanhamentos (
-           id, cod_imovel, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
+           id, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
            geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
            cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,
            app_nao_vegetada, remanescente_florestal, endereco, status, observacoes, created_at, updated_at
@@ -794,12 +794,11 @@ class Database {
          VALUES (
            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
+           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
          )
          RETURNING *`,
         [
           id,
-          this.formatCodImovel(acompanhamentoData.cod_imovel || acompanhamentoData.codImovel),
           acompanhamentoData.imovel || acompanhamentoData.endereco || null,
           acompanhamentoData.municipio || null,
           acompanhamentoData.mapa_url || acompanhamentoData.mapaUrl || null,
@@ -844,41 +843,39 @@ class Database {
       await this.ensureAcompanhamentosSchema();
       const result = await this.queryWithRetry(
         `UPDATE acompanhamentos 
-         SET cod_imovel = $1,
-             imovel = $2,
-             municipio = $3,
-             mapa_url = $4,
-             matriculas = $5,
-             matriculas_dados = $6,
-             n_incra_ccir = $7,
-             ccir_dados = $8,
-             car = $9,
-             car_url = $10,
-             status_car = $11,
-             itr = $12,
-             itr_dados = $13,
-             geo_certificacao = $14,
-             geo_registro = $15,
-             area_total = $16,
-             reserva_legal = $17,
-             cultura1 = $18,
-             area_cultura1 = $19,
-             cultura2 = $20,
-             area_cultura2 = $21,
-             outros = $22,
-             area_outros = $23,
-             app_codigo_florestal = $24,
-             app_vegetada = $25,
-             app_nao_vegetada = $26,
-             remanescente_florestal = $27,
-             endereco = $28,
-             status = $29,
-             observacoes = $30,
-             updated_at = $31
-         WHERE id = $32
+         SET imovel = $1,
+             municipio = $2,
+             mapa_url = $3,
+             matriculas = $4,
+             matriculas_dados = $5,
+             n_incra_ccir = $6,
+             ccir_dados = $7,
+             car = $8,
+             car_url = $9,
+             status_car = $10,
+             itr = $11,
+             itr_dados = $12,
+             geo_certificacao = $13,
+             geo_registro = $14,
+             area_total = $15,
+             reserva_legal = $16,
+             cultura1 = $17,
+             area_cultura1 = $18,
+             cultura2 = $19,
+             area_cultura2 = $20,
+             outros = $21,
+             area_outros = $22,
+             app_codigo_florestal = $23,
+             app_vegetada = $24,
+             app_nao_vegetada = $25,
+             remanescente_florestal = $26,
+             endereco = $27,
+             status = $28,
+             observacoes = $29,
+             updated_at = $30
+         WHERE id = $31
          RETURNING *`,
         [
-          this.formatCodImovel(updatedData.cod_imovel || updatedData.codImovel),
           updatedData.imovel || updatedData.endereco || null,
           updatedData.municipio || null,
           updatedData.mapa_url || updatedData.mapaUrl || null,

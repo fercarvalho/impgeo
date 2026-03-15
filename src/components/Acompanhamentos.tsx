@@ -2140,9 +2140,9 @@ const Acompanhamentos: React.FC = () => {
               {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
-                  className={index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'}
+                  className={`group ${index % 2 === 0 ? 'bg-white hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100'}`}
                 >
-                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '50px', minWidth: '50px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '50px', minWidth: '50px' }}>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(acomp.id)}
@@ -2150,8 +2150,8 @@ const Acompanhamentos: React.FC = () => {
                       className="rounded"
                     />
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '250px', minWidth: '250px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '250px', minWidth: '250px' }}>
                     {acomp.mapaUrl ? (
                       <button
                         onClick={() => {
@@ -2171,7 +2171,7 @@ const Acompanhamentos: React.FC = () => {
                       <span>{acomp.imovel}</span>
                     )}
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                   <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-wrap gap-1 w-full">
@@ -2485,19 +2485,15 @@ const Acompanhamentos: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Código do Imóvel *
+                      Código do Imóvel
                     </label>
                     <input
-                      type="number"
-                      value={form.codImovel || ''}
-                      onChange={(e) => setForm({ ...form, codImovel: parseInt(e.target.value) || 0 })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.codImovel ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      type="text"
+                      value={form.codImovel ? String(form.codImovel).padStart(3, '0') : 'Automático'}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
-                    {formErrors.codImovel && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.codImovel}</p>
-                    )}
+                    <p className="text-gray-400 text-[10px] mt-1 italic">Gerado automaticamente pelo sistema</p>
                   </div>
 
                   <div className="md:col-span-2">
