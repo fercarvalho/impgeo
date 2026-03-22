@@ -6,51 +6,16 @@ const API_BASE_URL =
     ? 'http://localhost:9001/api'
     : ((import.meta as any).env?.VITE_API_URL || '/api');
 
-interface AnomalyStats {
-  period: string;
-  stats: {
-    total: number;
-    affectedUsers: number;
-    avgScore: number;
-    types: string[];
-  };
-  topUsers: Array<{
-    user_id: string;
-    username: string;
-    anomaly_count: number;
-    last_anomaly: string;
-  }>;
-  byType: Array<{
-    type: string;
-    count: number;
-    avg_score: number;
-  }>;
-}
-
-interface Anomaly {
-  id: string;
-  userId: string;
-  username: string;
-  type: string;
-  score: number;
-  details: any;
-  ipAddress: string;
+interface AnomalyRecord {
+  id: number;
   timestamp: string;
-}
-
-interface UserBaseline {
+  operation: string;
+  user_id: string;
   username: string;
-  baseline: {
-    countries: string[];
-    avgHour: number;
-    avgRequestsPerMinute: number;
-    commonIPs: string[];
-  };
-  stats: {
-    totalLogins: number;
-    firstLogin: string;
-    lastLogin: string;
-  };
+  ip_address: string;
+  user_agent: string;
+  details: any;
+  status: string;
 }
 
 const authHeaders = () => ({
@@ -58,30 +23,55 @@ const authHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+const ANOMALY_LABELS: Record<string, string> = {
+  new_country: 'Novo País',
+  unusual_hour: 'Horário Incomum',
+  abnormal_volume: 'Volume Anormal',
+  multiple_ips: 'Múltiplos IPs',
+  multiple_devices: 'Múltiplos Dispositivos',
+  brute_force: 'Brute Force',
+};
+
+const getSeverity = (score: number): { label: string; bg: string; text: string } => {
+  if (score >= 90) return { label: 'CRÍTICA', bg: 'bg-red-600', text: 'text-white' };
+  if (score >= 70) return { label: 'ALTA', bg: 'bg-orange-500', text: 'text-white' };
+  if (score >= 50) return { label: 'MÉDIA', bg: 'bg-yellow-400', text: 'text-gray-900' };
+  return { label: 'BAIXA', bg: 'bg-green-600', text: 'text-white' };
+};
+
+const getTimeAgo = (timestamp: string): string => {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const d = Math.floor(hours / 24);
+  if (d > 0) return `${d}d atrás`;
+  if (hours > 0) return `${hours}h atrás`;
+  if (minutes > 0) return `${minutes}min atrás`;
+  return 'Agora';
+};
+
 export default function AnomalyDashboard() {
-  const [stats, setStats] = useState<AnomalyStats | null>(null);
-  const [recent, setRecent] = useState<Anomaly[]>([]);
-  const [days, setDays] = useState(7);
+  const [anomalies, setAnomalies] = useState<AnomalyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [userBaseline, setUserBaseline] = useState<UserBaseline | null>(null);
   const [severityFilter, setSeverityFilter] = useState<number>(0);
+  const [days, setDays] = useState(7);
 
-  useEffect(() => { fetchData(); }, [days, severityFilter]);
+  useEffect(() => { fetchData(); }, [days]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [statsRes, recentRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/anomalies?days=${days}`, { headers: authHeaders() }),
-        fetch(`${API_BASE_URL}/anomalies?limit=50${severityFilter > 0 ? `&severity=${severityFilter}` : ''}`, { headers: authHeaders() }),
-      ]);
-      const statsData = await statsRes.json();
-      const recentData = await recentRes.json();
-      setStats(statsData);
-      setRecent(recentData.anomalies || []);
+      const res = await fetch(`${API_BASE_URL}/anomalies?limit=200`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Erro desconhecido');
+
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      const filtered = (data.anomalies || []).filter((a: AnomalyRecord) =>
+        new Date(a.timestamp).getTime() >= cutoff
+      );
+      setAnomalies(filtered);
     } catch {
       setError('Erro ao carregar dados');
     } finally {
@@ -89,52 +79,44 @@ export default function AnomalyDashboard() {
     }
   };
 
-  const fetchUserBaseline = async (username: string) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/anomalies/baseline/${username}`, { headers: authHeaders() });
-      const data = await res.json();
-      setUserBaseline(data);
-      setSelectedUser(username);
-    } catch {
-      alert('Erro ao buscar dados do usuário');
-    }
-  };
+  // Estatísticas calculadas no frontend
+  const displayed = severityFilter > 0
+    ? anomalies.filter(a => (a.details?.score ?? 0) >= severityFilter)
+    : anomalies;
 
-  const getAnomalyTypeLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-      new_country: 'Novo País',
-      unusual_hour: 'Horário Incomum',
-      abnormal_volume: 'Volume Anormal',
-      multiple_ips: 'Múltiplos IPs',
-      multiple_devices: 'Múltiplos Dispositivos',
-      brute_force: 'Brute Force',
-    };
-    return labels[type] || type;
-  };
+  const affectedUsers = new Set(anomalies.map(a => a.user_id)).size;
+  const highSeverityCount = anomalies.filter(a => (a.details?.score ?? 0) >= 70).length;
+  const avgScore = anomalies.length > 0
+    ? anomalies.reduce((sum, a) => sum + (a.details?.score ?? 0), 0) / anomalies.length
+    : 0;
 
-  const getSeverity = (score: number): { label: string; bg: string; text: string } => {
-    if (score >= 90) return { label: 'CRÍTICA', bg: 'bg-red-600', text: 'text-white' };
-    if (score >= 70) return { label: 'ALTA', bg: 'bg-orange-500', text: 'text-white' };
-    if (score >= 50) return { label: 'MÉDIA', bg: 'bg-yellow-400', text: 'text-gray-900' };
-    return { label: 'BAIXA', bg: 'bg-green-600', text: 'text-white' };
-  };
+  const byType = Object.entries(
+    anomalies.reduce((acc: Record<string, { count: number; scoreSum: number }>, a) => {
+      const type = a.details?.type || a.operation;
+      if (!acc[type]) acc[type] = { count: 0, scoreSum: 0 };
+      acc[type].count++;
+      acc[type].scoreSum += a.details?.score ?? 0;
+      return acc;
+    }, {})
+  ).map(([type, v]) => ({ type, count: v.count, avg_score: v.scoreSum / v.count }));
 
-  const getTimeAgo = (timestamp: string): string => {
-    const diff = Date.now() - new Date(timestamp).getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    const d = Math.floor(hours / 24);
-    if (d > 0) return `${d}d atrás`;
-    if (hours > 0) return `${hours}h atrás`;
-    if (minutes > 0) return `${minutes}min atrás`;
-    return 'Agora';
-  };
+  const topUsers = Object.entries(
+    anomalies.reduce((acc: Record<string, { username: string; count: number; last: string }>, a) => {
+      if (!acc[a.user_id]) acc[a.user_id] = { username: a.username, count: 0, last: a.timestamp };
+      acc[a.user_id].count++;
+      if (new Date(a.timestamp) > new Date(acc[a.user_id].last)) acc[a.user_id].last = a.timestamp;
+      return acc;
+    }, {})
+  )
+    .map(([user_id, v]) => ({ user_id, username: v.username, anomaly_count: v.count, last_anomaly: v.last }))
+    .sort((a, b) => b.anomaly_count - a.anomaly_count)
+    .slice(0, 10);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-600 mx-auto mb-3" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
           <p className="text-gray-500">Carregando dashboard...</p>
         </div>
       </div>
@@ -148,14 +130,12 @@ export default function AnomalyDashboard() {
           <XCircle className="w-5 h-5" />
           <span className="font-medium">{error}</span>
         </div>
-        <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+        <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <RefreshCw className="w-4 h-4" /> Tentar novamente
         </button>
       </div>
     );
   }
-
-  const highSeverityCount = recent.filter(a => a.score >= 70).length;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -220,42 +200,40 @@ export default function AnomalyDashboard() {
       </div>
 
       {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {[
-            { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: stats.stats.total, label: 'Total de Anomalias' },
-            { icon: <Users className="w-8 h-8 text-blue-500" />, value: stats.stats.affectedUsers, label: 'Usuários Afetados' },
-            { icon: <TrendingUp className="w-8 h-8 text-blue-500" />, value: stats.stats.avgScore?.toFixed(1) ?? '—', label: 'Score Médio' },
-            { icon: <AlertTriangle className="w-8 h-8 text-red-500" />, value: highSeverityCount, label: 'Alta Severidade' },
-          ].map((card, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
-              <div className="flex-shrink-0">{card.icon}</div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{card.value}</div>
-                <div className="text-xs text-gray-500">{card.label}</div>
-              </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {[
+          { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: anomalies.length, label: 'Total de Anomalias' },
+          { icon: <Users className="w-8 h-8 text-blue-500" />, value: affectedUsers, label: 'Usuários Afetados' },
+          { icon: <TrendingUp className="w-8 h-8 text-blue-500" />, value: avgScore.toFixed(1), label: 'Score Médio' },
+          { icon: <AlertTriangle className="w-8 h-8 text-red-500" />, value: highSeverityCount, label: 'Alta Severidade' },
+        ].map((card, i) => (
+          <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="flex-shrink-0">{card.icon}</div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{card.value}</div>
+              <div className="text-xs text-gray-500">{card.label}</div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {/* Anomalias por Tipo */}
-      {stats && stats.byType.length > 0 && (
+      {byType.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-amber-600" /> Anomalias por Tipo
+            <BarChart3 className="w-4 h-4 text-blue-600" /> Anomalias por Tipo
           </h3>
           <div className="space-y-2">
-            {stats.byType.map(item => {
-              const pct = stats.stats.total > 0 ? (item.count / stats.stats.total) * 100 : 0;
+            {byType.map(item => {
+              const pct = anomalies.length > 0 ? (item.count / anomalies.length) * 100 : 0;
               return (
                 <div key={item.type}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">{getAnomalyTypeLabel(item.type)} <span className="text-gray-400">({item.count})</span></span>
+                    <span className="text-gray-700">{ANOMALY_LABELS[item.type] || item.type} <span className="text-gray-400">({item.count})</span></span>
                     <span className="text-gray-500 text-xs">Score: {item.avg_score.toFixed(0)}</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${pct}%` }} />
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -265,13 +243,13 @@ export default function AnomalyDashboard() {
       )}
 
       {/* Top Usuários */}
-      {stats && stats.topUsers.length > 0 && (
+      {topUsers.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <Users className="w-4 h-4 text-amber-600" /> Usuários com Mais Anomalias
+            <Users className="w-4 h-4 text-blue-600" /> Usuários com Mais Anomalias
           </h3>
           <div className="space-y-2">
-            {stats.topUsers.slice(0, 10).map((u, index) => (
+            {topUsers.map((u, index) => (
               <div key={u.user_id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-gray-400 w-6">#{index + 1}</span>
@@ -280,12 +258,6 @@ export default function AnomalyDashboard() {
                     <div className="text-xs text-gray-500">{u.anomaly_count} anomalia{u.anomaly_count > 1 ? 's' : ''} · Última: {getTimeAgo(u.last_anomaly)}</div>
                   </div>
                 </div>
-                <button
-                  onClick={() => fetchUserBaseline(u.username)}
-                  className="text-xs px-3 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50"
-                >
-                  Ver Baseline
-                </button>
               </div>
             ))}
           </div>
@@ -295,42 +267,39 @@ export default function AnomalyDashboard() {
       {/* Anomalias Recentes */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600" /> Anomalias Recentes
+          <AlertTriangle className="w-4 h-4 text-blue-600" /> Anomalias Recentes
         </h3>
-        {recent.length === 0 ? (
+        {displayed.length === 0 ? (
           <p className="text-center py-8 text-gray-400">Nenhuma anomalia encontrada no período selecionado</p>
         ) : (
           <div className="space-y-3">
-            {recent.map(anomaly => {
-              const sev = getSeverity(anomaly.score);
+            {displayed.map(anomaly => {
+              const score = anomaly.details?.score ?? 0;
+              const type = anomaly.details?.type || anomaly.operation;
+              const sev = getSeverity(score);
               return (
                 <div key={anomaly.id} className="border border-gray-100 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-800 text-sm">{getAnomalyTypeLabel(anomaly.type)}</span>
+                    <span className="font-medium text-gray-800 text-sm">{ANOMALY_LABELS[type] || type}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${sev.bg} ${sev.text}`}>{sev.label}</span>
                   </div>
                   <div className="text-xs text-gray-600 flex items-center gap-1 mb-1">
                     <User className="w-3 h-3" /> {anomaly.username}
                   </div>
-                  {anomaly.type === 'new_country' && anomaly.details?.baseline && (
+                  {anomaly.details?.baseline && (
                     <div className="text-xs text-gray-500 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      Usual: {anomaly.details.baseline.join(', ')} → Detectado: {anomaly.details.detected}
-                    </div>
-                  )}
-                  {anomaly.type === 'unusual_hour' && anomaly.details?.detected !== undefined && (
-                    <div className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Horário: {anomaly.details.detected}:00h{anomaly.details.avgHour ? ` (usual: ${anomaly.details.avgHour}:00h)` : ''}
+                      Usual: {Array.isArray(anomaly.details.baseline) ? anomaly.details.baseline.join(', ') : anomaly.details.baseline}
+                      {anomaly.details.detected ? ` → Detectado: ${anomaly.details.detected}` : ''}
                     </div>
                   )}
                   {anomaly.details?.message && (
                     <div className="text-xs text-gray-500">{anomaly.details.message}</div>
                   )}
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> Score: {anomaly.score}</span>
+                    <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> Score: {score}</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {getTimeAgo(anomaly.timestamp)}</span>
-                    <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {anomaly.ipAddress}</span>
+                    <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {anomaly.ip_address}</span>
                   </div>
                 </div>
               );
@@ -338,57 +307,6 @@ export default function AnomalyDashboard() {
           </div>
         )}
       </div>
-
-      {/* Modal Baseline */}
-      {selectedUser && userBaseline && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => { setSelectedUser(null); setUserBaseline(null); }}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-amber-600" /> Baseline: {userBaseline.username}
-              </h3>
-              <button
-                onClick={() => { setSelectedUser(null); setUserBaseline(null); }}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-3 text-sm">
-              <div>
-                <div className="flex items-center gap-1 font-medium text-gray-700 mb-0.5"><Globe className="w-4 h-4" /> Países comuns</div>
-                <p className="text-gray-600 pl-5">{userBaseline.baseline.countries.join(', ') || '—'}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-medium text-gray-700 mb-0.5"><Clock className="w-4 h-4" /> Horário médio de acesso</div>
-                <p className="text-gray-600 pl-5">{userBaseline.baseline.avgHour}:00h</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-medium text-gray-700 mb-0.5"><BarChart3 className="w-4 h-4" /> Requisições por minuto (média)</div>
-                <p className="text-gray-600 pl-5">{userBaseline.baseline.avgRequestsPerMinute?.toFixed(1)}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-medium text-gray-700 mb-0.5"><Globe className="w-4 h-4" /> IPs comuns</div>
-                <p className="text-gray-600 pl-5">{userBaseline.baseline.commonIPs.join(', ') || '—'}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-medium text-gray-700 mb-0.5"><TrendingUp className="w-4 h-4" /> Estatísticas</div>
-                <div className="pl-5 text-gray-600 space-y-0.5">
-                  <p>Total de logins: {userBaseline.stats.totalLogins}</p>
-                  <p>Primeiro login: {new Date(userBaseline.stats.firstLogin).toLocaleString('pt-BR')}</p>
-                  <p>Último login: {new Date(userBaseline.stats.lastLogin).toLocaleString('pt-BR')}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
