@@ -10,10 +10,11 @@ import {
   Settings2,
   Trash2,
   X,
-  Save
+  Save,
+  UserX
 } from 'lucide-react';
 
-type RoleType = 'admin' | 'user' | 'guest';
+type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
 
 interface User {
   id: string;
@@ -58,7 +59,7 @@ interface AdminPanelProps {
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, startImpersonation } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +109,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       : ((import.meta as any).env?.VITE_API_URL || '/api');
 
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') {
       loadUsers();
     }
   }, [currentUser]);
@@ -454,7 +455,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
     }
   };
 
-  if (currentUser?.role !== 'admin') {
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin') {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -559,6 +560,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                               disabled={roleLoadingId === user.id}
                               className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             >
+                              {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                               <option value="admin">Administrador</option>
                               <option value="user">Usuário</option>
                               <option value="guest">Convidado</option>
@@ -607,6 +609,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                             >
                               <RotateCcw className="h-4 w-4" />
                             </button>
+                            {currentUser?.role === 'superadmin' && !isCurrent && (
+                              <button
+                                onClick={async () => {
+                                  const ok = await startImpersonation(user.id);
+                                  if (!ok) alert('Erro ao iniciar representação');
+                                }}
+                                className="p-2 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
+                                title="Representar usuário"
+                              >
+                                <UserX className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -664,6 +678,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                 <input type="text" required placeholder="Username" value={createForm.username} onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 <input type="password" required placeholder="Senha" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as RoleType })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                   <option value="admin">Administrador</option>
                   <option value="user">Usuário</option>
                   <option value="guest">Convidado</option>

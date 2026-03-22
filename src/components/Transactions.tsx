@@ -375,8 +375,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Tipo</label>
+              <label htmlFor="transaction-type-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Tipo</label>
               <select
+                id="transaction-type-filter"
+                name="transaction-type-filter"
+                aria-label="Filtrar por tipo"
                 value={filters.type}
                 onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value as any }))}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
@@ -387,8 +390,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </select>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Categoria</label>
+              <label htmlFor="transaction-category-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Categoria</label>
               <input
+                id="transaction-category-filter"
+                name="transaction-category-filter"
+                aria-label="Filtrar por categoria"
                 type="text"
                 placeholder="Categoria..."
                 value={filters.category}
@@ -397,8 +403,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Subcategoria</label>
+              <label htmlFor="transaction-subcategory-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Subcategoria</label>
               <input
+                id="transaction-subcategory-filter"
+                name="transaction-subcategory-filter"
+                aria-label="Filtrar por subcategoria"
                 type="text"
                 placeholder="Subcategoria..."
                 value={filters.subcategory}
@@ -407,9 +416,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Início</label>
+              <label htmlFor="transaction-date-from-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Início</label>
               <div className="relative">
                 <input
+                  id="transaction-date-from-filter"
+                  name="transaction-date-from-filter"
+                  aria-label="Data início do filtro"
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
@@ -419,9 +431,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Fim</label>
+              <label htmlFor="transaction-date-to-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Data Fim</label>
               <div className="relative">
                 <input
+                  id="transaction-date-to-filter"
+                  name="transaction-date-to-filter"
+                  aria-label="Data fim do filtro"
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
@@ -619,17 +634,19 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   )}
                 </div>
                 <div className="relative">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  <label htmlFor="transaction-form-type" className="block text-sm font-semibold text-gray-700 mb-1">
                     Tipo <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    value={form.type} 
-                    onChange={(e) => setForm(prev => ({ 
-                      ...prev, 
+                  <select
+                    id="transaction-form-type"
+                    name="transaction-form-type"
+                    value={form.type}
+                    onChange={(e) => setForm(prev => ({
+                      ...prev,
                       type: e.target.value as TransactionType,
                       category: '', // Limpar categoria quando tipo mudar
                       subcategory: '' // Limpar subcategoria quando tipo mudar
-                    }))} 
+                    }))}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       formErrors.type ? 'border-red-500 bg-red-50' : ''
                     }`}
@@ -646,12 +663,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 </div>
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label htmlFor="transaction-form-category" className="block text-sm font-semibold text-gray-700 mb-1">
                   Categoria <span className="text-red-500">*</span>
                 </label>
-                <select 
-                  value={form.category} 
-                  onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))} 
+                <select
+                  id="transaction-form-category"
+                  name="transaction-form-category"
+                  value={form.category}
+                  onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     formErrors.category ? 'border-red-500 bg-red-50' : ''
                   }`}

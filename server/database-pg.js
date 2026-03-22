@@ -62,20 +62,26 @@ class Database {
       { moduleKey: 'clients', moduleName: 'Clientes', iconName: 'Users', routePath: 'clients', isSystem: true, description: 'Cadastro de clientes' },
       { moduleKey: 'dre', moduleName: 'DRE', iconName: 'Calculator', routePath: 'dre', isSystem: true, description: 'Demonstrativo de resultados' },
       { moduleKey: 'acompanhamentos', moduleName: 'Acompanhamentos', iconName: 'ClipboardList', routePath: 'acompanhamentos', isSystem: true, description: 'Acompanhamento operacional' },
-      { moduleKey: 'admin', moduleName: 'Admin', iconName: 'Shield', routePath: 'admin', isSystem: true, description: 'Painel administrativo' }
+      { moduleKey: 'admin', moduleName: 'Admin', iconName: 'Shield', routePath: 'admin', isSystem: true, description: 'Painel administrativo' },
+      { moduleKey: 'sessions', moduleName: 'Sessões Ativas', iconName: 'Monitor', routePath: 'sessions', isSystem: true, description: 'Gerenciamento de sessões ativas por dispositivo' },
+      { moduleKey: 'anomalies', moduleName: 'Anomalias', iconName: 'AlertTriangle', routePath: 'anomalies', isSystem: true, description: 'Dashboard de detecção de anomalias de segurança' },
+      { moduleKey: 'security_alerts', moduleName: 'Alertas de Segurança', iconName: 'ShieldAlert', routePath: 'security_alerts', isSystem: true, description: 'Portal de alertas e notificações de segurança' }
     ];
   }
 
   getDefaultModuleKeysByRole(role) {
     const allModuleKeys = this.getDefaultModulesCatalog().map((module) => module.moduleKey);
+    const superadminOnlyModules = ['sessions', 'anomalies', 'security_alerts'];
     switch (role) {
-      case 'admin':
+      case 'superadmin':
         return allModuleKeys;
+      case 'admin':
+        return allModuleKeys.filter((moduleKey) => !superadminOnlyModules.includes(moduleKey));
       case 'user':
-        return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin');
+        return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin' && !superadminOnlyModules.includes(moduleKey));
       case 'guest':
         return allModuleKeys.filter(
-          (moduleKey) => !['admin', 'dre', 'acompanhamentos'].includes(moduleKey)
+          (moduleKey) => !['admin', 'dre', 'acompanhamentos', ...superadminOnlyModules].includes(moduleKey)
         );
       default:
         return [];
@@ -84,6 +90,7 @@ class Database {
 
   getDefaultAccessLevelByRole(role) {
     switch (role) {
+      case 'superadmin':
       case 'admin':
         return 'edit';
       case 'user':

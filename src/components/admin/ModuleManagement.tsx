@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, Shield } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle } from 'lucide-react';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 
 interface ModuleItem {
@@ -27,6 +27,9 @@ const ModuleManagement: React.FC = () => {
   const [showModuleModal, setShowModuleModal] = useState(false);
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const [showAdminBlockModal, setShowAdminBlockModal] = useState(false);
+
+  const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
 
   const loadModules = async () => {
     try {
@@ -199,7 +202,13 @@ const ModuleManagement: React.FC = () => {
 
             <div className="flex gap-2">
               <button
-                onClick={() => handleUpdateModule(module.moduleKey, { isActive: !(module.isActive !== false) })}
+                onClick={() => {
+                  if (PROTECTED_MODULES.includes(module.moduleKey) && module.isActive !== false) {
+                    setShowAdminBlockModal(true);
+                    return;
+                  }
+                  handleUpdateModule(module.moduleKey, { isActive: !(module.isActive !== false) });
+                }}
                 className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50"
               >
                 {module.isActive !== false ? 'Desativar' : 'Ativar'}
@@ -224,6 +233,36 @@ const ModuleManagement: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {showAdminBlockModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Ação bloqueada</h3>
+                <p className="text-sm text-gray-500">Módulo protegido pelo sistema</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 mb-2">
+              Este módulo não pode ser desativado pois é essencial para o funcionamento do sistema.
+            </p>
+            <p className="text-sm text-gray-600 mb-6">
+              Os módulos <strong>Admin</strong>, <strong>Sessões</strong>, <strong>Anomalias</strong> e <strong>Alertas de Segurança</strong> são protegidos e devem permanecer ativos.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAdminBlockModal(false)}
+                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModuleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -10,9 +10,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const hpp = require('hpp');
+const xss = require('xss-clean');
+const mongoSanitize = require('express-mongo-sanitize');
 const { z } = require('zod');
 const Database = require('./database-pg');
 const { enviarEmailRecuperacao } = require('./services/email');
+const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
+const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
+const { createSession, revokeSession, revokeAllUserSessions, getUserSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
+const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
 
 const app = express();
 const port = 9001;
@@ -50,9 +57,15 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*'
-}));
+
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : (process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : ['http://localhost:9000']);
+app.use(cors({ origin: corsOrigins, credentials: true }));
+
+app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp());
 app.use(express.json());
 
 const loginLimiter = rateLimit({
@@ -2235,11 +2248,29 @@ app.post('/api/auth/login', async (req, res) => {
       ipAddress: req.ip || req.headers['x-forwarded-for'] || null
     });
 
+    // Gerar refresh token e criar sessão
+    let refreshTokenValue = null;
+    try {
+      const { token: rt, tokenId } = await createRefreshToken({
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      refreshTokenValue = rt;
+      await createSession(user.id, tokenId, req);
+    } catch (sessionError) {
+      console.warn('[login] Falha ao criar refresh token/sessão (não crítico):', sessionError.message);
+    }
+
     const response = {
       success: true,
       token,
       user: mapUserToClient(updatedUserProfile || user)
     };
+
+    if (refreshTokenValue) {
+      response.refreshToken = refreshTokenValue;
+    }
 
     if (isFirstLogin && newPassword) {
       response.firstLogin = true;
@@ -2725,12 +2756,21 @@ app.put('/api/user/password', authenticateToken, async (req, res) => {
   }
 });
 
-// Middleware para verificar se o usuário é admin
+// Middleware para verificar se o usuário é admin ou superadmin
 const requireAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
     next();
   } else {
     res.status(403).json({ error: 'Acesso negado. Apenas administradores podem realizar esta ação.' });
+  }
+};
+
+// Middleware para verificar se o usuário é superadmin
+const requireSuperAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'superadmin') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Acesso negado. Apenas super administradores podem realizar esta ação.' });
   }
 };
 
@@ -3369,6 +3409,251 @@ app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res)
   }
 })
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// REFRESH TOKEN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, error: 'refreshToken é obrigatório' });
+    }
+
+    const rotated = await rotateRefreshToken(
+      refreshToken,
+      req.ip,
+      req.headers['user-agent']
+    );
+
+    if (!rotated) {
+      return res.status(401).json({ success: false, error: 'Refresh token inválido ou expirado' });
+    }
+
+    const accessToken = jwt.sign(
+      { id: rotated.userId, username: rotated.username, role: rotated.role },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return res.json({ success: true, token: accessToken, refreshToken: rotated.token });
+  } catch (error) {
+    console.error('Erro ao renovar token:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      const tokenData = await verifyRefreshToken(refreshToken);
+      if (tokenData) {
+        await revokeSessionByRefreshTokenId(tokenData.id, 'Logout do usuário');
+        const { revokeRefreshToken } = require('./utils/refresh-tokens');
+        await revokeRefreshToken(refreshToken);
+      }
+    }
+    await logAudit({
+      operation: AUDIT_OPERATIONS.LOGOUT,
+      userId: req.user.id,
+      username: req.user.username,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      status: AUDIT_STATUS.SUCCESS,
+    });
+    return res.json({ success: true, message: 'Logout realizado com sucesso' });
+  } catch (error) {
+    console.error('Erro no logout:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SESSÕES ATIVAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.get('/api/sessions', authenticateToken, async (req, res) => {
+  try {
+    const sessions = await getUserSessions(req.user.id);
+    return res.json({ success: true, sessions });
+  } catch (error) {
+    console.error('Erro ao listar sessões:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.delete('/api/sessions/:id', authenticateToken, async (req, res) => {
+  try {
+    await revokeSession(req.params.id, 'Revogada pelo usuário');
+    return res.json({ success: true, message: 'Sessão encerrada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao revogar sessão:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.delete('/api/sessions', authenticateToken, async (req, res) => {
+  try {
+    const { currentRefreshTokenId } = req.body;
+    const count = await revokeAllUserSessions(
+      req.user.id,
+      'Todas as sessões encerradas pelo usuário',
+      currentRefreshTokenId || null
+    );
+    return res.json({ success: true, message: `${count} sessão(ões) encerrada(s)` });
+  } catch (error) {
+    console.error('Erro ao revogar todas as sessões:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANOMALIAS E ALERTAS DE SEGURANÇA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.get('/api/anomalies', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    });
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await pool.query(
+      `SELECT * FROM audit_logs
+       WHERE operation = 'anomaly_detected'
+       ORDER BY timestamp DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    pool.end();
+    return res.json({ success: true, anomalies: result.rows });
+  } catch (error) {
+    console.error('Erro ao listar anomalias:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.get('/api/security-alerts', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    });
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await pool.query(
+      `SELECT * FROM audit_logs
+       WHERE operation = 'security_alert'
+       ORDER BY timestamp DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    pool.end();
+    return res.json({ success: true, alerts: result.rows });
+  } catch (error) {
+    console.error('Erro ao listar alertas de segurança:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMPERSONATION (REPRESENTAÇÃO DE USUÁRIO)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const targetUser = await db.getUserById(req.params.userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+    if (targetUser.role === 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Não é possível representar outro superadmin' });
+    }
+
+    const impersonationToken = jwt.sign(
+      {
+        id: targetUser.id,
+        username: targetUser.username,
+        role: targetUser.role,
+        impersonatedBy: req.user.id,
+        impersonatedByUsername: req.user.username,
+      },
+      JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    await logAudit({
+      operation: AUDIT_OPERATIONS.IMPERSONATION_START,
+      userId: req.user.id,
+      username: req.user.username,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { targetUserId: targetUser.id, targetUsername: targetUser.username },
+      status: AUDIT_STATUS.SUCCESS,
+    });
+
+    return res.json({
+      success: true,
+      token: impersonationToken,
+      impersonatedUser: {
+        id: targetUser.id,
+        username: targetUser.username,
+        role: targetUser.role,
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao iniciar impersonation:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/auth/impersonate/stop', authenticateToken, async (req, res) => {
+  try {
+    const { originalToken } = req.body;
+    if (!originalToken) {
+      return res.status(400).json({ success: false, error: 'originalToken é obrigatório' });
+    }
+
+    let originalUser;
+    try {
+      originalUser = jwt.verify(originalToken, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, error: 'Token original inválido' });
+    }
+
+    if (originalUser.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Token original não pertence a um superadmin' });
+    }
+
+    await logAudit({
+      operation: AUDIT_OPERATIONS.IMPERSONATION_STOP,
+      userId: originalUser.id,
+      username: originalUser.username,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { stoppedImpersonating: req.user.username },
+      status: AUDIT_STATUS.SUCCESS,
+    });
+
+    return res.json({ success: true, token: originalToken, user: originalUser });
+  } catch (error) {
+    console.error('Erro ao encerrar impersonation:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
 // Iniciar servidor
 app.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
@@ -3388,5 +3673,21 @@ app.listen(port, () => {
   }, cleanupIntervalMs);
   if (typeof timer.unref === 'function') {
     timer.unref();
+  }
+
+  // Monitoramento de anomalias a cada 15 minutos
+  startAnomalyMonitoring(15);
+
+  // Cleanup de sessões e refresh tokens expirados (a cada hora)
+  const securityCleanupTimer = setInterval(async () => {
+    try {
+      await cleanupExpiredSessions();
+      await cleanupExpiredTokens();
+    } catch (error) {
+      console.log('[security-cleanup] erro na limpeza automática:', error.message);
+    }
+  }, 60 * 60 * 1000);
+  if (typeof securityCleanupTimer.unref === 'function') {
+    securityCleanupTimer.unref();
   }
 });

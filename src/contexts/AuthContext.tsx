@@ -36,11 +36,15 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isImpersonating: boolean;
+  originalUser: User | null;
   login: (username: string, password: string) => Promise<LoginResponse>;
   completeFirstLogin: () => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>, newToken?: string) => void;
   refreshUser: () => Promise<boolean>;
+  startImpersonation: (userId: string) => Promise<boolean>;
+  stopImpersonation: () => void;
   isLoading: boolean;
 }
 
@@ -69,22 +73,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState<boolean>(
+    () => sessionStorage.getItem('isImpersonating') === 'true'
+  );
+  const [originalUser, setOriginalUser] = useState<User | null>(null);
 
-  // Decide dinamicamente o endpoint da API:
-  // - Em localhost: usa o backend real em 9001
-  // - Em produção (GitHub Pages): usa VITE_API_URL se definida, caso contrário "/api" (para o Service Worker mock)
   const API_BASE_URL =
     (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
       ? 'http://localhost:9001/api'
       : ((import.meta as any).env?.VITE_API_URL || '/api');
 
   useEffect(() => {
-    // Verificar se há token salvo no localStorage
     const savedToken = localStorage.getItem('authToken');
     if (savedToken) {
       verifyToken(savedToken);
     } else {
       setIsLoading(false);
+    }
+
+    // Restaurar estado de impersonation ao recarregar
+    if (sessionStorage.getItem('isImpersonating') === 'true') {
+      const storedOriginalUser = sessionStorage.getItem('originalUser');
+      if (storedOriginalUser) {
+        try {
+          setOriginalUser(JSON.parse(storedOriginalUser));
+        } catch {}
+      }
     }
   }, []);
 
@@ -103,8 +117,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(data.user);
         setToken(tokenToVerify);
       } else {
-        // Token inválido, remover do localStorage
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         setUser(null);
         setToken(null);
       }
@@ -122,22 +136,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
 
       if (response.ok) {
         const data = await response.json();
+
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+
         if (data.firstLogin && data.newPassword) {
           localStorage.setItem('authToken', data.token);
           localStorage.setItem('pendingFirstLogin', 'true');
-          return {
-            success: true,
-            firstLogin: true,
-            newPassword: data.newPassword
-          };
+          return { success: true, firstLogin: true, newPassword: data.newPassword };
         }
 
         setUser(data.user);
@@ -165,10 +178,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
+    // Tentar revogar refresh token no servidor
+    const refreshToken = localStorage.getItem('refreshToken');
+    const currentToken = token;
+    if (refreshToken && currentToken) {
+      fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
+
     setUser(null);
     setToken(null);
+    setIsImpersonating(false);
+    setOriginalUser(null);
     localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('pendingFirstLogin');
+    sessionStorage.removeItem('isImpersonating');
+    sessionStorage.removeItem('originalUser');
+    sessionStorage.removeItem('originalToken');
   };
 
   const updateUser = (userData: Partial<User>, newToken?: string) => {
@@ -202,14 +235,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const startImpersonation = async (userId: string): Promise<boolean> => {
+    if (!token) return false;
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/impersonate/${userId}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) return false;
+      const data = await response.json();
+
+      // Salvar estado atual antes de impersonar
+      sessionStorage.setItem('originalToken', token);
+      sessionStorage.setItem('originalUser', JSON.stringify(user));
+      sessionStorage.setItem('isImpersonating', 'true');
+
+      setOriginalUser(user);
+      setIsImpersonating(true);
+      setToken(data.token);
+      localStorage.setItem('authToken', data.token);
+
+      // Verificar token do usuário representado para obter perfil completo
+      await verifyToken(data.token);
+      return true;
+    } catch (error) {
+      console.error('Erro ao iniciar impersonation:', error);
+      return false;
+    }
+  };
+
+  const stopImpersonation = () => {
+    const originalToken = sessionStorage.getItem('originalToken');
+    if (!originalToken) return;
+
+    setIsImpersonating(false);
+    setOriginalUser(null);
+    setToken(originalToken);
+    localStorage.setItem('authToken', originalToken);
+    sessionStorage.removeItem('isImpersonating');
+    sessionStorage.removeItem('originalUser');
+    sessionStorage.removeItem('originalToken');
+
+    verifyToken(originalToken);
+  };
+
   const value: AuthContextType = {
     user,
     token,
+    isImpersonating,
+    originalUser,
     login,
     completeFirstLogin,
     logout,
     updateUser,
     refreshUser,
+    startImpersonation,
+    stopImpersonation,
     isLoading
   };
 

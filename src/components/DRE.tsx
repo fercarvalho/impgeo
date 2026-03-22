@@ -191,8 +191,11 @@ const DRE: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-gray-700">Período</label>
+            <label htmlFor="dre-period-filter" className="text-sm font-semibold text-gray-700">Período</label>
             <select
+              id="dre-period-filter"
+              name="dre-period-filter"
+              aria-label="Filtrar por período"
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value as 'mensal' | 'trimestral' | 'anual')}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -205,8 +208,11 @@ const DRE: React.FC = () => {
 
           {selectedPeriod !== 'anual' && (
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-gray-700">Mês</label>
+              <label htmlFor="dre-month-filter" className="text-sm font-semibold text-gray-700">Mês</label>
               <select
+                id="dre-month-filter"
+                name="dre-month-filter"
+                aria-label="Filtrar por mês"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -221,8 +227,11 @@ const DRE: React.FC = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-gray-700">Ano</label>
+            <label htmlFor="dre-year-filter" className="text-sm font-semibold text-gray-700">Ano</label>
             <select
+              id="dre-year-filter"
+              name="dre-year-filter"
+              aria-label="Filtrar por ano"
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

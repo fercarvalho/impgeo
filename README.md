@@ -55,6 +55,16 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - Sistema avançado de segurança de conta (alterar senha e username)
 - Recuperação e reset de senha via e-mail (integração SendGrid)
 - Painel Administrativo para controle de acessos e permissões
+- Sistema de roles: guest / user / admin / superadmin
+- Representação de usuários (impersonation) para suporte técnico seguro
+
+### 🔒 Segurança Avançada
+- Sessões ativas por dispositivo com geolocalização
+- Refresh tokens com rotação automática e revogação remota
+- Detecção de anomalias comportamentais (ML/Z-score)
+- Alertas de segurança automáticos por email (SendGrid)
+- Log de auditoria completo no banco de dados
+- Criptografia em repouso (AES-256-GCM)
 
 ### 📑 Gestão de Acompanhamentos
 - Módulo dedicado para registros de acompanhamentos e relatórios
@@ -83,21 +93,27 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - **html2canvas** e **jsPDF** para exportação em PDF
 - **date-fns** para manipulação de datas
 - **react-easy-crop** para tratamento de imagens de avatar
+- **axios** com interceptor automático para renovação de tokens
 
 ### Backend
 - **Node.js** com Express
 - **PostgreSQL** como banco de dados relacional principal
-- **JWT** para autenticação e sessões
+- **JWT** para autenticação e sessões (access tokens 15min)
 - **bcryptjs** para hash de senhas
 - **Multer** para upload de arquivos
 - **XLSX** para processamento de planilhas Excel
-- **SendGrid** para envio de e-mails transacionais (reset de senha)
-- **CORS** para comunicação frontend/backend
+- **SendGrid** para emails transacionais e alertas de segurança
+- **Helmet** para headers de segurança
+- **hpp**, **xss-clean**, **express-mongo-sanitize** para proteção de inputs
+- **geoip-lite** para geolocalização de sessões
+- **ua-parser-js** para detecção de dispositivo/browser
 
 ### Infraestrutura
-- Suporte a deploy em VPS
+- Deploy em VPS com PM2 e Nginx
 - Arquitetura modular e escalável
 - Sistema estruturado de migrações (`migrations/`) para banco de dados
+- Rate limiting diferenciado por tipo de operação
+- Monitoramento de anomalias a cada 15 minutos
 
 ## 📋 Pré-requisitos
 
@@ -187,9 +203,15 @@ npm start
 - **API Backend:** http://localhost:9001
 - **Teste rápido:** http://localhost:9001/api/test
 
-## 📚 Documentação Adicional
+## 📚 Documentação
 
-O projeto está em constante evolução. Documentação adicional será adicionada conforme necessário.
+A documentação completa está em [`docs/`](docs/). Comece pelo índice:
+
+- [00 - Índice da Documentação](docs/00%20-%20COMECE%20POR%20AQUI.md)
+- [01 - Guia de Deploy em Produção](docs/01%20-%20GUIA-DE-DEPLOY-PRODUCAO.md)
+- [02 - Configuração do Ambiente Dev](docs/02%20-%20CONFIGURACAO-AMBIENTE-DEV.md)
+- [05 - Índice de Segurança](docs/05%20-%20INDICE-DE-SEGURANCA.md)
+- [11 - Resolução de Problemas](docs/11%20-%20RESOLUCAO-DE-PROBLEMAS.md)
 
 ## 🏗️ Estrutura do Projeto
 
@@ -229,14 +251,25 @@ impgeo/
 
 ## 🔒 Segurança
 
-- Senhas hasheadas com bcryptjs
-- Tokens JWT para autenticação e sessões
-- Integração de verificação via SendGrid para reset de credenciais
-- Middleware de autenticação em rotas protegidas
-- Controle rígido de nível de acesso (RBAC) via Painel Administrativo
-- Validação de inputs
-- CORS configurado para comunicação segura
-- Headers de segurança configurados
+**Score de Segurança: 9.8/10**
+
+- Senhas hasheadas com bcryptjs (cost factor 10)
+- JWT access tokens (15min) + refresh tokens com rotação automática (7 dias)
+- Sessões ativas por dispositivo com geolocalização e gestão remota
+- Sistema de roles: `guest` / `user` / `admin` / `superadmin`
+- Impersonation seguro: superadmin pode representar usuários sem saber a senha
+- Detecção de anomalias comportamentais com ML (Z-score + baseline)
+- Alertas automáticos por email para eventos suspeitos (brute force, novo país, etc.)
+- Log de auditoria completo (tabela `audit_logs` no PostgreSQL)
+- Criptografia em repouso com AES-256-GCM
+- Headers de segurança via Helmet.js (CSP, HSTS, X-Frame-Options)
+- Rate limiting diferenciado: 10 tentativas de login/15min, 1000 req gerais/15min
+- Proteção contra SQL Injection (100% prepared statements)
+- Proteção contra XSS, NoSQL Injection, HTTP Parameter Pollution
+- CORS configurado por whitelist (variável de ambiente)
+- HTTPS obrigatório em produção (redirect automático)
+
+Ver documentação completa: [docs/05 - INDICE-DE-SEGURANCA.md](docs/05%20-%20INDICE-DE-SEGURANCA.md)
 
 ## 📄 Licença
 
@@ -264,12 +297,14 @@ Este é um projeto pessoal, mas sugestões e feedback são sempre bem-vindos!
 ## 📝 Changelog
 
 ### Versão Atual
-- ✅ **Base de Dados**: Transição bem-sucedida para PostgreSQL estruturado
-- ✅ **Controle de Acessos**: Implementado RBAC funcional com Painel Administrativo gerencial
-- ✅ **Segurança da Conta**: Fluxo completo de reset e recuperação de senha disparado via SendGrid
-- ✅ **Perfil Mobile/Desktop**: Novo menu de usuário com suporte a upload flexível e recorte de avatares
-- ✅ **Acompanhamentos**: Nova timeline de acompanhamentos com suporte a anexos (uploads/sync)
-- ✅ Sistema completo de autenticação com JWT
+- ✅ **Segurança Avançada**: Refresh tokens, sessões ativas, detecção de anomalias, alertas de segurança
+- ✅ **Sistema de Roles**: guest / user / admin / superadmin com módulos protegidos
+- ✅ **Impersonation**: Superadmin pode representar usuários para suporte técnico
+- ✅ **Base de Dados**: PostgreSQL estruturado com tabelas de segurança dedicadas
+- ✅ **Controle de Acessos**: RBAC com Painel Administrativo gerencial
+- ✅ **Segurança da Conta**: Fluxo completo de reset e recuperação de senha via SendGrid
+- ✅ **Perfil Mobile/Desktop**: Upload e recorte de avatares
+- ✅ **Acompanhamentos**: Timeline com suporte a anexos
 - ✅ Dashboard executivo com métricas em tempo real
 - ✅ Sistema de metas mensais e anuais
 - ✅ Projeções financeiras com múltiplos cenários

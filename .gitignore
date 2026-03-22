@@ -64,9 +64,13 @@ server/backup-json-data.js
 # **/cleanup*.js
 # **/validate*.js
 
-# Documentation files (keep only README.md)
+# Documentation files
 *.md
 !README.md
+!SECURITY.md
+!TECH-DEBT.md
+!DEPLOY.md
+!docs/*.md
 
 # Documentos para Importação (PDFs locais)
 /server/importar/

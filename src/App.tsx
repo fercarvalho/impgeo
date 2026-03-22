@@ -19,7 +19,10 @@ import {
   Download,
   ClipboardList,
   Shield,
-  Globe
+  Globe,
+  Monitor,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -39,6 +42,10 @@ const Projection = lazy(() => import('./components/Projection'))
 const Acompanhamentos = lazy(() => import('./components/Acompanhamentos'))
 const AcompanhamentosView = lazy(() => import('./components/AcompanhamentosView'))
 const AdminPanel = lazy(() => import('./components/admin/AdminTabs'))
+const ActiveSessions = lazy(() => import('./components/admin/ActiveSessions'))
+const AnomalyDashboard = lazy(() => import('./components/admin/AnomalyDashboard'))
+const SecurityAlerts = lazy(() => import('./components/admin/SecurityAlerts'))
+import ImpersonationBanner from './components/ImpersonationBanner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -80,7 +87,7 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin'
+type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin' | 'sessions' | 'anomalies' | 'security_alerts'
 
 const AppContent: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
@@ -214,7 +221,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {
-      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin'];
+      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin', 'sessions', 'anomalies', 'security_alerts'];
       const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
       setActiveTab(fallbackTab);
     }
@@ -967,6 +974,24 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <button onClick={() => setActiveTab('admin')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
               <Shield className="h-4 w-4 mb-2" />
               Admin
+            </button>
+          )}
+          {hasModuleAccess('sessions') && (
+            <button onClick={() => setActiveTab('sessions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'sessions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <Monitor className="h-4 w-4 mb-2" />
+              Sessões
+            </button>
+          )}
+          {hasModuleAccess('anomalies') && (
+            <button onClick={() => setActiveTab('anomalies')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'anomalies' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <AlertTriangle className="h-4 w-4 mb-2" />
+              Anomalias
+            </button>
+          )}
+          {hasModuleAccess('security_alerts') && (
+            <button onClick={() => setActiveTab('security_alerts')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'security_alerts' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <ShieldAlert className="h-4 w-4 mb-2" />
+              Alertas
             </button>
           )}
         </div>
@@ -2819,6 +2844,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             {/* Dropdown do Mês Selecionado */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
                 <select
+                id="metas-month-selector"
+                name="metas-month-selector"
+                aria-label="Selecionar mês para metas"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                 className="w-full text-3xl font-bold text-white text-center uppercase tracking-wider bg-transparent border-none outline-none cursor-pointer"
@@ -2981,6 +3009,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <PieChart className="w-6 h-6 text-gray-600" />
             Mês
             <select
+              id="dashboard-month-selector"
+              name="dashboard-month-selector"
+              aria-label="Selecionar mês do dashboard"
               value={dashboardSelectedMonth}
               onChange={(e) => setDashboardSelectedMonth(Number(e.target.value))}
               className="text-lg font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 outline-none cursor-pointer"
@@ -3299,6 +3330,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <ImpersonationBanner />
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
@@ -3366,6 +3398,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         {activeTab === 'admin' && hasModuleAccess('admin') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <AdminPanel />
+          </Suspense>
+        )}
+        {activeTab === 'sessions' && hasModuleAccess('sessions') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ActiveSessions />
+          </Suspense>
+        )}
+        {activeTab === 'anomalies' && hasModuleAccess('anomalies') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <AnomalyDashboard />
+          </Suspense>
+        )}
+        {activeTab === 'security_alerts' && hasModuleAccess('security_alerts') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <SecurityAlerts />
           </Suspense>
         )}
       </main>

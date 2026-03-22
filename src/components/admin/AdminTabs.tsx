@@ -19,7 +19,7 @@ const AdminTabs: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
     return (
       <div className="p-6 text-center">
         <p className="text-red-600 text-lg">Acesso negado. Apenas administradores podem acessar este painel.</p>
