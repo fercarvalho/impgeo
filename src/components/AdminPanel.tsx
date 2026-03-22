@@ -618,7 +618,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                                 className="p-2 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
                                 title="Representar usuário"
                               >
-                                <UserRoundSearch className="h-4 w-4" />
+                                <UserCircle2 className="h-4 w-4" />
                               </button>
                             )}
                           </div>
