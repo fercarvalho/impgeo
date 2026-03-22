@@ -35,6 +35,11 @@ function parseUserAgent(userAgent) {
 }
 
 async function getGeolocation(ip) {
+  // Normaliza IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x)
+  if (ip && ip.startsWith("::ffff:")) {
+    ip = ip.substring(7);
+  }
+
   if (
     ip === "127.0.0.1" ||
     ip === "::1" ||

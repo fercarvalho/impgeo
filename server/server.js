@@ -55,6 +55,9 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Confia no proxy Nginx para obter o IP real do cliente
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 
