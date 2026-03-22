@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL =
   (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
@@ -8,9 +8,9 @@ const API_BASE_URL =
 const api = axios.create({ baseURL: API_BASE_URL });
 
 // Interceptor de request: injeta Authorization header automaticamente
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('authToken');
-  if (token) {
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -31,17 +31,23 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+interface RetryConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetryConfig | undefined;
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }
           return api(originalRequest);
         });
       }
@@ -52,7 +58,6 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
         isRefreshing = false;
-        // Sem refresh token: forçar logout
         localStorage.removeItem('authToken');
         window.location.href = '/';
         return Promise.reject(error);
@@ -68,7 +73,9 @@ api.interceptors.response.use(
         }
 
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }
 
         processQueue(null, newToken);
         return api(originalRequest);
