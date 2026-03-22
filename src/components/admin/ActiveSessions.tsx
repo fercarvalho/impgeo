@@ -120,8 +120,8 @@ export default function ActiveSessions() {
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-amber-100 rounded-lg">
-          <Lock className="w-6 h-6 text-amber-600" />
+        <div className="p-2 bg-blue-100 rounded-lg">
+          <Lock className="w-6 h-6 text-blue-600" />
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Sessões Ativas</h2>
@@ -132,7 +132,7 @@ export default function ActiveSessions() {
         </button>
       </div>
 
-      <div className="h-px bg-amber-200 mb-6" />
+      <div className="h-px bg-blue-200 mb-6" />
 
       {sessions.length === 0 ? (
         <div className="text-center py-12 text-gray-400">Nenhuma sessão ativa encontrada.</div>

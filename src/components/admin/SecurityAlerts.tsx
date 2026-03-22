@@ -148,10 +148,10 @@ export default function SecurityAlerts() {
       <div className="h-px bg-amber-200 mb-6" />
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg border border-amber-200 shadow-sm mb-6">
+      <div className="bg-gradient-to-r from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200 shadow-sm mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-amber-600" />
+            <Filter className="w-5 h-5 text-blue-500" />
             <h3 className="text-lg font-bold text-gray-800 uppercase tracking-wide">FILTRE SEUS ITENS:</h3>
           </div>
           <div className="flex items-end gap-3 flex-1">
@@ -163,7 +163,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por período"
                 value={days}
                 onChange={(e) => { setDays(Number(e.target.value)); setPage(0); }}
-                className="px-3 py-2 border border-amber-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white w-full"
+                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
               >
                 <option value={1}>Últimas 24 horas</option>
                 <option value={7}>Últimos 7 dias</option>
@@ -179,7 +179,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por tipo de alerta"
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-                className="px-3 py-2 border border-amber-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white w-full"
+                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
               >
                 <option value="">Todos</option>
                 {Object.entries(ALERT_LABELS).map(([k, v]) => (
