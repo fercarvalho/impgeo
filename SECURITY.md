@@ -1,186 +1,186 @@
-# Security Policy — IMPGEO
+# Política de Segurança — IMPGEO
 
-## 🔒 Supported Versions
+## 🔒 Versões Suportadas
 
-| Version | Supported | Status |
-|---------|-----------|--------|
-| 1.x | ✅ Yes | Current stable release |
-| < 1.0 | ❌ No | Legacy, no longer supported |
-
----
-
-## 🐛 Reporting a Vulnerability
-
-We take security vulnerabilities seriously. If you discover a security issue, please follow these steps:
-
-### ⚠️ DO NOT Create Public Issues
-
-**Do not** disclose security vulnerabilities through public GitHub issues, discussions, or pull requests.
-
-### ✅ Responsible Disclosure Process
-
-1. **Email:** [contato@fercarvalho.com](mailto:contato@fercarvalho.com)
-2. **Subject:** `[SECURITY] Brief description of the issue`
-3. **Include:**
-   - Detailed description of the vulnerability
-   - Steps to reproduce
-   - Potential impact assessment
-   - Affected versions
-   - Suggested fix (if available)
-
-### 🕒 Response Timeline
-
-- **Initial Response:** Within 48 hours (weekdays)
-- **Critical:** Fix within 24-72 hours
-- **High:** Fix within 7 days
-- **Medium:** Fix within 14 days
-- **Low:** Fix within 30 days
+| Versão | Suportada | Status |
+|--------|-----------|--------|
+| 1.x | ✅ Sim | Versão estável atual |
+| < 1.0 | ❌ Não | Legado, sem suporte |
 
 ---
 
-## 🛡️ Security Features
+## 🐛 Reportando uma Vulnerabilidade
 
-### Authentication & Session Management
-- ✅ JWT access tokens — 15-minute expiration
-- ✅ Refresh tokens — 7-day expiration with automatic rotation
-- ✅ Token theft detection — revokes entire token family on reuse
-- ✅ Active sessions per device with geolocation (geoip-lite)
-- ✅ Configurable session limit per user (default: 5)
-- ✅ bcrypt password hashing (cost factor 10)
-- ✅ Secure password reset via time-limited tokens (SendGrid)
+Levamos vulnerabilidades de segurança a sério. Se você descobrir um problema de segurança, siga os passos abaixo:
 
-### Role-Based Access Control
-- ✅ Four roles: `guest`, `user`, `admin`, `superadmin`
-- ✅ Protected modules (admin, sessions, anomalies, security_alerts) cannot be deactivated
-- ✅ Superadmin impersonation with audit trail and visual banner
+### ⚠️ NÃO Crie Issues Públicas
 
-### Input Validation & Sanitization
-- ✅ express-validator on all critical routes
-- ✅ express-mongo-sanitize (NoSQL injection prevention)
+**Não** divulgue vulnerabilidades de segurança através de issues, discussões ou pull requests públicos no GitHub.
+
+### ✅ Processo de Divulgação Responsável
+
+1. **E-mail:** [contato@fercarvalho.com](mailto:contato@fercarvalho.com)
+2. **Assunto:** `[SECURITY] Breve descrição do problema`
+3. **Inclua:**
+   - Descrição detalhada da vulnerabilidade
+   - Passos para reproduzir
+   - Avaliação do impacto potencial
+   - Versões afetadas
+   - Sugestão de correção (se disponível)
+
+### 🕒 Prazo de Resposta
+
+- **Resposta inicial:** Em até 48 horas (dias úteis)
+- **Crítico:** Correção em 24–72 horas
+- **Alto:** Correção em 7 dias
+- **Médio:** Correção em 14 dias
+- **Baixo:** Correção em 30 dias
+
+---
+
+## 🛡️ Recursos de Segurança
+
+### Autenticação e Gerenciamento de Sessões
+- ✅ JWT access tokens — expiração em 15 minutos
+- ✅ Refresh tokens — expiração em 7 dias com rotação automática
+- ✅ Detecção de roubo de token — revoga toda a família de tokens em caso de reuso
+- ✅ Sessões ativas por dispositivo com geolocalização (geoip-lite)
+- ✅ Limite de sessões por usuário configurável (padrão: 5)
+- ✅ Hash de senhas com bcrypt (custo 10)
+- ✅ Redefinição segura de senha via tokens com prazo (SendGrid)
+
+### Controle de Acesso Baseado em Roles
+- ✅ Quatro roles: `guest`, `user`, `admin`, `superadmin`
+- ✅ Módulos protegidos (admin, sessions, anomalies, security_alerts) não podem ser desativados
+- ✅ Impersonation de usuários pelo superadmin com trilha de auditoria e banner visual
+
+### Validação e Sanitização de Entradas
+- ✅ express-validator em todas as rotas críticas
+- ✅ express-mongo-sanitize (prevenção de injeção NoSQL)
 - ✅ xss-clean middleware
-- ✅ hpp (HTTP Parameter Pollution protection)
-- ✅ 100% prepared statements (SQL Injection prevention)
+- ✅ hpp (proteção contra HTTP Parameter Pollution)
+- ✅ 100% prepared statements (prevenção de SQL Injection)
 
-### Security Headers (Helmet.js)
+### Headers de Segurança (Helmet.js)
 - ✅ Content Security Policy (CSP)
-- ✅ Strict-Transport-Security (HSTS — 1 year)
-- ✅ X-Frame-Options: DENY (clickjacking protection)
+- ✅ Strict-Transport-Security (HSTS — 1 ano)
+- ✅ X-Frame-Options: DENY (proteção contra clickjacking)
 - ✅ X-Content-Type-Options: nosniff
 - ✅ Referrer-Policy: strict-origin-when-cross-origin
-- ✅ X-Powered-By removed
+- ✅ X-Powered-By removido
 
 ### Rate Limiting
-- ✅ General: 1000 req/15min
-- ✅ Login: 10 attempts/15min (brute force protection)
-- ✅ Resource creation: 100/hour
-- ✅ File uploads: 20/hour
+- ✅ Geral: 1000 req/15min
+- ✅ Login: 10 tentativas/15min (proteção contra brute force)
+- ✅ Criação de recursos: 100/hora
+- ✅ Upload de arquivos: 20/hora
 
-### Anomaly Detection & Alerts
-- ✅ ML-based behavioral anomaly detection (Z-score + baseline)
-- ✅ Monitors: new country, unusual hours, multiple IPs, abnormal volume
-- ✅ Automated email alerts via SendGrid (brute force, token theft, new country, etc.)
-- ✅ Monitoring job runs every 15 minutes
+### Detecção de Anomalias e Alertas
+- ✅ Detecção comportamental de anomalias baseada em ML (Z-score + baseline)
+- ✅ Monitora: novo país, horários incomuns, múltiplos IPs, volume anormal
+- ✅ Alertas automáticos por e-mail via SendGrid (brute force, roubo de token, novo país, etc.)
+- ✅ Job de monitoramento executa a cada 15 minutos
 
-### Audit Logging
-- ✅ All critical operations logged to PostgreSQL (`audit_logs` table)
-- ✅ Sensitive data masked in logs (passwords, tokens, CPF)
-- ✅ IP address, User-Agent, timestamp, operation, status recorded
+### Log de Auditoria
+- ✅ Todas as operações críticas registradas no PostgreSQL (tabela `audit_logs`)
+- ✅ Dados sensíveis mascarados nos logs (senhas, tokens, CPF)
+- ✅ IP, User-Agent, timestamp, operação e status registrados
 
-### Data Protection
-- ✅ Sensitive field encryption at rest (AES-256-GCM)
-- ✅ HTTPS enforced in production (automatic redirect)
-- ✅ CORS whitelist (configured via environment variable)
-- ✅ `.env` excluded from version control
-
----
-
-## 📋 Security Audit History
-
-### 2026-03-22 — Post-Implementation Audit
-**Score:** 9.8/10
-**OWASP Top 10 Compliance:** 95%+
-
-**Implemented in this audit cycle:**
-- ✅ Refresh tokens with rotation
-- ✅ Active sessions management
-- ✅ Anomaly detection (ML)
-- ✅ Security alerts (email)
-- ✅ Impersonation system
-- ✅ Superadmin role
-- ✅ Encryption at rest (AES-256-GCM)
-- ✅ mongoSanitize, xss-clean, hpp middlewares
-
-**Remaining issues:** See [TECH-DEBT.md](TECH-DEBT.md)
+### Proteção de Dados
+- ✅ Criptografia de campos sensíveis em repouso (AES-256-GCM)
+- ✅ HTTPS obrigatório em produção (redirecionamento automático)
+- ✅ Whitelist de CORS (configurada via variável de ambiente)
+- ✅ `.env` excluído do controle de versão
 
 ---
 
-## 🚨 Known Vulnerabilities
+## 📋 Histórico de Auditoria de Segurança
 
-### Active
+### 2026-03-22 — Auditoria Pós-Implementação
+**Score:** 9,8/10
+**Conformidade OWASP Top 10:** 95%+
 
-#### xlsx Library — Prototype Pollution & ReDoS
-**Severity:** HIGH
-**Status:** Documented as technical debt
-**Mitigations in place:**
-- File size limit: 5MB
-- Rate limiting on upload endpoints (20/hour)
-- Filename sanitization
-- Uploads isolated from application code
+**Implementado neste ciclo de auditoria:**
+- ✅ Refresh tokens com rotação
+- ✅ Gerenciamento de sessões ativas
+- ✅ Detecção de anomalias (ML)
+- ✅ Alertas de segurança (e-mail)
+- ✅ Sistema de impersonation
+- ✅ Role superadmin
+- ✅ Criptografia em repouso (AES-256-GCM)
+- ✅ Middlewares mongoSanitize, xss-clean, hpp
 
-**Planned fix:** Migration to `exceljs` (see TECH-DEBT.md)
-
----
-
-## 🎯 Scope
-
-**In Scope:**
-- Web application (frontend + backend API)
-- Authentication & authorization
-- Session management
-- API endpoints
-- File upload functionality
-- Database interactions
-- Third-party dependencies
-
-**Out of Scope:**
-- Infrastructure (hosting, network, firewall)
-- Physical security
-- DDoS (handled at infrastructure level)
+**Pendências:** Veja [TECH-DEBT.md](TECH-DEBT.md)
 
 ---
 
-## 🔐 Security Checklist for Contributors
+## 🚨 Vulnerabilidades Conhecidas
 
-Before submitting changes, verify:
+### Ativas
 
-- [ ] No hardcoded secrets or API keys
-- [ ] All user inputs validated and sanitized
-- [ ] SQL queries use prepared statements (`$1`, `$2`)
-- [ ] Sensitive data not logged in plaintext
-- [ ] New endpoints have `authenticateToken` middleware
-- [ ] Admin/superadmin routes have appropriate role middleware
-- [ ] Critical operations logged to `audit_logs`
-- [ ] Error messages don't expose internal details
+#### Biblioteca xlsx — Prototype Pollution & ReDoS
+**Severidade:** ALTA
+**Status:** Documentado como dívida técnica
+**Mitigações ativas:**
+- Limite de tamanho de arquivo: 5MB
+- Rate limiting nos endpoints de upload (20/hora)
+- Sanitização de nomes de arquivo
+- Uploads isolados do código da aplicação
 
-See also: [docs/07 - BOAS-PRATICAS-DE-SEGURANCA.md](docs/07%20-%20BOAS-PRATICAS-DE-SEGURANCA.md)
-
----
-
-## 🔄 Security Maintenance Schedule
-
-- **Dependency Audits:** `npm audit` before each deploy
-- **Manual Security Review:** Monthly
-- **Credential Rotation:** Every 6 months
-- **Next Full Audit:** 2026-06-22
+**Correção planejada:** Migração para `exceljs` (veja TECH-DEBT.md)
 
 ---
 
-## 📞 Contact
+## 🎯 Escopo
 
-- **Email:** [contato@fercarvalho.com](mailto:contato@fercarvalho.com)
-- **Response Time:** Within 48 hours (weekdays)
+**No Escopo:**
+- Aplicação web (frontend + API backend)
+- Autenticação e autorização
+- Gerenciamento de sessões
+- Endpoints da API
+- Funcionalidade de upload de arquivos
+- Interações com banco de dados
+- Dependências de terceiros
+
+**Fora do Escopo:**
+- Infraestrutura (hospedagem, rede, firewall)
+- Segurança física
+- DDoS (tratado na camada de infraestrutura)
 
 ---
 
-**Last Updated:** 2026-03-22
-**Next Review:** 2026-06-22
+## 🔐 Checklist de Segurança para Contribuidores
+
+Antes de submeter alterações, verifique:
+
+- [ ] Sem segredos ou chaves de API hardcoded
+- [ ] Todas as entradas de usuário validadas e sanitizadas
+- [ ] Queries SQL usam prepared statements (`$1`, `$2`)
+- [ ] Dados sensíveis não registrados em texto simples
+- [ ] Novos endpoints possuem middleware `authenticateToken`
+- [ ] Rotas de admin/superadmin possuem middleware de role adequado
+- [ ] Operações críticas registradas em `audit_logs`
+- [ ] Mensagens de erro não expõem detalhes internos
+
+Veja também: [docs/07 - BOAS-PRATICAS-DE-SEGURANCA.md](docs/07%20-%20BOAS-PRATICAS-DE-SEGURANCA.md)
+
+---
+
+## 🔄 Calendário de Manutenção de Segurança
+
+- **Auditorias de dependências:** `npm audit` antes de cada deploy
+- **Revisão manual de segurança:** Mensal
+- **Rotação de credenciais:** A cada 6 meses
+- **Próxima auditoria completa:** 2026-06-22
+
+---
+
+## 📞 Contato
+
+- **E-mail:** [contato@fercarvalho.com](mailto:contato@fercarvalho.com)
+- **Tempo de resposta:** Em até 48 horas (dias úteis)
+
+---
+
+**Última atualização:** 2026-03-22
+**Próxima revisão:** 2026-06-22
