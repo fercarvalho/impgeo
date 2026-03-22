@@ -126,9 +126,11 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
           {success ? <p className="text-sm text-green-600">{success}</p> : null}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
+            <label htmlFor="alterar-senha-atual" className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
             <div className="relative">
               <input
+                id="alterar-senha-atual"
+                name="alterar-senha-atual"
                 ref={currentPasswordRef}
                 type={showCurrentPassword ? 'text' : 'password'}
                 value={currentPassword}
@@ -136,6 +138,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                 className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Digite sua senha atual"
                 autoComplete="current-password"
+                aria-label="Senha atual"
               />
               <button
                 type="button"
@@ -148,15 +151,18 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nova senha</label>
+            <label htmlFor="alterar-nova-senha" className="block text-sm font-medium text-gray-700 mb-1">Nova senha</label>
             <div className="relative">
               <input
+                id="alterar-nova-senha"
+                name="alterar-nova-senha"
                 type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Digite a nova senha"
                 autoComplete="new-password"
+                aria-label="Nova senha"
               />
               <button
                 type="button"
@@ -169,15 +175,18 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar nova senha</label>
+            <label htmlFor="alterar-confirmar-senha" className="block text-sm font-medium text-gray-700 mb-1">Confirmar nova senha</label>
             <div className="relative">
               <input
+                id="alterar-confirmar-senha"
+                name="alterar-confirmar-senha"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Confirme a nova senha"
                 autoComplete="new-password"
+                aria-label="Confirmar nova senha"
               />
               <button
                 type="button"

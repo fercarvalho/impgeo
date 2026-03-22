@@ -133,18 +133,23 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({ isOpen, onC
           {success ? <p className="text-sm text-green-600">{success}</p> : null}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username atual</label>
+            <label htmlFor="alterar-username-atual" className="block text-sm font-medium text-gray-700 mb-1">Username atual</label>
             <input
+              id="alterar-username-atual"
+              name="alterar-username-atual"
               type="text"
               value={user?.username || ''}
               disabled
+              aria-label="Username atual"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Novo username</label>
+            <label htmlFor="alterar-novo-username" className="block text-sm font-medium text-gray-700 mb-1">Novo username</label>
             <input
+              id="alterar-novo-username"
+              name="alterar-novo-username"
               ref={usernameInputRef}
               type="text"
               value={newUsername}
@@ -152,19 +157,23 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({ isOpen, onC
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Digite o novo username"
               autoComplete="off"
+              aria-label="Novo username"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
+            <label htmlFor="alterar-username-senha-atual" className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
             <div className="relative">
               <input
+                id="alterar-username-senha-atual"
+                name="alterar-username-senha-atual"
                 type={showPassword ? 'text' : 'password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Digite sua senha atual"
                 autoComplete="current-password"
+                aria-label="Senha atual para confirmação"
               />
               <button
                 type="button"

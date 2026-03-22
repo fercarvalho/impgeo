@@ -218,7 +218,7 @@ Saída esperada:
 
 ```bash
 psql -U seuusuario -d impgeo -h localhost \
-  -c "SELECT conname, consrc FROM pg_constraint WHERE conname LIKE '%role%' AND conrelid = 'users'::regclass;"
+  -c "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conname LIKE '%role%' AND conrelid = 'users'::regclass;"
 ```
 
 A saída deve conter `superadmin` entre os valores permitidos.
