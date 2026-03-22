@@ -133,8 +133,8 @@ export default function SecurityAlerts() {
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-amber-100 rounded-lg">
-          <Bell className="w-6 h-6 text-amber-600" />
+        <div className="p-2 bg-blue-100 rounded-lg">
+          <Bell className="w-6 h-6 text-blue-600" />
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Portal de Alertas de Segurança</h2>
@@ -145,7 +145,7 @@ export default function SecurityAlerts() {
         </button>
       </div>
 
-      <div className="h-px bg-amber-200 mb-6" />
+      <div className="h-px bg-blue-200 mb-6" />
 
       {/* Filtros */}
       <div className="bg-gradient-to-r from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200 shadow-sm mb-6">
