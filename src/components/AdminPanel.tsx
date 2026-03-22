@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
   Save,
-  UserRoundSearch
+  UserCircle2
 } from 'lucide-react';
 
 type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
