@@ -108,7 +108,7 @@ export default function SecurityAlerts() {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-600 mx-auto mb-3" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
           <p className="text-gray-500">Carregando alertas...</p>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function SecurityAlerts() {
           <XCircle className="w-5 h-5" />
           <span className="font-medium">{error}</span>
         </div>
-        <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+        <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <RefreshCw className="w-4 h-4" /> Tentar novamente
         </button>
       </div>
@@ -215,7 +215,7 @@ export default function SecurityAlerts() {
       {stats && stats.byType && stats.byType.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-amber-600" /> Distribuição por Tipo
+            <BarChart3 className="w-4 h-4 text-blue-600" /> Distribuição por Tipo
           </h3>
           <div className="space-y-2">
             {stats.byType.map(item => {
@@ -239,7 +239,7 @@ export default function SecurityAlerts() {
       {/* Lista de Alertas */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-amber-600" /> Alertas Recentes
+          <Bell className="w-4 h-4 text-blue-600" /> Alertas Recentes
         </h3>
         {alerts.length === 0 ? (
           <p className="text-center py-8 text-gray-400">Nenhum alerta encontrado no período selecionado</p>

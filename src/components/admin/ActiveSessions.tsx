@@ -73,8 +73,8 @@ export default function ActiveSessions() {
   };
 
   const getDeviceIcon = (type: string) => {
-    if (type === 'mobile' || type === 'tablet') return <Smartphone className="w-6 h-6 text-amber-600" />;
-    return <Monitor className="w-6 h-6 text-amber-600" />;
+    if (type === 'mobile' || type === 'tablet') return <Smartphone className="w-6 h-6 text-blue-600" />;
+    return <Monitor className="w-6 h-6 text-blue-600" />;
   };
 
   const getTimeAgo = (timestamp: string): string => {
@@ -109,7 +109,7 @@ export default function ActiveSessions() {
           <XCircle className="w-5 h-5" />
           <span className="font-medium">{error}</span>
         </div>
-        <button onClick={fetchSessions} className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+        <button onClick={fetchSessions} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <RefreshCw className="w-4 h-4" /> Tentar novamente
         </button>
       </div>
@@ -142,7 +142,7 @@ export default function ActiveSessions() {
             <div key={session.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="p-2 bg-amber-50 rounded-lg flex-shrink-0">
+                  <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
                     {getDeviceIcon(session.device_type)}
                   </div>
                   <div className="min-w-0">
