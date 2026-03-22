@@ -4,7 +4,7 @@
 > **Processo backend (PM2):** `impgeo-api`
 > **Porta do backend:** `9001`
 > **Domínio:** `impgeo.sistemas.viverdepj.com.br`
-> **Banco de dados:** PostgreSQL — usuário `fernandocarvalho`, banco `impgeo`, host `localhost`
+> **Banco de dados:** PostgreSQL — usuário `seuusuario`, banco `impgeo`, host `localhost`
 > **Frontend:** build estático em `dist/`, servido pelo Nginx
 > **Backups:** `/var/www/impgeo/backups/`
 
@@ -96,7 +96,7 @@ cd /var/www/impgeo
 mkdir -p backups
 
 # Backup completo do banco
-pg_dump -U fernandocarvalho -d impgeo -h localhost \
+pg_dump -U seuusuario -d impgeo -h localhost \
   > backups/impgeo_backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Confirmar que o backup foi criado e tem tamanho razoável
@@ -105,7 +105,7 @@ ls -lh backups/
 
 > ⚠️ **Nunca pule o backup.** Se algo der errado, restaure com:
 > ```bash
-> psql -U fernandocarvalho -d impgeo -h localhost \
+> psql -U seuusuario -d impgeo -h localhost \
 >   < backups/nome-do-arquivo.sql
 > ```
 
@@ -172,7 +172,7 @@ npm install --legacy-peer-deps
 > ⚠️ **Execute apenas uma vez.** Rodar novamente é seguro — todos os comandos usam `IF NOT EXISTS` e `ON CONFLICT DO NOTHING` — mas é desnecessário após a primeira execução.
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -f /var/www/impgeo/server/migrations/009-security-tables.sql
 ```
 
@@ -187,21 +187,21 @@ psql -U fernandocarvalho -d impgeo -h localhost \
 **Verificar se as tabelas foram criadas:**
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "\dt" | grep -E "active_sessions|refresh_tokens|audit_logs"
 ```
 
 Saída esperada:
 ```
- public | active_sessions | table | fernandocarvalho
- public | audit_logs      | table | fernandocarvalho
- public | refresh_tokens  | table | fernandocarvalho
+ public | active_sessions | table | seuusuario
+ public | audit_logs      | table | seuusuario
+ public | refresh_tokens  | table | seuusuario
 ```
 
 **Verificar se os novos módulos foram inseridos:**
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT module_key, module_name FROM modules_catalog WHERE module_key IN ('sessions', 'anomalies', 'security_alerts');"
 ```
 
@@ -217,7 +217,7 @@ Saída esperada:
 **Verificar se a constraint de roles foi atualizada:**
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT conname, consrc FROM pg_constraint WHERE conname LIKE '%role%' AND conrelid = 'users'::regclass;"
 ```
 
@@ -294,7 +294,7 @@ O sistema agora tem a role `superadmin` que dá acesso às abas de Sessões, Ano
 Promova o administrador principal:
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "UPDATE users SET role = 'superadmin' WHERE username = 'SEU_USERNAME_ADMIN';"
 ```
 
@@ -303,7 +303,7 @@ psql -U fernandocarvalho -d impgeo -h localhost \
 **Confirmar a promoção:**
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT id, username, role FROM users WHERE role = 'superadmin';"
 ```
 
@@ -363,7 +363,7 @@ Este é o estado esperado do `.env` na VPS após esta atualização (sem os valo
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=impgeo
-DB_USER=fernandocarvalho
+DB_USER=seuusuario
 DB_PASSWORD=sua_senha
 
 # JWT
@@ -509,11 +509,11 @@ cd /var/www/impgeo
 mkdir -p backups
 
 # Backup completo sem compressão
-pg_dump -U fernandocarvalho -d impgeo -h localhost \
+pg_dump -U seuusuario -d impgeo -h localhost \
   > backups/impgeo_backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Backup comprimido (recomendado — ocupa muito menos espaço)
-pg_dump -U fernandocarvalho -d impgeo -h localhost \
+pg_dump -U seuusuario -d impgeo -h localhost \
   | gzip > backups/impgeo_backup_$(date +%Y%m%d_%H%M%S).sql.gz
 ```
 
@@ -527,12 +527,12 @@ ls -lh /var/www/impgeo/backups/
 
 ```bash
 # Sem compressão
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   < backups/impgeo_backup_YYYYMMDD_HHMMSS.sql
 
 # Com compressão
 gunzip -c backups/impgeo_backup_YYYYMMDD_HHMMSS.sql.gz \
-  | psql -U fernandocarvalho -d impgeo -h localhost
+  | psql -U seuusuario -d impgeo -h localhost
 ```
 
 ### Limpar backups antigos (opcional)
@@ -574,26 +574,26 @@ curl -s https://impgeo.sistemas.viverdepj.com.br/api/auth/verify \
 
 ```bash
 # Listar todas as tabelas
-psql -U fernandocarvalho -d impgeo -h localhost -c "\dt"
+psql -U seuusuario -d impgeo -h localhost -c "\dt"
 
 # Contagem de sessões ativas
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT COUNT(*) AS sessoes_ativas FROM active_sessions WHERE is_active = true;"
 
 # Contagem de refresh tokens válidos
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT COUNT(*) AS tokens_ativos FROM refresh_tokens WHERE revoked = false AND expires_at > NOW();"
 
 # Últimas 10 entradas no audit log
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT username, operation, status, ip_address, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 10;"
 
 # Módulos cadastrados
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT module_key, module_name, is_active FROM modules_catalog ORDER BY module_key;"
 
 # Usuários e suas roles
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT username, role, is_active FROM users ORDER BY role, username;"
 ```
 
@@ -648,7 +648,7 @@ pm2 logs impgeo-api --lines 20 --nostream
 sudo systemctl status postgresql
 
 # Testar conexão manual
-psql -U fernandocarvalho -d impgeo -h localhost -c "SELECT NOW();"
+psql -U seuusuario -d impgeo -h localhost -c "SELECT NOW();"
 ```
 
 Se falhar, verificar `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` no `.env`.
@@ -709,14 +709,14 @@ A migration `009-security-tables.sql` pode não ter sido executada.
 
 ```bash
 # Verificar se as tabelas existem
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "\dt" | grep -E "active_sessions|refresh_tokens|audit_logs"
 ```
 
 Se não aparecerem, executar a migration (é seguro rodar mesmo que parcialmente executada):
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -f /var/www/impgeo/server/migrations/009-security-tables.sql
 pm2 restart impgeo-api
 ```
@@ -727,11 +727,11 @@ O usuário não tem a role `superadmin` ou não tem os módulos atribuídos.
 
 ```bash
 # Ver a role do usuário
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "SELECT username, role FROM users WHERE username = 'SEU_USERNAME';"
 
 # Promover para superadmin se necessário
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   -c "UPDATE users SET role = 'superadmin' WHERE username = 'SEU_USERNAME';"
 ```
 
@@ -746,7 +746,7 @@ Comportamento normal quando o `JWT_SECRET` ou o `ENCRYPTION_KEY` foram alterados
 ls -lh /var/www/impgeo/backups/
 
 # Restaurar o backup mais recente (substitua o nome do arquivo)
-psql -U fernandocarvalho -d impgeo -h localhost \
+psql -U seuusuario -d impgeo -h localhost \
   < /var/www/impgeo/backups/impgeo_backup_YYYYMMDD_HHMMSS.sql
 ```
 
@@ -775,7 +775,7 @@ sudo nginx -s reload
 [ ] 4.  cd server && npm install && cd ..
 [ ] 5.  npm install --legacy-peer-deps
 [ ] 6.  Migration executada:
-        psql -U fernandocarvalho -d impgeo -h localhost \
+        psql -U seuusuario -d impgeo -h localhost \
           -f /var/www/impgeo/server/migrations/009-security-tables.sql
 [ ] 7.  Tabelas verificadas: active_sessions, refresh_tokens, audit_logs existem
 [ ] 8.  Módulos verificados: sessions, anomalies, security_alerts no banco

@@ -38,7 +38,7 @@ cd /var/www/impgeo
 
 ```bash
 mkdir -p backups
-pg_dump -U fernandocarvalho -d impgeo -h localhost > backups/backup-$(date +%Y%m%d-%H%M%S).sql
+pg_dump -U seuusuario -d impgeo -h localhost > backups/backup-$(date +%Y%m%d-%H%M%S).sql
 echo "Backup criado em: backups/backup-$(date +%Y%m%d-%H%M%S).sql"
 ```
 
@@ -71,7 +71,7 @@ git diff HEAD~1 HEAD --name-only | grep migrations
 Se houver arquivos novos, execute cada um:
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost -f server/migrations/NOME-DO-ARQUIVO.sql
+psql -U seuusuario -d impgeo -h localhost -f server/migrations/NOME-DO-ARQUIVO.sql
 ```
 
 ### Passo 6 — Buildar o frontend
@@ -146,7 +146,7 @@ Preencha **todos** os valores (veja a seção [Variáveis de Ambiente](#variáve
 ### 4. Criar o banco de dados
 
 ```bash
-psql -U fernandocarvalho -h localhost -c "CREATE DATABASE impgeo;"
+psql -U seuusuario -h localhost -c "CREATE DATABASE impgeo;"
 ```
 
 ### 5. Executar todas as migrações em ordem
@@ -154,7 +154,7 @@ psql -U fernandocarvalho -h localhost -c "CREATE DATABASE impgeo;"
 ```bash
 for file in server/migrations/*.sql; do
   echo "Executando: $file"
-  psql -U fernandocarvalho -d impgeo -h localhost -f "$file"
+  psql -U seuusuario -d impgeo -h localhost -f "$file"
 done
 ```
 
@@ -184,7 +184,7 @@ Arquivo: `/var/www/impgeo/server/.env`
 
 ```env
 # Banco de dados
-DATABASE_URL=postgresql://fernandocarvalho:SENHA@localhost:5432/impgeo
+DATABASE_URL=postgresql://seuusuario:SENHA@localhost:5432/impgeo
 
 # JWT
 JWT_SECRET=gere-com-openssl-rand-base64-64
@@ -296,14 +296,14 @@ certbot --nginx -d impgeo.sistemas.viverdepj.com.br
 ```bash
 cd /var/www/impgeo
 mkdir -p backups
-pg_dump -U fernandocarvalho -d impgeo -h localhost > backups/backup-$(date +%Y%m%d-%H%M%S).sql
+pg_dump -U seuusuario -d impgeo -h localhost > backups/backup-$(date +%Y%m%d-%H%M%S).sql
 ```
 
 ### Restaurar backup
 
 ```bash
 # ATENÇÃO: Isso sobrescreve o banco atual!
-psql -U fernandocarvalho -d impgeo -h localhost < backups/NOME-DO-BACKUP.sql
+psql -U seuusuario -d impgeo -h localhost < backups/NOME-DO-BACKUP.sql
 ```
 
 ### Backup automático com cron (opcional)
@@ -316,7 +316,7 @@ Adicione:
 
 ```cron
 # Backup diário às 3h da manhã
-0 3 * * * pg_dump -U fernandocarvalho -d impgeo -h localhost > /var/www/impgeo/backups/backup-$(date +\%Y\%m\%d).sql
+0 3 * * * pg_dump -U seuusuario -d impgeo -h localhost > /var/www/impgeo/backups/backup-$(date +\%Y\%m\%d).sql
 # Manter apenas os últimos 30 backups
 0 4 * * * find /var/www/impgeo/backups -name "*.sql" -mtime +30 -delete
 ```
@@ -384,7 +384,7 @@ netstat -tlnp | grep 9001
 
 ```bash
 # Testar conexão
-psql -U fernandocarvalho -d impgeo -h localhost -c "SELECT 1;"
+psql -U seuusuario -d impgeo -h localhost -c "SELECT 1;"
 
 # Verificar se PostgreSQL está rodando
 systemctl status postgresql

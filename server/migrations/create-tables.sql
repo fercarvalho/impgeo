@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     gender VARCHAR(50),
     position VARCHAR(255),
     address JSONB,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'user', 'guest')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('superadmin', 'admin', 'user', 'guest')),
     photo_url TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMPTZ,
@@ -398,3 +398,132 @@ CREATE TABLE IF NOT EXISTS resultado (
 );
 
 INSERT INTO resultado (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Tabelas de Segurança Avançada
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    operation VARCHAR(100) NOT NULL,
+    user_id VARCHAR(255),
+    username VARCHAR(255),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    details JSONB,
+    status VARCHAR(50) DEFAULT 'success',
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_operation ON audit_logs(operation);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_details ON audit_logs USING gin(details);
+
+CREATE OR REPLACE FUNCTION cleanup_old_audit_logs() RETURNS void AS $$
+BEGIN
+    DELETE FROM audit_logs WHERE timestamp < NOW() - INTERVAL '2 years';
+END;
+$$ LANGUAGE plpgsql;
+
+-- Refresh Tokens
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(500) UNIQUE NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked BOOLEAN DEFAULT FALSE,
+    revoked_at TIMESTAMPTZ,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    replaced_by_token VARCHAR(500),
+    CONSTRAINT fk_refresh_token_user
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(revoked);
+
+CREATE OR REPLACE FUNCTION cleanup_expired_refresh_tokens() RETURNS void AS $$
+BEGIN
+    DELETE FROM refresh_tokens
+    WHERE expires_at < NOW()
+       OR (revoked = TRUE AND revoked_at < NOW() - INTERVAL '30 days');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Active Sessions
+CREATE TABLE IF NOT EXISTS active_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id VARCHAR(50) NOT NULL,
+    refresh_token_id INTEGER,
+    ip_address VARCHAR(45) NOT NULL,
+    user_agent TEXT NOT NULL,
+    device_type VARCHAR(50),
+    device_name VARCHAR(255),
+    browser VARCHAR(100),
+    os VARCHAR(100),
+    country VARCHAR(100),
+    city VARCHAR(255),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    revoked_at TIMESTAMP,
+    revoked_reason VARCHAR(255),
+    CONSTRAINT fk_active_session_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_active_session_refresh_token
+        FOREIGN KEY (refresh_token_id) REFERENCES refresh_tokens(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_active_sessions_user_id ON active_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_refresh_token_id ON active_sessions(refresh_token_id);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_ip_address ON active_sessions(ip_address);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_is_active ON active_sessions(is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_active_sessions_expires_at ON active_sessions(expires_at);
+
+CREATE OR REPLACE FUNCTION cleanup_expired_sessions() RETURNS void AS $$
+BEGIN
+    UPDATE active_sessions
+    SET is_active = FALSE,
+        revoked_at = CURRENT_TIMESTAMP,
+        revoked_reason = 'Expirada automaticamente'
+    WHERE is_active = TRUE
+      AND expires_at < CURRENT_TIMESTAMP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_session_last_activity() RETURNS TRIGGER AS $$
+BEGIN
+    NEW.last_activity_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_update_session_last_activity ON active_sessions;
+CREATE TRIGGER trigger_update_session_last_activity
+BEFORE UPDATE ON active_sessions
+FOR EACH ROW EXECUTE FUNCTION update_session_last_activity();
+
+-- Módulos de segurança no catálogo
+INSERT INTO modules_catalog (module_key, module_name, is_active)
+VALUES
+    ('sessions',        'Sessões Ativas',       TRUE),
+    ('anomalies',       'Anomalias',            TRUE),
+    ('security_alerts', 'Alertas de Segurança', TRUE)
+ON CONFLICT (module_key) DO NOTHING;
+
+-- Atualizar constraint de role para incluir superadmin (para bancos existentes)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+    CHECK (role IN ('superadmin', 'admin', 'user', 'guest'));

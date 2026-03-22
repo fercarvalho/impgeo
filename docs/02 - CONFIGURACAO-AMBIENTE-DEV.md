@@ -42,7 +42,7 @@ Edite `server/.env`:
 
 ```env
 # Banco de dados local
-DATABASE_URL=postgresql://fernandocarvalho:sua-senha@localhost:5432/impgeo
+DATABASE_URL=postgresql://seuusuario:sua-senha@localhost:5432/impgeo
 
 # JWT (pode usar qualquer string longa em dev)
 JWT_SECRET=dev-secret-minimo-32-caracteres-aqui
@@ -69,12 +69,12 @@ ALERT_EMAIL_TO=
 
 ```bash
 # Criar banco
-psql -U fernandocarvalho -h localhost -c "CREATE DATABASE impgeo;"
+psql -U seuusuario -h localhost -c "CREATE DATABASE impgeo;"
 
 # Executar todas as migrações em ordem
 for file in server/migrations/*.sql; do
   echo "Executando: $file"
-  psql -U fernandocarvalho -d impgeo -h localhost -f "$file"
+  psql -U seuusuario -d impgeo -h localhost -f "$file"
 done
 ```
 
@@ -141,7 +141,7 @@ Se não houver usuário padrão, crie via psql:
 
 ```sql
 -- Conectar ao banco
-psql -U fernandocarvalho -d impgeo -h localhost
+psql -U seuusuario -d impgeo -h localhost
 
 -- Verificar usuários existentes
 SELECT id, username, role FROM users;
@@ -204,7 +204,7 @@ Significa que alguma migration não foi executada. Execute todas:
 
 ```bash
 for file in server/migrations/*.sql; do
-  psql -U fernandocarvalho -d impgeo -h localhost -f "$file"
+  psql -U seuusuario -d impgeo -h localhost -f "$file"
 done
 ```
 

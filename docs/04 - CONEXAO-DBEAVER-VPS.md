@@ -36,7 +36,7 @@ Preencha como se o banco estivesse local:
 | Host | `localhost` |
 | Port | `5432` |
 | Database | `impgeo` |
-| Username | `fernandocarvalho` |
+| Username | `seuusuario` |
 | Password | senha do PostgreSQL no VPS |
 
 ### Passo 3 — Aba "SSH"
@@ -64,7 +64,7 @@ Ative o SSH Tunnel e preencha:
 Se você está no terminal do VPS (via SSH), use:
 
 ```bash
-psql -U fernandocarvalho -d impgeo -h localhost
+psql -U seuusuario -d impgeo -h localhost
 ```
 
 Comandos úteis dentro do psql:
@@ -152,8 +152,8 @@ ssh -i ~/.ssh/id_rsa usuario@IP-DO-VPS
 
 ```bash
 # No VPS, criar o usuário se necessário
-psql -U postgres -c "CREATE USER fernandocarvalho WITH PASSWORD 'senha';"
-psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE impgeo TO fernandocarvalho;"
+psql -U postgres -c "CREATE USER seuusuario WITH PASSWORD 'senha';"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE impgeo TO seuusuario;"
 ```
 
 ---

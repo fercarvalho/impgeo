@@ -51,7 +51,7 @@ tail -50 /var/log/nginx/error.log
 
 ```bash
 # Testar conexão
-psql -U fernandocarvalho -d impgeo -h localhost -c "SELECT 1;"
+psql -U seuusuario -d impgeo -h localhost -c "SELECT 1;"
 
 # Verificar se PostgreSQL está rodando
 systemctl status postgresql
@@ -68,14 +68,14 @@ Alguma migration não foi executada.
 
 ```bash
 # Ver quais tabelas existem
-psql -U fernandocarvalho -d impgeo -h localhost -c "\dt"
+psql -U seuusuario -d impgeo -h localhost -c "\dt"
 
 # Executar migration específica
-psql -U fernandocarvalho -d impgeo -h localhost -f server/migrations/NOME.sql
+psql -U seuusuario -d impgeo -h localhost -f server/migrations/NOME.sql
 
 # Executar todas novamente (seguro se as migrations usam IF NOT EXISTS)
 for file in server/migrations/*.sql; do
-  psql -U fernandocarvalho -d impgeo -h localhost -f "$file"
+  psql -U seuusuario -d impgeo -h localhost -f "$file"
 done
 ```
 
@@ -179,10 +179,10 @@ cd server && node -e "require('dotenv').config(); console.log('JWT_SECRET:', pro
 
 ```bash
 # Verificar se tabela active_sessions existe
-psql -U fernandocarvalho -d impgeo -h localhost -c "SELECT COUNT(*) FROM active_sessions;"
+psql -U seuusuario -d impgeo -h localhost -c "SELECT COUNT(*) FROM active_sessions;"
 
 # Verificar se migration foi executada
-psql -U fernandocarvalho -d impgeo -h localhost -c "\d active_sessions"
+psql -U seuusuario -d impgeo -h localhost -c "\d active_sessions"
 ```
 
 ---
@@ -239,7 +239,7 @@ systemctl restart nginx
 df -h
 
 # Ver tamanho das tabelas
-psql -U fernandocarvalho -d impgeo -h localhost -c "
+psql -U seuusuario -d impgeo -h localhost -c "
 SELECT schemaname, tablename,
   pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
 FROM pg_tables
@@ -265,7 +265,7 @@ pg_restore --list backups/backup-YYYYMMDD.sql 2>&1 | head -5
 # Se não mostrar erros de parse, o arquivo está OK
 
 # Criar backup manual de emergência
-pg_dump -U fernandocarvalho -d impgeo -h localhost -F c -f backups/emergency-$(date +%Y%m%d-%H%M%S).dump
+pg_dump -U seuusuario -d impgeo -h localhost -F c -f backups/emergency-$(date +%Y%m%d-%H%M%S).dump
 ```
 
 ---
