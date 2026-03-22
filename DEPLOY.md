@@ -173,7 +173,7 @@ npm install --legacy-peer-deps
 
 ```bash
 psql -U seuusuario -d impgeo -h localhost \
-  -f /var/www/impgeo/server/migrations/009-security-tables.sql
+  -f /var/www/impgeo/server/migrations/create-tables.sql
 ```
 
 **O que esta migration cria:**
@@ -705,7 +705,7 @@ pm2 restart impgeo-api
 
 ### Login funciona mas sessões/tokens não aparecem
 
-A migration `009-security-tables.sql` pode não ter sido executada.
+A migration de segurança pode não ter sido executada.
 
 ```bash
 # Verificar se as tabelas existem
@@ -717,7 +717,7 @@ Se não aparecerem, executar a migration (é seguro rodar mesmo que parcialmente
 
 ```bash
 psql -U seuusuario -d impgeo -h localhost \
-  -f /var/www/impgeo/server/migrations/009-security-tables.sql
+  -f /var/www/impgeo/server/migrations/create-tables.sql
 pm2 restart impgeo-api
 ```
 
@@ -776,7 +776,7 @@ sudo nginx -s reload
 [ ] 5.  npm install --legacy-peer-deps
 [ ] 6.  Migration executada:
         psql -U seuusuario -d impgeo -h localhost \
-          -f /var/www/impgeo/server/migrations/009-security-tables.sql
+          -f /var/www/impgeo/server/migrations/create-tables.sql
 [ ] 7.  Tabelas verificadas: active_sessions, refresh_tokens, audit_logs existem
 [ ] 8.  Módulos verificados: sessions, anomalies, security_alerts no banco
 [ ] 9.  Usuário promovido para superadmin
