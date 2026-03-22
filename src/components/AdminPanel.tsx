@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
   Save,
-  UserX
+  UserRoundSearch
 } from 'lucide-react';
 
 type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
@@ -618,7 +618,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                                 className="p-2 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
                                 title="Representar usuário"
                               >
-                                <UserX className="h-4 w-4" />
+                                <UserRoundSearch className="h-4 w-4" />
                               </button>
                             )}
                           </div>
