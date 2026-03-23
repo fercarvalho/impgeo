@@ -874,7 +874,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                     />
                     <span>{option.moduleName}</span>
                     <span className="text-xs text-gray-400">({option.moduleKey})</span>
-                    {locked && <span className="text-xs text-gray-400 ml-auto">superadmin</span>}
                   </label>
                 );
               })}
