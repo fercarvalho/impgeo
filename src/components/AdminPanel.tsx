@@ -528,9 +528,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                   sortedUsers.map((user) => {
                     const isCurrent = user.id === currentUser?.id;
                     const isActive = user.isActive !== false;
+                    const isSuperadminTarget = user.role === 'superadmin' && currentUser?.role !== 'superadmin';
 
                     return (
-                      <tr key={user.id} className={!isActive ? 'bg-gray-50' : 'hover:bg-gray-50'}>
+                      <tr key={user.id} className={isSuperadminTarget ? 'bg-gray-50 opacity-60 pointer-events-none' : !isActive ? 'bg-gray-50' : 'hover:bg-gray-50'}>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -859,18 +860,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-4">
-              {moduleOptions.map((option) => (
-                <label key={option.moduleKey} className="flex items-center gap-3 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={option.enabled}
-                    onChange={() => toggleModuleOption(option.moduleKey)}
-                    className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                  />
-                  <span>{option.moduleName}</span>
-                  <span className="text-xs text-gray-400">({option.moduleKey})</span>
-                </label>
-              ))}
+              {moduleOptions.map((option) => {
+                const superadminOnly = ['sessions', 'anomalies', 'security_alerts'].includes(option.moduleKey);
+                const locked = superadminOnly && currentUser?.role !== 'superadmin';
+                return (
+                  <label key={option.moduleKey} className={`flex items-center gap-3 text-sm ${locked ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700'}`}>
+                    <input
+                      type="checkbox"
+                      checked={option.enabled}
+                      onChange={() => !locked && toggleModuleOption(option.moduleKey)}
+                      disabled={locked}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 disabled:opacity-50"
+                    />
+                    <span>{option.moduleName}</span>
+                    <span className="text-xs text-gray-400">({option.moduleKey})</span>
+                    {locked && <span className="text-xs text-gray-400 ml-auto">superadmin</span>}
+                  </label>
+                );
+              })}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
