@@ -3771,4 +3771,27 @@ app.listen(port, () => {
   if (typeof securityCleanupTimer.unref === 'function') {
     securityCleanupTimer.unref();
   }
+
+  // Sync automático Asaas a cada hora
+  if (process.env.ASAAS_API_KEY) {
+    const asaasSyncTimer = setInterval(async () => {
+      try {
+        const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().split('T')[0]; // últimas 2h
+        const [payments, transfers] = await Promise.all([
+          fetchReceivedPayments(since),
+          fetchDoneTransfers(since),
+        ]);
+        let inserted = 0;
+        for (const tx of [...payments, ...transfers]) {
+          const saved = await db.saveAsaasTransaction(tx);
+          if (saved) inserted++;
+        }
+        if (inserted > 0) console.log(`[Asaas Auto-Sync] ${inserted} nova(s) transação(ões) importada(s)`);
+      } catch (error) {
+        console.error('[Asaas Auto-Sync] Erro:', error.message);
+      }
+    }, 60 * 60 * 1000); // a cada 1 hora
+    if (typeof asaasSyncTimer.unref === 'function') asaasSyncTimer.unref();
+    console.log('🔄 Asaas: sync automático ativado (a cada 1 hora)');
+  }
 });
