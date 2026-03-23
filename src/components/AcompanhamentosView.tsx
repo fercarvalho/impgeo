@@ -529,7 +529,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const formatNumber = (num: number) => {
-    return num.toFixed(2).replace('.', ',')
+    return (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
   const handleSort = (field: SortField) => {

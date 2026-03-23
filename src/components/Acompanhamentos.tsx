@@ -1290,7 +1290,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const formatNumber = (num: number) => {
-    return num.toFixed(2).replace('.', ',')
+    return (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
   // Função para normalizar o nome da cultura (remove acentos e converte para maiúsculas)

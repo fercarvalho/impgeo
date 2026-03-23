@@ -260,6 +260,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Estados para Metas
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
   const [dashboardSelectedMonth, setDashboardSelectedMonth] = useState<number>(new Date().getMonth())
+  const [dashboardSelectedYear, setDashboardSelectedYear] = useState<number>(new Date().getFullYear())
+  const [dashboardSelectedQuarter, setDashboardSelectedQuarter] = useState<number>(Math.floor(new Date().getMonth() / 3))
   
   // Estados para modal de gráficos
   const [chartModal, setChartModal] = useState<{
@@ -2495,7 +2497,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       tempElement.innerHTML = `
         <div style="text-align: center; margin-bottom: 30px;">
           <h1 style="color: #1e40af; font-size: 28px; margin: 0; font-weight: bold;">IMPGEO</h1>
-          <h2 style="color: #374151; font-size: 24px; margin: 10px 0; font-weight: bold;">Relatório de Metas - ${mesSelecionado.nome} 2025</h2>
+          <h2 style="color: #374151; font-size: 24px; margin: 10px 0; font-weight: bold;">Relatório de Metas - ${mesSelecionado.nome} ${new Date().getFullYear()}</h2>
           <p style="color: #6b7280; font-size: 14px; margin: 0;">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
         </div>
         
@@ -2669,7 +2671,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       }
       
       // Salvar PDF
-      const fileName = `Metas_${mesSelecionado.nome}_2025_${new Date().toISOString().split('T')[0]}.pdf`
+      const fileName = `Metas_${mesSelecionado.nome}_${new Date().getFullYear()}_${new Date().toISOString().split('T')[0]}.pdf`
       pdf.save(fileName)
       
       alert(`✅ Relatório PDF exportado com sucesso!\nArquivo: ${fileName}\n\n📊 Dados incluídos:\n• Meta de Faturamento: R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Faturamento Realizado: R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Limite de Despesas: R$ ${metaDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n• Resultado Financeiro: R$ ${resultadoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
@@ -2870,7 +2872,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               >
                 {mesesMetas.map((mes) => (
                   <option key={mes.indice} value={mes.indice} className="text-gray-800 bg-white normal-case text-lg font-normal">
-                    {mes.nome} - 2025
+                    {mes.nome} - {new Date().getFullYear()}
                   </option>
                 ))}
                 </select>
@@ -2897,7 +2899,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     const currentYear = new Date().getFullYear()
     const transacoesMesSelecionado = transactions.filter(t => {
       const transactionDate = new Date(t.date)
-      return transactionDate.getMonth() === dashboardSelectedMonth && transactionDate.getFullYear() === currentYear
+      return transactionDate.getMonth() === dashboardSelectedMonth && transactionDate.getFullYear() === dashboardSelectedYear
     })
 
     const totalReceitasMes = transacoesMesSelecionado
@@ -2910,13 +2912,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     
     // Função para determinar o trimestre de um mês (0-11)
     const getQuarter = (month: number) => Math.floor(month / 3)
-    
+
     // Cálculos trimestrais
-    const currentQuarter = getQuarter(new Date().getMonth())
+    const currentQuarter = dashboardSelectedQuarter
     const transacoesTrimestre = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       const transactionQuarter = getQuarter(transactionDate.getMonth())
-      return transactionQuarter === currentQuarter && transactionDate.getFullYear() === new Date().getFullYear()
+      return transactionQuarter === currentQuarter && transactionDate.getFullYear() === dashboardSelectedYear
     })
     
     const totalReceitasTrimestre = transacoesTrimestre
@@ -2930,7 +2932,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     // Cálculos anuais
     const transacoesAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
-      return transactionDate.getFullYear() === currentYear
+      return transactionDate.getFullYear() === dashboardSelectedYear
     })
     
     const totalReceitasAno = transacoesAno
@@ -2953,6 +2955,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     ]
 
     const nomesTrimestres = ['1º Trimestre', '2º Trimestre', '3º Trimestre', '4º Trimestre']
+
+    // Anos disponíveis (do mais antigo com transação até o ano atual + 1)
+    const yearsWithData = transactions.map(t => new Date(t.date).getFullYear()).filter(y => !isNaN(y))
+    const minYear = yearsWithData.length > 0 ? Math.min(...yearsWithData) : currentYear
+    const availableYears: number[] = []
+    for (let y = Math.min(minYear, currentYear); y <= currentYear + 1; y++) availableYears.push(y)
 
     // Dados para gráficos
     const pieChartData = [
@@ -2981,7 +2989,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-800 mb-3">
-                {hasData ? `R$ ${(Math.round(data[0].value * 100) / 100).toFixed(2)}` : 'Sem dados'}
+                {hasData ? `R$ ${data[0].value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Sem dados'}
               </div>
               <div className="text-xs text-gray-600">
                 {hasData ? data[0].name : 'Nenhuma transação encontrada'}
@@ -3025,7 +3033,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             >
               {nomesMeses.map((mes, index) => (
                 <option key={mes} value={index}>
-                  {mes}
+                  {mes} {dashboardSelectedYear}
                 </option>
               ))}
             </select>
@@ -3046,7 +3054,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalReceitasMes * 100) / 100).toFixed(2)}
+                        R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -3067,7 +3075,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalDespesasMes * 100) / 100).toFixed(2)}
+                        R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -3092,7 +3100,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-xl font-bold mt-1 ${
                         lucroLiquidoMes >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {(Math.round(lucroLiquidoMes * 100) / 100).toFixed(2)}
+                        R$ {Math.abs(lucroLiquidoMes).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -3107,10 +3115,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-cyan-800 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-cyan-600" />
-            Trimestre Atual
-            <span className="text-lg font-medium text-cyan-600 bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-200">
-              {nomesTrimestres[currentQuarter]}
-            </span>
+            Trimestre
+            <select
+              id="dashboard-quarter-selector"
+              name="dashboard-quarter-selector"
+              aria-label="Selecionar trimestre do dashboard"
+              value={dashboardSelectedQuarter}
+              onChange={(e) => setDashboardSelectedQuarter(Number(e.target.value))}
+              className="text-lg font-medium text-cyan-600 bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-200 outline-none cursor-pointer"
+            >
+              {nomesTrimestres.map((t, i) => (
+                <option key={i} value={i}>{t} {dashboardSelectedYear}</option>
+              ))}
+            </select>
           </h2>
           
           <div className="space-y-4">
@@ -3128,7 +3145,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalReceitasTrimestre * 100) / 100).toFixed(2)}
+                        R$ {totalReceitasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
             </div>
             </div>
@@ -3149,7 +3166,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalDespesasTrimestre * 100) / 100).toFixed(2)}
+                        R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
           </div>
         </div>
@@ -3174,12 +3191,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-xl font-bold mt-1 ${
                         lucroLiquidoTrimestre >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {(Math.round(lucroLiquidoTrimestre * 100) / 100).toFixed(2)}
+                        R$ {Math.abs(lucroLiquidoTrimestre).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
                         </div>
                       </div>
                         </div>
-                {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[currentQuarter]})`)}
+                {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[dashboardSelectedQuarter]})`)}
                       </div>
                     </div>
         </div>
@@ -3189,7 +3206,26 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-pink-800 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-purple-600" />
-            Ano {currentYear}
+            Ano
+            <select
+              id="dashboard-year-selector"
+              name="dashboard-year-selector"
+              aria-label="Selecionar ano do dashboard"
+              value={dashboardSelectedYear}
+              onChange={(e) => {
+                const y = Number(e.target.value)
+                setDashboardSelectedYear(y)
+                // Resetar trimestre e mês para o correto do novo ano
+                const isCurrentYear = y === new Date().getFullYear()
+                setDashboardSelectedQuarter(isCurrentYear ? Math.floor(new Date().getMonth() / 3) : 0)
+                setDashboardSelectedMonth(isCurrentYear ? new Date().getMonth() : 0)
+              }}
+              className="text-lg font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-lg border border-pink-200 outline-none cursor-pointer"
+            >
+              {availableYears.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </h2>
           
           <div className="space-y-4">
@@ -3207,7 +3243,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas Anuais</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalReceitasAno * 100) / 100).toFixed(2)}
+                        R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -3228,7 +3264,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                       <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas Anuais</p>
                       <p className="text-xl font-bold text-white mt-1">
-                        R$ {(Math.round(totalDespesasAno * 100) / 100).toFixed(2)}
+                        R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -3253,7 +3289,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                       <p className={`text-xl font-bold mt-1 ${
                         lucroLiquidoAno >= 0 ? 'text-green-900' : 'text-red-900'
                       }`}>
-                        R$ {(Math.round(lucroLiquidoAno * 100) / 100).toFixed(2)}
+                        R$ {Math.abs(lucroLiquidoAno).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -3295,7 +3331,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                         <p className={`font-bold ${
                           transacao.type === 'Receita' ? 'text-emerald-600' : 'text-red-600'
                         }`}>
-                          {transacao.type === 'Receita' ? '+' : '-'}R$ {(Math.round(transacao.value * 100) / 100).toFixed(2)}
+                          {transacao.type === 'Receita' ? '+' : '-'}R$ {Math.abs(transacao.value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-gray-500">
                           {new Date(transacao.date).toLocaleDateString('pt-BR')}
