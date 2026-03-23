@@ -3608,8 +3608,7 @@ app.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmin, 
     });
 
     try {
-      const impersonationTokenId = `imp_${Date.now()}`;
-      await createSession(targetUser.id, impersonationTokenId, req);
+      await createSession(targetUser.id, null, req);
     } catch (sessionError) {
       console.warn('[impersonate] Falha ao criar sessão de impersonação (não crítico):', sessionError.message);
     }

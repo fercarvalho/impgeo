@@ -202,13 +202,15 @@ async function revokeSession(sessionId, reason = "Revogada pelo usuário") {
       throw new Error("Sessão não encontrada");
     }
 
-    await pool.query(
-      `UPDATE refresh_tokens
-      SET revoked = TRUE,
-          revoked_at = CURRENT_TIMESTAMP
-      WHERE id = $1`,
-      [result.rows[0].refresh_token_id],
-    );
+    if (result.rows[0].refresh_token_id) {
+      await pool.query(
+        `UPDATE refresh_tokens
+        SET revoked = TRUE,
+            revoked_at = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+        [result.rows[0].refresh_token_id],
+      );
+    }
 
     console.log(`[SessionManager] ✅ Sessão revogada: ${sessionId}`);
     return result.rows[0];
