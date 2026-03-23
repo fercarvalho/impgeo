@@ -18,7 +18,7 @@ const Database = require('./database-pg');
 const { enviarEmailRecuperacao } = require('./services/email');
 const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
 const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
-const { createSession, revokeSession, revokeAllUserSessions, getUserSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
+const { createSession, revokeSession, revokeAllUserSessions, getAllSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
 const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
 
 const app = express();
@@ -3478,7 +3478,8 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
 
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const sessions = await getUserSessions(req.user.id);
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const sessions = await getAllSessions(!isSuperAdmin);
     return res.json({ success: true, sessions });
   } catch (error) {
     console.error('Erro ao listar sessões:', error);

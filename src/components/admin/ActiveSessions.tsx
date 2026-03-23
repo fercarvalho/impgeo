@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 
 interface Session {
   id: string;
+  user_id: string;
+  username: string;
+  role: string;
   ip_address: string;
   device_type: string;
   device_name: string;
@@ -150,9 +153,7 @@ export default function ActiveSessions() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900 truncate">{session.device_name || 'Dispositivo desconhecido'}</span>
-                      {index === 0 && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sessão Atual</span>
-                      )}
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">@{session.username}</span>
                     </div>
                     <p className="text-sm text-gray-500">{session.browser} · {session.os}</p>
                   </div>

@@ -172,6 +172,39 @@ async function getUserSessions(userId) {
   }
 }
 
+async function getAllSessions(excludeSuperadmin = false) {
+  try {
+    const query = `
+      SELECT
+        s.id,
+        s.user_id,
+        u.username,
+        u.role,
+        s.ip_address,
+        s.device_type,
+        s.device_name,
+        s.browser,
+        s.os,
+        s.country,
+        s.city,
+        s.created_at,
+        s.last_activity_at,
+        s.expires_at,
+        s.is_active
+      FROM active_sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.is_active = TRUE
+      ${excludeSuperadmin ? "AND u.role != 'superadmin'" : ''}
+      ORDER BY s.last_activity_at DESC
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  } catch (error) {
+    console.error("[SessionManager] Erro ao listar todas as sessões:", error);
+    throw error;
+  }
+}
+
 async function getSessionById(sessionId) {
   try {
     const result = await pool.query(
@@ -397,6 +430,7 @@ async function getSessionStats(userId) {
 module.exports = {
   createSession,
   getUserSessions,
+  getAllSessions,
   getSessionById,
   revokeSession,
   revokeSessionByRefreshTokenId,
