@@ -27,6 +27,7 @@ import {
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
 import { lazy, Suspense } from 'react'
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts'
 import Login from './components/Login'
 import ResetarSenhaModal from './components/ResetarSenhaModal'
 import ChartModal from './components/modals/ChartModal'
@@ -2982,20 +2983,49 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     // Componente de gráfico de rosca (donut chart)
     const renderPieChart = (data: any[], title: string) => {
       const hasData = data.length > 0 && data.some(item => item.value > 0);
-      
+      const total = data.reduce((sum, item) => sum + item.value, 0);
+
       return (
         <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 mt-4">
           <h3 className="text-base font-bold text-gray-800 mb-3">{title}</h3>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-gray-800 mb-3">
-                {hasData ? `R$ ${data[0].value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Sem dados'}
-              </div>
-              <div className="text-xs text-gray-600">
-                {hasData ? data[0].name : 'Nenhuma transação encontrada'}
-              </div>
+          {hasData ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <RechartsPieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  formatter={(value: any) => [`R$ ${(parseFloat(String(value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, '']}
+                />
+                <Legend formatter={(value) => <span className="text-sm text-gray-700">{value}</span>} />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-60 text-gray-400 text-sm">
+              Nenhuma transação encontrada
             </div>
-          </div>
+          )}
+          {hasData && (
+            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+              {data.map(item => (
+                <span key={item.name}>
+                  <span className="font-semibold" style={{ color: item.color }}>{item.name}:</span>{' '}
+                  R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {total > 0 && <span className="ml-1 text-gray-400">({((item.value / total) * 100).toFixed(1)}%)</span>}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       );
   }
