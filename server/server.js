@@ -3607,12 +3607,6 @@ app.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmin, 
       status: AUDIT_STATUS.SUCCESS,
     });
 
-    try {
-      await createSession(targetUser.id, null, req);
-    } catch (sessionError) {
-      console.warn('[impersonate] Falha ao criar sessão de impersonação (não crítico):', sessionError.message);
-    }
-
     return res.json({
       success: true,
       token: impersonationToken,
