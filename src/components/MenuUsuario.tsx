@@ -107,10 +107,6 @@ const MenuUsuario: React.FC = () => {
     </div>
   ) : null;
 
-  const displayName = user.firstName && user.lastName
-    ? `${user.firstName} ${user.lastName}`
-    : user.username;
-
   const roleLabels: Record<string, string> = {
     superadmin: 'Super Admin',
     admin: 'Admin',
@@ -135,9 +131,12 @@ const MenuUsuario: React.FC = () => {
           size="sm"
           className="border border-blue-300"
         />
-        <div className="flex flex-col items-start leading-tight max-w-[130px]">
-          <span className="text-sm font-medium truncate w-full">{displayName}</span>
-          <span className="text-xs text-blue-200 truncate w-full">{roleLabel}</span>
+        <div className="hidden sm:flex flex-col items-start leading-tight max-w-[130px]">
+          <span className="text-sm font-medium truncate w-full">
+            <span>{user.firstName || user.username}</span>
+            {user.lastName && <span className="hidden md:inline"> {user.lastName}</span>}
+          </span>
+          <span className="text-xs text-blue-200 truncate w-full hidden lg:block">{roleLabel}</span>
         </div>
         <ChevronDown className={`w-4 h-4 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
       </button>
