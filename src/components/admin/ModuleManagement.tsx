@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle } from 'lucide-react';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ModuleItem {
   moduleKey: string;
