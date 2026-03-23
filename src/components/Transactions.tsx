@@ -527,7 +527,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Data</p>
                   {getSortIcon('date')}
                 </button>
-                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-[0.6] min-w-0">
+                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Descrição</p>
                   {getSortIcon('description')}
                 </button>
@@ -568,7 +568,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <div className="flex-shrink-0 w-20 sm:w-24 text-left">
                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
                   </div>
-                  <div className="flex-[0.6] min-w-0 text-left">
+                  <div className="flex-1 min-w-0 text-left">
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{t.description}</h3>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
