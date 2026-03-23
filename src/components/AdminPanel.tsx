@@ -12,7 +12,9 @@ import {
   Trash2,
   X,
   Save,
-  UserCircle2
+  UserCircle2,
+  Shield,
+  Check
 } from 'lucide-react';
 
 type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
@@ -49,10 +51,28 @@ interface ModuleOption {
   enabled: boolean;
 }
 
+const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
+
+const getDefaultModulesForRole = (role: RoleType): string[] => {
+  switch (role) {
+    case 'superadmin':
+      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin', 'sessions', 'anomalies', 'security_alerts'];
+    case 'admin':
+      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin'];
+    case 'user':
+      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
+    case 'guest':
+      return ['dashboard', 'metas', 'reports', 'dre'];
+    default:
+      return [];
+  }
+};
+
 const DEFAULT_CREATE_FORM = {
   username: '',
-  password: '',
-  role: 'user' as RoleType
+  role: 'user' as RoleType,
+  isActive: true,
+  modules: getDefaultModulesForRole('user')
 };
 
 interface AdminPanelProps {
@@ -96,6 +116,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   }, [showModulesModal, showPasswordModal, showUsernameModal, showProfileModal, showCreateModal, deleteConfirm]);
 
   const [createForm, setCreateForm] = useState(DEFAULT_CREATE_FORM);
+  const [allModules, setAllModules] = useState<{ moduleKey: string; moduleName: string }[]>([]);
   const [profileForm, setProfileForm] = useState({
     firstName: '',
     lastName: '',
@@ -126,6 +147,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   useEffect(() => {
     if (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') {
       loadUsers();
+      fetch(`${API_BASE_URL}/admin/modules`, { headers: authHeaders() })
+        .then(r => r.json())
+        .then(d => { if (d.success) setAllModules(d.data || []); })
+        .catch(() => {});
     }
   }, [currentUser]);
 
@@ -176,21 +201,37 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     clearFeedback();
+    if (!createForm.username.trim() || createForm.username.trim().length < 3) {
+      setError('Nome de usuário deve ter pelo menos 3 caracteres');
+      return;
+    }
+    if (createForm.modules.length === 0) {
+      setError('Selecione pelo menos um módulo');
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify(createForm)
+        body: JSON.stringify({
+          username: createForm.username.trim(),
+          role: createForm.role,
+          isActive: createForm.isActive,
+          modules: createForm.modules
+        })
       });
       const data = await response.json();
       if (!response.ok) {
         setError(data.error || 'Erro ao criar usuário');
         return;
       }
-
       setShowCreateModal(false);
       setCreateForm(DEFAULT_CREATE_FORM);
-      showSuccess('Usuário criado com sucesso!');
+      if (data.temporaryPassword) {
+        setTemporaryPassword({ username: createForm.username.trim(), value: data.temporaryPassword });
+      } else {
+        showSuccess('Usuário criado com sucesso!');
+      }
       await loadUsers();
     } catch (err) {
       setError('Erro ao conectar com o servidor');
@@ -681,37 +722,129 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {createPortal(<>
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Criar novo usuário</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <form onSubmit={handleCreate}>
-              <div className="space-y-4">
-                <input type="text" required placeholder="Username" value={createForm.username} onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-                <input type="password" required placeholder="Senha" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-                <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as RoleType })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                  {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
-                  <option value="admin">Administrador</option>
-                  <option value="user">Usuário</option>
-                  <option value="guest">Convidado</option>
-                </select>
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Criar
+      {showCreateModal && (() => {
+        const roleOptions = [
+          ...(currentUser?.role === 'superadmin' ? [{ value: 'superadmin' as RoleType, label: 'Super Administrador', description: 'Acesso total ao sistema' }] : []),
+          { value: 'admin' as RoleType, label: 'Administrador', description: 'Gerencia usuários e módulos' },
+          { value: 'user' as RoleType, label: 'Usuário', description: 'Acesso padrão ao sistema' },
+          { value: 'guest' as RoleType, label: 'Convidado', description: 'Acesso somente leitura' }
+        ];
+        const visibleModules = allModules.filter(m => {
+          if (SUPERADMIN_MODULES.includes(m.moduleKey) && currentUser?.role !== 'superadmin') return false;
+          return true;
+        });
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowCreateModal(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200/50 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                  <UserPlus className="w-6 h-6 text-blue-700" />
+                  Novo Usuário
+                </h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-full transition-all">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleCreate} className="p-6 space-y-6">
+                {/* Erro */}
+                {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{error}</div>}
+
+                {/* Username */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Nome de Usuário *</label>
+                  <input
+                    type="text"
+                    value={createForm.username}
+                    onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Digite o nome de usuário"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Este será o login do usuário. Uma senha temporária será gerada automaticamente.</p>
+                </div>
+
+                {/* Role */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">Função *</label>
+                  <div className="grid gap-3">
+                    {roleOptions.map((option) => (
+                      <label key={option.value} className={`relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${createForm.role === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                        <input type="radio" name="role" value={option.value} checked={createForm.role === option.value}
+                          onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as RoleType, modules: getDefaultModulesForRole(e.target.value as RoleType) })}
+                          className="sr-only" />
+                        <div className="flex items-center gap-3 flex-1">
+                          <Shield className={`w-5 h-5 ${createForm.role === option.value ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{option.label}</p>
+                            <p className="text-sm text-gray-500">{option.description}</p>
+                          </div>
+                          {createForm.role === option.value && <Check className="w-5 h-5 text-blue-600" />}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={createForm.isActive}
+                      onChange={(e) => setCreateForm({ ...createForm, isActive: e.target.checked })}
+                      className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span className="ml-3 text-sm font-medium text-gray-900">{createForm.isActive ? 'Ativo' : 'Inativo'}</span>
+                  </label>
+                </div>
+
+                {/* Módulos */}
+                {visibleModules.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Módulos de Acesso *</label>
+                    <p className="text-xs text-gray-500 mb-3">Pré-selecionados para <span className="font-semibold">{roleOptions.find(r => r.value === createForm.role)?.label}</span>. Ajuste conforme necessário.</p>
+                    <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      {visibleModules.map((m) => (
+                        <label key={m.moduleKey} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${createForm.modules.includes(m.moduleKey) ? 'bg-blue-100 text-blue-900' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
+                          <input type="checkbox" checked={createForm.modules.includes(m.moduleKey)}
+                            onChange={() => setCreateForm(prev => ({
+                              ...prev,
+                              modules: prev.modules.includes(m.moduleKey)
+                                ? prev.modules.filter(k => k !== m.moduleKey)
+                                : [...prev.modules, m.moduleKey]
+                            }))}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                          <span className="text-sm font-medium">{m.moduleName}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Informações</p>
+                  <ul className="space-y-1 text-xs">
+                    <li>• Uma senha temporária será gerada automaticamente</li>
+                    <li>• O usuário deverá alterar a senha no primeiro acesso</li>
+                    <li>• Você pode editar o perfil completo depois</li>
+                  </ul>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-3 pt-2 border-t">
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-700 font-medium hover:text-gray-900 transition-colors">Cancelar</button>
+                  <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Criar Usuário
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {showProfileModal && editingUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowProfileModal(false)}>
