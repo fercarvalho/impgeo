@@ -527,7 +527,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Data</p>
                   {getSortIcon('date')}
                 </button>
-                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
+                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-[0.6] min-w-0">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Descrição</p>
                   {getSortIcon('description')}
                 </button>
@@ -542,7 +542,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 <div className="flex items-center justify-center gap-1 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-24 sm:w-28">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Subcategoria</p>
                 </div>
-                <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-28 sm:w-36">
                   <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Valor</p>
                   {getSortIcon('value')}
                 </button>
@@ -568,7 +568,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <div className="flex-shrink-0 w-20 sm:w-24 text-left">
                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
                   </div>
-                  <div className="flex-[1.2] min-w-0 text-left">
+                  <div className="flex-[0.6] min-w-0 text-left">
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{t.description}</h3>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
@@ -580,8 +580,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <div className="flex-shrink-0 w-24 sm:w-28 text-center">
                     <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.subcategory || '-'}</span>
                   </div>
-                  <div className="flex-shrink-0 w-20 sm:w-24 text-center">
-                    <p className={`text-xs sm:text-xs md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
+                  <div className="flex-shrink-0 w-28 sm:w-36 text-center">
+                    <p className={`text-xs sm:text-sm md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
                       {t.type === 'Receita' ? '+' : '-'}R$ {(parseFloat(String(t.value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
