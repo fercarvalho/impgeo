@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle } from 'lucide-react';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
+import { useAuth } from '../../context/AuthContext';
 
 interface ModuleItem {
   moduleKey: string;
@@ -23,6 +24,7 @@ const defaultForm = {
 
 const ModuleManagement: React.FC = () => {
   const apiBase = useMemo(() => getAdminApiBaseUrl(), []);
+  const { user: currentUser } = useAuth();
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const [showModuleModal, setShowModuleModal] = useState(false);
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
@@ -30,6 +32,7 @@ const ModuleManagement: React.FC = () => {
   const [showAdminBlockModal, setShowAdminBlockModal] = useState(false);
 
   const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
+  const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 
   const loadModules = async () => {
     try {
@@ -203,19 +206,22 @@ const ModuleManagement: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => {
+                  if (SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin') return;
                   if (PROTECTED_MODULES.includes(module.moduleKey) && module.isActive !== false) {
                     setShowAdminBlockModal(true);
                     return;
                   }
                   handleUpdateModule(module.moduleKey, { isActive: !(module.isActive !== false) });
                 }}
-                className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50"
+                disabled={SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin'}
+                className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {module.isActive !== false ? 'Desativar' : 'Ativar'}
               </button>
               <button
-                onClick={() => openEditModal(module)}
-                className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800"
+                onClick={() => { if (SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin') return; openEditModal(module); }}
+                disabled={SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin'}
+                className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Editar"
               >
                 <Edit className="h-4 w-4" />
