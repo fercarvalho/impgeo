@@ -909,7 +909,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
         
         {/* Segunda linha: Menus */}
-        <div className="flex items-center justify-center space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2">
+        <div className="flex items-center justify-start space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2 px-1">
           {hasModuleAccess('dashboard') && (
             <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <Home className="h-4 w-4 mb-2" />
