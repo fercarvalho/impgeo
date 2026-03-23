@@ -252,7 +252,7 @@ const ModuleManagement: React.FC = () => {
       </div>
 
       {showAdminBlockModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setShowAdminBlockModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -282,7 +282,7 @@ const ModuleManagement: React.FC = () => {
       )}
 
       {showModuleModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">

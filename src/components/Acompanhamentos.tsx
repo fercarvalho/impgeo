@@ -2450,7 +2450,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Edição/Criação */}
       {isModalOpen && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsModalOpen(false)
