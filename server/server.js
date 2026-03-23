@@ -3708,7 +3708,7 @@ app.post('/api/webhooks/asaas', async (req, res) => {
         date: payment.paymentDate || payment.clientPaymentDate || payment.dateCreated,
         description: `[Asaas] ${payment.description || payment.billingType || 'Pagamento'} - ${payment.invoiceNumber || payment.id}`,
         value: parseFloat(payment.netValue || payment.value),
-        type: 'entrada',
+        type: 'Receita',
         category: 'Recebimento Asaas',
         subcategory: payment.billingType || 'Outro',
       };
@@ -3725,7 +3725,7 @@ app.post('/api/webhooks/asaas', async (req, res) => {
         date: transfer.effectiveDate || transfer.dateCreated,
         description: `[Asaas] ${operationType} para ${destName}`,
         value: -Math.abs(parseFloat(transfer.value)),
-        type: 'saída',
+        type: 'Despesa',
         category: 'Transferência Asaas',
         subcategory: operationType,
       };

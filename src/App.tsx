@@ -698,7 +698,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
-    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
@@ -726,7 +726,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
-    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta de despesas para o mês (limite de 15.000 por mês)
     const metaDespesas = 15000
@@ -745,8 +745,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
-    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Metas de investimentos para o mês (baseadas na projeção - linha Previsto)
     const metaInvestimentosGerais = getInvestimentoValue('investimentos', monthIndex)
@@ -770,7 +770,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
-    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
@@ -806,7 +806,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
     })
-    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta anual de faturamento (soma das metas mensais)
     const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
@@ -826,7 +826,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
     })
-    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta anual de despesas (limite de 180.000 por ano)
     const metaDespesasAnual = 180000
@@ -845,8 +845,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
     })
-    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Metas anuais de investimentos (baseadas na projeção - linha Previsto)
     const metaInvestimentosGeraisAnual = Array.from({ length: 12 }, (_, monthIndex) => 
@@ -875,7 +875,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
     })
-    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const metasDoAno = [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
     const metaTotalAno = metasDoAno.reduce((sum, meta) => sum + meta, 0)
     
@@ -1012,7 +1012,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <div key={monthName} className="space-y-6 mb-32">
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
           <h2 className="text-3xl font-bold text-white text-center uppercase tracking-wider">
-            {monthName} - 2025
+            {monthName} - {new Date().getFullYear()}
           </h2>
         </div>
         {renderMonthContent(monthName, monthIndex)}
@@ -1029,8 +1029,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
     })
 
-    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     
     // Meta de faturamento para o mês (baseada nos arquivos específicos - linha Previsto)
     const metasDoMes = projectionData ? [
@@ -1062,8 +1062,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
              (transactionYear === currentYear && transactionMonth < monthIndex)
     })
     
-    const receitasAnteriores = transacoesAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const despesasAnteriores = transacoesAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const receitasAnteriores = transacoesAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const despesasAnteriores = transacoesAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const saldoInicial = receitasAnteriores - despesasAnteriores
     
     // Calcular reforço e saída de caixa (movimentações líquidas)
@@ -1744,8 +1744,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       return transactionDate.getFullYear() === currentYear
     })
 
-    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const totalReceitasAno = transacoesDoAno.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalDespesasAno = transacoesDoAno.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
 
     // Metas anuais de investimentos (baseadas na projeção - linha Previsto)
     const metaInvestimentosGeraisAnual = Array.from({ length: 12 }, (_, monthIndex) => 
@@ -1774,8 +1774,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       return transactionDate.getFullYear() < currentYear
     })
     
-    const receitasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-    const despesasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+    const receitasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const despesasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const saldoInicialAno = receitasAnosAnteriores - despesasAnosAnteriores
     
     // Calcular reforço e saída de caixa anual
@@ -2481,8 +2481,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
       })
       
-      const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + t.value, 0)
-      const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + t.value, 0)
+      const totalReceitas = transacoesDoMes.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+      const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
       
       // Meta/Limite de despesas = soma das despesas da projeção (limite total)
       const metaDespesas = projectionData ? 
@@ -2902,10 +2902,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
     const totalReceitasMes = transacoesMesSelecionado
       .filter(t => t.type === 'Receita')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const totalDespesasMes = transacoesMesSelecionado
       .filter(t => t.type === 'Despesa')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const lucroLiquidoMes = totalReceitasMes - totalDespesasMes
     
     // Função para determinar o trimestre de um mês (0-11)
@@ -2921,10 +2921,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     
     const totalReceitasTrimestre = transacoesTrimestre
       .filter(t => t.type === 'Receita')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const totalDespesasTrimestre = transacoesTrimestre
       .filter(t => t.type === 'Despesa')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const lucroLiquidoTrimestre = totalReceitasTrimestre - totalDespesasTrimestre
     
     // Cálculos anuais
@@ -2935,10 +2935,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     
     const totalReceitasAno = transacoesAno
       .filter(t => t.type === 'Receita')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const totalDespesasAno = transacoesAno
       .filter(t => t.type === 'Despesa')
-      .reduce((sum, t) => sum + t.value, 0)
+      .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const lucroLiquidoAno = totalReceitasAno - totalDespesasAno
 
     // Transações recentes (últimas 5)

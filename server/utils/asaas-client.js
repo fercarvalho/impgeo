@@ -87,7 +87,7 @@ async function fetchReceivedPayments(since = null) {
         date: p.paymentDate || p.clientPaymentDate || p.dateCreated,
         description: `[Asaas] ${p.description || mapBillingType(p.billingType)} - ${p.invoiceNumber || p.id}`,
         value: parseFloat(p.netValue || p.value),
-        type: 'entrada',
+        type: 'Receita',
         category: 'Recebimento Asaas',
         subcategory: mapBillingType(p.billingType),
       });
@@ -132,7 +132,7 @@ async function fetchDoneTransfers(since = null) {
         date: t.effectiveDate || t.scheduleDate || t.dateCreated,
         description: `[Asaas] ${operationType} para ${destName}`,
         value: -Math.abs(parseFloat(t.value)),
-        type: 'saída',
+        type: 'Despesa',
         category: 'Transferência Asaas',
         subcategory: operationType,
       });
