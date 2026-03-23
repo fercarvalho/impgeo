@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Lock, XCircle, RefreshCw, Monitor, Smartphone, Globe, Clock, MapPin, Trash2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Session {
   id: string;
@@ -22,14 +23,15 @@ const API_BASE_URL =
     : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 export default function ActiveSessions() {
+  const { token } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { fetchSessions(); }, []);
+  useEffect(() => { if (token) fetchSessions(); }, [token]);
 
   const authHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   });
 
