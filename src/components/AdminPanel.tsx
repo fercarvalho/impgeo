@@ -546,6 +546,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">{error}</div>}
       {successMessage && <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">{successMessage}</div>}
 
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => { clearFeedback(); setCreateForm(DEFAULT_CREATE_FORM); setShowCreateModal(true); }}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow transition-all"
+        >
+          <UserPlus className="h-5 w-5" />
+          Novo Usuário
+        </button>
+      </div>
+
       {loading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
