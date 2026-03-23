@@ -80,6 +80,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   const [moduleOptions, setModuleOptions] = useState<ModuleOption[]>([]);
   const [nameSortOrder, setNameSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showModulesModal) setShowModulesModal(false);
+      else if (showPasswordModal) setShowPasswordModal(false);
+      else if (showUsernameModal) setShowUsernameModal(false);
+      else if (showProfileModal) setShowProfileModal(false);
+      else if (showCreateModal) setShowCreateModal(false);
+      else if (deleteConfirm) setDeleteConfirm(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showModulesModal, showPasswordModal, showUsernameModal, showProfileModal, showCreateModal, deleteConfirm]);
+
   const [createForm, setCreateForm] = useState(DEFAULT_CREATE_FORM);
   const [profileForm, setProfileForm] = useState({
     firstName: '',
@@ -666,7 +680,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Criar novo usuário</h2>
@@ -698,7 +712,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showProfileModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowProfileModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowProfileModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Editar cadastro de {editingUser.username}</h2>
@@ -797,7 +811,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showUsernameModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowUsernameModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowUsernameModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar nome de usuário</h2>
@@ -820,7 +834,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showPasswordModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowPasswordModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowPasswordModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar senha de {editingUser.username}</h2>
@@ -846,7 +860,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showModulesModal && modulesTargetUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowModulesModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowModulesModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Módulos de acesso de {modulesTargetUser.username}</h2>
@@ -902,7 +916,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {temporaryPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setTemporaryPassword(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setTemporaryPassword(null)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Senha resetada</h2>
             <p className="text-gray-600 mb-4">
@@ -918,7 +932,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Confirmar exclusão</h2>
             <p className="text-gray-600 mb-6">

@@ -34,6 +34,17 @@ const ModuleManagement: React.FC = () => {
   const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
   const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showAdminBlockModal) setShowAdminBlockModal(false);
+        else if (showModuleModal) { setShowModuleModal(false); setEditingModule(null); }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showAdminBlockModal, showModuleModal]);
+
   const loadModules = async () => {
     try {
       const response = await fetch(`${apiBase}/admin/modules`, { headers: getAuthHeaders() });
@@ -241,8 +252,8 @@ const ModuleManagement: React.FC = () => {
       </div>
 
       {showAdminBlockModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setShowAdminBlockModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -271,8 +282,8 @@ const ModuleManagement: React.FC = () => {
       )}
 
       {showModuleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">
                 {editingModule ? 'Editar Módulo' : 'Novo Módulo'}
