@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X } from 'lucide-react'
+import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
 type TransactionType = 'Receita' | 'Despesa'
@@ -41,6 +41,38 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [hiddenSubcategories, setHiddenSubcategories] = useState<string[]>([])
   const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [isSyncingAsaas, setIsSyncingAsaas] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ inserted: number; skipped: number } | null>(null)
+
+  const syncAsaas = async () => {
+    setIsSyncingAsaas(true)
+    setSyncResult(null)
+    try {
+      const r = await fetch(`${API_BASE_URL}/asaas/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({}),
+      })
+      const data = await r.json()
+      if (data.success) {
+        setSyncResult({ inserted: data.inserted, skipped: data.skipped })
+        if (data.inserted > 0) {
+          const r2 = await fetch(`${API_BASE_URL}/transactions`)
+          const d2 = await r2.json()
+          if (d2.success) setTransactions(d2.data || [])
+        }
+        setTimeout(() => setSyncResult(null), 5000)
+      }
+    } catch {
+      alert('Erro ao sincronizar com Asaas')
+    } finally {
+      setIsSyncingAsaas(false)
+    }
+  }
 
   // filtros / ordenação
   const [sortConfig, setSortConfig] = useState<{ field: keyof Transaction | null, direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' })
@@ -354,15 +386,31 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               Importar/Exportar
             </button>
           )}
-          {permissions.canCreate && (
+          <div className="flex items-center gap-2">
+            {syncResult && (
+              <span className="text-xs text-green-700 bg-green-100 px-3 py-1.5 rounded-lg font-medium">
+                ✓ {syncResult.inserted} importadas, {syncResult.skipped} já existiam
+              </span>
+            )}
             <button
-              onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              onClick={syncAsaas}
+              disabled={isSyncingAsaas}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 shadow-md transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Sincronizar entradas e saídas do Asaas"
             >
-              <Plus className="h-5 w-5" />
-              Nova Transação
+              <RefreshCw className={`h-4 w-4 ${isSyncingAsaas ? 'animate-spin' : ''}`} />
+              {isSyncingAsaas ? 'Sincronizando...' : 'Sync Asaas'}
             </button>
-          )}
+            {permissions.canCreate && (
+              <button
+                onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
+                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              >
+                <Plus className="h-5 w-5" />
+                Nova Transação
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

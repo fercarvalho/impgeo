@@ -3658,6 +3658,83 @@ app.post('/api/auth/impersonate/stop', authenticateToken, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// INTEGRAÇÃO ASAAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const { fetchReceivedPayments, fetchDoneTransfers } = require('./utils/asaas-client');
+
+// Sincronização manual: busca entradas e saídas e salva no banco
+app.post('/api/asaas/sync', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { since } = req.body; // ex: "2025-01-01" — se omitido, busca tudo
+
+    const [payments, transfers] = await Promise.all([
+      fetchReceivedPayments(since || null),
+      fetchDoneTransfers(since || null),
+    ]);
+
+    let inserted = 0;
+    let skipped = 0;
+
+    for (const tx of [...payments, ...transfers]) {
+      const saved = await db.saveAsaasTransaction(tx);
+      if (saved) inserted++;
+      else skipped++;
+    }
+
+    console.log(`[Asaas Sync] ${inserted} inseridas, ${skipped} já existiam`);
+    return res.json({ success: true, inserted, skipped, total: payments.length + transfers.length });
+  } catch (error) {
+    console.error('[Asaas Sync] Erro:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Webhook: recebe eventos em tempo real do Asaas
+app.post('/api/webhooks/asaas', async (req, res) => {
+  try {
+    const { event, payment, transfer } = req.body;
+
+    if (event === 'PAYMENT_RECEIVED' && payment) {
+      const tx = {
+        asaas_id: payment.id,
+        asaas_type: 'payment',
+        date: payment.paymentDate || payment.clientPaymentDate || payment.dateCreated,
+        description: `[Asaas] ${payment.description || payment.billingType || 'Pagamento'} - ${payment.invoiceNumber || payment.id}`,
+        value: parseFloat(payment.netValue || payment.value),
+        type: 'entrada',
+        category: 'Recebimento Asaas',
+        subcategory: payment.billingType || 'Outro',
+      };
+      await db.saveAsaasTransaction(tx);
+      console.log(`[Asaas Webhook] Entrada registrada: ${payment.id} — R$ ${tx.value}`);
+    }
+
+    if (event === 'TRANSFER_DONE' && transfer) {
+      const destName = transfer.bankAccount?.ownerName || 'Destinatário';
+      const operationType = transfer.operationType || 'PIX';
+      const tx = {
+        asaas_id: transfer.id,
+        asaas_type: 'transfer',
+        date: transfer.effectiveDate || transfer.dateCreated,
+        description: `[Asaas] ${operationType} para ${destName}`,
+        value: -Math.abs(parseFloat(transfer.value)),
+        type: 'saída',
+        category: 'Transferência Asaas',
+        subcategory: operationType,
+      };
+      await db.saveAsaasTransaction(tx);
+      console.log(`[Asaas Webhook] Saída registrada: ${transfer.id} — R$ ${tx.value}`);
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[Asaas Webhook] Erro:', error);
+    return res.status(500).json({ success: false });
+  }
+});
+
 // Iniciar servidor
 app.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);

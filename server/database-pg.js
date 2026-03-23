@@ -326,8 +326,8 @@ class Database {
     try {
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
           id,
@@ -337,6 +337,8 @@ class Database {
           transaction.type || null,
           transaction.category || null,
           transaction.subcategory || null,
+          transaction.asaas_id || null,
+          transaction.asaas_type || null,
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -344,6 +346,35 @@ class Database {
       return result.rows[0];
     } catch (error) {
       console.error('Erro ao salvar transação:', error);
+      throw error;
+    }
+  }
+
+  async saveAsaasTransaction(transaction) {
+    try {
+      const id = this.generateId();
+      const result = await this.queryWithRetry(
+        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (asaas_id) DO NOTHING
+         RETURNING *`,
+        [
+          id,
+          transaction.date || null,
+          transaction.description || null,
+          transaction.value || 0,
+          transaction.type || null,
+          transaction.category || null,
+          transaction.subcategory || null,
+          transaction.asaas_id,
+          transaction.asaas_type || null,
+          new Date().toISOString(),
+          new Date().toISOString()
+        ]
+      );
+      return result.rows[0] || null; // null = já existia (ignorado)
+    } catch (error) {
+      console.error('Erro ao salvar transação Asaas:', error);
       throw error;
     }
   }
