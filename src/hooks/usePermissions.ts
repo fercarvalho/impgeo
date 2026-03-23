@@ -24,6 +24,7 @@ export const usePermissions = (): Permissions => {
   }
 
   switch (user.role) {
+    case 'superadmin':
     case 'admin':
       return {
         canCreate: true,
