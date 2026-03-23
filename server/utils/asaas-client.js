@@ -131,7 +131,7 @@ async function fetchDoneTransfers(since = null) {
         asaas_type: 'transfer',
         date: t.effectiveDate || t.scheduleDate || t.dateCreated,
         description: `[Asaas] ${operationType} para ${destName}`,
-        value: -Math.abs(parseFloat(t.value)),
+        value: Math.abs(parseFloat(t.value)),
         type: 'Despesa',
         category: 'Transferência Asaas',
         subcategory: operationType,

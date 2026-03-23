@@ -3724,7 +3724,7 @@ app.post('/api/webhooks/asaas', async (req, res) => {
         asaas_type: 'transfer',
         date: transfer.effectiveDate || transfer.dateCreated,
         description: `[Asaas] ${operationType} para ${destName}`,
-        value: -Math.abs(parseFloat(transfer.value)),
+        value: Math.abs(parseFloat(transfer.value)),
         type: 'Despesa',
         category: 'Transferência Asaas',
         subcategory: operationType,
