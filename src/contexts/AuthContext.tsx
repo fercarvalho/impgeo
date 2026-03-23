@@ -261,6 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Verificar token do usuário representado para obter perfil completo
       await verifyToken(data.token);
+      window.dispatchEvent(new CustomEvent('auth:impersonation-changed'));
       return true;
     } catch (error) {
       console.error('Erro ao iniciar impersonation:', error);
@@ -281,6 +282,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sessionStorage.removeItem('originalToken');
 
     verifyToken(originalToken);
+    window.dispatchEvent(new CustomEvent('auth:impersonation-changed'));
   };
 
   const value: AuthContextType = {

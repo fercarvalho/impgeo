@@ -227,6 +227,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }, [activeTab, user]);
 
+  // Resetar para dashboard quando impersonation iniciar ou encerrar
+  useEffect(() => {
+    const handleImpersonationChange = () => setActiveTab('dashboard');
+    window.addEventListener('auth:impersonation-changed', handleImpersonationChange);
+    return () => window.removeEventListener('auth:impersonation-changed', handleImpersonationChange);
+  }, []);
+
   // Resetar modal quando trocar de aba
   useEffect(() => {
     setShowTransactionModal(false)
