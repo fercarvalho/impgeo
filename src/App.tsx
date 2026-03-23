@@ -693,7 +693,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   // Funções específicas para cada tipo de gráfico
   const openFaturamentoChart = (monthIndex: number, monthName: string) => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoMes = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
@@ -721,7 +721,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   }
 
   const openDespesasChart = (monthIndex: number, monthName: string) => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoMes = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
@@ -740,7 +740,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   }
 
   const openInvestimentosChart = (monthIndex: number, monthName: string) => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoMes = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
@@ -765,7 +765,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   }
 
   const openProgressoChart = (monthIndex: number, monthName: string) => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoMes = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
@@ -801,7 +801,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   // Funções para gráficos anuais
   const openFaturamentoAnualChart = () => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
@@ -817,11 +817,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Restante', value: Math.max(0, metaFaturamentoAnual - totalReceitasAno), color: '#e5e7eb' }
     ]
     
-    openChart('Faturamento Anual 2025', data, `Alcançado vs Meta Anual de R$ ${metaFaturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart('Faturamento Anual ${new Date().getFullYear()}', data, `Alcançado vs Meta Anual de R$ ${metaFaturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openDespesasAnualChart = () => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
@@ -836,11 +836,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Limite Restante', value: Math.max(0, metaDespesasAnual - totalDespesasAno), color: '#e5e7eb' }
     ]
     
-    openChart('Despesas Anuais 2025', data, `Alcançado vs Limite Anual de R$ ${metaDespesasAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart('Despesas Anuais ${new Date().getFullYear()}', data, `Alcançado vs Limite Anual de R$ ${metaDespesasAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openInvestimentosAnualChart = () => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
@@ -866,11 +866,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Restante MKT', value: Math.max(0, metaInvestimentosMktAnual - investimentosMktAnual), color: '#f3f4f6' }
     ]
     
-    openChart('Investimentos Anuais 2025', data, `Alcançado vs Metas Anuais: Gerais R$ ${metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart('Investimentos Anuais ${new Date().getFullYear()}', data, `Alcançado vs Metas Anuais: Gerais R$ ${metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openProgressoAnualChart = () => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoAno = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getFullYear() === currentYear
@@ -884,7 +884,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Anual Restante', value: Math.max(0, metaTotalAno - totalReceitasAno), color: '#f3f4f6' }
     ]
     
-    openChart('Progresso da Meta Anual 2025', data, 'Progresso em relação à meta anual')
+    openChart('Progresso da Meta Anual ${new Date().getFullYear()}', data, 'Progresso em relação à meta anual')
   }
 
   // NavigationBar
@@ -1023,7 +1023,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Conteúdo do mês (stub alinhado com referências existentes)
   const renderMonthContent = (_monthName: string, monthIndex: number) => {
     // Cálculos para o mês específico
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     const transacoesDoMes = transactions.filter(t => {
       const transactionDate = new Date(t.date)
       return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
@@ -1736,7 +1736,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   // Função para renderizar o total do ano
   const renderTotalAno = () => {
-    const currentYear = 2025
+    const currentYear = new Date().getFullYear()
     
     // Cálculos totais do ano
     const transacoesDoAno = transactions.filter(t => {
@@ -1804,7 +1804,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         {/* Título Principal do Ano */}
         <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-8 rounded-2xl shadow-xl">
           <h2 className="text-4xl font-bold text-white text-center uppercase tracking-wider">
-            TOTAL DO ANO - 2025
+            TOTAL DO ANO - ${new Date().getFullYear()}
           </h2>
         </div>
 
@@ -2475,7 +2475,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const metaFaturamento = metasDoMes.reduce((sum, meta) => sum + meta, 0)
       
       // Obter dados reais de transações do mês
-      const currentYear = 2025
+      const currentYear = new Date().getFullYear()
       const transacoesDoMes = transactions.filter(t => {
         const transactionDate = new Date(t.date)
         return transactionDate.getMonth() === monthIndex && transactionDate.getFullYear() === currentYear
