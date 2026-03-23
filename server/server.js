@@ -3694,6 +3694,11 @@ app.post('/api/asaas/sync', authenticateToken, requireAdmin, async (req, res) =>
 // Webhook: recebe eventos em tempo real do Asaas
 app.post('/api/webhooks/asaas', async (req, res) => {
   try {
+    const token = req.headers['asaas-access-token'] || req.headers['authorization'];
+    if (process.env.ASAAS_WEBHOOK_TOKEN && token !== process.env.ASAAS_WEBHOOK_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Token inválido' });
+    }
+
     const { event, payment, transfer } = req.body;
 
     if (event === 'PAYMENT_RECEIVED' && payment) {
