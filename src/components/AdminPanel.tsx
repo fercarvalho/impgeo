@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
+import UserCreationTypeModal from './admin/UserCreationTypeModal';
+import UserCreatedModal from './admin/UserCreatedModal';
+import CadastroCompletoModal from './admin/CadastroCompletoModal';
 import {
   UserPlus,
   Edit,
@@ -85,7 +88,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showCreationTypeModal, setShowCreationTypeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showUserCreatedModal, setShowUserCreatedModal] = useState(false);
+  const [createdUserData, setCreatedUserData] = useState<{ username: string; email?: string; role: string; tempPassword?: string } | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -227,11 +234,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       }
       setShowCreateModal(false);
       setCreateForm(DEFAULT_CREATE_FORM);
-      if (data.temporaryPassword) {
-        setTemporaryPassword({ username: createForm.username.trim(), value: data.temporaryPassword });
-      } else {
-        showSuccess('Usuário criado com sucesso!');
-      }
+      setCreatedUserData({ username: createForm.username.trim(), role: createForm.role, tempPassword: data.temporaryPassword });
+      setShowUserCreatedModal(true);
       await loadUsers();
     } catch (err) {
       setError('Erro ao conectar com o servidor');
@@ -548,7 +552,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       <div className="flex justify-end mb-4">
         <button
-          onClick={() => { clearFeedback(); setCreateForm(DEFAULT_CREATE_FORM); setShowCreateModal(true); }}
+          onClick={() => { clearFeedback(); setShowCreationTypeModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow transition-all"
         >
           <UserPlus className="h-5 w-5" />
@@ -1094,6 +1098,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
         </div>
       )}
       </>, document.body)}
+
+      <UserCreationTypeModal
+        isOpen={showCreationTypeModal}
+        onClose={() => setShowCreationTypeModal(false)}
+        onSelectSimple={() => { setShowCreationTypeModal(false); setCreateForm(DEFAULT_CREATE_FORM); setShowCreateModal(true); }}
+        onSelectComplete={() => { setShowCreationTypeModal(false); setShowCompleteModal(true); }}
+      />
+
+      <CadastroCompletoModal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onSuccess={(userData) => { setShowCompleteModal(false); setCreatedUserData(userData); setShowUserCreatedModal(true); loadUsers(); }}
+        apiBaseUrl={API_BASE_URL}
+        authHeaders={authHeaders}
+        availableModules={allModules}
+        superadminModules={SUPERADMIN_MODULES}
+      />
+
+      {createdUserData && (
+        <UserCreatedModal
+          isOpen={showUserCreatedModal}
+          onClose={() => { setShowUserCreatedModal(false); setCreatedUserData(null); }}
+          onCreateAnother={() => { setShowUserCreatedModal(false); setCreatedUserData(null); setShowCreationTypeModal(true); }}
+          userData={createdUserData}
+        />
+      )}
     </div>
   );
 };
