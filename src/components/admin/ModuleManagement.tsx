@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle } from 'lucide-react';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -251,7 +252,7 @@ const ModuleManagement: React.FC = () => {
         ))}
       </div>
 
-      {showAdminBlockModal && (
+      {showAdminBlockModal && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
@@ -279,9 +280,9 @@ const ModuleManagement: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
-      {showModuleModal && (
+      {showModuleModal && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
@@ -386,7 +387,7 @@ const ModuleManagement: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 };

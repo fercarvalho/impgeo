@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   UserPlus,
@@ -679,6 +680,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
         </div>
       )}
 
+      {createPortal(<>
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowCreateModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
@@ -948,6 +950,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
           </div>
         </div>
       )}
+      </>, document.body)}
     </div>
   );
 };
