@@ -260,7 +260,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   
   // Estados para Metas
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
-  const [dashboardSelectedMonthKey, setDashboardSelectedMonthKey] = useState<string>(`${new Date().getMonth()}-${new Date().getFullYear()}`)
+  const [dashboardSelectedMonth, setDashboardSelectedMonth] = useState<number>(new Date().getMonth())
   const [dashboardSelectedYear, setDashboardSelectedYear] = useState<number>(new Date().getFullYear())
   const [dashboardSelectedQuarter, setDashboardSelectedQuarter] = useState<number>(Math.floor(new Date().getMonth() / 3))
   
@@ -2898,12 +2898,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Render Dashboard
   const renderDashboard = () => {
     const currentYear = new Date().getFullYear()
-    const [selMonthStr, selMonthYearStr] = dashboardSelectedMonthKey.split('-')
-    const dashboardSelectedMonth = parseInt(selMonthStr)
-    const dashboardSelectedMonthYear = parseInt(selMonthYearStr)
     const transacoesMesSelecionado = transactions.filter(t => {
       const transactionDate = new Date(t.date)
-      return transactionDate.getMonth() === dashboardSelectedMonth && transactionDate.getFullYear() === dashboardSelectedMonthYear
+      return transactionDate.getMonth() === dashboardSelectedMonth && transactionDate.getFullYear() === dashboardSelectedYear
     })
 
     const totalReceitasMes = transacoesMesSelecionado
@@ -3060,25 +3057,15 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               id="dashboard-month-selector"
               name="dashboard-month-selector"
               aria-label="Selecionar mês do dashboard"
-              value={dashboardSelectedMonthKey}
-              onChange={(e) => setDashboardSelectedMonthKey(e.target.value)}
+              value={dashboardSelectedMonth}
+              onChange={(e) => setDashboardSelectedMonth(Number(e.target.value))}
               className="text-lg font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 outline-none cursor-pointer"
             >
               {nomesMeses.map((mes, index) => (
-                <option key={`${index}-${currentYear}`} value={`${index}-${currentYear}`}>
-                  {mes} {currentYear}
+                <option key={mes} value={index}>
+                  {mes} {dashboardSelectedYear}
                 </option>
               ))}
-              {dashboardSelectedYear !== currentYear && (
-                <>
-                  <option disabled>──────────────</option>
-                  {nomesMeses.map((mes, index) => (
-                    <option key={`${index}-${dashboardSelectedYear}`} value={`${index}-${dashboardSelectedYear}`}>
-                      {mes} {dashboardSelectedYear}
-                    </option>
-                  ))}
-                </>
-              )}
             </select>
           </h2>
           
@@ -3258,9 +3245,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               onChange={(e) => {
                 const y = Number(e.target.value)
                 setDashboardSelectedYear(y)
-                // Resetar trimestre para o correto do novo ano
                 const isCurrentYear = y === new Date().getFullYear()
                 setDashboardSelectedQuarter(isCurrentYear ? Math.floor(new Date().getMonth() / 3) : 0)
+                setDashboardSelectedMonth(isCurrentYear ? new Date().getMonth() : 0)
               }}
               className="text-lg font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-lg border border-pink-200 outline-none cursor-pointer"
             >
