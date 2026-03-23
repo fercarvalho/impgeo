@@ -61,7 +61,9 @@ const Login: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-16 w-16 object-contain" />
+            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">IMPGEO</h1>
           <p className="text-gray-600">Sistema de Gestão Inteligente</p>
