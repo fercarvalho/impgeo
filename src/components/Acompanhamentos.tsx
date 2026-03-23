@@ -3453,8 +3453,9 @@ const Acompanhamentos: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {shareLinks.map((link) => {
-                      const isExpired = link.expiresAt ? new Date(link.expiresAt) < new Date() : false
-                      const expiresAtDate = link.expiresAt ? new Date(link.expiresAt) : null
+                      const expiresRaw = (link as any).expires_at || link.expiresAt
+                      const isExpired = expiresRaw ? new Date(expiresRaw) < new Date() : false
+                      const expiresAtDate = expiresRaw ? new Date(expiresRaw) : null
                       
                       return (
                         <div key={link.token} className={`bg-white border rounded-lg p-4 ${isExpired ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
@@ -3531,7 +3532,7 @@ const Acompanhamentos: React.FC = () => {
                                     )}
                                     {!isExpired && expiresAtDate && (
                                       <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
-                                        Expira em {formatDate(link.expiresAt!)}
+                                        Expira em {formatDate((link as any).expires_at || link.expiresAt!)}
                                       </span>
                                     )}
                                     {!expiresAtDate && (
@@ -3546,7 +3547,7 @@ const Acompanhamentos: React.FC = () => {
                                     )}
                                   </div>
                                   <div className="text-xs text-gray-500 mb-2">
-                                    Criado em {formatDate(link.createdAt)}
+                                    Criado em {formatDate((link as any).created_at || link.createdAt)}
                                   </div>
                                   <div className="flex gap-2 items-center">
                                     <input
