@@ -69,21 +69,21 @@ const DRE: React.FC = () => {
     const receitas = filteredTransactions.filter(t => t.type === 'Receita')
     const despesas = filteredTransactions.filter(t => t.type === 'Despesa')
 
-    const totalReceitas = receitas.reduce((sum, t) => sum + t.value, 0)
-    const totalDespesas = despesas.reduce((sum, t) => sum + t.value, 0)
+    const totalReceitas = receitas.reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalDespesas = despesas.reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const resultadoLiquido = totalReceitas - totalDespesas
 
     // Agrupar receitas por categoria
     const receitasPorCategoria = receitas.reduce((acc, t) => {
       if (!acc[t.category]) acc[t.category] = 0
-      acc[t.category] += t.value
+      acc[t.category] += parseFloat(String(t.value)) || 0
       return acc
     }, {} as Record<string, number>)
 
     // Agrupar despesas por categoria
     const despesasPorCategoria = despesas.reduce((acc, t) => {
       if (!acc[t.category]) acc[t.category] = 0
-      acc[t.category] += t.value
+      acc[t.category] += parseFloat(String(t.value)) || 0
       return acc
     }, {} as Record<string, number>)
 
@@ -147,7 +147,7 @@ const DRE: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value)
+    }).format(parseFloat(String(value)) || 0)
   }
 
   const getMonthName = (month: number) => {
