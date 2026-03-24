@@ -308,7 +308,8 @@ const publicApiPrefixes = [
   '/documents',
   '/auth/validar-token/',
   '/acompanhamentos/public',
-  '/modelo/'
+  '/modelo/',
+  '/webhooks/'
 ];
 
 app.use('/api', (req, res, next) => {
