@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw } from 'lucide-react'
+import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
 type TransactionType = 'Receita' | 'Despesa'
@@ -42,8 +42,33 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // ── Estados do modal de importar extrato / fatura ──────────────────────────
+  const [isImportExtratoModalOpen, setIsImportExtratoModalOpen] = useState(false)
+  const [importType, setImportType] = useState<'extrato' | 'fatura' | null>(null)
+  const [selectedBank, setSelectedBank] = useState<string | null>(null)
+  const [extratoStep, setExtratoStep] = useState<0 | 1 | 2 | 3>(0)
+  const [extratoFile, setExtratoFile] = useState<File | null>(null)
+  const [extratoPassword, setExtratoPassword] = useState('')
+  const [isUploadingExtrato, setIsUploadingExtrato] = useState(false)
+  type PreviewTx = { _id: string; date: string; description: string; value: number; type: 'Receita' | 'Despesa'; category: string }
+  const [extratoPreview, setExtratoPreview] = useState<PreviewTx[]>([])
+  const [isConfirmingImport, setIsConfirmingImport] = useState(false)
+  // Undo system
+  const [lastImportBatch, setLastImportBatch] = useState<string[]>([])
+  const [showUndoToast, setShowUndoToast] = useState(false)
+  const [undoCountdown, setUndoCountdown] = useState(15)
+  const [isUndoing, setIsUndoing] = useState(false)
+
   const [isSyncingAsaas, setIsSyncingAsaas] = useState(false)
   const [syncResult, setSyncResult] = useState<{ inserted: number; skipped: number } | null>(null)
+
+  // Countdown do toast de desfazer importação
+  useEffect(() => {
+    if (!showUndoToast) return
+    if (undoCountdown <= 0) { setShowUndoToast(false); setLastImportBatch([]); return }
+    const timer = setTimeout(() => setUndoCountdown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [showUndoToast, undoCountdown])
 
   const syncAsaas = async () => {
     setIsSyncingAsaas(true)
@@ -384,6 +409,15 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             >
               <Download className="h-5 w-5" />
               Importar/Exportar
+            </button>
+          )}
+          {permissions.canImport && (
+            <button
+              onClick={() => { setIsImportExtratoModalOpen(true); setExtratoStep(0); setImportType(null); setSelectedBank(null); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+            >
+              <Upload className="h-5 w-5" />
+              Importar Extrato
             </button>
           )}
           <div className="flex items-center gap-2">
@@ -942,6 +976,369 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
               <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold">Remover da Lista</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Importar Extrato / Fatura */}
+      {isImportExtratoModalOpen && (
+        <div
+          className={`fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 ${extratoStep === 3 ? 'z-[70] pt-4' : 'z-50 pt-[100px]'}`}
+          onClick={(e) => { if (e.target === e.currentTarget) { setIsImportExtratoModalOpen(false); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) } }}
+        >
+          <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200 overflow-hidden`}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl"><Upload className="w-5 h-5 text-white" /></div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {extratoStep === 0 ? 'Importar lançamentos' : extratoStep === 3 ? 'Revisar antes de importar' : importType === 'fatura' ? 'Importar Fatura de Cartão' : 'Importar Extrato Bancário'}
+                  </h2>
+                  <p className="text-blue-100 text-xs mt-0.5">
+                    {extratoStep === 0 && 'Escolha o tipo de arquivo que deseja importar'}
+                    {extratoStep === 1 && <>Selecione o banco · Arquivos aceitos: <span className="font-semibold">PDF</span></>}
+                    {extratoStep === 2 && `Passo 2 de 3 · Envie o arquivo da ${importType === 'fatura' ? 'fatura' : 'extrato'}`}
+                    {extratoStep === 3 && `Passo 3 de 3 · ${extratoPreview.length} transação${extratoPreview.length !== 1 ? 'ões' : ''} encontrada${extratoPreview.length !== 1 ? 's' : ''} · Edite, remova ou adicione antes de confirmar`}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }} className="text-white/70 hover:text-white hover:bg-white/20 p-2 rounded-full transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-5">
+              {/* Passo 0 — Tipo */}
+              {extratoStep === 0 && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-gray-500 text-center">O que você deseja importar?</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button type="button" onClick={() => { setImportType('extrato'); setExtratoStep(1) }} className="flex flex-col items-center gap-3 p-6 rounded-2xl border-2 border-gray-200 bg-white hover:border-blue-400 hover:shadow-md transition-all group">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                        <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-gray-800 text-sm">Extrato Bancário</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Movimentações da conta corrente</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => { setImportType('fatura'); setExtratoStep(1) }} className="flex flex-col items-center gap-3 p-6 rounded-2xl border-2 border-gray-200 bg-white hover:border-purple-400 hover:shadow-md transition-all group">
+                      <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                        <svg className="w-7 h-7 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-gray-800 text-sm">Fatura de Cartão</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Compras e gastos no crédito</p>
+                      </div>
+                    </button>
+                  </div>
+                  <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setExtratoStep(0); setExtratoFile(null) }} className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">Cancelar</button>
+                </div>
+              )}
+
+              {/* Passo 1 — Seleção do banco */}
+              {extratoStep === 1 && (() => {
+                const BankBtn = ({ id, label, bg, domain, initials, disabledInFatura = false }: { id: string; label: string; bg: string; domain: string; initials: string; disabledInFatura?: boolean }) => {
+                  const isDisabled = disabledInFatura && importType === 'fatura'
+                  if (isDisabled) return (
+                    <div className="relative group">
+                      <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed w-full">
+                        <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+                          <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+                          <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
+                      </button>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Sem suporte a fatura</span>
+                      </div>
+                    </div>
+                  )
+                  return (
+                    <button type="button" onClick={() => setSelectedBank(selectedBank === id ? null : id)}
+                      className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${selectedBank === id ? 'border-blue-500 bg-blue-50 shadow-md scale-[1.02]' : 'border-gray-200 bg-white hover:border-blue-300'}`}>
+                      {selectedBank === id && <CheckCircle2 className="w-4 h-4 text-blue-500 absolute top-2 right-2" />}
+                      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+                        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+                        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{label}</span>
+                    </button>
+                  )
+                }
+                const DevBtn = ({ label, bg, domain, initials }: { label: string; bg: string; domain: string; initials: string }) => (
+                  <div className="relative group">
+                    <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed w-full">
+                      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+                        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+                        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
+                    </button>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Em desenvolvimento</span>
+                    </div>
+                  </div>
+                )
+                return (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {/* ── Ativos (ordem alfabética) ── */}
+                    <BankBtn id="bb"          label="Banco do Brasil" bg="#003882" domain="bb.com.br"          initials="BB" />
+                    <BankBtn id="c6"          label="C6 Bank"         bg="#242424" domain="c6bank.com.br"      initials="C6" />
+                    <BankBtn id="infinitypay" label="InfinityPay"     bg="#00C853" domain="infinitepay.io"     initials="IP" disabledInFatura />
+                    <BankBtn id="mercadopago" label="Mercado Pago"    bg="#009EE3" domain="mercadopago.com.br" initials="MP" disabledInFatura />
+                    <BankBtn id="sicoob"      label="Sicoob"          bg="#007A4B" domain="sicoob.com.br"      initials="SC" disabledInFatura />
+                    {/* ── Em desenvolvimento (ordem alfabética, ignorando "Banco") ── */}
+                    <DevBtn label="Bradesco"    bg="#CC092F" domain="bradesco.com.br"  initials="BD" />
+                    <DevBtn label="BTG Pactual" bg="#003366" domain="btgpactual.com"   initials="BTG" />
+                    <DevBtn label="Banco Inter" bg="#FF8700" domain="bancointer.com"   initials="IN" />
+                    <DevBtn label="Nubank"      bg="#9C44DC" domain="nubank.com.br"    initials="NU" />
+                    <DevBtn label="Banco Safra" bg="#1B3F7A" domain="safra.com.br"     initials="SF" />
+                    <DevBtn label="Santander"   bg="#EA1D25" domain="santander.com.br" initials="SN" />
+                    <DevBtn label="XP"          bg="#1A1A1A" domain="xpi.com.br"       initials="XP" />
+                  </div>
+                )
+              })()}
+
+              {/* Rodapé passo 1 */}
+              {extratoStep === 1 && (
+                <div className="mt-4 flex gap-3">
+                  <button type="button" onClick={() => { setSelectedBank(null); setExtratoStep(0) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all">Voltar</button>
+                  <button type="button" disabled={!selectedBank} onClick={() => setExtratoStep(2)}
+                    className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${selectedBank ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                    <ChevronRight className="w-4 h-4" />Continuar
+                  </button>
+                </div>
+              )}
+
+              {/* Passo 2 — Upload */}
+              {extratoStep === 2 && (
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg border border-purple-200">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span className="text-sm text-purple-700">Tipo: <span className="font-semibold">{importType === 'fatura' ? 'Fatura de Cartão' : 'Extrato Bancário'}</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span className="text-sm text-blue-700">Banco: <span className="font-semibold">{{ bb: 'Banco do Brasil', sicoob: 'Sicoob', c6: 'C6 Bank', mercadopago: 'Mercado Pago', infinitypay: 'InfinityPay' }[selectedBank!]}</span></span>
+                      <button type="button" onClick={() => { setExtratoStep(1); setExtratoFile(null) }} className="ml-auto text-blue-400 hover:text-blue-600 text-xs underline">Alterar</button>
+                    </div>
+                  </div>
+                  {!extratoFile ? (
+                    <button type="button" onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.pdf,.xlsx'; i.onchange=(e) => { const f=(e.target as HTMLInputElement).files?.[0]; if(f) setExtratoFile(f); document.body.removeChild(i) }; document.body.appendChild(i); i.click() }}
+                      className="w-full border-2 border-dashed border-blue-300 rounded-xl p-6 flex flex-col items-center gap-2 hover:border-blue-500 hover:bg-blue-50 transition-all">
+                      <Upload className="w-8 h-8 text-blue-400" />
+                      <span className="text-sm font-semibold text-gray-700">Clique para selecionar o arquivo</span>
+                      <span className="text-xs text-gray-400">PDF ou XLSX · Máx. 10 MB</span>
+                    </button>
+                  ) : (
+                    <div className="w-full p-4 bg-green-50 border-2 border-green-200 rounded-xl flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-full"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-green-800 truncate">{extratoFile.name}</p>
+                        <p className="text-xs text-green-600">{(extratoFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button type="button" onClick={() => setExtratoFile(null)} className="text-green-500 hover:text-green-700 p-1 rounded-full hover:bg-green-100"><X className="w-4 h-4" /></button>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-500">Senha do PDF <span className="text-gray-400">(deixe em branco se não houver)</span></label>
+                    <input type="password" value={extratoPassword} onChange={(e) => setExtratoPassword(e.target.value)} placeholder="Senha do arquivo PDF"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" />
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => { setExtratoStep(1); setExtratoFile(null) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
+                      <ChevronLeft className="w-4 h-4" />Voltar
+                    </button>
+                    <button type="button" disabled={!extratoFile || isUploadingExtrato}
+                      onClick={async () => {
+                        if (!extratoFile || !selectedBank) return
+                        setIsUploadingExtrato(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', extratoFile)
+                          formData.append('bank', selectedBank)
+                          formData.append('importType', importType ?? 'extrato')
+                          if (extratoPassword) formData.append('password', extratoPassword)
+                          const response = await fetch(`${API_BASE_URL}/import/extrato`, { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }, body: formData })
+                          if (response.ok) {
+                            const result = await response.json()
+                            const withIds: PreviewTx[] = (result.data ?? []).map((t: Omit<PreviewTx, '_id'>, i: number) => ({ ...t, _id: `preview-${Date.now()}-${i}` }))
+                            setExtratoPreview(withIds)
+                            setExtratoStep(3)
+                          } else {
+                            const errBody = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+                            alert(`Erro ao processar arquivo: ${errBody.error || 'Tente novamente.'}`)
+                          }
+                        } catch (e) {
+                          alert(`Erro ao enviar arquivo: ${e instanceof Error ? e.message : 'Erro desconhecido'}`)
+                        } finally {
+                          setIsUploadingExtrato(false)
+                        }
+                      }}
+                      className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${extratoFile && !isUploadingExtrato ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                      <Upload className="w-4 h-4" />
+                      {isUploadingExtrato ? 'Processando...' : 'Processar arquivo'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Passo 3 — Sandbox / Revisão */}
+              {extratoStep === 3 && (() => {
+                const selectedIds = extratoPreview.filter(t => (t as any)._selected).map(t => t._id)
+                const allSelected = extratoPreview.length > 0 && selectedIds.length === extratoPreview.length
+                const someSelected = selectedIds.length > 0 && !allSelected
+                const toggleAll = () => setExtratoPreview(prev => prev.map(t => ({ ...t, _selected: !allSelected })))
+                const toggleOne = (id: string) => setExtratoPreview(prev => prev.map(t => t._id === id ? { ...t, _selected: !(t as any)._selected } : t))
+                const deleteSelected = () => setExtratoPreview(prev => prev.filter(t => !(t as any)._selected))
+                const totalReceita = extratoPreview.filter(t => t.type === 'Receita').reduce((s, t) => s + t.value, 0)
+                const totalDespesa = extratoPreview.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.value, 0)
+                const saldo = totalReceita - totalDespesa
+                return (
+                  <div className="mt-2 space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-green-50 rounded-xl p-3 text-center"><p className="text-xs text-green-600 font-medium">Receitas</p><p className="text-sm font-bold text-green-700">R$ {totalReceita.toFixed(2).replace('.', ',')}</p></div>
+                      <div className="bg-red-50 rounded-xl p-3 text-center"><p className="text-xs text-red-600 font-medium">Despesas</p><p className="text-sm font-bold text-red-700">R$ {totalDespesa.toFixed(2).replace('.', ',')}</p></div>
+                      <div className={`rounded-xl p-3 text-center ${saldo >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                        <p className={`text-xs font-medium ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo</p>
+                        <p className={`text-sm font-bold ${saldo >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{saldo < 0 ? '-' : ''}R$ {Math.abs(saldo).toFixed(2).replace('.', ',')}</p>
+                      </div>
+                    </div>
+                    {selectedIds.length > 0 && (
+                      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                        <span className="text-xs font-semibold text-red-700">{selectedIds.length} selecionada{selectedIds.length !== 1 ? 's' : ''}</span>
+                        <button type="button" onClick={deleteSelected} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />Excluir selecionadas
+                        </button>
+                      </div>
+                    )}
+                    <div className="overflow-x-auto rounded-xl border border-gray-200">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-500 uppercase tracking-wide">
+                            <th className="px-3 py-2 w-8"><input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-blue-500 cursor-pointer" /></th>
+                            <th className="px-3 py-2 text-left font-semibold w-28">Data</th>
+                            <th className="px-3 py-2 text-left font-semibold">Descrição</th>
+                            <th className="px-3 py-2 text-left font-semibold w-24">Valor</th>
+                            <th className="px-3 py-2 text-left font-semibold w-24">Tipo</th>
+                            <th className="px-3 py-2 text-left font-semibold w-28">Categoria</th>
+                            <th className="px-3 py-2 w-8"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {extratoPreview.map((tx) => {
+                            const isSelected = !!(tx as any)._selected
+                            return (
+                              <tr key={tx._id} className={`transition-colors ${isSelected ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                                <td className="px-3 py-1 text-center"><input type="checkbox" checked={isSelected} onChange={() => toggleOne(tx._id)} className="w-3.5 h-3.5 rounded accent-blue-500 cursor-pointer" /></td>
+                                <td className="px-2 py-1"><input type="date" value={tx.date} onChange={(e) => setExtratoPreview(prev => prev.map(t => t._id === tx._id ? { ...t, date: e.target.value } : t))} className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs text-gray-700 focus:outline-none transition-colors" /></td>
+                                <td className="px-2 py-1"><input type="text" value={tx.description} onChange={(e) => setExtratoPreview(prev => prev.map(t => t._id === tx._id ? { ...t, description: e.target.value } : t))} className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs text-gray-700 focus:outline-none transition-colors" /></td>
+                                <td className="px-2 py-1"><input type="number" step="0.01" value={tx.value} onChange={(e) => setExtratoPreview(prev => prev.map(t => t._id === tx._id ? { ...t, value: parseFloat(e.target.value) || 0 } : t))} className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs text-gray-700 focus:outline-none transition-colors" /></td>
+                                <td className="px-2 py-1"><button type="button" onClick={() => setExtratoPreview(prev => prev.map(t => t._id === tx._id ? { ...t, type: t.type === 'Receita' ? 'Despesa' : 'Receita' } : t))} className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-colors ${tx.type === 'Receita' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}>{tx.type}</button></td>
+                                <td className="px-2 py-1"><input type="text" value={tx.category} onChange={(e) => setExtratoPreview(prev => prev.map(t => t._id === tx._id ? { ...t, category: e.target.value } : t))} className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs text-gray-700 focus:outline-none transition-colors" /></td>
+                                <td className="px-2 py-1 text-center"><button type="button" onClick={() => setExtratoPreview(prev => prev.filter(t => t._id !== tx._id))} className="text-gray-300 hover:text-red-500 transition-colors" title="Remover"><X className="w-3.5 h-3.5" /></button></td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {extratoPreview.length === 0 && <p className="text-center text-sm text-gray-400 py-4">Nenhuma transação. Adicione manualmente abaixo.</p>}
+                    <button type="button" onClick={() => setExtratoPreview(prev => [...prev, { _id: `preview-new-${Date.now()}`, date: new Date().toISOString().split('T')[0], description: '', value: 0, type: 'Despesa', category: 'Outros' }])}
+                      className="w-full py-2 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-all text-sm font-medium flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" />Adicionar transação
+                    </button>
+                    <div className="flex gap-3 pt-1">
+                      <button type="button" onClick={() => { setExtratoStep(2); setExtratoPreview([]) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
+                        <ChevronLeft className="w-4 h-4" />Voltar
+                      </button>
+                      <button type="button" disabled={extratoPreview.length === 0 || isConfirmingImport}
+                        onClick={async () => {
+                          if (extratoPreview.length === 0) return
+                          const label = importType === 'fatura' ? 'fatura' : 'extrato'
+                          const confirmed = window.confirm(`Confirmar a importação de ${extratoPreview.length} transação${extratoPreview.length !== 1 ? 'ões' : ''} do ${label}?\n\nEssa ação pode ser desfeita nos próximos 15 segundos após a importação.`)
+                          if (!confirmed) return
+                          setIsConfirmingImport(true)
+                          try {
+                            const response = await fetch(`${API_BASE_URL}/import/extrato/confirm`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                              body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, ...t }) => { const { _selected: _s, ...rest } = t as any; return rest }) })
+                            })
+                            if (response.ok) {
+                              const result = await response.json()
+                              const savedIds: string[] = (result.data ?? []).map((t: { id: string }) => t.id)
+                              if (result.data?.length) setTransactions(prev => [...result.data, ...prev])
+                              setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([])
+                              setLastImportBatch(savedIds); setUndoCountdown(15); setShowUndoToast(true)
+                            } else {
+                              const errBody = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+                              alert(`Erro ao importar: ${errBody.error || 'Tente novamente.'}`)
+                            }
+                          } catch (e) {
+                            alert(`Erro ao importar: ${e instanceof Error ? e.message : 'Erro desconhecido'}`)
+                          } finally {
+                            setIsConfirmingImport(false)
+                          }
+                        }}
+                        className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${extratoPreview.length > 0 && !isConfirmingImport ? 'bg-gradient-to-r from-green-500 to-green-700 text-white hover:from-green-600 hover:to-green-800 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                        {isConfirmingImport ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Importando...</> : <><CheckCircle2 className="w-4 h-4" />Confirmar importação</>}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast de Desfazer Importação */}
+      {showUndoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-3 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-4 min-w-[320px] border border-gray-700">
+            <div className="relative flex-shrink-0">
+              <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+                <circle cx="18" cy="18" r="15" fill="none" stroke="#4ade80" strokeWidth="3" strokeDasharray={`${(undoCountdown / 15) * 94.2} 94.2`} strokeLinecap="round" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-400">{undoCountdown}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight">Importação concluída!</p>
+              <p className="text-xs text-gray-400 mt-0.5">Deseja desfazer?</p>
+            </div>
+            <button type="button" disabled={isUndoing}
+              onClick={async () => {
+                if (lastImportBatch.length === 0) return
+                setIsUndoing(true)
+                try {
+                  const response = await fetch(`${API_BASE_URL}/transactions`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                    body: JSON.stringify({ ids: lastImportBatch }),
+                  })
+                  if (response.ok) {
+                    setTransactions(prev => prev.filter(t => !lastImportBatch.includes(String(t.id))))
+                    setShowUndoToast(false); setLastImportBatch([])
+                  } else {
+                    alert('Não foi possível desfazer a importação. Tente excluir as transações manualmente.')
+                  }
+                } catch {
+                  alert('Erro ao desfazer a importação.')
+                } finally {
+                  setIsUndoing(false)
+                }
+              }}
+              className="px-3 py-1.5 bg-green-500 hover:bg-green-400 disabled:bg-gray-600 text-white text-xs font-bold rounded-xl transition-colors flex-shrink-0">
+              {isUndoing ? '...' : 'Desfazer'}
+            </button>
+            <button type="button" onClick={() => { setShowUndoToast(false); setLastImportBatch([]) }} className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

@@ -17,6 +17,7 @@ const sanitizeHtml = require('sanitize-html');
 const { z } = require('zod');
 const Database = require('./database-pg');
 const { enviarEmailRecuperacao } = require('./services/email');
+const { parseExtrato } = require('./services/extratoParser');
 const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
 const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
 const { createSession, revokeSession, revokeAllUserSessions, getAllSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
@@ -353,6 +354,12 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 // Limite de 10MB
   }
+});
+
+// Uploader em memória — usado para PDFs de extrato/fatura (não grava em disco)
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 const avatarStorage = multer.diskStorage({
@@ -952,6 +959,50 @@ app.post('/api/export', async (req, res) => {
       error: 'Erro ao exportar dados',
       message: error.message
     });
+  }
+});
+
+// ─── Importação de Extrato / Fatura Bancária ─────────────────────────────────
+
+// Parse-only: processa o arquivo mas NÃO salva — retorna prévia para o sandbox
+app.post('/api/import/extrato', authenticateToken, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado.' });
+    const { bank, importType = 'extrato', password } = req.body;
+    if (!bank) return res.status(400).json({ success: false, error: 'Banco não informado.' });
+    const ext = (req.file.originalname.split('.').pop() || '').toLowerCase();
+    const parsed = await parseExtrato(bank, req.file.buffer, ext, importType, password || null);
+    console.log(`[Extrato] bank=${bank} ext=${ext} importType=${importType} → ${parsed.length} transações encontradas`);
+    res.json({ success: true, data: parsed, count: parsed.length });
+  } catch (err) {
+    console.error('[Extrato] Erro ao processar:', err);
+    res.status(500).json({ success: false, error: err.message || 'Erro desconhecido ao processar arquivo' });
+  }
+});
+
+// Confirm: recebe a lista (possivelmente editada) do sandbox e salva no banco
+app.post('/api/import/extrato/confirm', authenticateToken, async (req, res) => {
+  try {
+    const { transactions } = req.body;
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({ success: false, error: 'Nenhuma transação para importar.' });
+    }
+    const saved = [];
+    for (const t of transactions) {
+      const savedT = await db.saveTransaction({ ...t, userId: req.user.id });
+      await logActivity(req, {
+        action: 'create',
+        moduleKey: 'transactions',
+        entityType: 'transaction',
+        entityId: savedT?.id || null,
+        details: { after: savedT },
+      });
+      saved.push(savedT);
+    }
+    res.json({ success: true, message: `${saved.length} transações importadas com sucesso!`, data: saved, count: saved.length });
+  } catch (err) {
+    console.error('[Extrato Confirm] Erro:', err);
+    res.status(500).json({ success: false, error: err.message || 'Erro ao salvar transações' });
   }
 });
 
@@ -4417,6 +4468,239 @@ app.post('/api/admin/roadmap/:id/parar-tempo', authenticateToken, requireSuperAd
     res.json(item);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── RODAPÉ ──────────────────────────────────────────────────────────────────
+
+// Pública: retorna dados do rodapé para o componente Footer
+app.get('/api/rodape', async (req, res) => {
+  try {
+    const data = await db.obterRodapeCompleto();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.json({ success: true, data: { configuracoes: {}, colunas: [], bottomLinks: [] } });
+  }
+});
+
+// Admin: dados completos para o painel
+app.get('/api/admin/rodape', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const data = await db.obterRodapeCompleto();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Config: salvar chave/valor
+app.put('/api/admin/rodape/config/:chave', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { chave } = req.params;
+    const { valor } = req.body;
+    await db.atualizarRodapeConfig(chave, valor);
+    await logActivity(req, { action: 'UPDATE', entity: 'rodape_config', details: `chave=${chave}` });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Colunas
+app.get('/api/admin/rodape/colunas', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const colunas = await db.obterRodapeColunas();
+    res.json({ success: true, data: colunas });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/rodape/colunas', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { titulo } = req.body;
+    if (!titulo?.trim()) return res.status(400).json({ success: false, error: 'Título obrigatório.' });
+    const coluna = await db.criarRodapeColuna(titulo.trim());
+    await logActivity(req, { action: 'CREATE', entity: 'rodape_coluna', details: titulo });
+    res.json({ success: true, data: coluna });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/colunas/ordem', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { colunaIds } = req.body;
+    if (!Array.isArray(colunaIds)) return res.status(400).json({ success: false, error: 'colunaIds deve ser um array.' });
+    await db.atualizarOrdemColunas(colunaIds);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/colunas/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { titulo } = req.body;
+    const coluna = await db.atualizarRodapeColuna(req.params.id, titulo);
+    await logActivity(req, { action: 'UPDATE', entity: 'rodape_coluna', details: req.params.id });
+    res.json({ success: true, data: coluna });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/rodape/colunas/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    await db.deletarRodapeColuna(req.params.id);
+    await logActivity(req, { action: 'DELETE', entity: 'rodape_coluna', details: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Links
+app.post('/api/admin/rodape/links', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { coluna_id, texto, link, eh_link } = req.body;
+    if (!texto?.trim()) return res.status(400).json({ success: false, error: 'Texto obrigatório.' });
+    const saved = await db.criarRodapeLink({ coluna_id, texto: texto.trim(), link: link || '', eh_link });
+    await logActivity(req, { action: 'CREATE', entity: 'rodape_link', details: texto });
+    res.json({ success: true, data: saved });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/links/ordem', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { linkIds } = req.body;
+    if (!Array.isArray(linkIds)) return res.status(400).json({ success: false, error: 'linkIds deve ser um array.' });
+    await db.atualizarOrdemLinks(linkIds);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/links/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { texto, link, eh_link, coluna_id } = req.body;
+    const saved = await db.atualizarRodapeLink(req.params.id, { texto, link, eh_link, coluna_id });
+    await logActivity(req, { action: 'UPDATE', entity: 'rodape_link', details: req.params.id });
+    res.json({ success: true, data: saved });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/rodape/links/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    await db.deletarRodapeLink(req.params.id);
+    await logActivity(req, { action: 'DELETE', entity: 'rodape_link', details: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Bottom links
+app.get('/api/admin/rodape/bottom-links', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const data = await db.obterRodapeBottomLinksAdmin();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/rodape/bottom-links', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { texto, link, ativo } = req.body;
+    if (!texto?.trim()) return res.status(400).json({ success: false, error: 'Texto obrigatório.' });
+    const saved = await db.criarRodapeBottomLink({ texto: texto.trim(), link: link || '', ativo });
+    res.json({ success: true, data: saved });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/bottom-links/ordem', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { linkIds } = req.body;
+    if (!Array.isArray(linkIds)) return res.status(400).json({ success: false, error: 'linkIds deve ser um array.' });
+    await db.atualizarOrdemBottomLinks(linkIds);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/rodape/bottom-links/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { texto, link, ativo } = req.body;
+    const saved = await db.atualizarRodapeBottomLink(req.params.id, { texto, link, ativo });
+    res.json({ success: true, data: saved });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/rodape/bottom-links/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    await db.deletarRodapeBottomLink(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Commit pendente
+app.get('/api/admin/rodape/commit-pendente', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const data = await db.obterCommitPendente();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/rodape/confirmar-commit', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { action, novaVersao, mensagem, data, commitHash, rolesNotificados } = req.body;
+    if (!['manter', 'nova_versao', 'ignorar'].includes(action)) {
+      return res.status(400).json({ success: false, error: 'action inválido.' });
+    }
+    if (action !== 'ignorar' && !mensagem?.trim()) {
+      return res.status(400).json({ success: false, error: 'mensagem obrigatória.' });
+    }
+    await db.confirmarCommit({ action, novaVersao, mensagem, data, commitHash, rolesNotificados: rolesNotificados || [] });
+    await logActivity(req, { action: 'UPDATE', entity: 'rodape_commit', details: `action=${action}` });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Notificação de nova versão
+app.get('/api/notificacao-versao', authenticateToken, async (req, res) => {
+  try {
+    const data = await db.obterNotificacaoVersao(req.user.id, req.user.role);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/notificacao-versao/vista', authenticateToken, async (req, res) => {
+  try {
+    const { versao } = req.body;
+    if (!versao) return res.status(400).json({ success: false, error: 'versao obrigatória.' });
+    await db.marcarVersaoVista(req.user.id, versao);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
