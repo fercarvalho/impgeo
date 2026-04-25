@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { 
-  Home, 
-  DollarSign, 
-  BarChart3, 
-  TrendingUp, 
-  Plus, 
+import {
+  Home,
+  DollarSign,
+  BarChart3,
+  TrendingUp,
+  Plus,
   Target,
   PieChart,
   TrendingDown,
@@ -15,6 +15,7 @@ import {
   Phone,
   Mail,
   Map,
+  Map as MapIcon,
   Calculator,
   Download,
   ClipboardList,
@@ -22,7 +23,9 @@ import {
   Globe,
   Monitor,
   AlertTriangle,
-  ShieldAlert
+  ShieldAlert,
+  HelpCircle,
+  BookOpen
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -46,7 +49,11 @@ const AdminPanel = lazy(() => import('./components/admin/AdminTabs'))
 const ActiveSessions = lazy(() => import('./components/admin/ActiveSessions'))
 const AnomalyDashboard = lazy(() => import('./components/admin/AnomalyDashboard'))
 const SecurityAlerts = lazy(() => import('./components/admin/SecurityAlerts'))
+const FAQ = lazy(() => import('./components/FAQ'))
+const Documentation = lazy(() => import('./components/Documentation'))
+const Roadmap = lazy(() => import('./components/Roadmap'))
 import ImpersonationBanner from './components/ImpersonationBanner'
+import FeedbackButton from './components/FeedbackButton'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -88,13 +95,31 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin' | 'sessions' | 'anomalies' | 'security_alerts'
+type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin' | 'sessions' | 'anomalies' | 'security_alerts' | 'faq' | 'documentacao' | 'roadmap'
 
 const AppContent: React.FC = () => {
-  const { user, logout, isLoading } = useAuth();
+  const { user, token, logout, isLoading } = useAuth();
   const [viewToken, setViewToken] = useState<string | null>(null);
   const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+
+  // Sincronizar consentimento de cookies com o banco após login
+  useEffect(() => {
+    if (!user || !token) return;
+    const LGPD_API = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:9001/api'
+      : ((import.meta as any).env?.VITE_API_URL || '/api');
+    const saved = localStorage.getItem('cookieConsent');
+    if (!saved) return;
+    try {
+      const prefs = JSON.parse(saved);
+      fetch(`${LGPD_API}/cookie-consentimento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ preferencias: prefs, versaoTermos: 1, versaoPolitica: 1 }),
+      }).catch(e => console.error('Erro ao sincronizar consentimento LGPD:', e));
+    } catch {}
+  }, [user?.id]);
 
   // Verificar se há token de visualização pública na URL
   useEffect(() => {
@@ -175,7 +200,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   const getDefaultModulesByRole = (role: string): string[] => {
     const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
-    if (role === 'admin') return [...allWithoutAdmin, 'admin'];
+    if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap'];
+    if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
     if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'acompanhamentos');
     return [];
@@ -222,7 +248,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {
-      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin', 'sessions', 'anomalies', 'security_alerts'];
+      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'admin', 'sessions', 'anomalies', 'security_alerts'];
       const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
       setActiveTab(fallbackTab);
     }
@@ -978,6 +1004,24 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
             <ClipboardList className="h-4 w-4 mb-2" />
             Acompanhamentos
+            </button>
+          )}
+          {hasModuleAccess('faq') && (
+            <button onClick={() => setActiveTab('faq')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'faq' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <HelpCircle className="h-4 w-4 mb-2" />
+              FAQ
+            </button>
+          )}
+          {hasModuleAccess('documentacao') && (
+            <button onClick={() => setActiveTab('documentacao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'documentacao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <BookOpen className="h-4 w-4 mb-2" />
+              Documentação
+            </button>
+          )}
+          {hasModuleAccess('roadmap') && (
+            <button onClick={() => setActiveTab('roadmap')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'roadmap' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
+              <MapIcon className="h-4 w-4 mb-2" />
+              Roadmap
             </button>
           )}
           {hasModuleAccess('admin') && (
@@ -3403,6 +3447,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   return (
     <div className="min-h-screen bg-gray-100">
       <ImpersonationBanner />
+      {user && <FeedbackButton paginaAtual={activeTab} />}
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
@@ -3467,6 +3512,16 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <Acompanhamentos />
           </Suspense>
         )}
+        {activeTab === 'faq' && hasModuleAccess('faq') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <FAQ />
+          </Suspense>
+        )}
+        {activeTab === 'documentacao' && hasModuleAccess('documentacao') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Documentation />
+          </Suspense>
+        )}
         {activeTab === 'admin' && hasModuleAccess('admin') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <AdminPanel />
@@ -3485,6 +3540,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         {activeTab === 'security_alerts' && hasModuleAccess('security_alerts') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <SecurityAlerts />
+          </Suspense>
+        )}
+        {activeTab === 'roadmap' && hasModuleAccess('roadmap') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Roadmap />
           </Suspense>
         )}
       </main>
