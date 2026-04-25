@@ -248,7 +248,7 @@ html.dark .bg-white\/95  { background-color: rgb(30 41 59 / 0.95) !important; }
 html.dark .bg-white\/80  { background-color: rgb(30 41 59 / 0.8) !important; }
 html.dark .bg-gray-50\/50 { background-color: rgb(15 23 42 / 0.5) !important; }
 
-/* ── Gradientes dos cards do dashboard (from-*/to-* Tailwind) ── */
+/* ── Gradientes dos cards do dashboard (classes from-X e to-X do Tailwind) ── */
 html.dark .from-indigo-50  { --tw-gradient-from: #1e1b4b; }
 html.dark .to-indigo-100   { --tw-gradient-to: #312e81; }
 html.dark .from-indigo-100 { --tw-gradient-from: #312e81; }

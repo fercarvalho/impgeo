@@ -38,14 +38,9 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separar node_modules em chunks menores
           if (id.includes('node_modules')) {
-            // React e React DOM juntos
-            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+            // React, React DOM e Recharts juntos (recharts depende de react internamente)
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler') || id.includes('recharts') || id.includes('victory-vendor')) {
               return 'vendor-react'
-            }
-
-            // Recharts (biblioteca de gráficos - grande)
-            if (id.includes('recharts')) {
-              return 'vendor-recharts'
             }
 
             // Lucide React (ícones - pode ser grande)

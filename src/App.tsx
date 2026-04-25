@@ -47,7 +47,7 @@ const ActiveSessions = lazy(() => import('./components/admin/ActiveSessions'))
 const AnomalyDashboard = lazy(() => import('./components/admin/AnomalyDashboard'))
 const SecurityAlerts = lazy(() => import('./components/admin/SecurityAlerts'))
 const FAQ = lazy(() => import('./components/FAQ'))
-const Documentation = lazy(() => import('./components/Documentation'))
+import Documentation from './components/Documentation'
 const Roadmap = lazy(() => import('./components/Roadmap'))
 import ImpersonationBanner from './components/ImpersonationBanner'
 import FeedbackButton from './components/FeedbackButton'
