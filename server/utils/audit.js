@@ -66,6 +66,16 @@ const AUDIT_OPERATIONS = {
   // Uploads
   FILE_UPLOAD: 'file_upload',
   FILE_DELETE: 'file_delete',
+
+  // Legal (LGPD)
+  LEGAL_TERMOS_UPDATE: 'legal_termos_update',
+  LEGAL_POLITICA_UPDATE: 'legal_politica_update',
+  LEGAL_COOKIES_CONFIG_UPDATE: 'legal_cookies_config_update',
+  LEGAL_COOKIES_CATEGORIA_CREATE: 'legal_cookies_categoria_create',
+  LEGAL_COOKIES_CATEGORIA_UPDATE: 'legal_cookies_categoria_update',
+  LEGAL_COOKIES_CATEGORIA_DELETE: 'legal_cookies_categoria_delete',
+  LEGAL_CONSENTIMENTO_UPDATE: 'legal_consentimento_update',
+  LEGAL_PERMISSAO_UPDATE: 'legal_permissao_update',
 };
 
 /**

@@ -1,6 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -12,6 +29,7 @@ interface ModuleItem {
   routePath?: string | null;
   isSystem?: boolean;
   isActive?: boolean;
+  sortOrder?: number | null;
 }
 
 const defaultForm = {
@@ -23,10 +41,122 @@ const defaultForm = {
   isActive: true
 };
 
+/* ─── Card arrastável ─── */
+interface SortableCardProps {
+  module: ModuleItem;
+  isSuperAdmin: boolean;
+  protectedModules: string[];
+  superAdminModules: string[];
+  onToggleActive: (key: string, currentActive: boolean) => void;
+  onEdit: (module: ModuleItem) => void;
+  onDelete: (key: string) => void;
+  onAdminBlock: () => void;
+}
+
+const SortableModuleCard: React.FC<SortableCardProps> = ({
+  module,
+  isSuperAdmin,
+  protectedModules,
+  superAdminModules,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  onAdminBlock,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: module.moduleKey });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  const isLocked = superAdminModules.includes(module.moduleKey) && !isSuperAdmin;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white rounded-lg shadow p-4 border-2 flex items-center gap-3 ${
+        module.isSystem ? 'border-blue-300' : 'border-gray-200'
+      } ${isDragging ? 'shadow-xl' : ''}`}
+    >
+      {/* Handle de drag */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0 p-1 rounded"
+        title="Arrastar para reordenar"
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+
+      {/* Conteúdo */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {module.isSystem && <Shield className="h-4 w-4 text-blue-600 flex-shrink-0" />}
+          <h3 className="text-base font-semibold text-gray-900 truncate">{module.moduleName}</h3>
+          <span className={`px-2 py-0.5 text-xs rounded flex-shrink-0 ${
+            module.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {module.isActive !== false ? 'Ativo' : 'Inativo'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{module.moduleKey}</span>
+          {module.iconName && <span>{module.iconName}</span>}
+          <span>{module.isSystem ? 'Sistema' : 'Customizado'}</span>
+        </div>
+        {module.description && (
+          <p className="text-xs text-gray-500 mt-1 truncate">{module.description}</p>
+        )}
+      </div>
+
+      {/* Ações */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={() => {
+            if (isLocked) return;
+            if (protectedModules.includes(module.moduleKey) && module.isActive !== false) {
+              onAdminBlock();
+              return;
+            }
+            onToggleActive(module.moduleKey, module.isActive !== false);
+          }}
+          disabled={isLocked}
+          className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {module.isActive !== false ? 'Desativar' : 'Ativar'}
+        </button>
+        <button
+          onClick={() => { if (!isLocked) onEdit(module); }}
+          disabled={isLocked}
+          className="p-1.5 text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Editar"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+        {!module.isSystem && (
+          <button
+            onClick={() => onDelete(module.moduleKey)}
+            className="p-1.5 text-red-600 hover:text-red-800"
+            title="Deletar"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Componente principal ─── */
 const ModuleManagement: React.FC = () => {
   const apiBase = useMemo(() => getAdminApiBaseUrl(), []);
   const { user: currentUser } = useAuth();
-  const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [orderedModules, setOrderedModules] = useState<ModuleItem[]>([]);
   const [showModuleModal, setShowModuleModal] = useState(false);
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
   const [form, setForm] = useState(defaultForm);
@@ -34,6 +164,12 @@ const ModuleManagement: React.FC = () => {
 
   const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
   const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,16 +187,36 @@ const ModuleManagement: React.FC = () => {
       const response = await fetch(`${apiBase}/admin/modules`, { headers: getAuthHeaders() });
       const result = await response.json();
       if (result.success) {
-        setModules(result.data || []);
+        setOrderedModules(result.data || []);
       }
     } catch (err) {
       console.error('Erro ao carregar módulos:', err);
     }
   };
 
-  useEffect(() => {
-    loadModules();
-  }, []);
+  useEffect(() => { loadModules(); }, []);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = orderedModules.findIndex(m => m.moduleKey === active.id);
+    const newIndex = orderedModules.findIndex(m => m.moduleKey === over.id);
+    const newOrder = arrayMove(orderedModules, oldIndex, newIndex);
+
+    setOrderedModules(newOrder); // otimista
+
+    try {
+      await fetch(`${apiBase}/admin/modules/reorder`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ keys: newOrder.map(m => m.moduleKey) })
+      });
+    } catch (err) {
+      console.error('Erro ao salvar ordem:', err);
+      loadModules(); // reverter em caso de erro
+    }
+  };
 
   const openEditModal = (module: ModuleItem) => {
     setEditingModule(module);
@@ -160,13 +316,12 @@ const ModuleManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-blue-900">Gerenciar Módulos</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-blue-900">Gerenciar Módulos</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
+        </div>
         <button
-          onClick={() => {
-            setEditingModule(null);
-            setForm(defaultForm);
-            setShowModuleModal(true);
-          }}
+          onClick={() => { setEditingModule(null); setForm(defaultForm); setShowModuleModal(true); }}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -174,84 +329,27 @@ const ModuleManagement: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {modules.map((module) => (
-          <div
-            key={module.moduleKey}
-            className={`bg-white rounded-lg shadow p-6 border-2 ${
-              module.isSystem ? 'border-blue-300' : 'border-gray-200'
-            }`}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                {module.isSystem && <Shield className="h-5 w-5 text-blue-600" />}
-                <h3 className="text-lg font-semibold text-gray-900">{module.moduleName}</h3>
-              </div>
-              <span className={`px-2 py-1 text-xs rounded ${
-                module.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {module.isActive !== false ? 'Ativo' : 'Inativo'}
-              </span>
-            </div>
-
-            <div className="space-y-2 mb-4">
-              <div>
-                <span className="text-sm font-medium text-gray-600">Key:</span>
-                <span className="ml-2 text-sm text-gray-900 font-mono">{module.moduleKey}</span>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Ícone:</span>
-                <span className="ml-2 text-sm text-gray-900">{module.iconName || '-'}</span>
-              </div>
-              {module.description && (
-                <div>
-                  <span className="text-sm text-gray-600">{module.description}</span>
-                </div>
-              )}
-              <div>
-                <span className="text-xs text-gray-500">
-                  {module.isSystem ? 'Módulo do Sistema' : 'Módulo Customizado'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  if (SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin') return;
-                  if (PROTECTED_MODULES.includes(module.moduleKey) && module.isActive !== false) {
-                    setShowAdminBlockModal(true);
-                    return;
-                  }
-                  handleUpdateModule(module.moduleKey, { isActive: !(module.isActive !== false) });
-                }}
-                disabled={SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin'}
-                className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {module.isActive !== false ? 'Desativar' : 'Ativar'}
-              </button>
-              <button
-                onClick={() => { if (SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin') return; openEditModal(module); }}
-                disabled={SUPERADMIN_MODULES.includes(module.moduleKey) && currentUser?.role !== 'superadmin'}
-                className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Editar"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              {!module.isSystem && (
-                <button
-                  onClick={() => handleDeleteModule(module.moduleKey)}
-                  className="px-3 py-2 text-sm text-red-600 hover:text-red-800"
-                  title="Deletar"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orderedModules.map(m => m.moduleKey)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-2">
+            {orderedModules.map((module) => (
+              <SortableModuleCard
+                key={module.moduleKey}
+                module={module}
+                isSuperAdmin={isSuperAdmin}
+                protectedModules={PROTECTED_MODULES}
+                superAdminModules={SUPERADMIN_MODULES}
+                onToggleActive={(key, active) => handleUpdateModule(key, { isActive: !active })}
+                onEdit={openEditModal}
+                onDelete={handleDeleteModule}
+                onAdminBlock={() => setShowAdminBlockModal(true)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
+      {/* Modal: bloqueio admin */}
       {showAdminBlockModal && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200" onClick={(e) => e.stopPropagation()}>
@@ -271,10 +369,7 @@ const ModuleManagement: React.FC = () => {
               Os módulos <strong>Admin</strong>, <strong>Sessões</strong>, <strong>Anomalias</strong> e <strong>Alertas de Segurança</strong> são protegidos e devem permanecer ativos.
             </p>
             <div className="flex justify-end">
-              <button
-                onClick={() => setShowAdminBlockModal(false)}
-                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition-colors"
-              >
+              <button onClick={() => setShowAdminBlockModal(false)} className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition-colors">
                 Entendido
               </button>
             </div>
@@ -282,104 +377,47 @@ const ModuleManagement: React.FC = () => {
         </div>
       , document.body)}
 
+      {/* Modal: criar/editar módulo */}
       {showModuleModal && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">
-                {editingModule ? 'Editar Módulo' : 'Novo Módulo'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowModuleModal(false);
-                  setEditingModule(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
+              <h3 className="text-xl font-bold">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
+              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-gray-500 hover:text-gray-700">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                <input
-                  type="text"
-                  placeholder="Nome do módulo"
-                  value={form.moduleName}
-                  onChange={(e) => setForm({ ...form, moduleName: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" placeholder="Nome do módulo" value={form.moduleName} onChange={(e) => setForm({ ...form, moduleName: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Key (única)</label>
-                <input
-                  type="text"
-                  placeholder="key-do-modulo"
-                  value={form.moduleKey}
-                  onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!!editingModule}
-                />
-                {editingModule && (
-                  <p className="text-xs text-gray-500 mt-1">A key não pode ser alterada</p>
-                )}
+                <input type="text" placeholder="key-do-modulo" value={form.moduleKey} onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={!!editingModule} />
+                {editingModule && <p className="text-xs text-gray-500 mt-1">A key não pode ser alterada</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ícone (Lucide)</label>
-                <select
-                  value={form.iconName}
-                  onChange={(e) => setForm({ ...form, iconName: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {commonIcons.map((icon) => (
-                    <option key={icon} value={icon}>{icon}</option>
-                  ))}
+                <select value={form.iconName} onChange={(e) => setForm({ ...form, iconName: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {commonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <textarea
-                  placeholder="Descrição do módulo"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                />
+                <textarea placeholder="Descrição do módulo" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows={3} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rota (opcional)</label>
-                <input
-                  type="text"
-                  placeholder="/rota-customizada"
-                  value={form.routePath}
-                  onChange={(e) => setForm({ ...form, routePath: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" placeholder="/rota-customizada" value={form.routePath} onChange={(e) => setForm({ ...form, routePath: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isActiveModule"
-                  checked={form.isActive}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                  className="mr-2"
-                />
+                <input type="checkbox" id="isActiveModule" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="mr-2" />
                 <label htmlFor="isActiveModule" className="text-sm text-gray-700">Módulo ativo</label>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
-                <button
-                  onClick={() => {
-                    setShowModuleModal(false);
-                    setEditingModule(null);
-                  }}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={editingModule ? handleSaveEdit : handleCreateModule}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
+                <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancelar</button>
+                <button onClick={editingModule ? handleSaveEdit : handleCreateModule} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   <Save className="inline h-4 w-4 mr-1" />
                   {editingModule ? 'Salvar' : 'Criar'}
                 </button>

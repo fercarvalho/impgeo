@@ -1,152 +1,503 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download } from 'lucide-react';
-import { getAdminApiBaseUrl, getAuthHeaders } from './api';
+import React, { useState, useEffect } from 'react';
+import {
+  Download, Filter, ChevronDown, ChevronRight, Activity, Plus, Pencil, Trash2, LogIn, UserCheck, ChevronLeft
+} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useModules } from '../../hooks/useModules';
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 
-interface ActivityItem {
+interface ActivityLog {
   id: string;
-  username: string | null;
+  userId: string;
+  username: string;
   action: string;
-  moduleKey: string | null;
-  entityType: string | null;
-  entityId: string | null;
-  createdAt: string;
-  details?: Record<string, unknown>;
+  module: string;
+  entityType?: string;
+  entityId?: string;
+  details?: any;
+  timestamp: string;
 }
 
-const ActivityLog: React.FC = () => {
-  const apiBase = useMemo(() => getAdminApiBaseUrl(), []);
-  const [items, setItems] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [pageSize] = useState(20);
-  const [filters, setFilters] = useState({ search: '', moduleKey: '', action: '' });
+// Fields to hide from diff view (internal/noisy fields)
+const HIDDEN_FIELDS = new Set(['createdAt', 'updatedAt', 'created_at', 'updated_at', 'id']);
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize)
-      });
-      if (filters.search.trim()) params.set('search', filters.search.trim());
-      if (filters.moduleKey.trim()) params.set('moduleKey', filters.moduleKey.trim());
-      if (filters.action.trim()) params.set('action', filters.action.trim());
+const FIELD_LABELS: Record<string, string> = {
+  name: 'Nome',
+  description: 'Descrição',
+  value: 'Valor',
+  type: 'Tipo',
+  category: 'Categoria',
+  date: 'Data',
+  email: 'Email',
+  phone: 'Telefone',
+  cpf: 'CPF',
+  cnpj: 'CNPJ',
+  address: 'Endereço',
+  role: 'Cargo',
+  modules: 'Módulos',
+  isActive: 'Ativo',
+  firstName: 'Nome',
+  lastName: 'Sobrenome',
+  username: 'Usuário',
+  price: 'Preço',
+  cost: 'Custo',
+  stock: 'Estoque',
+  sold: 'Vendidos',
+};
 
-      const response = await fetch(`${apiBase}/admin/activity-log?${params.toString()}`, { headers: getAuthHeaders() });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao carregar atividades');
-      setItems(data.data || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar atividades');
-    } finally {
-      setLoading(false);
-    }
-  };
+function formatValue(val: any): string {
+  if (val === null || val === undefined) return '—';
+  if (Array.isArray(val)) return val.join(', ') || '—';
+  if (typeof val === 'boolean') return val ? 'Sim' : 'Não';
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+}
 
-  useEffect(() => { load(); }, [page]);
+interface DiffViewProps {
+  before: Record<string, any> | null;
+  after: Record<string, any> | null;
+}
 
-  const onFilter = () => {
-    setPage(1);
-    load();
-  };
+const DiffView: React.FC<DiffViewProps> = ({ before, after }) => {
+  // Collect all keys from both objects, excluding hidden fields
+  const allKeys = Array.from(
+    new Set([
+      ...Object.keys(before || {}),
+      ...Object.keys(after || {}),
+    ])
+  ).filter(k => !HIDDEN_FIELDS.has(k));
 
-  const exportData = (format: 'csv' | 'json') => {
-    if (format === 'json') {
-      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
-    const headers = ['data', 'usuario', 'acao', 'modulo', 'entidade', 'id_entidade'];
-    const rows = items.map((item) => [
-      new Date(item.createdAt).toLocaleString('pt-BR'),
-      item.username || '',
-      item.action,
-      item.moduleKey || '',
-      item.entityType || '',
-      item.entityId || ''
-    ]);
-    const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  if (allKeys.length === 0) return null;
 
-  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  // For creates: show all after fields
+  // For deletes: show all before fields
+  // For edits: show only changed fields
+  const isCreate = before === null;
+  const isDelete = after === null;
+
+  const rows = allKeys.filter(key => {
+    if (isCreate || isDelete) return true;
+    const bVal = formatValue(before?.[key]);
+    const aVal = formatValue(after?.[key]);
+    return bVal !== aVal;
+  });
+
+  if (rows.length === 0) return <p className="text-xs text-gray-400 italic">Nenhuma alteração detectada.</p>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">Atividades</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={() => exportData('csv')} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
-            <Download className="h-4 w-4" />
-            CSV
-          </button>
-          <button onClick={() => exportData('json')} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
-            <Download className="h-4 w-4" />
-            JSON
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        <input value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} placeholder="Busca livre" className="px-3 py-2 border rounded-lg" />
-        <input value={filters.moduleKey} onChange={(e) => setFilters((p) => ({ ...p, moduleKey: e.target.value }))} placeholder="Módulo (ex: admin)" className="px-3 py-2 border rounded-lg" />
-        <input value={filters.action} onChange={(e) => setFilters((p) => ({ ...p, action: e.target.value }))} placeholder="Ação (ex: edit)" className="px-3 py-2 border rounded-lg" />
-        <button onClick={onFilter} className="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Filtrar</button>
-      </div>
-
-      {error && <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-lg">{error}</div>}
-
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Usuário</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Ação</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Módulo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Entidade</th>
+    <div className="mt-2 rounded-md overflow-hidden border border-gray-200 text-xs">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gray-100 text-gray-600">
+            <th className="px-3 py-1.5 text-left font-medium w-1/4">Campo</th>
+            {!isCreate && <th className="px-3 py-1.5 text-left font-medium w-[37.5%] text-red-700">Antes</th>}
+            {!isDelete && <th className="px-3 py-1.5 text-left font-medium w-[37.5%] text-green-700">Depois</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map(key => (
+            <tr key={key}>
+              <td className="px-3 py-1.5 text-gray-600 font-medium">
+                {FIELD_LABELS[key] || key}
+              </td>
+              {!isCreate && (
+                <td className="px-3 py-1.5 bg-red-50 text-red-800 font-mono break-all">
+                  {formatValue(before?.[key])}
+                </td>
+              )}
+              {!isDelete && (
+                <td className="px-3 py-1.5 bg-green-50 text-green-800 font-mono break-all">
+                  {formatValue(after?.[key])}
+                </td>
+              )}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {loading ? (
-              <tr><td className="px-4 py-6 text-gray-500" colSpan={5}>Carregando...</td></tr>
-            ) : items.length === 0 ? (
-              <tr><td className="px-4 py-6 text-gray-500" colSpan={5}>Nenhum registro encontrado</td></tr>
-            ) : items.map((item) => (
-              <tr key={item.id}>
-                <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.createdAt).toLocaleString('pt-BR')}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{item.username || '-'}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{item.action}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{item.moduleKey || '-'}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{item.entityType || '-'} {item.entityId ? `#${item.entityId}` : ''}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const ActivityLog: React.FC = () => {
+  const { token } = useAuth();
+  const { modules } = useModules();
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState({
+    userId: '',
+    module: '',
+    action: '',
+    startDate: '',
+    endDate: ''
+  });
+  const [page, setPage] = useState(1);
+  const limit = 50;
+  // Acumulador de todos os usuários/ações já vistos — persiste entre páginas para os dropdowns de filtro
+  const [knownUsers, setKnownUsers] = useState<string[]>([]);
+  const [knownActions, setKnownActions] = useState<string[]>([]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [filters, page]);
+
+  const loadLogs = async () => {
+    try {
+      setIsLoading(true);
+      const queryParams = new URLSearchParams();
+      if (filters.userId) queryParams.append('userId', filters.userId);
+      if (filters.module) queryParams.append('module', filters.module);
+      if (filters.action) queryParams.append('action', filters.action);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      queryParams.append('limit', limit.toString());
+      queryParams.append('page', page.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/activity-log?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setLogs(result.data);
+        // Acumular usuários e ações conhecidos para os filtros
+        setKnownUsers(prev => Array.from(new Set([...prev, ...result.data.map((l: ActivityLog) => l.username)])));
+        setKnownActions(prev => Array.from(new Set([...prev, ...result.data.map((l: ActivityLog) => l.action)])));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar logs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const hasDiff = (log: ActivityLog) =>
+    log.details && (log.details.before !== undefined || log.details.after !== undefined);
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    // Buscar todos os logs sem paginação para exportação completa
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.userId) queryParams.append('userId', filters.userId);
+      if (filters.module) queryParams.append('module', filters.module);
+      if (filters.action) queryParams.append('action', filters.action);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      queryParams.append('limit', '10000');
+      queryParams.append('page', '1');
+
+      const response = await fetch(`${API_BASE_URL}/admin/activity-log?${queryParams}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const result = await response.json();
+      const allLogs: ActivityLog[] = result.success ? result.data : logs;
+
+      const data = allLogs.map(log => ({
+        Usuário: log.username,
+        Ação: log.action,
+        Módulo: log.module,
+        Tipo: log.entityType || '',
+        Data: new Date(log.timestamp).toLocaleString(),
+        Detalhes: JSON.stringify(log.details || {})
+      }));
+
+      if (data.length === 0) {
+        alert('Nenhum registro encontrado para exportar.');
+        return;
+      }
+
+      if (format === 'csv') {
+        const headers = Object.keys(data[0]);
+        const csv = [
+          headers.join(','),
+          ...data.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(','))
+        ].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+    }
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      userId: '',
+      module: '',
+      action: '',
+      startDate: '',
+      endDate: ''
+    });
+    setPage(1);
+  };
+
+  const actionLabels: Record<string, string> = {
+    'create': 'Criar',
+    'edit': 'Editar',
+    'delete': 'Deletar',
+    'login': 'Login',
+    'permission_change': 'Mudança de Permissão',
+    'impersonate': 'Impersonar',
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-amber-900">Histórico de Atividades</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleExport('csv')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-green-700 shadow-lg transition-all"
+          >
+            <Download className="h-5 w-5" />
+            Exportar CSV
+          </button>
+          <button
+            onClick={() => handleExport('json')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-600 shadow-lg transition-all"
+          >
+            <Download className="h-5 w-5" />
+            Exportar JSON
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">Total: {total}</span>
-        <div className="flex items-center gap-2">
-          <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(p - 1, 1))} className="px-3 py-1.5 rounded bg-gray-100 text-gray-700 disabled:opacity-50">Anterior</button>
-          <span className="text-sm text-gray-700">{page} / {totalPages}</span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded bg-gray-100 text-gray-700 disabled:opacity-50">Próxima</button>
+      {/* Filtros */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-amber-200 dark:border-gray-700 shadow-lg p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Filtros</h3>
+          <button
+            onClick={clearFilters}
+            className="ml-auto text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
+          >
+            Limpar filtros
+          </button>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usuário</label>
+            <select
+              value={filters.userId}
+              onChange={(e) => {
+                setFilters({ ...filters, userId: e.target.value });
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+            >
+              <option value="">Todos</option>
+              {knownUsers.map(user => (
+                <option key={user} value={user}>{user}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Módulo</label>
+            <select
+              value={filters.module}
+              onChange={(e) => {
+                setFilters({ ...filters, module: e.target.value });
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+            >
+              <option value="">Todos</option>
+              {modules.map(mod => (
+                <option key={mod.id} value={mod.key}>{mod.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ação</label>
+            <select
+              value={filters.action}
+              onChange={(e) => {
+                setFilters({ ...filters, action: e.target.value });
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+            >
+              <option value="">Todas</option>
+              {knownActions.map(action => (
+                <option key={action} value={action}>{actionLabels[action] || action}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Início</label>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => {
+                setFilters({ ...filters, startDate: e.target.value });
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Fim</label>
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => {
+                setFilters({ ...filters, endDate: e.target.value });
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-amber-50">
+              <tr>
+                <th className="w-8 px-3 py-3" />
+                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Usuário</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Ação</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Módulo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Entidade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Data/Hora</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {logs.map((log) => {
+                const expanded = expandedRows.has(log.id);
+                const hasDetails = hasDiff(log);
+                return (
+                  <React.Fragment key={log.id}>
+                    <tr
+                      className={`${hasDetails ? 'cursor-pointer hover:bg-amber-50' : 'hover:bg-gray-50'}`}
+                      onClick={() => hasDetails && toggleRow(log.id)}
+                    >
+                      <td className="px-3 py-4 text-gray-400">
+                        {hasDetails && (
+                          expanded
+                            ? <ChevronDown className="h-4 w-4" />
+                            : <ChevronRight className="h-4 w-4" />
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {log.username}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                          log.action === 'create' ? 'bg-green-100 text-green-700' :
+                          log.action === 'edit' ? 'bg-blue-100 text-blue-700' :
+                          log.action === 'delete' ? 'bg-red-100 text-red-700' :
+                          log.action === 'login' ? 'bg-purple-100 text-purple-700' :
+                          log.action === 'impersonate' ? 'bg-orange-100 text-orange-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {log.action === 'create' && <Plus className="w-3 h-3" />}
+                          {log.action === 'edit' && <Pencil className="w-3 h-3" />}
+                          {log.action === 'delete' && <Trash2 className="w-3 h-3" />}
+                          {log.action === 'login' && <LogIn className="w-3 h-3" />}
+                          {log.action === 'impersonate' && <UserCheck className="w-3 h-3" />}
+                          {actionLabels[log.action] || log.action}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.module}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.entityType || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                    </tr>
+                    {hasDetails && expanded && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={6} className="px-8 py-3">
+                          <DiffView
+                            before={log.details?.before ?? null}
+                            after={log.details?.after ?? null}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {logs.length === 0 && (
+          <div className="flex flex-col items-center gap-3 py-12">
+            <Activity className="w-12 h-12 text-gray-300" />
+            <p className="text-gray-500 font-medium">Nenhum log encontrado</p>
+            <p className="text-gray-400 text-sm">Tente ajustar os filtros ou o período</p>
+          </div>
+        )}
+        {logs.length > 0 && (
+          <div className="px-6 py-4 border-t flex justify-between items-center">
+            <div className="text-sm text-gray-500">
+              Exibindo <span className="font-semibold text-gray-700">{(page - 1) * limit + 1}–{(page - 1) * limit + logs.length}</span> registro(s)
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Anterior
+              </button>
+              <span className="px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-800 rounded-lg">
+                {page}
+              </span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={logs.length < limit}
+                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors"
+              >
+                Próxima
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

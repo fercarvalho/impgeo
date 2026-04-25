@@ -1,205 +1,243 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, EyeOff, Save, User, X } from 'lucide-react';
+import { X, Edit, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 interface AlterarUsernameModalProps {
   isOpen: boolean;
   onClose: () => void;
+  currentUsername: string;
 }
 
-const API_BASE_URL =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
-
-const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/;
-
-const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({ isOpen, onClose }) => {
-  const { token, user, updateUser } = useAuth();
+const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
+  isOpen,
+  onClose,
+  currentUsername
+}) => {
+  const { token, updateUser } = useAuth();
   const [newUsername, setNewUsername] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const usernameInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    username?: string;
+    password?: string;
+    general?: string;
+  }>({});
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const timeout = setTimeout(() => usernameInputRef.current?.focus(), 0);
-    return () => clearTimeout(timeout);
-  }, [isOpen]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', onKeyDown);
+  const validateUsername = (username: string): string | undefined => {
+    if (!username.trim()) {
+      return 'Username é obrigatório';
     }
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
-
-  const validateForm = () => {
-    if (!newUsername.trim()) return 'Novo username e obrigatorio.';
-    if (newUsername.trim().length < 3) return 'Username deve ter pelo menos 3 caracteres.';
-    if (!USERNAME_REGEX.test(newUsername.trim())) {
-      return 'Use apenas letras, numeros, underscore (_) ou hifen (-).';
+    if (username.trim().length < 3) {
+      return 'Username deve ter pelo menos 3 caracteres';
     }
-    if (user?.username && newUsername.trim() === user.username) {
-      return 'O novo username deve ser diferente do atual.';
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!usernameRegex.test(username.trim())) {
+      return 'Username não pode conter espaços ou acentos. Use apenas letras, números, underscore (_) ou hífen (-)';
     }
-    if (!currentPassword) return 'Senha atual e obrigatoria.';
-    return '';
+    if (username.trim() === currentUsername) {
+      return 'O novo username deve ser diferente do atual';
+    }
+    return undefined;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewUsername(value);
+    if (errors.username) {
+      const error = validateUsername(value);
+      setErrors(prev => ({ ...prev, username: error }));
+    }
+  };
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    // Validar username
+    const usernameError = validateUsername(newUsername);
+    if (usernameError) {
+      setErrors({ username: usernameError });
       return;
     }
 
-    if (!token) {
-      setError('Sessao invalida. Faca login novamente.');
+    // Validar senha
+    if (!password.trim()) {
+      setErrors({ password: 'Senha atual é obrigatória' });
       return;
     }
+
+    setLoading(true);
 
     try {
-      setIsSaving(true);
-      const response = await fetch(`${API_BASE_URL}/user/username`, {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          newUsername: newUsername.trim(),
-          currentPassword,
-        }),
+          username: newUsername.trim(),
+          password: password
+        })
       });
 
       const result = await response.json();
-      if (!response.ok || !result.success) {
-        setError(result.error || 'Nao foi possivel alterar o username.');
-        return;
-      }
 
-      updateUser(
-        {
-          username: result.user?.username || newUsername.trim(),
-        },
-        result.token
-      );
-      setSuccess(result.message || 'Username alterado com sucesso.');
-      setNewUsername('');
-      setCurrentPassword('');
-      setTimeout(() => onClose(), 400);
-    } catch (err) {
-      setError('Erro de conexao ao alterar username.');
+      if (response.ok && result.success) {
+        // Atualizar contexto com novos dados
+        updateUser(
+          {
+            username: result.data.username
+          },
+          result.token
+        );
+
+        // Limpar formulário
+        setNewUsername('');
+        setPassword('');
+        setErrors({});
+
+        // Fechar modal
+        onClose();
+
+        // Mostrar mensagem de sucesso
+        alert('Username alterado com sucesso!');
+      } else {
+        setErrors({ general: result.error || 'Erro ao alterar username' });
+      }
+    } catch (error) {
+      console.error('Erro ao alterar username:', error);
+      setErrors({ general: 'Erro ao alterar username. Tente novamente.' });
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const content = (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
       }}
     >
-      <div className="w-full max-w-md bg-white rounded-xl shadow-xl border border-blue-100">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-blue-50 rounded-t-xl">
-          <h2 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-700" />
-            Alterar Username
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full text-blue-700 hover:bg-blue-100">
-            <X className="w-5 h-5" />
-          </button>
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-md max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
+              <Edit className="w-6 h-6 text-amber-700" />
+              Alterar Username
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all"
+              disabled={loading}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.general && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              {errors.general}
+            </div>
+          )}
 
           <div>
-            <label htmlFor="alterar-username-atual" className="block text-sm font-medium text-gray-700 mb-1">Username atual</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Username Atual
+            </label>
             <input
-              id="alterar-username-atual"
-              name="alterar-username-atual"
               type="text"
-              value={user?.username || ''}
+              value={currentUsername}
               disabled
-              aria-label="Username atual"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600"
+              className="w-full px-4 py-3 bg-gray-100 dark:!bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 cursor-not-allowed"
             />
           </div>
 
           <div>
-            <label htmlFor="alterar-novo-username" className="block text-sm font-medium text-gray-700 mb-1">Novo username</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Novo Username <span className="text-red-500">*</span>
+            </label>
             <input
-              id="alterar-novo-username"
-              name="alterar-novo-username"
-              ref={usernameInputRef}
               type="text"
               value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={handleUsernameChange}
+              onBlur={() => {
+                const error = validateUsername(newUsername);
+                setErrors(prev => ({ ...prev, username: error }));
+              }}
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                errors.username
+                  ? 'bg-red-50 border-red-300 focus:ring-red-500'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+              }`}
               placeholder="Digite o novo username"
-              autoComplete="off"
-              aria-label="Novo username"
+              disabled={loading}
             />
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="alterar-username-senha-atual" className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Senha Atual <span className="text-red-500">*</span>
+            </label>
             <div className="relative">
               <input
-                id="alterar-username-senha-atual"
-                name="alterar-username-senha-atual"
                 type={showPassword ? 'text' : 'password'}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                  errors.password
+                    ? 'bg-red-50 border-red-300 focus:ring-red-500'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
                 placeholder="Digite sua senha atual"
-                autoComplete="current-password"
-                aria-label="Senha atual para confirmação"
+                disabled={loading}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+              disabled={loading}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
             >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Salvando...' : 'Salvar'}
+              {loading ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </form>
@@ -207,7 +245,7 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({ isOpen, onC
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default AlterarUsernameModal;

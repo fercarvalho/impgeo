@@ -12,15 +12,12 @@ import {
   ArrowUpCircle,
   Building,
   FileText,
-  Phone,
-  Mail,
   Map,
   Map as MapIcon,
   Calculator,
   Download,
   ClipboardList,
   Shield,
-  Globe,
   Monitor,
   AlertTriangle,
   ShieldAlert,
@@ -54,7 +51,12 @@ const Documentation = lazy(() => import('./components/Documentation'))
 const Roadmap = lazy(() => import('./components/Roadmap'))
 import ImpersonationBanner from './components/ImpersonationBanner'
 import FeedbackButton from './components/FeedbackButton'
+import Footer from './components/Footer'
+import CommitVersionModal from './components/CommitVersionModal'
+import VersaoNovaModal from './components/VersaoNovaModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
+import ThemeToggle from './components/ThemeToggle'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -150,7 +152,7 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
           <p className="text-gray-600">Carregando...</p>
@@ -182,6 +184,7 @@ const AppContent: React.FC = () => {
 
 const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
   const permissions = usePermissions();
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
@@ -196,7 +199,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [isReloadingProjection, setIsReloadingProjection] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
-  const [catalogModuleKeys, setCatalogModuleKeys] = useState<string[] | null>(null)
+  const [catalogModules, setCatalogModules] = useState<{ moduleKey: string; moduleName: string; iconName?: string | null }[] | null>(null)
+
+  // Commit pendente (superadmin)
+  const [commitPendente, setCommitPendente] = useState<{
+    commitHash: string;
+    versaoAtual: string;
+    mensagem: string;
+    data: string;
+  } | null>(null);
+
+  // Notificação de nova versão (outros usuários)
+  const [versaoNova, setVersaoNova] = useState<{
+    versao: string;
+    texto: string;
+  } | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
     const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
@@ -214,6 +231,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     : [];
 
   const permissionKeys = modulesFromApi.length > 0 ? modulesFromApi : getDefaultModulesByRole(user?.role);
+  const catalogModuleKeys = catalogModules ? catalogModules.map(m => m.moduleKey) : null;
   const availableModuleKeys = new Set(
     Array.isArray(catalogModuleKeys) && catalogModuleKeys.length > 0
       ? permissionKeys.filter((key: string) => catalogModuleKeys.includes(key))
@@ -221,6 +239,59 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   );
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
+
+  // Verificar commit pendente quando superadmin faz login
+  useEffect(() => {
+    if (!token || !user || user.role !== 'superadmin') return;
+    let cancelled = false;
+
+    const checkCommit = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/rodape/commit-pendente`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (json.success && json.data?.pendente && !cancelled) {
+          setCommitPendente({
+            commitHash: json.data.commitHash,
+            versaoAtual: json.data.versaoAtual || '',
+            mensagem: json.data.mensagem || '',
+            data: json.data.data || '',
+          });
+        }
+      } catch {
+        // silently ignore
+      }
+    };
+
+    checkCommit();
+    return () => { cancelled = true; };
+  }, [token, user?.id]);
+
+  // Verificar notificação de nova versão (usuários não-superadmin)
+  useEffect(() => {
+    if (!token || !user || user.role === 'superadmin') return;
+    let cancelled = false;
+
+    const checkVersao = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notificacao-versao`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (json.success && json.data?.notificar && !cancelled) {
+          setVersaoNova({ versao: json.data.versao, texto: json.data.texto });
+        }
+      } catch {
+        // silently ignore
+      }
+    };
+
+    checkVersao();
+    return () => { cancelled = true; };
+  }, [token, user?.id]);
 
   useEffect(() => {
     const loadModulesCatalog = async () => {
@@ -233,13 +304,18 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         });
         const result = await response.json();
         if (response.ok && result?.success && Array.isArray(result.data)) {
-          const keys = result.data
-            .map((item: any) => item?.moduleKey)
-            .filter((key: string | undefined): key is string => Boolean(key));
-          setCatalogModuleKeys(keys);
+          setCatalogModules(
+            result.data
+              .filter((item: any) => Boolean(item?.moduleKey))
+              .map((item: any) => ({
+                moduleKey: item.moduleKey as string,
+                moduleName: item.moduleName as string,
+                iconName: item.iconName ?? null,
+              }))
+          );
         }
       } catch (error) {
-        setCatalogModuleKeys(null);
+        setCatalogModules(null);
       }
     };
 
@@ -944,110 +1020,51 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </div>
         </div>
         
-        {/* Segunda linha: Menus */}
+        {/* Segunda linha: Menus — ordem definida pelo catálogo (drag-and-drop no Admin) */}
         <div className="flex items-center justify-start space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2 px-1">
-          {hasModuleAccess('dashboard') && (
-            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <Home className="h-4 w-4 mb-2" />
-            Dashboard
-            </button>
-          )}
-          {hasModuleAccess('projects') && (
-            <button onClick={() => setActiveTab('projects')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projects' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <Map className="h-4 w-4 mb-2" />
-            Projetos
-            </button>
-          )}
-          {hasModuleAccess('services') && (
-            <button onClick={() => setActiveTab('services')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'services' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <Target className="h-4 w-4 mb-2" />
-            Serviços
-            </button>
-          )}
-          {hasModuleAccess('reports') && (
-            <button onClick={() => setActiveTab('reports')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'reports' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <BarChart3 className="h-4 w-4 mb-2" />
-            Relatórios
-            </button>
-          )}
-          {hasModuleAccess('metas') && (
-            <button onClick={() => setActiveTab('metas')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'metas' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <TrendingUp className="h-4 w-4 mb-2" />
-            Metas
-            </button>
-          )}
-          {hasModuleAccess('projecao') && (
-            <button onClick={() => setActiveTab('projecao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'projecao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <Calculator className="h-4 w-4 mb-2" />
-            <span className="text-center leading-tight">Projeção</span>
-            </button>
-          )}
-          {hasModuleAccess('transactions') && (
-            <button onClick={() => setActiveTab('transactions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'transactions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <FileText className="h-4 w-4 mb-2" />
-            Transações
-            </button>
-          )}
-          {hasModuleAccess('clients') && (
-            <button onClick={() => setActiveTab('clients')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'clients' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <Building className="h-4 w-4 mb-2" />
-            Clientes
-            </button>
-          )}
-          {hasModuleAccess('dre') && (
-            <button onClick={() => setActiveTab('dre')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'dre' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <BarChart3 className="h-4 w-4 mb-2" />
-            DRE
-            </button>
-          )}
-          {hasModuleAccess('acompanhamentos') && (
-            <button onClick={() => setActiveTab('acompanhamentos')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'acompanhamentos' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-            <ClipboardList className="h-4 w-4 mb-2" />
-            Acompanhamentos
-            </button>
-          )}
-          {hasModuleAccess('faq') && (
-            <button onClick={() => setActiveTab('faq')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'faq' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <HelpCircle className="h-4 w-4 mb-2" />
-              FAQ
-            </button>
-          )}
-          {hasModuleAccess('documentacao') && (
-            <button onClick={() => setActiveTab('documentacao')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'documentacao' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <BookOpen className="h-4 w-4 mb-2" />
-              Documentação
-            </button>
-          )}
-          {hasModuleAccess('roadmap') && (
-            <button onClick={() => setActiveTab('roadmap')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'roadmap' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <MapIcon className="h-4 w-4 mb-2" />
-              Roadmap
-            </button>
-          )}
-          {hasModuleAccess('admin') && (
-            <button onClick={() => setActiveTab('admin')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'admin' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Shield className="h-4 w-4 mb-2" />
-              Admin
-            </button>
-          )}
-          {hasModuleAccess('sessions') && (
-            <button onClick={() => setActiveTab('sessions')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'sessions' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <Monitor className="h-4 w-4 mb-2" />
-              Sessões
-            </button>
-          )}
-          {hasModuleAccess('anomalies') && (
-            <button onClick={() => setActiveTab('anomalies')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'anomalies' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <AlertTriangle className="h-4 w-4 mb-2" />
-              Anomalias
-            </button>
-          )}
-          {hasModuleAccess('security_alerts') && (
-            <button onClick={() => setActiveTab('security_alerts')} className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === 'security_alerts' ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}>
-              <ShieldAlert className="h-4 w-4 mb-2" />
-              Alertas
-            </button>
-          )}
+          {(() => {
+            const iconMap: Record<string, React.ElementType> = {
+              dashboard: Home,
+              projects: Map,
+              services: Target,
+              reports: BarChart3,
+              metas: TrendingUp,
+              projecao: Calculator,
+              transactions: FileText,
+              clients: Building,
+              dre: BarChart3,
+              acompanhamentos: ClipboardList,
+              faq: HelpCircle,
+              documentacao: BookOpen,
+              roadmap: MapIcon,
+              admin: Shield,
+              sessions: Monitor,
+              anomalies: AlertTriangle,
+              security_alerts: ShieldAlert,
+            };
+
+            // Se o catálogo ainda não carregou, usa a ordem padrão como fallback
+            const orderedModules = catalogModules && catalogModules.length > 0
+              ? catalogModules
+              : Object.keys(iconMap).map(key => ({ moduleKey: key, moduleName: key, iconName: null }));
+
+            return orderedModules
+              .filter(m => hasModuleAccess(m.moduleKey))
+              .map(m => {
+                const Icon = iconMap[m.moduleKey] ?? Shield;
+                const key = m.moduleKey as TabType;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === key ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}
+                  >
+                    <Icon className="h-4 w-4 mb-2" />
+                    {m.moduleName}
+                  </button>
+                );
+              });
+          })()}
         </div>
       </div>
     </nav>
@@ -1154,7 +1171,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Quadrante Financeiro */}
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
               <div className="space-y-3">
                 {/* REFORÇO DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -1203,7 +1220,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             {/* Quadrante META DO MÊS */}
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
               <div className="space-y-4">
                 {/* Status da Meta */}
                 <div className={`text-center p-3 rounded-lg border-2 ${metaAtingida ? 'bg-emerald-50 border-emerald-200' : progressoPercentual >= 80 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
@@ -3435,7 +3452,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Renderização principal
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Carregando dados...</p>
@@ -3445,7 +3462,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <ImpersonationBanner />
       {user && <FeedbackButton paginaAtual={activeTab} />}
       <NavigationBar />
@@ -3549,93 +3566,70 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <div className="flex items-center mb-3">
-                <img 
-                  src="/logo_rodape.PNG" 
-                  alt="Viver de PJ Logo" 
-                  className="h-12 w-12 mr-2 object-contain"
-                />
-                <div>
-                  <span className="text-base font-bold">Viver de PJ</span>
-                  <p className="text-gray-400 text-sm">Ecosistema de Empreendedorismo</p>
-                </div>
-              </div>
-              <p className="text-gray-400 text-sm">
-                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreeendedores.
-                <br /><br />
-                Autor: Fernando Carvalho Gomes dos Santos 39063242816.
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Contato</h3>
-              <div className="space-y-2 text-gray-400">
-                <div className="flex items-center">
-                  <Phone className="h-4 w-4 mr-2" />
-                  <a 
-                    href="https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20site%20da%20IMPGEO%20e%20fiquei%20interessado%20pelo%20trabalho%20da%20Viver%20de%20PJ%20e%20gostaria%20de%20saber%20mais%20informações" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors"
-                  >
-                    (11) 97103-9181
-                  </a>
-                </div>
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 mr-2" />
-                  <a 
-                    href="mailto:vem@viverdepj.com.br" 
-                    className="hover:text-white transition-colors"
-                  >
-                    vem@viverdepj.com.br
-                  </a>
-                </div>
-                <div className="flex items-center">
-                  <Globe className="h-4 w-4 mr-2" />
-                  <a 
-                    href="https://viverdepj.com.br" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors"
-                  >
-                    viverdepj.com.br
-                  </a>
-                </div>
-                <div className="flex items-center">
-                  <Map className="h-4 w-4 mr-2" />
-                  <span>Brasil</span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Serviços</h3>
-              <div className="space-y-2 text-gray-400">
-                <p>Consultoria Estratégica de Negócios</p>
-                <p>Sistema de Gestão</p>
-                <p>Sistema Financeiro</p>
-                <p>CRM</p>
-                <p>IA Financeira</p>
-                <p>IA de Atendimento</p>
-                <p>IA para Negócios</p>
-                <p>Benefícios Corporativos</p>
-                <p>Contabilidade para Empresas</p>
-                <p>BPO Financeiro</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2026 Viver de PJ. TODOS OS DIREITOS RESERVADOS</p>
-          </div>
-        </div>
-      </footer>
-      
+      <Footer />
+
+      {/* Modal de confirmação de commit pendente (somente superadmin) */}
+      {commitPendente && (
+        <CommitVersionModal
+          commitHash={commitPendente.commitHash}
+          versaoAtual={commitPendente.versaoAtual}
+          mensagemOriginal={commitPendente.mensagem}
+          data={commitPendente.data}
+          onClose={() => setCommitPendente(null)}
+          onIgnore={async () => {
+            const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                action: 'ignorar',
+                commitHash: commitPendente.commitHash,
+                mensagem: '',
+                data: commitPendente.data,
+                rolesNotificados: [],
+              }),
+            });
+            if (!res.ok) throw new Error('Falha na requisição');
+            setCommitPendente(null);
+          }}
+          onConfirm={async ({ action, novaVersao, mensagem, data, rolesNotificados }) => {
+            const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                action,
+                novaVersao,
+                commitHash: commitPendente.commitHash,
+                mensagem,
+                data,
+                rolesNotificados,
+              }),
+            });
+            if (!res.ok) throw new Error('Falha na requisição');
+            setCommitPendente(null);
+            window.dispatchEvent(new Event('rodape-updated'));
+          }}
+        />
+      )}
+
+      {/* Modal de nova versão para usuários */}
+      {versaoNova && (
+        <VersaoNovaModal
+          versao={versaoNova.versao}
+          texto={versaoNova.texto}
+          onClose={async () => {
+            const versao = versaoNova.versao;
+            setVersaoNova(null);
+            try {
+              await fetch(`${API_BASE_URL}/notificacao-versao/vista`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ versao }),
+              });
+            } catch { /* silently ignore */ }
+          }}
+        />
+      )}
+
       {/* Modal de Gráficos */}
       <ChartModal
         isOpen={chartModal.isOpen}
@@ -3674,9 +3668,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+        <ThemeToggle />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

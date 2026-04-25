@@ -46,6 +46,7 @@ interface User {
   isActive?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
+  permissoesLegais?: Record<string, boolean>;
 }
 
 interface ModuleOption {
@@ -145,6 +146,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   });
   const [usernameForm, setUsernameForm] = useState({ username: '' });
   const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
+  const [permissoesLegaisForm, setPermissoesLegaisForm] = useState<Record<string, boolean>>({});
 
   const API_BASE_URL =
     (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
@@ -245,6 +247,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
   const openProfileModal = (user: User) => {
     clearFeedback();
     setEditingUser(user);
+    setPermissoesLegaisForm(user.permissoesLegais || {});
     setProfileForm({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -386,6 +389,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
         },
         'Cadastro do usuário atualizado com sucesso!'
       );
+      // Salvar permissões legais se superadmin editando admin
+      if (currentUser?.role === 'superadmin' && (editingUser.role === 'admin')) {
+        await fetch(`${API_BASE_URL}/admin/permissoes-legais/${editingUser.id}`, {
+          method: 'PUT',
+          headers: authHeaders(),
+          body: JSON.stringify({ permissoes: permissoesLegaisForm }),
+        }).catch(err => console.error('Erro ao salvar permissões legais:', err));
+      }
       setShowProfileModal(false);
       setEditingUser(null);
     } catch (err) {
@@ -947,6 +958,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                   </div>
                 </div>
               </div>
+              {/* Permissões Legais — visível apenas para superadmin editando admin */}
+              {currentUser?.role === 'superadmin' && editingUser.role === 'admin' && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-blue-600" /> Permissões Legais (LGPD)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    {([
+                      { key: 'termos_uso', label: 'Editar Termos de Uso' },
+                      { key: 'politica_privacidade', label: 'Editar Política de Privacidade' },
+                      { key: 'cookies', label: 'Editar Cookies' },
+                    ] as { key: string; label: string }[]).map(perm => (
+                      <label key={perm.key} className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={permissoesLegaisForm[perm.key] === true}
+                          onChange={e => setPermissoesLegaisForm(prev => ({ ...prev, [perm.key]: e.target.checked }))}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs font-medium text-gray-700">{perm.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-6 flex justify-end gap-3">
                 <button type="button" onClick={() => setShowProfileModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">

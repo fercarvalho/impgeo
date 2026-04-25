@@ -1,218 +1,275 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, EyeOff, Key, Save, X } from 'lucide-react';
+import { X, Key, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 interface AlterarSenhaModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const API_BASE_URL =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
-
 const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }) => {
   const { token } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const currentPasswordRef = useRef<HTMLInputElement>(null);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [showSenhaAtual, setShowSenhaAtual] = useState(false);
+  const [showNovaSenha, setShowNovaSenha] = useState(false);
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    senhaAtual?: string;
+    novaSenha?: string;
+    confirmarSenha?: string;
+    general?: string;
+  }>({});
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const timeout = setTimeout(() => currentPasswordRef.current?.focus(), 0);
-    return () => clearTimeout(timeout);
-  }, [isOpen]);
+  const validateForm = (): boolean => {
+    const newErrors: typeof errors = {};
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', onKeyDown);
+    if (!senhaAtual.trim()) {
+      newErrors.senhaAtual = 'Senha atual é obrigatória';
     }
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
 
-  const validateForm = () => {
-    if (!currentPassword) return 'Senha atual e obrigatoria.';
-    if (!newPassword) return 'Nova senha e obrigatoria.';
-    if (newPassword.length < 6) return 'Nova senha deve ter pelo menos 6 caracteres.';
-    if (newPassword === currentPassword) return 'A nova senha deve ser diferente da senha atual.';
-    if (!confirmPassword) return 'Confirme a nova senha.';
-    if (newPassword !== confirmPassword) return 'A confirmacao nao corresponde a nova senha.';
-    return '';
+    if (!novaSenha.trim()) {
+      newErrors.novaSenha = 'Nova senha é obrigatória';
+    } else if (novaSenha.length < 6) {
+      newErrors.novaSenha = 'A nova senha deve ter no mínimo 6 caracteres';
+    }
+
+    if (!confirmarSenha.trim()) {
+      newErrors.confirmarSenha = 'Confirmação de senha é obrigatória';
+    } else if (novaSenha !== confirmarSenha) {
+      newErrors.confirmarSenha = 'As senhas não coincidem';
+    }
+
+    if (senhaAtual && novaSenha && senhaAtual === novaSenha) {
+      newErrors.novaSenha = 'A nova senha deve ser diferente da senha atual';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    if (!validateForm()) {
       return;
     }
 
-    if (!token) {
-      setError('Sessao invalida. Faca login novamente.');
-      return;
-    }
+    setLoading(true);
 
     try {
-      setIsSaving(true);
       const response = await fetch(`${API_BASE_URL}/user/password`, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+          senhaAtual: senhaAtual,
+          novaSenha: novaSenha
+        })
       });
 
       const result = await response.json();
-      if (!response.ok || !result.success) {
-        setError(result.error || 'Nao foi possivel alterar a senha.');
-        return;
-      }
 
-      setSuccess(result.message || 'Senha alterada com sucesso.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => onClose(), 400);
-    } catch (err) {
-      setError('Erro de conexao ao alterar senha.');
+      if (response.ok && result.success) {
+        // Limpar formulário
+        setSenhaAtual('');
+        setNovaSenha('');
+        setConfirmarSenha('');
+        setErrors({});
+
+        // Fechar modal
+        onClose();
+
+        // Mostrar mensagem de sucesso
+        alert('Senha alterada com sucesso!');
+      } else {
+        setErrors({ general: result.error || 'Erro ao alterar senha' });
+      }
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error);
+      setErrors({ general: 'Erro ao alterar senha. Tente novamente.' });
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const content = (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 pb-4 pt-[180px]"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
       }}
     >
-      <div className="w-full max-w-md bg-white rounded-xl shadow-xl border border-blue-100">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-blue-50 rounded-t-xl">
-          <h2 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
-            <Key className="w-5 h-5 text-blue-700" />
-            Alterar Senha
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full text-blue-700 hover:bg-blue-100">
-            <X className="w-5 h-5" />
-          </button>
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700 max-h-[calc(100vh-220px)] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
+              <Key className="w-6 h-6 text-amber-700" />
+              Alterar Senha
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all"
+              disabled={loading}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.general && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              {errors.general}
+            </div>
+          )}
 
           <div>
-            <label htmlFor="alterar-senha-atual" className="block text-sm font-medium text-gray-700 mb-1">Senha atual</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Senha Atual <span className="text-red-500">*</span>
+            </label>
             <div className="relative">
               <input
-                id="alterar-senha-atual"
-                name="alterar-senha-atual"
-                ref={currentPasswordRef}
-                type={showCurrentPassword ? 'text' : 'password'}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                type={showSenhaAtual ? 'text' : 'password'}
+                value={senhaAtual}
+                onChange={(e) => setSenhaAtual(e.target.value)}
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                  errors.senhaAtual
+                    ? 'bg-red-50 border-red-300 focus:ring-red-500'
+                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                }`}
                 placeholder="Digite sua senha atual"
-                autoComplete="current-password"
-                aria-label="Senha atual"
+                disabled={loading}
               />
               <button
                 type="button"
-                onClick={() => setShowCurrentPassword((prev) => !prev)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowSenhaAtual(!showSenhaAtual)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
-                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showSenhaAtual ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {errors.senhaAtual && (
+              <p className="mt-1 text-sm text-red-600">{errors.senhaAtual}</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="alterar-nova-senha" className="block text-sm font-medium text-gray-700 mb-1">Nova senha</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Nova Senha <span className="text-red-500">*</span>
+            </label>
             <div className="relative">
               <input
-                id="alterar-nova-senha"
-                name="alterar-nova-senha"
-                type={showNewPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Digite a nova senha"
-                autoComplete="new-password"
-                aria-label="Nova senha"
+                type={showNovaSenha ? 'text' : 'password'}
+                value={novaSenha}
+                onChange={(e) => {
+                  setNovaSenha(e.target.value);
+                  if (errors.novaSenha) {
+                    setErrors(prev => ({ ...prev, novaSenha: undefined }));
+                  }
+                  if (errors.confirmarSenha && confirmarSenha) {
+                    if (e.target.value !== confirmarSenha) {
+                      setErrors(prev => ({ ...prev, confirmarSenha: 'As senhas não coincidem' }));
+                    } else {
+                      setErrors(prev => ({ ...prev, confirmarSenha: undefined }));
+                    }
+                  }
+                }}
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                  errors.novaSenha
+                    ? 'bg-red-50 border-red-300 focus:ring-red-500'
+                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                }`}
+                placeholder="Digite a nova senha (mínimo 6 caracteres)"
+                disabled={loading}
               />
               <button
                 type="button"
-                onClick={() => setShowNewPassword((prev) => !prev)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowNovaSenha(!showNovaSenha)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
-                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showNovaSenha ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {errors.novaSenha && (
+              <p className="mt-1 text-sm text-red-600">{errors.novaSenha}</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="alterar-confirmar-senha" className="block text-sm font-medium text-gray-700 mb-1">Confirmar nova senha</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Confirmar Nova Senha <span className="text-red-500">*</span>
+            </label>
             <div className="relative">
               <input
-                id="alterar-confirmar-senha"
-                name="alterar-confirmar-senha"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                type={showConfirmarSenha ? 'text' : 'password'}
+                value={confirmarSenha}
+                onChange={(e) => {
+                  setConfirmarSenha(e.target.value);
+                  if (errors.confirmarSenha) {
+                    if (e.target.value === novaSenha) {
+                      setErrors(prev => ({ ...prev, confirmarSenha: undefined }));
+                    } else {
+                      setErrors(prev => ({ ...prev, confirmarSenha: 'As senhas não coincidem' }));
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (confirmarSenha && confirmarSenha !== novaSenha) {
+                    setErrors(prev => ({ ...prev, confirmarSenha: 'As senhas não coincidem' }));
+                  }
+                }}
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                  errors.confirmarSenha
+                    ? 'bg-red-50 border-red-300 focus:ring-red-500'
+                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                }`}
                 placeholder="Confirme a nova senha"
-                autoComplete="new-password"
-                aria-label="Confirmar nova senha"
+                disabled={loading}
               />
               <button
                 type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showConfirmarSenha ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {errors.confirmarSenha && (
+              <p className="mt-1 text-sm text-red-600">{errors.confirmarSenha}</p>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+              disabled={loading}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
             >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Salvando...' : 'Salvar'}
+              {loading ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </form>
@@ -220,7 +277,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default AlterarSenhaModal;

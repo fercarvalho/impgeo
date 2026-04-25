@@ -2896,6 +2896,19 @@ app.post('/api/auth/reset-all-passwords', authenticateToken, requireAdmin, async
 });
 
 // APIs de Módulos (apenas para admins)
+app.post('/api/admin/modules/reorder', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { keys } = req.body;
+    if (!Array.isArray(keys) || keys.length === 0) {
+      return res.status(400).json({ error: 'Array de keys é obrigatório' });
+    }
+    await db.reorderModules(keys);
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao reordenar módulos' });
+  }
+});
+
 app.get('/api/admin/modules', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const modules = await db.getModulesCatalog();
@@ -3132,9 +3145,9 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     // Validar role
-    const validRoles = ['admin', 'user', 'guest'];
+    const validRoles = ['admin', 'user', 'guest', 'superadmin'];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Role inválido. Use: admin, user ou guest' });
+      return res.status(400).json({ error: 'Role inválido. Use: admin, user, guest ou superadmin' });
     }
 
     // Verificar se o usuário já existe
@@ -3190,9 +3203,9 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 
     // Validar role se fornecido
     if (role) {
-      const validRoles = ['admin', 'user', 'guest'];
+      const validRoles = ['admin', 'user', 'guest', 'superadmin'];
       if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'Role inválido. Use: admin, user ou guest' });
+        return res.status(400).json({ error: 'Role inválido. Use: admin, user, guest ou superadmin' });
       }
     }
 
@@ -4214,6 +4227,13 @@ app.put('/api/admin/permissoes-legais/:userId', authenticateToken, requireSuperA
 // ============================================================
 // DOCUMENTAÇÃO
 // ============================================================
+
+app.get('/api/documentation/public', async (req, res) => {
+  try {
+    const data = await db.obterDocumentacao();
+    res.json({ success: true, data });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
 
 app.get('/api/documentation', authenticateToken, async (req, res) => {
   try {

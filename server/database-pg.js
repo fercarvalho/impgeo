@@ -190,6 +190,7 @@ class Database {
       await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS description TEXT');
       await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS route_path VARCHAR(255)');
       await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE');
+      await this.queryWithRetry('ALTER TABLE modules_catalog ADD COLUMN IF NOT EXISTS sort_order INTEGER');
       await this.queryWithRetry('CREATE UNIQUE INDEX IF NOT EXISTS idx_modules_catalog_key_unique ON modules_catalog(module_key)');
 
       await this.queryWithRetry(`
@@ -1409,9 +1410,9 @@ class Database {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
       `
-        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
         FROM modules_catalog
-        ORDER BY module_name ASC
+        ORDER BY sort_order ASC NULLS LAST, module_name ASC
       `
     );
     return result.rows.map((row) => ({
@@ -1422,6 +1423,7 @@ class Database {
       routePath: row.route_path || null,
       isSystem: row.is_system === true,
       isActive: row.is_active !== false,
+      sortOrder: row.sort_order ?? null,
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null
     }));
@@ -1457,12 +1459,14 @@ class Database {
   async createModule(moduleData) {
     await this.ensureProfileSchema();
     const now = new Date().toISOString();
+    const maxResult = await this.queryWithRetry('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM modules_catalog');
+    const nextOrder = maxResult.rows[0]?.next_order ?? 1;
     const result = await this.queryWithRetry(
       `
         INSERT INTO modules_catalog
-          (module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+          (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
       `,
       [
         moduleData.moduleKey,
@@ -1472,6 +1476,7 @@ class Database {
         moduleData.routePath || null,
         moduleData.isSystem === true,
         moduleData.isActive !== false,
+        nextOrder,
         now,
         now
       ]
@@ -1485,6 +1490,7 @@ class Database {
       routePath: row.route_path || null,
       isSystem: row.is_system === true,
       isActive: row.is_active !== false,
+      sortOrder: row.sort_order ?? null,
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null
     };
@@ -1552,6 +1558,18 @@ class Database {
       throw new Error('Não é permitido excluir módulo de sistema');
     }
     await this.queryWithRetry('DELETE FROM modules_catalog WHERE module_key = $1', [moduleKey]);
+    return true;
+  }
+
+  async reorderModules(orderedKeys) {
+    await this.ensureProfileSchema();
+    const now = new Date().toISOString();
+    for (let i = 0; i < orderedKeys.length; i++) {
+      await this.queryWithRetry(
+        'UPDATE modules_catalog SET sort_order = $1, updated_at = $2 WHERE module_key = $3',
+        [i + 1, now, orderedKeys[i]]
+      );
+    }
     return true;
   }
 
@@ -3870,6 +3888,334 @@ class Database {
     } finally {
       client.release();
     }
+  }
+
+  // ========== RODAPÉ ==========
+
+  async obterRodapeCompleto() {
+    const [confRes, colunasRes, linksRes, bottomRes] = await Promise.all([
+      this.pool.query(`SELECT chave, valor FROM rodape_configuracoes`),
+      this.pool.query(`SELECT * FROM rodape_colunas ORDER BY ordem ASC, created_at ASC`),
+      this.pool.query(`SELECT * FROM rodape_links ORDER BY ordem ASC, created_at ASC`),
+      this.pool.query(`SELECT * FROM rodape_bottom_links ORDER BY ordem ASC, created_at ASC`).catch(() => ({ rows: [] })),
+    ]);
+
+    const configuracoes = {};
+    for (const row of confRes.rows) configuracoes[row.chave] = row.valor;
+
+    const linksMap = {};
+    for (const link of linksRes.rows) {
+      if (!linksMap[link.coluna_id]) linksMap[link.coluna_id] = [];
+      linksMap[link.coluna_id].push({
+        id: link.id, coluna_id: link.coluna_id, texto: link.texto,
+        link: link.link, ehLink: link.eh_link, ordem: link.ordem,
+      });
+    }
+
+    const colunas = colunasRes.rows.map(col => ({
+      id: col.id, titulo: col.titulo, ordem: col.ordem, links: linksMap[col.id] || [],
+    }));
+
+    const bottomLinks = bottomRes.rows.map(row => ({
+      id: row.id, texto: row.texto, link: row.link, ativo: row.ativo, ordem: row.ordem,
+    }));
+
+    return { configuracoes, colunas, bottomLinks };
+  }
+
+  async obterRodapeConfiguracoes() {
+    const r = await this.pool.query(`SELECT chave, valor FROM rodape_configuracoes`);
+    const obj = {};
+    for (const row of r.rows) obj[row.chave] = row.valor;
+    return obj;
+  }
+
+  async atualizarRodapeConfig(chave, valor) {
+    const now = new Date().toISOString();
+    const r = await this.pool.query(
+      `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (chave) DO UPDATE SET valor = $2, updated_at = $3
+       RETURNING *`,
+      [chave, valor, now]
+    );
+    return r.rows[0];
+  }
+
+  async obterRodapeColunas() {
+    const r = await this.pool.query(`SELECT * FROM rodape_colunas ORDER BY ordem ASC, created_at ASC`);
+    return r.rows;
+  }
+
+  async criarRodapeColuna(titulo) {
+    const id = 'col-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    const now = new Date().toISOString();
+    const ordemRes = await this.pool.query(`SELECT COALESCE(MAX(ordem), -1) + 1 AS prox FROM rodape_colunas`);
+    const ordem = ordemRes.rows[0].prox;
+    const r = await this.pool.query(
+      `INSERT INTO rodape_colunas (id, titulo, ordem, created_at, updated_at) VALUES ($1, $2, $3, $4, $4) RETURNING *`,
+      [id, titulo, ordem, now]
+    );
+    return r.rows[0];
+  }
+
+  async atualizarRodapeColuna(id, titulo) {
+    const now = new Date().toISOString();
+    const r = await this.pool.query(
+      `UPDATE rodape_colunas SET titulo = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
+      [titulo, now, id]
+    );
+    if (r.rows.length === 0) throw new Error('Coluna não encontrada');
+    return r.rows[0];
+  }
+
+  async deletarRodapeColuna(id) {
+    const r = await this.pool.query(`DELETE FROM rodape_colunas WHERE id = $1 RETURNING *`, [id]);
+    if (r.rows.length === 0) throw new Error('Coluna não encontrada');
+    return r.rows[0];
+  }
+
+  async atualizarOrdemColunas(colunaIds) {
+    const now = new Date().toISOString();
+    for (let i = 0; i < colunaIds.length; i++) {
+      await this.pool.query(`UPDATE rodape_colunas SET ordem = $1, updated_at = $2 WHERE id = $3`, [i, now, colunaIds[i]]);
+    }
+  }
+
+  async obterRodapeLinks() {
+    const r = await this.pool.query(
+      `SELECT rl.*, rc.titulo AS coluna_titulo FROM rodape_links rl
+       LEFT JOIN rodape_colunas rc ON rl.coluna_id = rc.id
+       ORDER BY rc.ordem ASC, rl.ordem ASC, rl.created_at ASC`
+    );
+    return r.rows.map(row => ({
+      id: row.id, colunaId: row.coluna_id, texto: row.texto,
+      link: row.link, ehLink: row.eh_link, ordem: row.ordem, colunaTitulo: row.coluna_titulo,
+    }));
+  }
+
+  async criarRodapeLink({ coluna_id, texto, link, eh_link }) {
+    const id = 'lnk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    const now = new Date().toISOString();
+    const ordemRes = await this.pool.query(
+      `SELECT COALESCE(MAX(ordem), -1) + 1 AS prox FROM rodape_links WHERE coluna_id = $1`, [coluna_id]
+    );
+    const ordem = ordemRes.rows[0].prox;
+    const ehLink = eh_link !== undefined ? eh_link : (link && link.trim() !== '');
+    const linkVal = ehLink ? (link || '') : '';
+    const r = await this.pool.query(
+      `INSERT INTO rodape_links (id, coluna_id, texto, link, eh_link, ordem, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING *`,
+      [id, coluna_id, texto, linkVal, ehLink, ordem, now]
+    );
+    return {
+      id: r.rows[0].id, colunaId: r.rows[0].coluna_id, texto: r.rows[0].texto,
+      link: r.rows[0].link, ehLink: r.rows[0].eh_link, ordem: r.rows[0].ordem,
+    };
+  }
+
+  async atualizarRodapeLink(id, { texto, link, eh_link, coluna_id }) {
+    const now = new Date().toISOString();
+    const fields = [];
+    const values = [id];
+    if (texto !== undefined)    { values.push(texto);    fields.push(`texto = $${values.length}`); }
+    if (eh_link !== undefined)  { values.push(eh_link);  fields.push(`eh_link = $${values.length}`); }
+    if (link !== undefined || eh_link === false) {
+      const linkVal = eh_link === false ? '' : (link || '');
+      values.push(linkVal); fields.push(`link = $${values.length}`);
+    }
+    if (coluna_id !== undefined) { values.push(coluna_id); fields.push(`coluna_id = $${values.length}`); }
+    values.push(now); fields.push(`updated_at = $${values.length}`);
+    const r = await this.pool.query(
+      `UPDATE rodape_links SET ${fields.join(', ')} WHERE id = $1 RETURNING *`, values
+    );
+    if (r.rows.length === 0) throw new Error('Link não encontrado');
+    return {
+      id: r.rows[0].id, colunaId: r.rows[0].coluna_id, texto: r.rows[0].texto,
+      link: r.rows[0].link, ehLink: r.rows[0].eh_link, ordem: r.rows[0].ordem,
+    };
+  }
+
+  async deletarRodapeLink(id) {
+    const r = await this.pool.query(`DELETE FROM rodape_links WHERE id = $1 RETURNING *`, [id]);
+    if (r.rows.length === 0) throw new Error('Link não encontrado');
+    return r.rows[0];
+  }
+
+  async atualizarOrdemLinks(linkIds) {
+    const now = new Date().toISOString();
+    for (let i = 0; i < linkIds.length; i++) {
+      await this.pool.query(`UPDATE rodape_links SET ordem = $1, updated_at = $2 WHERE id = $3`, [i, now, linkIds[i]]);
+    }
+  }
+
+  // ========== RODAPÉ — BOTTOM LINKS ==========
+
+  async obterRodapeBottomLinksAdmin() {
+    const r = await this.pool.query(`SELECT * FROM rodape_bottom_links ORDER BY ordem ASC, created_at ASC`);
+    return r.rows.map(row => ({ id: row.id, texto: row.texto, link: row.link, ativo: row.ativo, ordem: row.ordem }));
+  }
+
+  async criarRodapeBottomLink({ texto, link, ativo }) {
+    const id = 'btm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    const now = new Date().toISOString();
+    const ordemRes = await this.pool.query(`SELECT COALESCE(MAX(ordem), -1) + 1 AS prox FROM rodape_bottom_links`);
+    const ordem = ordemRes.rows[0].prox;
+    const r = await this.pool.query(
+      `INSERT INTO rodape_bottom_links (id, texto, link, ativo, ordem, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING *`,
+      [id, texto, link || '', ativo !== false, ordem, now]
+    );
+    const row = r.rows[0];
+    return { id: row.id, texto: row.texto, link: row.link, ativo: row.ativo, ordem: row.ordem };
+  }
+
+  async atualizarRodapeBottomLink(id, { texto, link, ativo }) {
+    const now = new Date().toISOString();
+    const fields = [];
+    const values = [id];
+    if (texto !== undefined) { values.push(texto); fields.push(`texto = $${values.length}`); }
+    if (link  !== undefined) { values.push(link);  fields.push(`link = $${values.length}`); }
+    if (ativo !== undefined) { values.push(ativo); fields.push(`ativo = $${values.length}`); }
+    values.push(now); fields.push(`updated_at = $${values.length}`);
+    const r = await this.pool.query(
+      `UPDATE rodape_bottom_links SET ${fields.join(', ')} WHERE id = $1 RETURNING *`, values
+    );
+    if (r.rows.length === 0) throw new Error('Link não encontrado');
+    const row = r.rows[0];
+    return { id: row.id, texto: row.texto, link: row.link, ativo: row.ativo, ordem: row.ordem };
+  }
+
+  async deletarRodapeBottomLink(id) {
+    const r = await this.pool.query(`DELETE FROM rodape_bottom_links WHERE id = $1 RETURNING *`, [id]);
+    if (r.rows.length === 0) throw new Error('Link não encontrado');
+    return r.rows[0];
+  }
+
+  async atualizarOrdemBottomLinks(linkIds) {
+    const now = new Date().toISOString();
+    for (let i = 0; i < linkIds.length; i++) {
+      await this.pool.query(`UPDATE rodape_bottom_links SET ordem = $1, updated_at = $2 WHERE id = $3`, [i, now, linkIds[i]]);
+    }
+  }
+
+  // ========== RODAPÉ — COMMIT PENDENTE & NOTIFICAÇÕES ==========
+
+  async obterCommitPendente() {
+    const r = await this.pool.query(
+      `SELECT chave, valor FROM rodape_configuracoes
+       WHERE chave IN ('ultimo_commit_inserido','ultimo_commit_confirmado','ultimo_commit_msg','ultimo_commit_data','versao_sistema')`
+    );
+    const obj = {};
+    for (const row of r.rows) obj[row.chave] = row.valor;
+
+    const inserido   = obj['ultimo_commit_inserido']  || null;
+    const confirmado = obj['ultimo_commit_confirmado'] || null;
+    const versao     = obj['versao_sistema'] || '';
+    const msg        = obj['ultimo_commit_msg']  || '';
+    const data       = obj['ultimo_commit_data'] || '';
+
+    const pendente = inserido && inserido !== confirmado;
+    return { pendente: !!pendente, commitHash: inserido, versaoAtual: versao, mensagem: msg, data };
+  }
+
+  async confirmarCommit({ action, novaVersao, mensagem, data, commitHash, rolesNotificados = [] }) {
+    const now = new Date().toISOString();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
+         VALUES ('ultimo_commit_confirmado', $1, $2)
+         ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
+        [commitHash, now]
+      );
+
+      if (action === 'ignorar') {
+        await client.query('COMMIT');
+        return { ok: true };
+      }
+
+      const novoItem = `<li><strong>${data}</strong> — ${mensagem}</li>`;
+      const notasRes = await client.query(`SELECT valor FROM rodape_configuracoes WHERE chave = 'notas_versao'`);
+      let notas = notasRes.rows.length > 0 ? (notasRes.rows[0].valor || '') : '';
+
+      if (action === 'nova_versao' && novaVersao) {
+        await client.query(
+          `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
+           VALUES ('versao_sistema', $1, $2)
+           ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
+          [novaVersao, now]
+        );
+
+        const novaSecao = `<h2>Versão ${novaVersao}</h2>\n<h3>📋 Atualizações</h3>\n<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n<hr>\n`;
+        notas = notas.includes('<h2>') ? notas.replace('<h2>', novaSecao + '<h2>') : novaSecao + notas;
+
+        for (const [chave, valor] of [
+          ['versao_notificada', novaVersao],
+          ['versao_notificada_roles', JSON.stringify(rolesNotificados)],
+          ['versao_notificada_texto', mensagem],
+        ]) {
+          await client.query(
+            `INSERT INTO rodape_configuracoes (chave, valor, updated_at) VALUES ($1, $2, $3)
+             ON CONFLICT (chave) DO UPDATE SET valor = $2, updated_at = $3`,
+            [chave, valor, now]
+          );
+        }
+
+        await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [novaVersao]).catch(() => {});
+      } else {
+        notas = notas.includes('<!--COMMITS-->')
+          ? notas.replace('<!--COMMITS-->', `<!--COMMITS-->\n${novoItem}`)
+          : `<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n` + notas;
+      }
+
+      await client.query(
+        `UPDATE rodape_configuracoes SET valor = $1, updated_at = $2 WHERE chave = 'notas_versao'`,
+        [notas, now]
+      );
+
+      await client.query('COMMIT');
+      return { ok: true };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async obterNotificacaoVersao(userId, userRole) {
+    const r = await this.pool.query(
+      `SELECT chave, valor FROM rodape_configuracoes
+       WHERE chave IN ('versao_notificada', 'versao_notificada_roles', 'versao_notificada_texto')`
+    );
+    const obj = {};
+    for (const row of r.rows) obj[row.chave] = row.valor;
+
+    const versao = obj['versao_notificada'] || '';
+    if (!versao) return { notificar: false };
+
+    let roles = [];
+    try { roles = JSON.parse(obj['versao_notificada_roles'] || '[]'); } catch { roles = []; }
+    if (!roles.includes(userRole)) return { notificar: false };
+
+    const visto = await this.pool.query(
+      `SELECT 1 FROM versao_notificacoes_vistas WHERE user_id = $1 AND versao = $2`,
+      [userId, versao]
+    ).catch(() => ({ rows: [] }));
+
+    if (visto.rows.length > 0) return { notificar: false };
+
+    return { notificar: true, versao, texto: obj['versao_notificada_texto'] || '' };
+  }
+
+  async marcarVersaoVista(userId, versao) {
+    await this.pool.query(
+      `INSERT INTO versao_notificacoes_vistas (user_id, versao) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [userId, versao]
+    ).catch(() => {});
   }
 }
 

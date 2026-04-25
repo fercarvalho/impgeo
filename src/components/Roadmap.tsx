@@ -38,6 +38,15 @@ interface Coluna {
 type StatusKey = RoadmapItem['status'];
 type PrioridadeKey = RoadmapItem['prioridade'];
 
+// STATUS_CONFIG disponível para uso futuro em renderização de badges por status
+const STATUS_CONFIG: Record<StatusKey, { label: string; Icon: React.ElementType; color: string; bg: string; darkColor: string; darkBg: string }> = {
+  backlog:   { label: 'Backlog',    Icon: Code2,        color: '#6b7280', bg: '#f3f4f6', darkColor: '#9ca3af', darkBg: '#374151' },
+  doing:     { label: 'Doing',      Icon: Clock,        color: '#d97706', bg: '#fef3c7', darkColor: '#fbbf24', darkBg: '#451a03' },
+  em_testes: { label: 'Em Testes',  Icon: FlaskConical, color: '#0891b2', bg: '#cffafe', darkColor: '#22d3ee', darkBg: '#083344' },
+  em_beta:   { label: 'Em Beta',    Icon: Rocket,       color: '#2563eb', bg: '#dbeafe', darkColor: '#60a5fa', darkBg: '#1e3a5f' },
+  lancado:   { label: 'Lançado',    Icon: CheckCircle2, color: '#16a34a', bg: '#dcfce7', darkColor: '#4ade80', darkBg: '#052e16' },
+  done:      { label: 'Done',       Icon: Archive,      color: '#9ca3af', bg: '#f9fafb', darkColor: '#6b7280', darkBg: '#1f2937' },
+};
 
 const PRIORIDADE_CONFIG: Record<PrioridadeKey, { label: string; color: string; bg: string; darkColor: string; darkBg: string }> = {
   baixa: { label: 'Baixa', color: '#16a34a', bg: '#dcfce7', darkColor: '#4ade80', darkBg: '#052e16' },
@@ -45,6 +54,8 @@ const PRIORIDADE_CONFIG: Record<PrioridadeKey, { label: string; color: string; b
   alta:  { label: 'Alta',  color: '#dc2626', bg: '#fee2e2', darkColor: '#f87171', darkBg: '#450a0a' },
 };
 
+
+void (STATUS_CONFIG as unknown); // mantém o config disponível sem triggerar noUnusedLocals
 
 // ============================================================
 // Calendário personalizado (padrão do sistema)

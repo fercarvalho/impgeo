@@ -101,7 +101,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   // filtros / ordenação
   const [sortConfig, setSortConfig] = useState<{ field: keyof Transaction | null, direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' })
-  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
+  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string, description: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '' })
 
   // calendários de filtro
 
@@ -203,6 +203,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   const filteredAndSorted = useMemo(() => {
     let list = [...transactions]
+    if (filters.description) list = list.filter(t => t.description.toLowerCase().includes(filters.description.toLowerCase()))
     if (filters.type) list = list.filter(t => t.type === filters.type)
     if (filters.category) list = list.filter(t => t.category.toLowerCase().includes(filters.category.toLowerCase()))
     if (filters.subcategory) list = list.filter(t => (t.subcategory || '').toLowerCase().includes(filters.subcategory.toLowerCase()))
@@ -239,7 +240,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     })
   }
 
-  const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '' })
+  const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '' })
 
 
   // Função para adicionar nova subcategoria
@@ -456,6 +457,31 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide">Filtre seus itens:</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
+            {/* Busca por descrição */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <label htmlFor="transaction-description-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Buscar</label>
+              <div className="relative">
+                <input
+                  id="transaction-description-filter"
+                  name="transaction-description-filter"
+                  aria-label="Buscar por nome da transação"
+                  type="text"
+                  placeholder="Nome da transação..."
+                  value={filters.description}
+                  onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full pr-7"
+                />
+                {filters.description && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters(prev => ({ ...prev, description: '' }))}
+                    className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col flex-1 min-w-0">
               <label htmlFor="transaction-type-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Tipo</label>
               <select

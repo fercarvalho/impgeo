@@ -31,6 +31,7 @@ interface User {
   lastLogin?: string;
   createdAt?: string;
   updatedAt?: string;
+  permissoesLegais?: Record<string, boolean>;
 }
 
 interface AuthContextType {

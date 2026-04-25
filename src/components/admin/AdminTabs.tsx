@@ -1,23 +1,36 @@
 import { useState, type ComponentType } from 'react';
-import { Users, Settings, Activity, BarChart3, Shield } from 'lucide-react';
+import { Users, Settings, Activity, BarChart3, Shield, MessageSquare, HelpCircle, FileText, BookOpen, Layout } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LegacyUserManagement from '../AdminPanel';
 import ModuleManagement from './ModuleManagement';
 import ActivityLog from './ActivityLog';
 import Statistics from './Statistics';
+import FeedbackManagement from './FeedbackManagement';
+import FAQManagement from './FAQManagement';
+import LegalManagement from './LegalManagement';
+import DocumentationManagement from './DocumentationManagement';
+import FooterManagement from './FooterManagement';
 
-type AdminTab = 'users' | 'modules' | 'activity' | 'statistics';
-
-const tabs: Array<{ id: AdminTab; name: string; icon: ComponentType<{ className?: string }> }> = [
-  { id: 'users', name: 'Usuários', icon: Users },
-  { id: 'modules', name: 'Módulos', icon: Settings },
-  { id: 'activity', name: 'Atividades', icon: Activity },
-  { id: 'statistics', name: 'Estatísticas', icon: BarChart3 }
-];
+type AdminTab = 'users' | 'modules' | 'activity' | 'statistics' | 'feedbacks' | 'faq' | 'legal' | 'documentacao' | 'rodape';
 
 const AdminTabs: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
+
+  const permissoesLegais = (user as any)?.permissoesLegais || {};
+  const hasLegalAccess = user?.role === 'superadmin' || Object.values(permissoesLegais).some(v => v === true);
+
+  const tabs: Array<{ id: AdminTab; name: string; icon: ComponentType<{ className?: string }> }> = [
+    { id: 'users',      name: 'Usuários',    icon: Users },
+    { id: 'modules',    name: 'Módulos',     icon: Settings },
+    { id: 'activity',   name: 'Atividades',  icon: Activity },
+    { id: 'statistics', name: 'Estatísticas',icon: BarChart3 },
+    { id: 'feedbacks',  name: 'Feedbacks',   icon: MessageSquare },
+    { id: 'faq',           name: 'FAQ',           icon: HelpCircle },
+    { id: 'documentacao',  name: 'Documentação',  icon: BookOpen },
+    ...(hasLegalAccess ? [{ id: 'legal' as AdminTab, name: 'Legal', icon: FileText }] : []),
+    ...(user?.role === 'superadmin' ? [{ id: 'rodape' as AdminTab, name: 'Rodapé', icon: Layout }] : []),
+  ];
 
   if (user?.role !== 'admin' && user?.role !== 'superadmin') {
     return (
@@ -58,10 +71,15 @@ const AdminTabs: React.FC = () => {
       </div>
 
       <div className="mt-6">
-      {activeTab === 'users' && <LegacyUserManagement embedded />}
-      {activeTab === 'modules' && <ModuleManagement />}
-      {activeTab === 'activity' && <ActivityLog />}
+      {activeTab === 'users'      && <LegacyUserManagement embedded />}
+      {activeTab === 'modules'    && <ModuleManagement />}
+      {activeTab === 'activity'   && <ActivityLog />}
       {activeTab === 'statistics' && <Statistics />}
+      {activeTab === 'feedbacks'  && <FeedbackManagement />}
+      {activeTab === 'faq'          && <FAQManagement />}
+      {activeTab === 'documentacao' && <DocumentationManagement />}
+      {activeTab === 'legal'        && <LegalManagement />}
+      {activeTab === 'rodape'       && <FooterManagement />}
       </div>
     </div>
   );

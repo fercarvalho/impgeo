@@ -1,34 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Clock3, Eye, PenSquare, Shield, UserCircle2, X } from 'lucide-react';
+import { X, User, Shield, CheckCircle, XCircle, Calendar, Clock, Edit, Mail, Phone, MapPin, Briefcase, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 import LazyAvatar from './LazyAvatar';
+import EditarPerfilModal from './EditarPerfilModal';
+import { applyPhoneMask } from '../utils/phoneMask';
+import { applyCpfMask } from '../utils/cpfMask';
+import { applyCepMask } from '../utils/cepMask';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onEditProfile?: () => void;
-}
-
-interface ModuleAccess {
-  moduleKey: string;
-  moduleName: string;
-  accessLevel: 'view' | 'write' | 'edit';
 }
 
 interface UserProfileData {
   id: string;
   username: string;
-  role: 'admin' | 'user' | 'guest' | string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  cpf: string | null;
-  birthDate: string | null;
-  gender: string | null;
-  position: string | null;
-  address: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  cpf?: string;
+  birthDate?: string;
+  gender?: string;
+  position?: string;
+  address?: {
     cep?: string;
     street?: string;
     number?: string;
@@ -36,312 +37,351 @@ interface UserProfileData {
     neighborhood?: string;
     city?: string;
     state?: string;
-  } | null;
-  photoUrl: string | null;
-  isActive: boolean;
-  lastLogin: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  modulesAccess: ModuleAccess[];
-  permissionsSource: 'persisted' | 'fallback' | string;
+  };
+  role: string;
+  modules?: string[];
+  isActive?: boolean;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-const API_BASE_URL =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
-
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, onEditProfile }) => {
-  const { token, user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [profile, setProfile] = useState<UserProfileData | null>(null);
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
+  const { user: _user, token } = useAuth();
+  const [profileData, setProfileData] = useState<UserProfileData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
     if (isOpen) {
-      window.addEventListener('keydown', onKeyDown);
+      loadProfileData();
     }
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, showEditProfileModal]); // Recarregar quando modal de edição fechar
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!token) {
-      setError('Sessao invalida. Faca login novamente.');
-      return;
-    }
-
-    const loadProfile = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-        const response = await fetch(`${API_BASE_URL}/user/profile`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-          setError(result.error || 'Nao foi possivel carregar o perfil.');
-          setProfile(null);
-          return;
+  const loadProfileData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-        setProfile(result.data);
-      } catch (e) {
-        setError('Erro de conexao ao carregar perfil.');
-        setProfile(null);
-      } finally {
-        setIsLoading(false);
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setProfileData(result.data);
+        }
       }
-    };
-
-    loadProfile();
-  }, [isOpen, token]);
-
-  const roleLabel = useMemo(() => {
-    const role = profile?.role || user?.role;
-    if (role === 'admin') return 'Administrador';
-    if (role === 'user') return 'Usuário';
-    if (role === 'guest') return 'Convidado';
-    return role || '-';
-  }, [profile?.role, user?.role]);
-
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return 'Nunca';
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('pt-BR');
+    } catch (error) {
+      console.error('Erro ao carregar perfil:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const groupedModulesAccess = useMemo(() => {
-    const groups = {
-      edit: [] as ModuleAccess[],
-      write: [] as ModuleAccess[],
-      view: [] as ModuleAccess[],
-    };
-    for (const moduleAccess of profile?.modulesAccess || []) {
-      groups[moduleAccess.accessLevel].push(moduleAccess);
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Nunca';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Data inválida';
     }
-    return groups;
-  }, [profile?.modulesAccess]);
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'superadmin':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'user':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'guest':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'superadmin':
+        return 'Super Administrador';
+      case 'admin':
+        return 'Administrador';
+      case 'user':
+        return 'Usuário';
+      case 'guest':
+        return 'Visitante';
+      default:
+        return role;
+    }
+  };
 
   if (!isOpen) return null;
 
-  const content = (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 pb-4 pt-[180px]"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
       }}
     >
-      <div className="w-full max-w-2xl max-h-[85vh] bg-white rounded-xl shadow-xl border border-blue-100 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-blue-50">
-          <h2 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
-            <Eye className="w-5 h-5 text-blue-700" />
-            Ver Perfil
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full text-blue-700 hover:bg-blue-100">
-            <X className="w-5 h-5" />
-          </button>
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
+              <User className="w-6 h-6 text-amber-700" />
+              Meu Perfil
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <div className="px-6 py-5 space-y-5 overflow-y-auto">
-          {isLoading ? (
-            <div className="py-8 flex items-center justify-center text-gray-600">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-              Carregando perfil...
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+          </div>
+        ) : profileData ? (
+          <div className="space-y-6">
+            {/* Avatar e Nome */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm text-center">
+              <div className="flex flex-col items-center gap-4">
+                <LazyAvatar
+                  photoUrl={profileData.photoUrl}
+                  firstName={profileData.firstName}
+                  lastName={profileData.lastName}
+                  username={profileData.username}
+                  size="lg"
+                />
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">
+                    {profileData.firstName && profileData.lastName
+                      ? `${profileData.firstName} ${profileData.lastName}`
+                      : profileData.username}
+                  </h3>
+                  <p className="text-gray-500 mt-1">@{profileData.username}</p>
+                </div>
+                <button
+                  onClick={() => setShowEditProfileModal(true)}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Editar Perfil
+                </button>
+              </div>
             </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{error}</div>
-          ) : profile ? (
-            <>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  {profile.photoUrl || profile.firstName || profile.lastName ? (
-                    <LazyAvatar
-                      photoUrl={profile.photoUrl || undefined}
-                      firstName={profile.firstName || undefined}
-                      lastName={profile.lastName || undefined}
-                      username={profile.username}
-                      size="lg"
-                      className="w-14 h-14 text-base"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center border border-blue-200">
-                      <UserCircle2 className="w-8 h-8 text-blue-700" />
-                    </div>
-                  )}
+
+            {/* Informações Básicas */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-amber-600" />
+                Informações Básicas
+              </h3>
+              <div className="space-y-4">
+                {profileData.email && (
                   <div>
-                    <p className="text-sm text-gray-500">Usuário</p>
-                    <p className="text-lg font-semibold text-gray-900">{profile.username}</p>
-                    {profile.firstName || profile.lastName ? (
-                      <p className="text-sm text-gray-600">{`${profile.firstName || ''} ${profile.lastName || ''}`.trim()}</p>
-                    ) : null}
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Email
+                    </label>
+                    <p className="text-lg text-gray-800 mt-1">{profileData.email}</p>
                   </div>
-                </div>
-
-                {onEditProfile ? (
-                  <button
-                    onClick={onEditProfile}
-                    className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
-                  >
-                    Editar Perfil
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Email</p>
-                  <p className="text-sm text-gray-900">{profile.email || '-'}</p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Telefone</p>
-                  <p className="text-sm text-gray-900">{profile.phone || '-'}</p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">CPF</p>
-                  <p className="text-sm text-gray-900">{profile.cpf || '-'}</p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Cargo</p>
-                  <p className="text-sm text-gray-900">{profile.position || '-'}</p>
-                </div>
-              </div>
-
-              {profile.address ? (
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">Endereço</p>
-                  <p className="text-sm text-gray-700">
-                    {[profile.address.street, profile.address.number].filter(Boolean).join(', ') || '-'}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {[profile.address.neighborhood, profile.address.city, profile.address.state]
-                      .filter(Boolean)
-                      .join(' - ') || '-'}
-                  </p>
-                  {profile.address.cep ? <p className="text-sm text-gray-700">CEP: {profile.address.cep}</p> : null}
-                  {profile.address.complement ? (
-                    <p className="text-sm text-gray-700">Compl.: {profile.address.complement}</p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Função</p>
-                  <p className="text-sm font-medium text-gray-900">{roleLabel}</p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
-                  <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    {profile.isActive ? 'Ativo' : 'Inativo'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Último acesso</p>
-                  <p className="text-sm text-gray-900">{formatDateTime(profile.lastLogin)}</p>
-                </div>
-                <div className="rounded-lg border border-blue-100 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Conta criada em</p>
-                  <p className="text-sm text-gray-900">{formatDateTime(profile.createdAt)}</p>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-blue-100 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-blue-700" />
-                    Acesso por módulo
-                  </p>
-                  {profile.permissionsSource === 'fallback' ? (
-                    <span className="text-xs text-amber-700 bg-amber-100 rounded px-2 py-1 flex items-center gap-1">
-                      <Clock3 className="w-3 h-3" />
-                      fallback
-                    </span>
-                  ) : null}
-                </div>
-
-                {profile.modulesAccess.length > 0 ? (
-                  <div className="space-y-3">
-                    {groupedModulesAccess.edit.length > 0 ? (
-                      <div className="rounded-lg border border-indigo-100 p-3 bg-indigo-50/60">
-                        <p className="text-xs font-semibold text-indigo-800 mb-2 flex items-center gap-1">
-                          <PenSquare className="w-3 h-3" />
-                          Edição
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {groupedModulesAccess.edit.map((moduleAccess) => (
-                            <span
-                              key={`edit-${moduleAccess.moduleKey}`}
-                              className="inline-flex items-center rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-medium text-indigo-800"
-                            >
-                              {moduleAccess.moduleName}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {groupedModulesAccess.write.length > 0 ? (
-                      <div className="rounded-lg border border-blue-100 p-3 bg-blue-50/60">
-                        <p className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-1">
-                          <PenSquare className="w-3 h-3" />
-                          Escrita
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {groupedModulesAccess.write.map((moduleAccess) => (
-                            <span
-                              key={`write-${moduleAccess.moduleKey}`}
-                              className="inline-flex items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-800"
-                            >
-                              {moduleAccess.moduleName}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {groupedModulesAccess.view.length > 0 ? (
-                      <div className="rounded-lg border border-gray-200 p-3 bg-gray-50/70">
-                        <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          Visualização
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {groupedModulesAccess.view.map((moduleAccess) => (
-                            <span
-                              key={`view-${moduleAccess.moduleKey}`}
-                              className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700"
-                            >
-                              {moduleAccess.moduleName}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhum módulo ativo encontrado.</p>
                 )}
-              </div>
 
-            </>
-          ) : (
-            <p className="text-sm text-gray-600">Nenhum dado de perfil disponível.</p>
-          )}
-        </div>
+                {profileData.phone && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      Telefone
+                    </label>
+                    <p className="text-lg text-gray-800 mt-1">{applyPhoneMask(profileData.phone)}</p>
+                  </div>
+                )}
+
+                {profileData.cpf && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      CPF
+                    </label>
+                    <p className="text-lg text-gray-800 mt-1">{applyCpfMask(profileData.cpf)}</p>
+                  </div>
+                )}
+
+                {profileData.birthDate && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Data de Nascimento
+                    </label>
+                    <p className="text-lg text-gray-800 mt-1">
+                      {(() => {
+                        const [year, month, day] = profileData.birthDate.split('T')[0].split('-');
+                        return `${day}/${month}/${year}`;
+                      })()}
+                    </p>
+                  </div>
+                )}
+
+                {profileData.gender && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Gênero</label>
+                    <p className="text-lg text-gray-800 mt-1 capitalize">
+                      {profileData.gender.replace('-', ' ')}
+                    </p>
+                  </div>
+                )}
+
+                {profileData.position && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      Cargo
+                    </label>
+                    <p className="text-lg text-gray-800 mt-1">{profileData.position}</p>
+                  </div>
+                )}
+
+                {profileData.address && (profileData.address.cep || profileData.address.street) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
+                      <MapPin className="w-4 h-4" />
+                      Endereço
+                    </label>
+                    <div className="text-lg text-gray-800 mt-1 space-y-1">
+                      {profileData.address.street && (
+                        <p>
+                          {profileData.address.street}
+                          {profileData.address.number && `, ${profileData.address.number}`}
+                          {profileData.address.complement && ` - ${profileData.address.complement}`}
+                        </p>
+                      )}
+                      {profileData.address.neighborhood && (
+                        <p>{profileData.address.neighborhood}</p>
+                      )}
+                      {(profileData.address.city || profileData.address.state) && (
+                        <p>
+                          {profileData.address.city && `${profileData.address.city}`}
+                          {profileData.address.city && profileData.address.state && ' - '}
+                          {profileData.address.state && profileData.address.state}
+                        </p>
+                      )}
+                      {profileData.address.cep && (
+                        <p className="text-sm text-gray-500">CEP: {applyCepMask(profileData.address.cep)}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Função</label>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleBadgeColor(profileData.role)}`}>
+                      <Shield className="w-3 h-3 mr-1" />
+                      {getRoleLabel(profileData.role)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <div className="mt-1">
+                    {profileData.isActive !== false ? (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Inativo
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Acesso */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-amber-600" />
+                Acesso
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500 mb-2 block">Módulos Ativos</label>
+                  <div className="flex flex-wrap gap-2">
+                    {profileData.modules && profileData.modules.length > 0 ? (
+                      profileData.modules.map((module) => (
+                        <span
+                          key={module}
+                          className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                        >
+                          {module}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-gray-400 text-sm">Nenhum módulo específico</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Última Data de Login
+                  </label>
+                  <p className="text-gray-800 mt-1">{formatDate(profileData.lastLogin)}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Data de Criação da Conta
+                  </label>
+                  <p className="text-gray-800 mt-1">{formatDate(profileData.createdAt)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            Erro ao carregar dados do perfil
+          </div>
+        )}
       </div>
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
+  return (
+    <>
+      {typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null}
+      <EditarPerfilModal
+        isOpen={showEditProfileModal}
+        onClose={() => {
+          setShowEditProfileModal(false);
+          loadProfileData(); // Recarregar dados após fechar
+        }}
+      />
+    </>
+  );
 };
 
 export default UserProfileModal;
