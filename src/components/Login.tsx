@@ -186,16 +186,14 @@ const Login: React.FC = () => {
             <BookOpen className="h-4 w-4 text-blue-500 dark:text-blue-400" />
             Documentação
           </button>
-          {faqItems.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowFaqModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-3 imp-help-btn rounded-xl text-sm font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 transition-all duration-200"
-            >
-              <HelpCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-              Dúvidas Frequentes
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowFaqModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-3 imp-help-btn rounded-xl text-sm font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 transition-all duration-200"
+          >
+            <HelpCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            Dúvidas Frequentes
+          </button>
         </div>
 
         {/* ─── Links legais ─── */}
