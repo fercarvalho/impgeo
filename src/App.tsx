@@ -1056,7 +1056,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 return (
                   <button
                     key={key}
-                    onClick={() => setActiveTab(key)}
+                    onClick={() => { setActiveTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}
                     className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === key ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}
                   >
                     <Icon className="h-4 w-4 mb-2" />
@@ -3435,7 +3435,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           
             <div className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-100">
             <button
-                onClick={() => setActiveTab('transactions')}
+                onClick={() => { setActiveTab('transactions'); window.scrollTo({ top: 0, behavior: "instant" }); }}
                 className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group"
               >
                 <DollarSign className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
