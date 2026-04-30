@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -11,9 +12,11 @@ interface FAQItem {
   pergunta: string;
   resposta: string;
   ordem: number;
+  adminOnly?: boolean;
 }
 
 const FAQ: React.FC = () => {
+  const { token } = useAuth();
   const [items, setItems] = useState<FAQItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -22,7 +25,9 @@ const FAQ: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_URL}/faq`);
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API_URL}/faq`, { headers });
         const result = await res.json();
         if (result.success) setItems(result.data);
       } catch (e) {
@@ -32,7 +37,7 @@ const FAQ: React.FC = () => {
       }
     };
     load();
-  }, []);
+  }, [token]);
 
   const itemsFiltrados = items.filter(item =>
     busca.trim() === '' ||

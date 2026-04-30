@@ -47,49 +47,19 @@ interface RodapeConfig {
 }
 
 const RODAPE_DEFAULTS: RodapeConfig = {
-  empresa_nome: 'Viver de PJ',
-  empresa_tagline: 'Ecosistema de Empreendedorismo',
-  empresa_descricao:
-    'Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreendedores.',
-  empresa_autor: 'Autor: Fernando Carvalho Gomes dos Santos.',
-  empresa_logo: '/logo_rodape.PNG',
+  empresa_nome: '',
+  empresa_tagline: '',
+  empresa_descricao: '',
+  empresa_autor: '',
+  empresa_logo: '',
   info_texto: '',
   info_alinhamento: 'left',
-  copyright: 'Viver de PJ. TODOS OS DIREITOS RESERVADOS',
+  copyright: '',
   versao_sistema: '',
   notas_versao: '',
 };
 
-const COLUNAS_DEFAULTS: RodapeColuna[] = [
-  {
-    id: 'col-contato',
-    titulo: 'Contato',
-    ordem: 0,
-    links: [
-      { id: 'lnk-tel',   colunaId: 'col-contato', texto: '(11) 97103-9181',    link: 'https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20site%20da%20IMPGEO', ehLink: true,  ordem: 0 },
-      { id: 'lnk-email', colunaId: 'col-contato', texto: 'vem@viverdepj.com.br', link: 'mailto:vem@viverdepj.com.br', ehLink: true,  ordem: 1 },
-      { id: 'lnk-site',  colunaId: 'col-contato', texto: 'viverdepj.com.br',    link: 'https://viverdepj.com.br',    ehLink: true,  ordem: 2 },
-      { id: 'lnk-loc',   colunaId: 'col-contato', texto: 'Brasil',              link: '',                             ehLink: false, ordem: 3 },
-    ],
-  },
-  {
-    id: 'col-servicos',
-    titulo: 'Serviços',
-    ordem: 1,
-    links: [
-      { id: 'lnk-s1',  colunaId: 'col-servicos', texto: 'Consultoria Estratégica de Negócios', link: '', ehLink: false, ordem: 0 },
-      { id: 'lnk-s2',  colunaId: 'col-servicos', texto: 'Sistema de Gestão',                   link: '', ehLink: false, ordem: 1 },
-      { id: 'lnk-s3',  colunaId: 'col-servicos', texto: 'Sistema Financeiro',                  link: '', ehLink: false, ordem: 2 },
-      { id: 'lnk-s4',  colunaId: 'col-servicos', texto: 'CRM',                                 link: '', ehLink: false, ordem: 3 },
-      { id: 'lnk-s5',  colunaId: 'col-servicos', texto: 'IA Financeira',                       link: '', ehLink: false, ordem: 4 },
-      { id: 'lnk-s6',  colunaId: 'col-servicos', texto: 'IA de Atendimento',                   link: '', ehLink: false, ordem: 5 },
-      { id: 'lnk-s7',  colunaId: 'col-servicos', texto: 'IA para Negócios',                    link: '', ehLink: false, ordem: 6 },
-      { id: 'lnk-s8',  colunaId: 'col-servicos', texto: 'Benefícios Corporativos',             link: '', ehLink: false, ordem: 7 },
-      { id: 'lnk-s9',  colunaId: 'col-servicos', texto: 'Contabilidade para Empresas',         link: '', ehLink: false, ordem: 8 },
-      { id: 'lnk-s10', colunaId: 'col-servicos', texto: 'BPO Financeiro',                      link: '', ehLink: false, ordem: 9 },
-    ],
-  },
-];
+const COLUNAS_DEFAULTS: RodapeColuna[] = [];
 
 function renderInfoTexto(texto: string) {
   return texto.split('\n').map((linha, i) => {

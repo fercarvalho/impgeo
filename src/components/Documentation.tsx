@@ -216,7 +216,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
             <div key={section.id}>
               <button
                 onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-amber-300 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-blue-300 transition-colors"
               >
                 <span className="truncate">{section.title}</span>
                 {isExpanded ? (
@@ -234,8 +234,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                       onClick={() => selectPage(section.id, page.id)}
                       className={`w-full flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm transition-colors ${
                         activePageId === page.id
-                          ? 'bg-gradient-to-r from-amber-400/20 to-orange-400/20 dark:from-amber-900/40 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 font-medium border-l-2 border-amber-500'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-gray-700 dark:hover:text-amber-300 border-l-2 border-transparent'
+                          ? 'bg-gradient-to-r from-blue-400/20 to-indigo-400/20 dark:from-blue-900/40 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 font-medium border-l-2 border-blue-500'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-gray-700 dark:hover:text-blue-300 border-l-2 border-transparent'
                       }`}
                     >
                       <FileText className="h-3.5 w-3.5 flex-shrink-0" />
@@ -289,8 +289,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
       {sections.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-full p-4">
-              <FileText className="h-10 w-10 text-amber-400" />
+            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
+              <FileText className="h-10 w-10 text-blue-400" />
             </div>
           </div>
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
@@ -387,8 +387,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
             ) : (
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
                 <div className="flex justify-center mb-4">
-                  <div className="bg-amber-50 dark:bg-amber-900/30 rounded-full p-4">
-                    <BookOpen className="h-10 w-10 text-amber-400" />
+                  <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
+                    <BookOpen className="h-10 w-10 text-blue-400" />
                   </div>
                 </div>
                 <p className="text-gray-400 text-sm">
@@ -410,16 +410,16 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
         .doc-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0; }
         .doc-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0; }
         .doc-content li { color: #374151; line-height: 1.75; margin: 0.25rem 0; }
-        .doc-content a { color: #d97706; text-decoration: underline; }
-        .doc-content a:hover { color: #b45309; }
+        .doc-content a { color: #2563eb; text-decoration: underline; }
+        .doc-content a:hover { color: #1d4ed8; }
         .doc-content strong { font-weight: 700; color: #1f2937; }
         .doc-content em { font-style: italic; }
-        .doc-content blockquote { border-left: 3px solid #f59e0b; padding: 0.5rem 1rem; background: #fffbeb; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; color: #78350f; }
-        .doc-content code:not(pre code) { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; color: #b45309; font-family: monospace; }
+        .doc-content blockquote { border-left: 3px solid #3b82f6; padding: 0.5rem 1rem; background: #eff6ff; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; color: #1e40af; }
+        .doc-content code:not(pre code) { background: #eff6ff; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; color: #1d4ed8; font-family: monospace; }
         .doc-code-block { background: #1f2937; border-radius: 0.75rem; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
         .doc-code-block code { color: #f9fafb; font-family: monospace; font-size: 0.875rem; }
         .doc-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
-        .doc-content th { background: #fffbeb; color: #92400e; font-weight: 600; padding: 0.625rem 0.875rem; border: 1px solid #fde68a; text-align: left; }
+        .doc-content th { background: #eff6ff; color: #1e40af; font-weight: 600; padding: 0.625rem 0.875rem; border: 1px solid #bfdbfe; text-align: left; }
         .doc-content td { padding: 0.5rem 0.875rem; border: 1px solid #e5e7eb; color: #374151; }
         .doc-content tr:nth-child(even) td { background: #f9fafb; }
         .doc-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }

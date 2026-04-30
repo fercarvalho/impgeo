@@ -3983,10 +3983,11 @@ app.post('/api/admin/feedbacks/:id/aceitar', authenticateToken, requireSuperAdmi
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 
-// GET /api/faq — público (sem autenticação), apenas itens ativos
+// GET /api/faq — autenticado; filtra itens admin_only pelo role do usuário
 app.get('/api/faq', async (req, res) => {
   try {
-    const items = await db.obterFAQ();
+    const userRole = req.user?.role || 'guest';
+    const items = await db.obterFAQ(userRole);
     res.json({ success: true, data: items });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -4006,11 +4007,11 @@ app.get('/api/admin/faq', authenticateToken, requireAdmin, async (req, res) => {
 // POST /api/admin/faq — criar novo item
 app.post('/api/admin/faq', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { pergunta, resposta } = req.body;
+    const { pergunta, resposta, visibility } = req.body;
     if (!pergunta || !pergunta.trim() || !resposta || !resposta.trim()) {
       return res.status(400).json({ success: false, error: 'Pergunta e resposta são obrigatórias' });
     }
-    const item = await db.criarFAQ({ pergunta: pergunta.trim(), resposta: resposta.trim() });
+    const item = await db.criarFAQ({ pergunta: pergunta.trim(), resposta: resposta.trim(), visibility: visibility || 'todos' });
     await logActivity(req, { action: 'create', moduleKey: 'faq', entityType: 'FAQ', entityId: item.id, details: { pergunta: item.pergunta } });
     res.status(201).json({ success: true, data: item });
   } catch (error) {
@@ -4230,23 +4231,24 @@ app.put('/api/admin/permissoes-legais/:userId', authenticateToken, requireSuperA
 
 app.get('/api/documentation/public', async (req, res) => {
   try {
-    const data = await db.obterDocumentacao();
+    const data = await db.obterDocumentacao('guest');
     res.json({ success: true, data });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.get('/api/documentation', authenticateToken, async (req, res) => {
   try {
-    const data = await db.obterDocumentacao();
+    const userRole = req.user?.role || 'guest';
+    const data = await db.obterDocumentacao(userRole);
     res.json({ success: true, data });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.post('/api/admin/documentation/sections', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, visibility } = req.body;
     if (!title?.trim()) return res.status(400).json({ success: false, error: 'Título obrigatório' });
-    const data = await db.criarDocSection({ title: title.trim() });
+    const data = await db.criarDocSection({ title: title.trim(), visibility: visibility || 'todos' });
     res.json({ success: true, data });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -4262,9 +4264,12 @@ app.put('/api/admin/documentation/sections/reorder', authenticateToken, requireA
 
 app.put('/api/admin/documentation/sections/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { title } = req.body;
-    if (!title?.trim()) return res.status(400).json({ success: false, error: 'Título obrigatório' });
-    const data = await db.atualizarDocSection(req.params.id, { title: title.trim() });
+    const { title, visibility } = req.body;
+    if (title !== undefined && !title?.trim()) return res.status(400).json({ success: false, error: 'Título não pode ser vazio' });
+    const data = await db.atualizarDocSection(req.params.id, {
+      title: title?.trim(),
+      visibility: visibility,
+    });
     res.json({ success: true, data });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });

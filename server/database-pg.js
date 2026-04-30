@@ -3182,10 +3182,15 @@ class Database {
   }
   // ========== FAQ ==========
 
-  async obterFAQ() {
+  async obterFAQ(userRole = 'guest') {
     try {
+      const allowed = this._visibilityFor(userRole);
+      const placeholders = allowed.map((_, i) => `$${i + 1}`).join(', ');
       const r = await this.pool.query(
-        `SELECT * FROM faq WHERE ativo = true ORDER BY ordem ASC, created_at ASC`
+        `SELECT id, pergunta, resposta, ordem, visibility FROM faq
+         WHERE ativo = true AND visibility IN (${placeholders})
+         ORDER BY ordem ASC, created_at ASC`,
+        allowed
       );
       return r.rows.map(row => toCamelCase(row));
     } catch (e) {
@@ -3206,28 +3211,34 @@ class Database {
     }
   }
 
-  async criarFAQ({ pergunta, resposta }) {
+  async criarFAQ({ pergunta, resposta, visibility = 'todos' }) {
     const id = this.generateId();
     const now = new Date().toISOString();
+    const validVisibility = ['todos', 'usuarios', 'admins'].includes(visibility) ? visibility : 'todos';
     const ordemRes = await this.pool.query(
       'SELECT COALESCE(MAX(ordem), -1) + 1 AS prox FROM faq'
     );
     const ordem = ordemRes.rows[0].prox;
     const r = await this.pool.query(
-      `INSERT INTO faq (id, pergunta, resposta, ativo, ordem, created_at, updated_at)
-       VALUES ($1, $2, $3, true, $4, $5, $5) RETURNING *`,
-      [id, pergunta, resposta, ordem, now]
+      `INSERT INTO faq (id, pergunta, resposta, ativo, ordem, visibility, created_at, updated_at)
+       VALUES ($1, $2, $3, true, $4, $5, $6, $6) RETURNING *`,
+      [id, pergunta, resposta, ordem, validVisibility, now]
     );
     return toCamelCase(r.rows[0]);
   }
 
-  async atualizarFAQ(id, { pergunta, resposta, ativo }) {
+  async atualizarFAQ(id, { pergunta, resposta, ativo, visibility }) {
     const fields = [];
     const values = [id];
     let i = 2;
-    if (pergunta !== undefined) { fields.push(`pergunta = $${i++}`); values.push(pergunta); }
-    if (resposta !== undefined) { fields.push(`resposta = $${i++}`); values.push(resposta); }
-    if (ativo !== undefined)    { fields.push(`ativo = $${i++}`);    values.push(ativo); }
+    if (pergunta !== undefined)    { fields.push(`pergunta = $${i++}`);    values.push(pergunta); }
+    if (resposta !== undefined)    { fields.push(`resposta = $${i++}`);    values.push(resposta); }
+    if (ativo !== undefined)       { fields.push(`ativo = $${i++}`);       values.push(ativo); }
+    if (visibility !== undefined)  {
+      const v = ['todos', 'usuarios', 'admins'].includes(visibility) ? visibility : 'todos';
+      fields.push(`visibility = $${i++}`);
+      values.push(v);
+    }
     fields.push(`updated_at = $${i++}`);
     values.push(new Date().toISOString());
     const r = await this.pool.query(
@@ -3584,9 +3595,18 @@ class Database {
           id VARCHAR(255) PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
           ordem INTEGER DEFAULT 0,
+          admin_only BOOLEAN DEFAULT false,
+          visibility VARCHAR(20) DEFAULT 'todos',
           created_at TIMESTAMP,
           updated_at TIMESTAMP
         )
+      `);
+      // Migrações para bancos existentes
+      await this.queryWithRetry(`ALTER TABLE doc_sections ADD COLUMN IF NOT EXISTS admin_only BOOLEAN DEFAULT false`);
+      await this.queryWithRetry(`ALTER TABLE doc_sections ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) DEFAULT 'todos'`);
+      // Migra admin_only → visibility para seções que ainda não foram migradas
+      await this.queryWithRetry(`
+        UPDATE doc_sections SET visibility = 'admins' WHERE admin_only = true AND visibility = 'todos'
       `);
       await this.queryWithRetry(`
         CREATE TABLE IF NOT EXISTS doc_pages (
@@ -3599,21 +3619,40 @@ class Database {
           updated_at TIMESTAMP
         )
       `);
+      // Migração da tabela faq
+      await this.queryWithRetry(`ALTER TABLE faq ADD COLUMN IF NOT EXISTS admin_only BOOLEAN DEFAULT false`);
+      await this.queryWithRetry(`ALTER TABLE faq ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) DEFAULT 'todos'`);
+      // Migra admin_only → visibility para perguntas que ainda não foram migradas
+      await this.queryWithRetry(`
+        UPDATE faq SET visibility = 'admins' WHERE admin_only = true AND visibility = 'todos'
+      `);
       this.docSchemaEnsured = true;
     })();
     return this.docSchemaEnsuring;
   }
 
-  async obterDocumentacao() {
+  // Retorna nível de visibilidade necessário para o role dado
+  _visibilityFor(userRole) {
+    if (userRole === 'admin' || userRole === 'superadmin') return ['todos', 'usuarios', 'admins'];
+    if (userRole === 'user') return ['todos', 'usuarios'];
+    return ['todos']; // guest
+  }
+
+  async obterDocumentacao(userRole = 'guest') {
     await this._ensureDocDefaults();
+    const allowed = this._visibilityFor(userRole);
+    const placeholders = allowed.map((_, i) => `$${i + 1}`).join(', ');
     const sections = await this.queryWithRetry(
-      `SELECT id, title, ordem FROM doc_sections ORDER BY ordem ASC, created_at ASC`
+      `SELECT id, title, ordem, visibility FROM doc_sections
+       WHERE visibility IN (${placeholders})
+       ORDER BY ordem ASC, created_at ASC`,
+      allowed
     );
     const pages = await this.queryWithRetry(
       `SELECT id, section_id, title, content, ordem, updated_at FROM doc_pages ORDER BY ordem ASC, created_at ASC`
     );
     return sections.rows.map(s => ({
-      id: s.id, title: s.title, order: s.ordem,
+      id: s.id, title: s.title, order: s.ordem, visibility: s.visibility,
       pages: pages.rows.filter(p => p.section_id === s.id).map(p => ({
         id: p.id, sectionId: p.section_id, title: p.title,
         content: p.content, order: p.ordem, updatedAt: p.updated_at,
@@ -3621,23 +3660,35 @@ class Database {
     }));
   }
 
-  async criarDocSection({ title }) {
+  async criarDocSection({ title, visibility = 'todos' }) {
     await this._ensureDocDefaults();
     const id = this.generateId();
     const now = new Date().toISOString();
+    const validVisibility = ['todos', 'usuarios', 'admins'].includes(visibility) ? visibility : 'todos';
     const maxOrdem = await this.queryWithRetry(`SELECT COALESCE(MAX(ordem),0)+1 AS next FROM doc_sections`);
     await this.queryWithRetry(
-      `INSERT INTO doc_sections (id, title, ordem, created_at, updated_at) VALUES ($1,$2,$3,$4,$4)`,
-      [id, title, maxOrdem.rows[0].next, now]
+      `INSERT INTO doc_sections (id, title, ordem, visibility, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$5)`,
+      [id, title, maxOrdem.rows[0].next, validVisibility, now]
     );
-    return { id, title, order: maxOrdem.rows[0].next, pages: [] };
+    return { id, title, order: maxOrdem.rows[0].next, visibility: validVisibility, pages: [] };
   }
 
-  async atualizarDocSection(id, { title }) {
+  async atualizarDocSection(id, { title, visibility }) {
     await this._ensureDocDefaults();
     const now = new Date().toISOString();
-    await this.queryWithRetry(`UPDATE doc_sections SET title=$1, updated_at=$2 WHERE id=$3`, [title, now, id]);
-    return { id, title };
+    const fields = [];
+    const values = [id];
+    let i = 2;
+    if (title !== undefined)      { fields.push(`title = $${i++}`);      values.push(title); }
+    if (visibility !== undefined) {
+      const v = ['todos', 'usuarios', 'admins'].includes(visibility) ? visibility : 'todos';
+      fields.push(`visibility = $${i++}`);
+      values.push(v);
+    }
+    fields.push(`updated_at = $${i++}`);
+    values.push(now);
+    await this.queryWithRetry(`UPDATE doc_sections SET ${fields.join(', ')} WHERE id=$1`, values);
+    return { id, title, visibility };
   }
 
   async deletarDocSection(id) {

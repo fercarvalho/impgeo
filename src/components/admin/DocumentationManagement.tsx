@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   BookOpen, Plus, Trash2, Edit2, ChevronRight, ChevronDown,
-  FileText, Save, X, Eye, Code2, GripVertical, AlertTriangle
+  FileText, Save, X, Eye, Code2, GripVertical, AlertTriangle,
+  Globe, Users, ShieldCheck
 } from 'lucide-react';
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -10,6 +11,8 @@ const API_BASE_URL =
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { marked, Renderer, use as markedUse } from 'marked';
+
+type Visibility = 'todos' | 'usuarios' | 'admins';
 
 interface DocPage {
   id: string;
@@ -24,7 +27,97 @@ interface DocSection {
   id: string;
   title: string;
   order: number;
+  visibility: Visibility;
   pages: DocPage[];
+}
+
+// ── Configurações de visibilidade ─────────────────────────────────────────────
+const VISIBILITY_OPTIONS: {
+  value: Visibility;
+  label: string;
+  desc: string;
+  icon: React.ReactNode;
+  badgeCls: string;
+  dotCls: string;
+}[] = [
+  {
+    value: 'todos',
+    label: 'Todos',
+    desc: 'Visível para qualquer visitante, incluindo convidados',
+    icon: <Globe className="h-4 w-4" />,
+    badgeCls: 'bg-green-100 text-green-700',
+    dotCls: 'bg-green-400',
+  },
+  {
+    value: 'usuarios',
+    label: 'Usuários registrados',
+    desc: 'Visível apenas para quem está logado no sistema',
+    icon: <Users className="h-4 w-4" />,
+    badgeCls: 'bg-blue-100 text-blue-700',
+    dotCls: 'bg-blue-400',
+  },
+  {
+    value: 'admins',
+    label: 'Somente admins',
+    desc: 'Visível apenas para administradores e superadmins',
+    icon: <ShieldCheck className="h-4 w-4" />,
+    badgeCls: 'bg-purple-100 text-purple-700',
+    dotCls: 'bg-purple-400',
+  },
+];
+
+function VisibilityDot({ visibility }: { visibility: Visibility }) {
+  const opt = VISIBILITY_OPTIONS.find(o => o.value === visibility);
+  if (!opt || visibility === 'todos') return null;
+  return (
+    <span
+      title={opt.label}
+      className={`inline-flex items-center justify-center rounded-full w-4 h-4 flex-shrink-0 ${opt.badgeCls}`}
+    >
+      {React.cloneElement(opt.icon as React.ReactElement, { className: 'h-2.5 w-2.5' })}
+    </span>
+  );
+}
+
+function VisibilitySelector({
+  value,
+  onChange,
+}: {
+  value: Visibility;
+  onChange: (v: Visibility) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {VISIBILITY_OPTIONS.map(opt => (
+        <label
+          key={opt.value}
+          className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+            value === opt.value
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-400'
+              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+          }`}
+        >
+          <input
+            type="radio"
+            name="doc-visibility"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="mt-0.5 accent-blue-600"
+          />
+          <span className={`mt-0.5 flex-shrink-0 ${value === opt.value ? 'text-blue-600' : 'text-gray-400'}`}>
+            {opt.icon}
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className={`block text-sm font-semibold ${value === opt.value ? 'text-blue-800 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}>
+              {opt.label}
+            </span>
+            <span className="block text-xs text-gray-500 mt-0.5">{opt.desc}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
 }
 
 declare global {
@@ -96,6 +189,7 @@ const DocumentationManagement: React.FC = () => {
   // Modais
   const [showNewSection, setShowNewSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
+  const [newSectionVisibility, setNewSectionVisibility] = useState<Visibility>('todos');
   const [showNewPage, setShowNewPage] = useState<string | null>(null); // sectionId
   const [newPageTitle, setNewPageTitle] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -103,7 +197,7 @@ const DocumentationManagement: React.FC = () => {
     id: string;
     title: string;
   } | null>(null);
-  const [editingSection, setEditingSection] = useState<{ id: string; title: string } | null>(null);
+  const [editingSection, setEditingSection] = useState<{ id: string; title: string; visibility: Visibility } | null>(null);
 
   const headers = useCallback(
     () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
@@ -197,7 +291,7 @@ const DocumentationManagement: React.FC = () => {
     const res = await fetch(`${API_BASE_URL}/admin/documentation/sections`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ title: newSectionTitle.trim() }),
+      body: JSON.stringify({ title: newSectionTitle.trim(), visibility: newSectionVisibility }),
     });
     const result = await res.json();
     if (result.success) {
@@ -205,21 +299,25 @@ const DocumentationManagement: React.FC = () => {
       setExpandedSections(prev => new Set([...prev, result.data.id]));
     }
     setNewSectionTitle('');
+    setNewSectionVisibility('todos');
     setShowNewSection(false);
   };
 
-  // Atualizar título de seção
-  const updateSectionTitle = async () => {
+  // Atualizar seção (título + visibilidade)
+  const updateSection = async () => {
     if (!editingSection || !editingSection.title.trim()) return;
     const res = await fetch(`${API_BASE_URL}/admin/documentation/sections/${editingSection.id}`, {
       method: 'PUT',
       headers: headers(),
-      body: JSON.stringify({ title: editingSection.title.trim() }),
+      body: JSON.stringify({ title: editingSection.title.trim(), visibility: editingSection.visibility }),
     });
     const result = await res.json();
     if (result.success) {
       setSections(prev =>
-        prev.map(s => s.id === editingSection.id ? { ...s, title: editingSection.title.trim() } : s)
+        prev.map(s => s.id === editingSection.id
+          ? { ...s, title: editingSection.title.trim(), visibility: editingSection.visibility }
+          : s
+        )
       );
     }
     setEditingSection(null);
@@ -328,13 +426,14 @@ const DocumentationManagement: React.FC = () => {
                     {isExpanded
                       ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                       : <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />}
-                    <span className="truncate">{section.title}</span>
+                    <span className="truncate flex-1">{section.title}</span>
+                    <VisibilityDot visibility={section.visibility || 'todos'} />
                   </button>
                   <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setShowNewPage(section.id)} className="p-1 text-blue-500 hover:bg-blue-100 rounded" title="Nova página">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setEditingSection({ id: section.id, title: section.title })} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Renomear seção">
+                    <button onClick={() => setEditingSection({ id: section.id, title: section.title, visibility: section.visibility || 'todos' })} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar seção">
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button onClick={() => setDeleteConfirm({ type: 'section', id: section.id, title: section.title })} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded" title="Deletar seção">
@@ -522,33 +621,55 @@ const DocumentationManagement: React.FC = () => {
       {/* Modal: Nova Seção */}
       {showNewSection && (
         <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setShowNewSection(false)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-base font-bold text-gray-800 mb-4">Nova Seção</h3>
-            <input
-              autoFocus
-              type="text"
-              value={newSectionTitle}
-              onChange={e => setNewSectionTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && createSection()}
-              placeholder="Nome da seção"
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-            />
-            <div className="flex gap-2 justify-end">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Nova Seção
+              </h3>
+              <button onClick={() => { setShowNewSection(false); setNewSectionTitle(''); setNewSectionVisibility('todos'); }}
+                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                  Nome da seção <span className="text-red-500">*</span>
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newSectionTitle}
+                  onChange={e => setNewSectionTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createSection()}
+                  placeholder="Ex: Primeiros Passos"
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                  Quem pode ver esta seção?
+                </label>
+                <VisibilitySelector value={newSectionVisibility} onChange={setNewSectionVisibility} />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end px-6 pb-6 border-t border-gray-100 dark:border-gray-700 pt-4">
               <button
-                onClick={() => { setShowNewSection(false); setNewSectionTitle(''); }}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+                onClick={() => { setShowNewSection(false); setNewSectionTitle(''); setNewSectionVisibility('todos'); }}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
               <button
                 onClick={createSection}
                 disabled={!newSectionTitle.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
+                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50 font-medium"
               >
-                Criar
+                Criar Seção
               </button>
             </div>
           </div>
@@ -591,34 +712,60 @@ const DocumentationManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Renomear Seção */}
+      {/* Modal: Editar Seção (título + visibilidade) */}
       {editingSection && (
         <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setEditingSection(null)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-base font-bold text-gray-800 mb-4">Renomear Seção</h3>
-            <input
-              autoFocus
-              type="text"
-              value={editingSection.title}
-              onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
-              onKeyDown={e => e.key === 'Enter' && updateSectionTitle()}
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100"
-            />
-            <div className="flex gap-2 justify-end">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Edit2 className="h-4 w-4" />
+                Editar Seção
+              </h3>
+              <button onClick={() => setEditingSection(null)}
+                className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                  Nome da seção <span className="text-red-500">*</span>
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={editingSection.title}
+                  onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
+                  onKeyDown={e => e.key === 'Enter' && updateSection()}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                  Quem pode ver esta seção?
+                </label>
+                <VisibilitySelector
+                  value={editingSection.visibility}
+                  onChange={v => setEditingSection({ ...editingSection, visibility: v })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end px-6 pb-6 border-t border-gray-100 dark:border-gray-700 pt-4">
               <button
                 onClick={() => setEditingSection(null)}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
               <button
-                onClick={updateSectionTitle}
+                onClick={updateSection}
                 disabled={!editingSection.title.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
+                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50 font-medium flex items-center gap-1.5"
               >
+                <Save className="h-3.5 w-3.5" />
                 Salvar
               </button>
             </div>
