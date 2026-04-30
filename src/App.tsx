@@ -214,10 +214,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   } | null>(null);
 
   // Notificação de nova versão (outros usuários)
-  const [versaoNova, setVersaoNova] = useState<{
+  const [versoesNovas, setVersoesNovas] = useState<Array<{
     versao: string;
     texto: string;
-  } | null>(null);
+  }> | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
     const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'documentacao'];
@@ -285,8 +285,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         });
         if (!res.ok || cancelled) return;
         const json = await res.json();
-        if (json.success && json.data?.notificar && !cancelled) {
-          setVersaoNova({ versao: json.data.versao, texto: json.data.texto });
+        if (json.success && json.data?.notificar && Array.isArray(json.data.versoes) && json.data.versoes.length > 0 && !cancelled) {
+          setVersoesNovas(json.data.versoes.map((v: any) => ({ versao: v.versao, texto: v.texto || '' })));
         }
       } catch {
         // silently ignore
@@ -3555,13 +3555,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       )}
 
       {/* Modal de nova versão para usuários */}
-      {versaoNova && (
+      {versoesNovas && versoesNovas.length > 0 && (
         <VersaoNovaModal
-          versao={versaoNova.versao}
-          texto={versaoNova.texto}
-          onClose={async () => {
-            const versao = versaoNova.versao;
-            setVersaoNova(null);
+          versoes={versoesNovas}
+          onConfirm={async (versao) => {
             try {
               await fetch(`${API_BASE_URL}/notificacao-versao/vista`, {
                 method: 'POST',
@@ -3570,6 +3567,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               });
             } catch { /* silently ignore */ }
           }}
+          onClose={() => setVersoesNovas(null)}
         />
       )}
 

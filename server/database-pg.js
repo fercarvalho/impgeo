@@ -401,6 +401,31 @@ class Database {
           PRIMARY KEY (user_id, versao)
         )
       `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS versao_notificacoes (
+          versao     VARCHAR(50) PRIMARY KEY,
+          texto      TEXT,
+          roles      TEXT,
+          criado_em  TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_versao_notificacoes_criado ON versao_notificacoes(criado_em)`);
+
+      // Migração one-shot: traz a notificação atual (chaves antigas) para o histórico
+      await this.queryWithRetry(`
+        INSERT INTO versao_notificacoes (versao, texto, roles, criado_em)
+        SELECT
+          v.valor,
+          COALESCE(t.valor, ''),
+          COALESCE(r.valor, '[]'),
+          COALESCE(v.updated_at, NOW())
+        FROM rodape_configuracoes v
+        LEFT JOIN rodape_configuracoes t ON t.chave = 'versao_notificada_texto'
+        LEFT JOIN rodape_configuracoes r ON r.chave = 'versao_notificada_roles'
+        WHERE v.chave = 'versao_notificada' AND v.valor IS NOT NULL AND v.valor <> ''
+        ON CONFLICT (versao) DO NOTHING
+      `);
       // ────────────────────────────────────────────────────────────
 
       // ── Tabelas do rodapé ──────────────────────────────────────
@@ -4346,17 +4371,12 @@ class Database {
         const novaSecao = `<h2>Versão ${novaVersao}</h2>\n<h3>📋 Atualizações</h3>\n<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n<hr>\n`;
         notas = notas.includes('<h2>') ? notas.replace('<h2>', novaSecao + '<h2>') : novaSecao + notas;
 
-        for (const [chave, valor] of [
-          ['versao_notificada', novaVersao],
-          ['versao_notificada_roles', JSON.stringify(rolesNotificados)],
-          ['versao_notificada_texto', mensagem],
-        ]) {
-          await client.query(
-            `INSERT INTO rodape_configuracoes (chave, valor, updated_at) VALUES ($1, $2, $3)
-             ON CONFLICT (chave) DO UPDATE SET valor = $2, updated_at = $3`,
-            [chave, valor, now]
-          );
-        }
+        await client.query(
+          `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (versao) DO UPDATE SET texto = $2, roles = $3, criado_em = $4`,
+          [novaVersao, mensagem, JSON.stringify(rolesNotificados), now]
+        );
 
         await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [novaVersao]).catch(() => {});
       } else {
@@ -4383,27 +4403,25 @@ class Database {
 
   async obterNotificacaoVersao(userId, userRole) {
     const r = await this.pool.query(
-      `SELECT chave, valor FROM rodape_configuracoes
-       WHERE chave IN ('versao_notificada', 'versao_notificada_roles', 'versao_notificada_texto')`
-    );
-    const obj = {};
-    for (const row of r.rows) obj[row.chave] = row.valor;
-
-    const versao = obj['versao_notificada'] || '';
-    if (!versao) return { notificar: false };
-
-    let roles = [];
-    try { roles = JSON.parse(obj['versao_notificada_roles'] || '[]'); } catch { roles = []; }
-    if (!roles.includes(userRole)) return { notificar: false };
-
-    const visto = await this.pool.query(
-      `SELECT 1 FROM versao_notificacoes_vistas WHERE user_id = $1 AND versao = $2`,
-      [userId, versao]
+      `SELECT n.versao, n.texto, n.roles, n.criado_em
+         FROM versao_notificacoes n
+         LEFT JOIN versao_notificacoes_vistas v
+           ON v.versao = n.versao AND v.user_id = $1
+        WHERE v.versao IS NULL
+        ORDER BY n.criado_em ASC`,
+      [userId]
     ).catch(() => ({ rows: [] }));
 
-    if (visto.rows.length > 0) return { notificar: false };
+    const versoes = [];
+    for (const row of r.rows) {
+      let roles = [];
+      try { roles = JSON.parse(row.roles || '[]'); } catch { roles = []; }
+      if (!roles.includes(userRole)) continue;
+      versoes.push({ versao: row.versao, texto: row.texto || '', criadoEm: row.criado_em });
+    }
 
-    return { notificar: true, versao, texto: obj['versao_notificada_texto'] || '' };
+    if (versoes.length === 0) return { notificar: false, versoes: [] };
+    return { notificar: true, versoes };
   }
 
   async marcarVersaoVista(userId, versao) {
