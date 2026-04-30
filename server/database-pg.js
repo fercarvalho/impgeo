@@ -91,6 +91,7 @@ class Database {
       { moduleKey: 'anomalies', moduleName: 'Anomalias', iconName: 'AlertTriangle', routePath: 'anomalies', isSystem: true, description: 'Dashboard de detecção de anomalias de segurança' },
       { moduleKey: 'security_alerts', moduleName: 'Alertas de Segurança', iconName: 'ShieldAlert', routePath: 'security_alerts', isSystem: true, description: 'Portal de alertas e notificações de segurança' },
       { moduleKey: 'faq', moduleName: 'FAQ', iconName: 'HelpCircle', routePath: 'faq', isSystem: true, description: 'Perguntas frequentes do sistema' },
+      { moduleKey: 'documentacao', moduleName: 'Documentação', iconName: 'BookOpen', routePath: 'documentacao', isSystem: true, description: 'Manual e guias do sistema' },
       { moduleKey: 'roadmap', moduleName: 'Roadmap', iconName: 'Map', routePath: 'roadmap', isSystem: true, description: 'Roadmap de desenvolvimento do sistema' }
     ];
   }
@@ -293,6 +294,34 @@ class Database {
 
       for (const user of usersWithoutPermissions.rows) {
         await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
+      }
+
+      // Garantir que módulos novos (faq, documentacao) existam para todos os usuários
+      const newModules = [
+        { key: 'faq',          superadminOnly: false, adminOnly: false },
+        { key: 'documentacao', superadminOnly: false, adminOnly: false },
+      ];
+      for (const mod of newModules) {
+        await this.queryWithRetry(`
+          INSERT INTO user_module_permissions (id, user_id, module_key, access_level, created_at, updated_at)
+          SELECT
+            CONCAT(u.id, '-', $1::varchar),
+            u.id,
+            $1::varchar,
+            CASE u.role
+              WHEN 'superadmin' THEN 'edit'
+              WHEN 'admin'      THEN 'edit'
+              WHEN 'user'       THEN 'write'
+              ELSE                   'view'
+            END,
+            NOW(), NOW()
+          FROM users u
+          WHERE NOT EXISTS (
+            SELECT 1 FROM user_module_permissions
+            WHERE user_id = u.id AND module_key = $1::varchar
+          )
+          ON CONFLICT DO NOTHING
+        `, [mod.key]);
       }
 
       // ── Tabelas de segurança / sessões ─────────────────────────
@@ -3570,16 +3599,6 @@ class Database {
           updated_at TIMESTAMP
         )
       `);
-      // Registrar módulo documentacao se não existir
-      const mod = await this.queryWithRetry(`SELECT module_key FROM modules_catalog WHERE module_key = 'documentacao' LIMIT 1`);
-      if (mod.rows.length === 0) {
-        await this.queryWithRetry(
-          `INSERT INTO modules_catalog (module_key, module_name, description, icon_name, is_active, is_system) VALUES ($1,$2,$3,$4,true,true)
-           ON CONFLICT (module_key) DO NOTHING`,
-          ['documentacao', 'Documentação', 'Manual e guias do sistema', 'BookOpen']
-        );
-        console.log('Módulo Documentação criado no PostgreSQL.');
-      }
       this.docSchemaEnsured = true;
     })();
     return this.docSchemaEnsuring;

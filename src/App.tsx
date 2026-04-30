@@ -220,7 +220,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   } | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
-    const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
+    const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'documentacao'];
     if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
