@@ -145,7 +145,7 @@ export default function AnomalyDashboard() {
           <Activity className="w-6 h-6 text-blue-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Dashboard de Anomalias</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Anomalias</h2>
           <p className="text-sm text-gray-500">Monitoramento de comportamentos suspeitos detectados por ML</p>
         </div>
         <button onClick={fetchData} className="ml-auto p-2 hover:bg-gray-100 rounded-lg" title="Atualizar">
@@ -171,7 +171,7 @@ export default function AnomalyDashboard() {
                 aria-label="Filtrar por período"
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
-                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 w-full"
               >
                 <option value={1}>Últimas 24 horas</option>
                 <option value={7}>Últimos 7 dias</option>
@@ -187,7 +187,7 @@ export default function AnomalyDashboard() {
                 aria-label="Filtrar por severidade mínima"
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(Number(e.target.value))}
-                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 w-full"
               >
                 <option value={0}>Todas</option>
                 <option value={50}>Média ou superior</option>
@@ -207,10 +207,10 @@ export default function AnomalyDashboard() {
           { icon: <TrendingUp className="w-8 h-8 text-blue-500" />, value: avgScore.toFixed(1), label: 'Score Médio' },
           { icon: <AlertTriangle className="w-8 h-8 text-red-500" />, value: highSeverityCount, label: 'Alta Severidade' },
         ].map((card, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
+          <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3">
             <div className="flex-shrink-0">{card.icon}</div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">{card.value}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{card.value}</div>
               <div className="text-xs text-gray-500">{card.label}</div>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function AnomalyDashboard() {
 
       {/* Anomalias por Tipo */}
       {byType.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-600" /> Anomalias por Tipo
           </h3>
@@ -244,7 +244,7 @@ export default function AnomalyDashboard() {
 
       {/* Top Usuários */}
       {topUsers.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
             <Users className="w-4 h-4 text-blue-600" /> Usuários com Mais Anomalias
           </h3>
@@ -265,7 +265,7 @@ export default function AnomalyDashboard() {
       )}
 
       {/* Anomalias Recentes */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-blue-600" /> Anomalias Recentes
         </h3>

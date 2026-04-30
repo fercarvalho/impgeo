@@ -94,20 +94,20 @@ const FAQ: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {itemsFiltrados.map(item => (
-            <div key={item.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div key={item.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden transition-all duration-200">
               <button
                 onClick={() => toggle(item.id)}
-                className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-blue-50/50 transition-colors"
+                className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"
               >
-                <span className="font-semibold text-gray-900 text-sm leading-snug">{item.pergunta}</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{item.pergunta}</span>
                 {openId === item.id
                   ? <ChevronUp className="h-5 w-5 text-blue-500 flex-shrink-0" />
                   : <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
                 }
               </button>
               {openId === item.id && (
-                <div className="px-5 pb-5 pt-0 border-t border-blue-100">
-                  <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap pt-4">
+                <div className="px-5 pb-5 pt-0 border-t border-blue-100 dark:border-gray-700">
+                  <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap pt-4">
                     {item.resposta}
                   </p>
                 </div>

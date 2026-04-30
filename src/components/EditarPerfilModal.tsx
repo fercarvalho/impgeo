@@ -379,24 +379,24 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
-              <User className="w-6 h-6 text-amber-700" />
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <User className="w-6 h-6 text-white" />
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
-              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all"
+              className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
               disabled={isSubmitting}
             >
               <X className="w-5 h-5" />
@@ -430,7 +430,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                   });
                 }
               }}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.password ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.password ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                 }`}
               placeholder="Digite sua senha atual"
               disabled={isSubmitting}
@@ -453,7 +453,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.firstName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.firstName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="Nome"
                 disabled={isSubmitting}
@@ -471,7 +471,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.lastName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.lastName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="Sobrenome"
                 disabled={isSubmitting}
@@ -493,7 +493,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 onBlur={handleEmailBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.email ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.email ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="email@exemplo.com"
                 disabled={isSubmitting}
@@ -512,7 +512,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 onBlur={handlePhoneBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.phone ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.phone ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="(00) 00000-0000"
                 disabled={isSubmitting}
@@ -534,7 +534,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 value={formData.cpf}
                 onChange={(e) => handleInputChange('cpf', e.target.value)}
                 onBlur={handleCpfBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.cpf ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.cpf ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="000.000.000-00"
                 maxLength={14}
@@ -553,7 +553,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="date"
                 value={formData.birthDate}
                 onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 disabled={isSubmitting}
               />
             </div>
@@ -568,7 +568,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               <select
                 value={formData.gender}
                 onChange={(e) => handleInputChange('gender', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 disabled={isSubmitting}
               >
                 <option value="">Selecione...</option>
@@ -588,7 +588,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.position}
                 onChange={(e) => handleInputChange('position', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="Ex: Desenvolvedor, Analista..."
                 disabled={isSubmitting}
               />
@@ -606,7 +606,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 value={formData.address.cep}
                 onChange={(e) => handleInputChange('address.cep', e.target.value)}
                 onBlur={handleCepBlur}
-                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="00000-000"
                 maxLength={9}
@@ -614,7 +614,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               />
               {isSearchingCep && (
                 <div className="flex items-center px-4 text-amber-600">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                 </div>
               )}
             </div>
@@ -633,7 +633,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.street}
                 onChange={(e) => handleInputChange('address.street', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="Rua, Avenida, etc."
                 disabled={isSubmitting}
               />
@@ -646,7 +646,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.number}
                 onChange={(e) => handleInputChange('address.number', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="123"
                 disabled={isSubmitting}
               />
@@ -663,7 +663,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.complement}
                 onChange={(e) => handleInputChange('address.complement', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="Apto, Bloco, etc."
                 disabled={isSubmitting}
               />
@@ -676,7 +676,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.neighborhood}
                 onChange={(e) => handleInputChange('address.neighborhood', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="Bairro"
                 disabled={isSubmitting}
               />
@@ -693,7 +693,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.city}
                 onChange={(e) => handleInputChange('address.city', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="Cidade"
                 disabled={isSubmitting}
               />
@@ -706,7 +706,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 type="text"
                 value={formData.address.state}
                 onChange={(e) => handleInputChange('address.state', e.target.value.toUpperCase())}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 placeholder="UF"
                 maxLength={2}
                 disabled={isSubmitting}
@@ -740,7 +740,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || isUploadingPhoto}
-              className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:transform-none flex items-center gap-2"
             >
               {isSubmitting || isUploadingPhoto ? (
                 <>

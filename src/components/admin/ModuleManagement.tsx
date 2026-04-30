@@ -79,8 +79,8 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-lg shadow p-4 border-2 flex items-center gap-3 ${
-        module.isSystem ? 'border-blue-300' : 'border-gray-200'
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border-2 flex items-center gap-3 hover:-translate-y-0.5 transition-all duration-200 ${
+        module.isSystem ? 'border-blue-300 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700'
       } ${isDragging ? 'shadow-xl' : ''}`}
     >
       {/* Handle de drag */}
@@ -317,12 +317,12 @@ const ModuleManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-blue-900">Gerenciar Módulos</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gerenciar Módulos</h2>
           <p className="text-sm text-gray-500 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
         </div>
         <button
           onClick={() => { setEditingModule(null); setForm(defaultForm); setShowModuleModal(true); }}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
         >
           <Plus className="h-5 w-5 mr-2" />
           Novo Módulo
@@ -351,27 +351,29 @@ const ModuleManagement: React.FC = () => {
 
       {/* Modal: bloqueio admin */}
       {showAdminBlockModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-200" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Ação bloqueada</h3>
-                <p className="text-sm text-gray-500">Módulo protegido pelo sistema</p>
+                <h3 className="text-lg font-bold text-white">Ação bloqueada</h3>
+                <p className="text-sm text-white/80">Módulo protegido pelo sistema</p>
               </div>
             </div>
-            <p className="text-sm text-gray-700 mb-2">
-              Este módulo não pode ser desativado pois é essencial para o funcionamento do sistema.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              Os módulos <strong>Admin</strong>, <strong>Sessões</strong>, <strong>Anomalias</strong> e <strong>Alertas de Segurança</strong> são protegidos e devem permanecer ativos.
-            </p>
-            <div className="flex justify-end">
-              <button onClick={() => setShowAdminBlockModal(false)} className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition-colors">
-                Entendido
-              </button>
+            <div className="p-6">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                Este módulo não pode ser desativado pois é essencial para o funcionamento do sistema.
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Os módulos <strong>Admin</strong>, <strong>Sessões</strong>, <strong>Anomalias</strong> e <strong>Alertas de Segurança</strong> são protegidos e devem permanecer ativos.
+              </p>
+              <div className="flex justify-end">
+                <button onClick={() => setShowAdminBlockModal(false)} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-medium shadow-lg shadow-red-500/25 hover:-translate-y-0.5 transition-all duration-200">
+                  Entendido
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -379,45 +381,43 @@ const ModuleManagement: React.FC = () => {
 
       {/* Modal: criar/editar módulo */}
       {showModuleModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
-              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-gray-500 hover:text-gray-700">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <h3 className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
+              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="h-5 w-5" /></button>
             </div>
-            <div className="space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                <input type="text" placeholder="Nome do módulo" value={form.moduleName} onChange={(e) => setForm({ ...form, moduleName: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                <input type="text" placeholder="Nome do módulo" value={form.moduleName} onChange={(e) => setForm({ ...form, moduleName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Key (única)</label>
-                <input type="text" placeholder="key-do-modulo" value={form.moduleKey} onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={!!editingModule} />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Key (única)</label>
+                <input type="text" placeholder="key-do-modulo" value={form.moduleKey} onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 transition-all duration-200" disabled={!!editingModule} />
                 {editingModule && <p className="text-xs text-gray-500 mt-1">A key não pode ser alterada</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ícone (Lucide)</label>
-                <select value={form.iconName} onChange={(e) => setForm({ ...form, iconName: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ícone (Lucide)</label>
+                <select value={form.iconName} onChange={(e) => setForm({ ...form, iconName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200">
                   {commonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <textarea placeholder="Descrição do módulo" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows={3} />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+                <textarea placeholder="Descrição do módulo" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200" rows={3} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rota (opcional)</label>
-                <input type="text" placeholder="/rota-customizada" value={form.routePath} onChange={(e) => setForm({ ...form, routePath: e.target.value })} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rota (opcional)</label>
+                <input type="text" placeholder="/rota-customizada" value={form.routePath} onChange={(e) => setForm({ ...form, routePath: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200" />
               </div>
               <div className="flex items-center">
                 <input type="checkbox" id="isActiveModule" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="mr-2" />
-                <label htmlFor="isActiveModule" className="text-sm text-gray-700">Módulo ativo</label>
+                <label htmlFor="isActiveModule" className="text-sm text-gray-700 dark:text-gray-300">Módulo ativo</label>
               </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button onClick={editingModule ? handleSaveEdit : handleCreateModule} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={editingModule ? handleSaveEdit : handleCreateModule} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 font-semibold">
                   <Save className="inline h-4 w-4 mr-1" />
                   {editingModule ? 'Salvar' : 'Criar'}
                 </button>

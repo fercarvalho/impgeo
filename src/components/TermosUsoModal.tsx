@@ -66,25 +66,25 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="bg-blue-100 rounded-lg p-1.5">
-              <FileText className="h-5 w-5 text-blue-600" />
+            <div className="bg-white/20 rounded-lg p-1.5">
+              <FileText className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900 text-base leading-tight">Termos de Uso</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <h2 className="font-bold text-white text-base leading-tight">Termos de Uso</h2>
+              <p className="text-xs text-white/70 mt-0.5">
                 Versão {versao}{updatedAt ? ` • Atualizado em ${updatedAt}` : ''}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1.5 hover:bg-gray-100"
+            className="text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200 rounded-lg p-1.5"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />

@@ -14,11 +14,11 @@ interface ActivityLog {
   userId: string;
   username: string;
   action: string;
-  module: string;
+  moduleKey: string;
   entityType?: string;
   entityId?: string;
   details?: any;
-  timestamp: string;
+  createdAt: string;
 }
 
 // Fields to hide from diff view (internal/noisy fields)
@@ -129,7 +129,7 @@ const ActivityLog: React.FC = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState({
     userId: '',
-    module: '',
+    moduleKey: '',
     action: '',
     startDate: '',
     endDate: ''
@@ -149,11 +149,11 @@ const ActivityLog: React.FC = () => {
       setIsLoading(true);
       const queryParams = new URLSearchParams();
       if (filters.userId) queryParams.append('userId', filters.userId);
-      if (filters.module) queryParams.append('module', filters.module);
+      if (filters.moduleKey) queryParams.append('moduleKey', filters.moduleKey);
       if (filters.action) queryParams.append('action', filters.action);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      queryParams.append('limit', limit.toString());
+      queryParams.append('pageSize', limit.toString());
       queryParams.append('page', page.toString());
 
       const response = await fetch(`${API_BASE_URL}/admin/activity-log?${queryParams}`, {
@@ -193,11 +193,11 @@ const ActivityLog: React.FC = () => {
     try {
       const queryParams = new URLSearchParams();
       if (filters.userId) queryParams.append('userId', filters.userId);
-      if (filters.module) queryParams.append('module', filters.module);
+      if (filters.moduleKey) queryParams.append('moduleKey', filters.moduleKey);
       if (filters.action) queryParams.append('action', filters.action);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      queryParams.append('limit', '10000');
+      queryParams.append('pageSize', '100');
       queryParams.append('page', '1');
 
       const response = await fetch(`${API_BASE_URL}/admin/activity-log?${queryParams}`, {
@@ -209,9 +209,9 @@ const ActivityLog: React.FC = () => {
       const data = allLogs.map(log => ({
         Usuário: log.username,
         Ação: log.action,
-        Módulo: log.module,
+        Módulo: log.moduleKey,
         Tipo: log.entityType || '',
-        Data: new Date(log.timestamp).toLocaleString(),
+        Data: new Date(log.createdAt).toLocaleString(),
         Detalhes: JSON.stringify(log.details || {})
       }));
 
@@ -251,7 +251,7 @@ const ActivityLog: React.FC = () => {
   const clearFilters = () => {
     setFilters({
       userId: '',
-      module: '',
+      moduleKey: '',
       action: '',
       startDate: '',
       endDate: ''
@@ -271,7 +271,7 @@ const ActivityLog: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -279,7 +279,7 @@ const ActivityLog: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-amber-900">Histórico de Atividades</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Histórico de Atividades</h2>
         <div className="flex gap-2">
           <button
             onClick={() => handleExport('csv')}
@@ -299,13 +299,13 @@ const ActivityLog: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-amber-200 dark:border-gray-700 shadow-lg p-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-blue-200 dark:border-gray-700 shadow-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Filtros</h3>
           <button
             onClick={clearFilters}
-            className="ml-auto text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
+            className="ml-auto text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
           >
             Limpar filtros
           </button>
@@ -319,7 +319,7 @@ const ActivityLog: React.FC = () => {
                 setFilters({ ...filters, userId: e.target.value });
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             >
               <option value="">Todos</option>
               {knownUsers.map(user => (
@@ -330,12 +330,12 @@ const ActivityLog: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Módulo</label>
             <select
-              value={filters.module}
+              value={filters.moduleKey}
               onChange={(e) => {
-                setFilters({ ...filters, module: e.target.value });
+                setFilters({ ...filters, moduleKey: e.target.value });
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             >
               <option value="">Todos</option>
               {modules.map(mod => (
@@ -351,7 +351,7 @@ const ActivityLog: React.FC = () => {
                 setFilters({ ...filters, action: e.target.value });
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             >
               <option value="">Todas</option>
               {knownActions.map(action => (
@@ -368,7 +368,7 @@ const ActivityLog: React.FC = () => {
                 setFilters({ ...filters, startDate: e.target.value });
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             />
           </div>
           <div>
@@ -380,34 +380,34 @@ const ActivityLog: React.FC = () => {
                 setFilters({ ...filters, endDate: e.target.value });
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             />
           </div>
         </div>
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-amber-50">
+            <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
               <tr>
                 <th className="w-8 px-3 py-3" />
-                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Usuário</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Ação</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Módulo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Entidade</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Data/Hora</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Usuário</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Ação</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Módulo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Entidade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Data/Hora</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {logs.map((log) => {
                 const expanded = expandedRows.has(log.id);
                 const hasDetails = hasDiff(log);
                 return (
                   <React.Fragment key={log.id}>
                     <tr
-                      className={`${hasDetails ? 'cursor-pointer hover:bg-amber-50' : 'hover:bg-gray-50'}`}
+                      className={`${hasDetails ? 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/20' : 'hover:bg-gray-50'}`}
                       onClick={() => hasDetails && toggleRow(log.id)}
                     >
                       <td className="px-3 py-4 text-gray-400">
@@ -426,7 +426,7 @@ const ActivityLog: React.FC = () => {
                           log.action === 'edit' ? 'bg-blue-100 text-blue-700' :
                           log.action === 'delete' ? 'bg-red-100 text-red-700' :
                           log.action === 'login' ? 'bg-purple-100 text-purple-700' :
-                          log.action === 'impersonate' ? 'bg-orange-100 text-orange-700' :
+                          log.action === 'impersonate' ? 'bg-indigo-100 text-indigo-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>
                           {log.action === 'create' && <Plus className="w-3 h-3" />}
@@ -438,13 +438,13 @@ const ActivityLog: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.module}
+                        {log.moduleKey || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {log.entityType || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.timestamp).toLocaleString()}
+                        {new Date(log.createdAt).toLocaleString()}
                       </td>
                     </tr>
                     {hasDetails && expanded && (
@@ -479,18 +479,18 @@ const ActivityLog: React.FC = () => {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-blue-900/20 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Anterior
               </button>
-              <span className="px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-800 rounded-lg">
+              <span className="px-3 py-1.5 text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-lg">
                 {page}
               </span>
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={logs.length < limit}
-                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-blue-900/20 transition-colors"
               >
                 Próxima
                 <ChevronRight className="w-4 h-4" />

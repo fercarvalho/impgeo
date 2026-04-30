@@ -114,26 +114,26 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all shadow-sm hover:bg-white dark:hover:bg-gray-600"
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm hover:bg-white dark:hover:bg-gray-600"
       >
         <span className={value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>
           {displayValue || 'Selecionar data'}
         </span>
-        <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+        <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50 min-w-[300px]">
           <div className="flex items-center justify-between mb-3">
             <button type="button" onClick={() => navigateMonth('prev')}
-              className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
-              <ChevronLeft className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+              <ChevronLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </button>
-            <span className="text-sm font-semibold text-amber-800 dark:text-amber-400">
+            <span className="text-sm font-semibold text-blue-800 dark:text-blue-400">
               {MONTH_NAMES[calDate.getMonth()]} {calDate.getFullYear()}
             </span>
             <button type="button" onClick={() => navigateMonth('next')}
-              className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
-              <ChevronRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+              <ChevronRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </button>
           </div>
           <div className="grid grid-cols-7 gap-1 mb-1">
@@ -153,9 +153,9 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
                   onClick={() => handleSelect(date)}
                   className={`w-9 h-9 text-xs rounded-lg transition-all
                     ${inMonth ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}
-                    ${isSelected ? 'bg-amber-500 text-white font-semibold' : ''}
-                    ${isToday && !isSelected ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-semibold' : ''}
-                    ${!isSelected && !isToday ? 'hover:bg-amber-50 dark:hover:bg-amber-900/20' : ''}
+                    ${isSelected ? 'bg-blue-500 text-white font-semibold' : ''}
+                    ${isToday && !isSelected ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-semibold' : ''}
+                    ${!isSelected && !isToday ? 'hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}
                   `}
                 >
                   {date.getDate()}
@@ -169,7 +169,7 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
               Limpar
             </button>
             <button type="button" onClick={() => handleSelect(new Date())}
-              className="flex-1 px-3 py-2 text-xs text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors">
+              className="flex-1 px-3 py-2 text-xs text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors">
               Hoje
             </button>
           </div>
@@ -233,7 +233,7 @@ const FormItemRoadmap = ({ item, todasTarefas, colunas, onSave, onCancel }: Form
     onSave({ titulo: titulo.trim(), descricao: descricao.trim(), status, prioridade, dataInicio, dependeDe: dependeDe || null });
   };
 
-  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
+  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
   const labelCls = 'block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2';
 
   return (
@@ -287,7 +287,7 @@ const FormItemRoadmap = ({ item, todasTarefas, colunas, onSave, onCancel }: Form
           Cancelar
         </button>
         <button type="submit"
-          className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-600 hover:to-orange-500 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
+          className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
           Salvar
         </button>
       </div>
@@ -365,7 +365,7 @@ const RoadmapCard = ({
         {isSuperAdmin && (
           <div className="flex items-center gap-1 ml-auto">
             <button onClick={() => onEdit(item)}
-              className="p-1 rounded text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors">
+              className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors">
               <Edit2 size={13} />
             </button>
             <button onClick={() => onDelete(item.id)}
@@ -398,7 +398,7 @@ const RoadmapCard = ({
               }}
               onBlur={handlePrioridadeBlur}
               onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-              className="w-10 text-center border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="w-10 text-center border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
             <span className="text-gray-400 dark:text-gray-500">/ {totalColuna}</span>
           </>
@@ -482,7 +482,7 @@ const InlineModal = ({ title, onClose, children }: ModalProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm px-4 pb-4 pt-[180px]"
       onClick={onClose}
     >
       <div
@@ -491,14 +491,14 @@ const InlineModal = ({ title, onClose, children }: ModalProps) => {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900 dark:to-gray-900 rounded-t-2xl px-6 py-4 border-b border-amber-200/50 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-lg font-bold text-amber-800 dark:text-amber-400 flex items-center gap-2">
-            <MapIcon className="w-5 h-5 text-amber-700 dark:text-amber-500" />
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-900 rounded-t-2xl px-6 py-4 border-b border-blue-200/50 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-lg font-bold text-blue-800 dark:text-blue-400 flex items-center gap-2">
+            <MapIcon className="w-5 h-5 text-blue-700 dark:text-blue-500" />
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 p-2 rounded-full transition-all"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 rounded-full transition-all"
           >
             ✕
           </button>
@@ -532,7 +532,7 @@ interface FormNovaColunaProps {
 const FormNovaColuna = ({ onSave, onCancel }: FormNovaColunaProps) => {
   const [label, setLabel] = useState('');
   const [selectedPalette, setSelectedPalette] = useState(0);
-  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
+  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
   const labelCls = 'block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2';
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -572,7 +572,7 @@ const FormNovaColuna = ({ onSave, onCancel }: FormNovaColunaProps) => {
           Cancelar
         </button>
         <button type="submit"
-          className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-600 hover:to-orange-500 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
+          className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
           Criar Coluna
         </button>
       </div>
@@ -606,9 +606,9 @@ const ConfirmDeleteColuna = ({ coluna, qtdTarefas, onConfirm, onCancel }: Confir
         </div>
       </div>
     ) : (
-      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-        <span className="text-amber-500 text-xl flex-shrink-0">🗑️</span>
-        <p className="text-sm text-amber-700">
+      <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <span className="text-blue-500 text-xl flex-shrink-0">🗑️</span>
+        <p className="text-sm text-blue-700">
           Tem certeza que deseja deletar a coluna <strong>"{coluna.label}"</strong>? Esta ação não pode ser desfeita.
         </p>
       </div>
@@ -638,7 +638,7 @@ interface FormConfiguracoesProps {
 
 const FormConfiguracoes = ({ colunas, colunaConcluir, onSave, onCancel }: FormConfiguracoesProps) => {
   const [selected, setSelected] = useState(colunaConcluir);
-  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
+  const inputCls = 'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 shadow-sm';
   const labelCls = 'block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2';
 
   return (
@@ -658,7 +658,7 @@ const FormConfiguracoes = ({ colunas, colunaConcluir, onSave, onCancel }: FormCo
           Cancelar
         </button>
         <button type="button" onClick={() => onSave(selected)}
-          className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-600 hover:to-orange-500 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
+          className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-md text-sm">
           Salvar
         </button>
       </div>
@@ -1078,14 +1078,14 @@ const Roadmap = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900 dark:to-gray-900 border-b border-amber-200/50 dark:border-gray-700">
+      <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-900 border-b border-blue-200/50 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400 to-orange-400 shadow-md">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
             <MapIcon size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-amber-800 dark:text-amber-400">Roadmap do Sistema</h1>
-            <p className="text-xs text-amber-600/80 dark:text-amber-500/80">
+            <h1 className="text-xl font-bold text-blue-800 dark:text-blue-400">Roadmap do Sistema</h1>
+            <p className="text-xs text-blue-600/80 dark:text-blue-500/80">
               {isSuperAdmin ? 'Gerencie o desenvolvimento do sistema' : 'Acompanhe o desenvolvimento do sistema'}
             </p>
           </div>
@@ -1093,18 +1093,18 @@ const Roadmap = () => {
         {isSuperAdmin && (
           <div className="flex items-center gap-2">
             <button onClick={() => setShowConfig(true)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all shadow-sm"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm"
               title="Configurações do Roadmap">
               <Settings size={15} />
             </button>
             <button onClick={() => setShowNovaColuna(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all shadow-sm">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm">
               <Layers size={15} />
               Nova Coluna
             </button>
             <button
               onClick={() => { setItemEditando(null); setShowModal(true); }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-400 text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-500 transition-all shadow-md">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all shadow-md">
               <Plus size={15} />
               Nova Tarefa
             </button>
@@ -1137,7 +1137,7 @@ const Roadmap = () => {
                 <div
                   key={coluna.key}
                   className={`flex flex-col rounded-2xl border-2 transition-all min-h-0 flex-shrink-0 w-[82vw] md:w-auto snap-start
-                    ${isOver ? 'border-amber-400 bg-amber-50/80 shadow-lg shadow-amber-100 dark:bg-amber-900/20'
+                    ${isOver ? 'border-blue-400 bg-blue-50/80 shadow-lg shadow-blue-100 dark:bg-blue-900/20'
                       : isColDragOver ? 'border-gray-400 bg-gray-50/80 dark:bg-gray-700/80'
                       : isDark ? 'border-gray-700 bg-gray-800/60 shadow-sm' : 'border-gray-200/60 bg-white/60 shadow-sm'}`}
                   onDragOver={isSuperAdmin ? e => {

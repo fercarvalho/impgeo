@@ -317,7 +317,7 @@ const Footer: React.FC = () => {
     {/* Modal de Notas da Versão */}
     {showNotas && (
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[120px]"
+        className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[120px]"
         onClick={() => setShowNotas(false)}
       >
         <div

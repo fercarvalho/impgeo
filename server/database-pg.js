@@ -295,6 +295,119 @@ class Database {
         await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
       }
 
+      // ── Tabelas de segurança / sessões ─────────────────────────
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id SERIAL PRIMARY KEY,
+          timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          operation VARCHAR(100) NOT NULL,
+          user_id VARCHAR(255),
+          username VARCHAR(255),
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          details JSONB,
+          status VARCHAR(50) DEFAULT 'success',
+          error_message TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp  ON audit_logs(timestamp DESC)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id    ON audit_logs(user_id)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_audit_logs_operation  ON audit_logs(operation)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_audit_logs_status     ON audit_logs(status)`);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+          id SERIAL PRIMARY KEY,
+          token VARCHAR(500) UNIQUE NOT NULL,
+          user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          revoked BOOLEAN DEFAULT FALSE,
+          revoked_at TIMESTAMPTZ,
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          replaced_by_token VARCHAR(500)
+        )
+      `);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token      ON refresh_tokens(token)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id    ON refresh_tokens(user_id)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked    ON refresh_tokens(revoked)`);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS active_sessions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          refresh_token_id INTEGER REFERENCES refresh_tokens(id) ON DELETE SET NULL,
+          ip_address VARCHAR(45) NOT NULL,
+          user_agent TEXT NOT NULL,
+          device_type VARCHAR(50),
+          device_name VARCHAR(255),
+          browser VARCHAR(100),
+          os VARCHAR(100),
+          country VARCHAR(100),
+          city VARCHAR(255),
+          latitude DECIMAL(10,8),
+          longitude DECIMAL(11,8),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          revoked_at TIMESTAMP,
+          revoked_reason VARCHAR(255)
+        )
+      `);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_active_sessions_user_id   ON active_sessions(user_id)`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_active_sessions_is_active  ON active_sessions(is_active) WHERE is_active = TRUE`);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_active_sessions_refresh_id ON active_sessions(refresh_token_id)`);
+      // ────────────────────────────────────────────────────────────
+
+      // ── Tabelas do rodapé ──────────────────────────────────────
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS rodape_configuracoes (
+          chave VARCHAR(100) PRIMARY KEY,
+          valor TEXT,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS rodape_colunas (
+          id VARCHAR(255) PRIMARY KEY,
+          titulo VARCHAR(255) NOT NULL,
+          ordem INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS rodape_links (
+          id VARCHAR(255) PRIMARY KEY,
+          coluna_id VARCHAR(255) REFERENCES rodape_colunas(id) ON DELETE CASCADE,
+          texto VARCHAR(255) NOT NULL,
+          link TEXT,
+          eh_link BOOLEAN DEFAULT TRUE,
+          ordem INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS rodape_bottom_links (
+          id VARCHAR(255) PRIMARY KEY,
+          texto VARCHAR(255) NOT NULL,
+          link TEXT,
+          ativo BOOLEAN DEFAULT TRUE,
+          ordem INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      // ────────────────────────────────────────────────────────────
+
       this.profileSchemaEnsured = true;
     })().finally(() => {
       this.profileSchemaEnsuring = null;
@@ -3461,7 +3574,7 @@ class Database {
       const mod = await this.queryWithRetry(`SELECT module_key FROM modules_catalog WHERE module_key = 'documentacao' LIMIT 1`);
       if (mod.rows.length === 0) {
         await this.queryWithRetry(
-          `INSERT INTO modules_catalog (module_key, module_name, description, icon, is_active, is_system) VALUES ($1,$2,$3,$4,true,true)
+          `INSERT INTO modules_catalog (module_key, module_name, description, icon_name, is_active, is_system) VALUES ($1,$2,$3,$4,true,true)
            ON CONFLICT (module_key) DO NOTHING`,
           ['documentacao', 'Documentação', 'Manual e guias do sistema', 'BookOpen']
         );

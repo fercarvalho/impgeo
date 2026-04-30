@@ -296,7 +296,7 @@ const DocumentationManagement: React.FC = () => {
         <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Estrutura</span>
         <button
           onClick={() => setShowNewSection(true)}
-          className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition-colors"
+          className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
           title="Nova seção"
         >
           <Plus className="h-4 w-4" />
@@ -314,7 +314,7 @@ const DocumentationManagement: React.FC = () => {
             const isExpanded = expandedSections.has(section.id);
             return (
               <div key={section.id}>
-                <div className="flex items-center group hover:bg-amber-50 dark:hover:bg-gray-700 transition-colors">
+                <div className="flex items-center group hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
                   <button
                     onClick={() =>
                       setExpandedSections(prev => {
@@ -331,10 +331,10 @@ const DocumentationManagement: React.FC = () => {
                     <span className="truncate">{section.title}</span>
                   </button>
                   <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => setShowNewPage(section.id)} className="p-1 text-amber-500 hover:bg-amber-100 rounded" title="Nova página">
+                    <button onClick={() => setShowNewPage(section.id)} className="p-1 text-blue-500 hover:bg-blue-100 rounded" title="Nova página">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setEditingSection({ id: section.id, title: section.title })} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Renomear seção">
+                    <button onClick={() => setEditingSection({ id: section.id, title: section.title })} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Renomear seção">
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button onClick={() => setDeleteConfirm({ type: 'section', id: section.id, title: section.title })} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded" title="Deletar seção">
@@ -350,13 +350,13 @@ const DocumentationManagement: React.FC = () => {
                         key={page.id}
                         className={`flex items-center group transition-colors ${
                           selectedPage?.id === page.id
-                            ? 'bg-amber-100 dark:bg-amber-900/30 border-l-2 border-amber-500 -ml-0.5'
-                            : 'hover:bg-amber-50 dark:hover:bg-gray-700'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 border-l-2 border-blue-500 -ml-0.5'
+                            : 'hover:bg-blue-50/50 dark:hover:bg-blue-900/20'
                         }`}
                       >
                         <button onClick={() => selectPage(page)} className="flex-1 flex items-center gap-2 pl-3 pr-2 py-2 text-sm text-left truncate">
-                          <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${selectedPage?.id === page.id ? 'text-amber-600' : 'text-gray-400'}`} />
-                          <span className={`truncate ${selectedPage?.id === page.id ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                          <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${selectedPage?.id === page.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${selectedPage?.id === page.id ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
                             {page.title}
                           </span>
                         </button>
@@ -385,7 +385,7 @@ const DocumentationManagement: React.FC = () => {
       <div className="lg:hidden sticky top-[185px] z-30 pointer-events-none flex-shrink-0">
         <button
           onClick={() => setSidebarOpen(v => !v)}
-          className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-400 text-white rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all duration-200 text-sm font-semibold"
+          className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all duration-200 text-sm font-semibold"
         >
           {sidebarOpen ? <X className="h-4 w-4" /> : <GripVertical className="h-4 w-4" />}
           <span>{sidebarOpen ? 'Fechar' : 'Estrutura'}</span>
@@ -399,7 +399,7 @@ const DocumentationManagement: React.FC = () => {
           className={`lg:hidden fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         />
         <div className={`lg:hidden fixed top-0 left-0 h-full w-[280px] z-30 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}>
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-400 flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
             <span className="text-white font-semibold text-sm">Estrutura</span>
             <button onClick={() => setSidebarOpen(false)} className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
@@ -430,27 +430,27 @@ const DocumentationManagement: React.FC = () => {
                   className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-100 border-none outline-none bg-transparent truncate min-w-0 focus:ring-0"
                   placeholder="Título da página"
                 />
-                {isDirty && <span className="text-xs text-amber-500 flex-shrink-0">● não salvo</span>}
+                {isDirty && <span className="text-xs text-blue-500 flex-shrink-0">● não salvo</span>}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Toggle view — no mobile esconde Split */}
                 <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-0.5 gap-0.5">
                   <button
                     onClick={() => setPreviewMode('editor')}
-                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${previewMode === 'editor' ? 'bg-white dark:bg-gray-600 text-amber-700 dark:text-amber-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${previewMode === 'editor' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                   >
                     <Code2 className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Editor</span>
                   </button>
                   <button
                     onClick={() => setPreviewMode('split')}
-                    className={`hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${previewMode === 'split' ? 'bg-white dark:bg-gray-600 text-amber-700 dark:text-amber-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    className={`hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${previewMode === 'split' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                   >
                     Split
                   </button>
                   <button
                     onClick={() => setPreviewMode('preview')}
-                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${previewMode === 'preview' ? 'bg-white dark:bg-gray-600 text-amber-700 dark:text-amber-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${previewMode === 'preview' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                   >
                     <Eye className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Preview</span>
@@ -459,7 +459,7 @@ const DocumentationManagement: React.FC = () => {
                 <button
                   onClick={savePage}
                   disabled={!isDirty || isSaving}
-                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl text-sm font-medium transition-colors flex-shrink-0 ${isDirty && !isSaving ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm hover:shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 flex-shrink-0 ${isDirty && !isSaving ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-0.5' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                 >
                   <Save className="h-3.5 w-3.5" />
                   <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
@@ -506,8 +506,8 @@ const DocumentationManagement: React.FC = () => {
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-center">
             <div className="text-center px-6">
               <div className="flex justify-center mb-3">
-                <div className="bg-amber-50 dark:bg-amber-900/30 rounded-full p-4">
-                  <BookOpen className="h-10 w-10 text-amber-300" />
+                <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
+                  <BookOpen className="h-10 w-10 text-blue-300" />
                 </div>
               </div>
               <p className="text-gray-400 text-sm">Selecione uma página para editar</p>
@@ -522,7 +522,7 @@ const DocumentationManagement: React.FC = () => {
       {/* Modal: Nova Seção */}
       {showNewSection && (
         <div
-          className="fixed inset-0 bg-amber-900/30 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={e => e.target === e.currentTarget && setShowNewSection(false)}
         >
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -534,7 +534,7 @@ const DocumentationManagement: React.FC = () => {
               onChange={e => setNewSectionTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && createSection()}
               placeholder="Nome da seção"
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <div className="flex gap-2 justify-end">
               <button
@@ -546,7 +546,7 @@ const DocumentationManagement: React.FC = () => {
               <button
                 onClick={createSection}
                 disabled={!newSectionTitle.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl disabled:opacity-50"
+                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
               >
                 Criar
               </button>
@@ -558,7 +558,7 @@ const DocumentationManagement: React.FC = () => {
       {/* Modal: Nova Página */}
       {showNewPage && (
         <div
-          className="fixed inset-0 bg-amber-900/30 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={e => e.target === e.currentTarget && setShowNewPage(null)}
         >
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -570,7 +570,7 @@ const DocumentationManagement: React.FC = () => {
               onChange={e => setNewPageTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && createPage(showNewPage)}
               placeholder="Título da página"
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <div className="flex gap-2 justify-end">
               <button
@@ -582,7 +582,7 @@ const DocumentationManagement: React.FC = () => {
               <button
                 onClick={() => createPage(showNewPage)}
                 disabled={!newPageTitle.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl disabled:opacity-50"
+                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
               >
                 Criar
               </button>
@@ -594,7 +594,7 @@ const DocumentationManagement: React.FC = () => {
       {/* Modal: Renomear Seção */}
       {editingSection && (
         <div
-          className="fixed inset-0 bg-amber-900/30 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={e => e.target === e.currentTarget && setEditingSection(null)}
         >
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -605,7 +605,7 @@ const DocumentationManagement: React.FC = () => {
               value={editingSection.title}
               onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
               onKeyDown={e => e.key === 'Enter' && updateSectionTitle()}
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100"
             />
             <div className="flex gap-2 justify-end">
               <button
@@ -617,7 +617,7 @@ const DocumentationManagement: React.FC = () => {
               <button
                 onClick={updateSectionTitle}
                 disabled={!editingSection.title.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl disabled:opacity-50"
+                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
               >
                 Salvar
               </button>
@@ -628,7 +628,7 @@ const DocumentationManagement: React.FC = () => {
 
       {/* Modal: Confirmar Delete */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-amber-900/30 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-red-100 rounded-full p-2">
@@ -679,15 +679,15 @@ const DocumentationManagement: React.FC = () => {
         .doc-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0; }
         .doc-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0; }
         .doc-content li { color: #374151; line-height: 1.75; margin: 0.25rem 0; font-size: 0.875rem; }
-        .doc-content a { color: #d97706; text-decoration: underline; }
+        .doc-content a { color: #3b82f6; text-decoration: underline; }
         .doc-content strong { font-weight: 700; color: #1f2937; }
         .doc-content em { font-style: italic; }
-        .doc-content blockquote { border-left: 3px solid #f59e0b; padding: 0.5rem 1rem; background: #fffbeb; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; color: #78350f; }
-        .doc-content code:not(pre code) { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; color: #b45309; font-family: monospace; }
+        .doc-content blockquote { border-left: 3px solid #3b82f6; padding: 0.5rem 1rem; background: #eff6ff; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; color: #1e40af; }
+        .doc-content code:not(pre code) { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; color: #4f46e5; font-family: monospace; }
         .admin-code-block { background: #1f2937; border-radius: 0.75rem; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
         .admin-code-block code { color: #f9fafb; font-family: monospace; font-size: 0.875rem; }
         .doc-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
-        .doc-content th { background: #fffbeb; color: #92400e; font-weight: 600; padding: 0.5rem 0.75rem; border: 1px solid #fde68a; text-align: left; }
+        .doc-content th { background: #eff6ff; color: #1e40af; font-weight: 600; padding: 0.5rem 0.75rem; border: 1px solid #bfdbfe; text-align: left; }
         .doc-content td { padding: 0.4rem 0.75rem; border: 1px solid #e5e7eb; color: #374151; }
         .doc-content tr:nth-child(even) td { background: #f9fafb; }
         .doc-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }

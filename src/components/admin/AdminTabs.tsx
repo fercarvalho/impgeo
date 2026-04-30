@@ -44,30 +44,38 @@ const AdminTabs: React.FC = () => {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <Shield className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-blue-900">Painel Administrativo</h1>
+          <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+            <Shield className="h-6 w-6 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Painel Administrativo</h1>
         </div>
-        <p className="text-gray-600">Gerencie usuários, módulos e visualize estatísticas do sistema</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie usuários, módulos e visualize estatísticas do sistema</p>
       </div>
 
-      <div className="flex space-x-2 border-b border-gray-200 mb-6">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-6 py-3 border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 font-semibold'
-                  : 'border-transparent text-gray-600 hover:text-blue-600'
-              }`}
-            >
-              <Icon className="h-5 w-5 mr-2" />
-              {tab.name}
-            </button>
-          );
-        })}
+      <div className="relative mb-6 border-b border-gray-200">
+        <div
+          className="flex overflow-x-auto"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-5 py-3 border-b-2 flex-shrink-0 transition-colors whitespace-nowrap text-sm font-medium ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600 font-semibold'
+                    : 'border-transparent text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                {tab.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
       </div>
 
       <div className="mt-6">

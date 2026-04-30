@@ -1813,77 +1813,80 @@ const Acompanhamentos: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
+            <ClipboardCheck className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Acompanhamentos</h1>
-            <p className="text-gray-600 mt-1">Gestão de propriedades rurais e cadastros ambientais</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Acompanhamentos</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Gestão de propriedades rurais e cadastros ambientais</p>
           </div>
-          <div className="flex w-full sm:w-auto flex-wrap md:flex-nowrap gap-2 sm:gap-3 md:gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
-            <button 
-              onClick={generateShareLink}
-              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
-              Gerar Link Compartilhável
-            </button>
-            <button
-              onClick={openManageShareLinks}
-              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
-              Gerenciar Links
-            </button>
-            <button 
-              onClick={() => setIsImportModalOpen(true)}
-              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
-              Importar/Exportar
-            </button>
-            <button
-              onClick={handleNew}
-              className="h-10 sm:h-12 w-full sm:w-auto md:flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-              Novo
-            </button>
-          </div>
+        </div>
+        <div className="flex w-full sm:w-auto flex-wrap gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
+          <button
+            onClick={generateShareLink}
+            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-md shadow-green-500/25 hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <Share2 className="h-4 w-4" />
+            Gerar Link
+          </button>
+          <button
+            onClick={openManageShareLinks}
+            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Gerenciar Links
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <Upload className="h-4 w-4" />
+            Importar/Exportar
+          </button>
+          <button
+            onClick={handleNew}
+            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            Novo
+          </button>
         </div>
       </div>
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
         >
-          <p className="text-sm text-gray-600">Total de Imóveis</p>
-          <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{acompanhamentos.length}</p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', getAreaTotalData())}
         >
-          <p className="text-sm text-gray-600">Área Total</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData(), { valueFormat: 'number', valueUnit: '' })}
         >
-          <p className="text-sm text-gray-600">Com Geo Certificação</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
           <p className="text-2xl font-bold text-green-600">
             {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData(), { valueFormat: 'number', valueUnit: '' })}
         >
-          <p className="text-sm text-gray-600">Com Geo Registro</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
           <p className="text-2xl font-bold text-green-600">
             {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
           </p>
@@ -1893,47 +1896,47 @@ const Acompanhamentos: React.FC = () => {
       {/* Estatísticas de Área por Tipo de Cultura */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
         >
-          <p className="text-sm text-gray-600">Silvicultura</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Silvicultura</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Silvicultura'))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Cultura Temporária', 'Distribuição de área por imóvel (ha)', getCulturaData('Cultura Temporária'))}
         >
-          <p className="text-sm text-gray-600">Cultura Temporária</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cultura Temporária</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Cultura Temporária'))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Pasto', 'Distribuição de área por imóvel (ha)', getCulturaData('Pasto'))}
         >
-          <p className="text-sm text-gray-600">Pasto</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pasto</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Pasto'))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Banhado', 'Distribuição de área por imóvel (ha)', getCulturaData('Banhado'))}
         >
-          <p className="text-sm text-gray-600">Banhado</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Banhado</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Banhado'))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Servidão', 'Distribuição de área por imóvel (ha)', getCulturaData('Servidão'))}
         >
-          <p className="text-sm text-gray-600">Servidão</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Servidão</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Servidão'))} ha
           </p>
         </div>
@@ -1942,66 +1945,67 @@ const Acompanhamentos: React.FC = () => {
       {/* Estatísticas de APP e Reserva Legal */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
         >
-          <p className="text-sm text-gray-600">Área Antropizada</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Antropizada</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
         >
-          <p className="text-sm text-gray-600">APP Código Florestal</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('APP Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appVegetada'))}
         >
-          <p className="text-sm text-gray-600">APP Vegetada</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
           <p className="text-2xl font-bold text-green-600">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
           </p>
         </div>
         <div 
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('APP Não Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appNaoVegetada'))}
         >
-          <p className="text-sm text-gray-600">APP Não Vegetada</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
           <p className="text-2xl font-bold text-orange-600">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
           </p>
         </div>
         <div
-          className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
           onClick={() => openChart('20% Reserva Legal', 'Distribuição de área por imóvel (ha)', getReservaLegalData())}
         >
-          <p className="text-sm text-gray-600">20% Reserva Legal</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
           </p>
         </div>
       </div>
 
       {/* Filtros e Busca */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:block flex-shrink-0">Buscar</span>
+          <div className="flex-1 relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
             <input
               type="text"
               placeholder="Buscar por imóvel, município ou código..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 shadow-sm transition-all"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl hover:border-blue-300 dark:hover:border-blue-500 text-sm font-medium transition-all shadow-sm flex-shrink-0">
             <Filter className="h-4 w-4" />
             Filtros
           </button>
@@ -2009,12 +2013,12 @@ const Acompanhamentos: React.FC = () => {
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[2000px]">
             <thead>
-              <tr className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-900" style={{ width: '50px', minWidth: '50px' }}>
+              <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-600" style={{ width: '50px', minWidth: '50px' }}>
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -2022,17 +2026,17 @@ const Acompanhamentos: React.FC = () => {
                     className="rounded"
                   />
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[50px] z-20 bg-blue-900" style={{ width: '100px', minWidth: '100px' }}>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[50px] z-20 bg-blue-600" style={{ width: '100px', minWidth: '100px' }}>
                   <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     COD. IMP <span>{getSortIndicator('codImovel')}</span>
                   </button>
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[150px] z-20 bg-blue-900" style={{ width: '250px', minWidth: '250px' }}>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[150px] z-20 bg-blue-600" style={{ width: '250px', minWidth: '250px' }}>
                   <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     IMÓVEL <span>{getSortIndicator('imovel')}</span>
                   </button>
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[400px] z-20 bg-blue-900" style={{ width: '150px', minWidth: '150px' }}>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[400px] z-20 bg-blue-600" style={{ width: '150px', minWidth: '150px' }}>
                   <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
                     MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
                   </button>
@@ -2136,13 +2140,13 @@ const Acompanhamentos: React.FC = () => {
                 <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">AÇÕES</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
-                  className={`group ${index % 2 === 0 ? 'bg-white hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100'}`}
+                  className={`group ${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'}`}
                 >
-                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '50px', minWidth: '50px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '50px', minWidth: '50px' }}>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(acomp.id)}
@@ -2150,8 +2154,8 @@ const Acompanhamentos: React.FC = () => {
                       className="rounded"
                     />
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '250px', minWidth: '250px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
                     {acomp.mapaUrl ? (
                       <button
                         onClick={() => {
@@ -2171,7 +2175,7 @@ const Acompanhamentos: React.FC = () => {
                       <span>{acomp.imovel}</span>
                     )}
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                   <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-wrap gap-1 w-full">
@@ -2450,7 +2454,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Edição/Criação */}
       {isModalOpen && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsModalOpen(false)
@@ -3196,7 +3200,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Importação */}
       {isImportModalOpen && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => setIsImportModalOpen(false)}
         >
@@ -3265,7 +3269,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Aviso de Seleção para Compartilhar */}
       {isShareSelectionWarningOpen && (
         <div
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => setIsShareSelectionWarningOpen(false)}
         >
@@ -3302,7 +3306,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal de Gerenciamento de Links Compartilháveis */}
       {isShareModalOpen && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsShareModalOpen(false)
@@ -3640,7 +3644,7 @@ const Acompanhamentos: React.FC = () => {
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsMapModalOpen(false)

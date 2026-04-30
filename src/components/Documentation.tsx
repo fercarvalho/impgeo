@@ -195,7 +195,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar na documentação..."
-            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
           />
           {search && (
             <button
@@ -259,7 +259,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
   return (
     <div className="px-4 sm:px-6 pb-4 sm:pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-400 rounded-2xl shadow-lg p-5 sm:p-6 mb-4">
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg p-5 sm:p-6 mb-4">
         <div className="flex items-center gap-4">
           <div className="bg-white/20 rounded-xl p-3">
             <BookOpen className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
@@ -278,7 +278,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
         <div className="lg:hidden sticky top-[185px] z-30 mb-4 pointer-events-none">
           <button
             onClick={() => setSidebarOpen(v => !v)}
-            className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-400 text-white rounded-full shadow-lg hover:shadow-xl hover:from-amber-600 hover:to-orange-500 active:scale-95 transition-all duration-200 text-sm font-semibold"
+            className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all duration-200 text-sm font-semibold"
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             <span>{sidebarOpen ? 'Fechar' : 'Índice'}</span>
@@ -324,7 +324,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                   }`}
               >
                 {/* Cabeçalho do drawer */}
-                <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-400 flex-shrink-0">
+                <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
                   <span className="text-white font-semibold text-sm">Índice</span>
                   <button
                     onClick={() => setSidebarOpen(false)}

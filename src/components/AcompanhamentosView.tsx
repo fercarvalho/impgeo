@@ -839,10 +839,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-          <p className="text-gray-600">Carregando dados...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-500 font-medium">Carregando dados...</p>
         </div>
       </div>
     )
@@ -850,31 +850,31 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
   if (requiresPassword) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
-          <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-8 text-center">
+            <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             {shareLinkName ? (
               <>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Bem vindo</h1>
-                <p className="text-lg font-semibold text-purple-600 mb-1">{shareLinkName}</p>
-                <p className="text-gray-500 text-sm">Este link está protegido por senha</p>
+                <h1 className="text-2xl font-bold text-white mb-1">Bem-vindo(a)</h1>
+                <p className="text-lg font-semibold text-blue-100 mb-1">{shareLinkName}</p>
+                <p className="text-blue-200 text-sm">Este link está protegido por senha</p>
               </>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Acesso Protegido</h1>
-                <p className="text-gray-600">Este link compartilhável está protegido por senha</p>
+                <h1 className="text-2xl font-bold text-white mb-1">Acesso Protegido</h1>
+                <p className="text-blue-100 text-sm">Este link compartilhável está protegido por senha</p>
               </>
             )}
           </div>
-          
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+
+          <form onSubmit={handlePasswordSubmit} className="p-8 space-y-4">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
                 Senha
               </label>
               <input
@@ -885,8 +885,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   setPassword(e.target.value)
                   setPasswordError('')
                 }}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                  passwordError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  passwordError ? 'border-red-400 bg-red-50' : 'border-gray-200'
                 }`}
                 placeholder="Digite a senha"
                 autoFocus
@@ -895,10 +895,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 <p className="mt-2 text-sm text-red-600">{passwordError}</p>
               )}
             </div>
-            
+
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
             >
               Acessar
             </button>
@@ -910,13 +910,16 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-lg shadow-md max-w-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
-          <p className="text-gray-700">{error}</p>
-          <p className="text-sm text-gray-500 mt-4">
-            {error.includes('expirou') 
-              ? 'Entre em contato com o administrador para obter um novo link.' 
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-md border border-gray-100">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Link indisponível</h1>
+          <p className="text-gray-600">{error}</p>
+          <p className="text-sm text-gray-400 mt-3">
+            {error.includes('expirou')
+              ? 'Entre em contato com o administrador para obter um novo link.'
               : 'O link pode estar inválido ou expirado.'}
           </p>
         </div>
@@ -925,20 +928,23 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Acompanhamentos de Imóveis</h1>
-              <p className="text-blue-200 mt-1">Visualização somente leitura</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-10 w-10 object-contain" />
-              <div>
-                <h1 className="text-xl font-bold text-white leading-tight">IMPGEO</h1>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-white/15">
+                <ClipboardCheck className="w-5 h-5 text-white" />
               </div>
+              <div>
+                <h1 className="text-xl font-bold">Acompanhamentos de Imóveis</h1>
+                <p className="text-blue-200 text-sm">Visualização somente leitura</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
+              <span className="text-base font-bold text-white">IMPGEO</span>
             </div>
           </div>
         </div>
@@ -946,45 +952,52 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Mensagem de Boas-vindas */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold">
-            Bem-vindo(a) {shareLinkName ? shareLinkName : 'Visitante'}
-          </h2>
-          <p className="text-blue-100 mt-2">Visualização somente leitura dos acompanhamentos de imóveis</p>
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+              <MapIcon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">
+                Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
+              </h2>
+              <p className="text-blue-100 text-sm">Visualização somente leitura dos acompanhamentos de imóveis</p>
+            </div>
+          </div>
         </div>
 
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
           >
-            <p className="text-sm text-gray-600">Total de Imóveis</p>
-            <p className="text-2xl font-bold text-gray-900">{acompanhamentos.length}</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{acompanhamentos.length}</p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', getAreaTotalData())}
           >
-            <p className="text-sm text-gray-600">Área Total</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData(), { valueFormat: 'number', valueUnit: '' })}
           >
-            <p className="text-sm text-gray-600">Com Geo Certificação</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
             <p className="text-2xl font-bold text-green-600">
               {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData(), { valueFormat: 'number', valueUnit: '' })}
           >
-            <p className="text-sm text-gray-600">Com Geo Registro</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
             <p className="text-2xl font-bold text-green-600">
               {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
             </p>
@@ -994,47 +1007,47 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         {/* Estatísticas de Área por Tipo de Cultura */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
           >
-            <p className="text-sm text-gray-600">Silvicultura</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Silvicultura</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Silvicultura'))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Cultura Temporária', 'Distribuição de área por imóvel (ha)', getCulturaData('Cultura Temporária'))}
           >
-            <p className="text-sm text-gray-600">Cultura Temporária</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cultura Temporária</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Cultura Temporária'))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Pasto', 'Distribuição de área por imóvel (ha)', getCulturaData('Pasto'))}
           >
-            <p className="text-sm text-gray-600">Pasto</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pasto</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Pasto'))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Banhado', 'Distribuição de área por imóvel (ha)', getCulturaData('Banhado'))}
           >
-            <p className="text-sm text-gray-600">Banhado</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Banhado</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Banhado'))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Servidão', 'Distribuição de área por imóvel (ha)', getCulturaData('Servidão'))}
           >
-            <p className="text-sm text-gray-600">Servidão</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Servidão</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Servidão'))} ha
             </p>
           </div>
@@ -1043,52 +1056,52 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         {/* Estatísticas de APP, Reserva Legal e Remanescente Florestal */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
           >
-            <p className="text-sm text-gray-600">Área Antropizada</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Antropizada</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
           >
-            <p className="text-sm text-gray-600">APP Código Florestal</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('APP Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appVegetada'))}
           >
-            <p className="text-sm text-gray-600">APP Vegetada</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
             <p className="text-2xl font-bold text-green-600">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('APP Não Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appNaoVegetada'))}
           >
-            <p className="text-sm text-gray-600">APP Não Vegetada</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
             <p className="text-2xl font-bold text-orange-600">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
             </p>
           </div>
           <div
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('20% Reserva Legal', 'Distribuição de área por imóvel (ha)', getReservaLegalData())}
           >
-            <p className="text-sm text-gray-600">20% Reserva Legal</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
             </p>
           </div>
           <div 
-            className="bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
           >
             <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
@@ -1099,22 +1112,22 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         </div>
 
         {/* Tabela */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[2000px]">
               <thead>
-                <tr className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-900" style={{ width: '100px', minWidth: '100px' }}>
+                <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-600" style={{ width: '100px', minWidth: '100px' }}>
                     <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       COD. IMP <span>{getSortIndicator('codImovel')}</span>
                     </button>
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[100px] z-20 bg-blue-900" style={{ width: '250px', minWidth: '250px' }}>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[100px] z-20 bg-blue-600" style={{ width: '250px', minWidth: '250px' }}>
                     <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       IMÓVEL <span>{getSortIndicator('imovel')}</span>
                     </button>
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[350px] z-20 bg-blue-900" style={{ width: '150px', minWidth: '150px' }}>
+                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[350px] z-20 bg-blue-600" style={{ width: '150px', minWidth: '150px' }}>
                     <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
                       MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
                     </button>
@@ -1220,14 +1233,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {sortedAcompanhamentos.map((acomp, index) => (
                   <tr
                     key={acomp.id}
-                    className={`group ${index % 2 === 0 ? 'bg-white hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100'}`}
+                    className={`group ${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'}`}
                   >
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '250px', minWidth: '250px' }}>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
                       {acomp.mapaUrl ? (
                         <button
                           onClick={() => {
@@ -1245,7 +1258,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                         <span>{acomp.imovel}</span>
                       )}
                     </td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
                     <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex flex-wrap gap-1 w-full">
@@ -1475,7 +1488,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appVegetada)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appNaoVegetada)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.remanescenteFlorestal)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white group-hover:bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
+                    <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`}>
                       {(() => {
                         const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
                         return (
@@ -1596,7 +1609,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       {/* Modal do Mapa */}
       {isMapModalOpen && selectedMapUrl && (
         <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           style={{ margin: 0, padding: 0 }}
           onClick={() => {
             setIsMapModalOpen(false)

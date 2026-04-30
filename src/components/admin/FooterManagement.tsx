@@ -893,7 +893,7 @@ const FooterManagement: React.FC = () => {
   return (
     <div>
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-700 to-gray-800 rounded-2xl shadow-lg p-6 mb-6">
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/25 p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="bg-white/20 rounded-xl p-3">
             <Layout className="h-7 w-7 text-white" />
@@ -906,24 +906,28 @@ const FooterManagement: React.FC = () => {
       </div>
 
       {/* Abas */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="relative mb-6">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex-shrink-0 ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* fade right hint de scroll */}
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
       </div>
 
       {/* ─── ABA: COLUNAS ─────────────────────────────────────────── */}
@@ -935,7 +939,7 @@ const FooterManagement: React.FC = () => {
             </p>
             <button
               onClick={handleAddColuna}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-lg transition-all text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all text-sm"
             >
               <Plus className="h-4 w-4" />
               Nova Coluna
@@ -1029,7 +1033,7 @@ const FooterManagement: React.FC = () => {
               disabled={!empresaDirty || isSavingConfig !== null}
               className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 empresaDirty && isSavingConfig === null
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
             >
@@ -1143,7 +1147,7 @@ const FooterManagement: React.FC = () => {
               disabled={!infoDirty || isSavingConfig !== null}
               className={`mt-3 flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 infoDirty && isSavingConfig === null
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
             >
@@ -1212,7 +1216,7 @@ const FooterManagement: React.FC = () => {
               disabled={config.copyright === configOriginal.copyright || isSavingConfig !== null}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 config.copyright !== configOriginal.copyright && isSavingConfig === null
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
             >
@@ -1265,7 +1269,7 @@ const FooterManagement: React.FC = () => {
             </div>
             <button
               onClick={abrirModalNovoBottom}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-lg transition-all text-sm"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all text-sm"
             >
               <Plus className="h-4 w-4" />
               Novo Link
@@ -1326,7 +1330,7 @@ const FooterManagement: React.FC = () => {
                 disabled={config.versao_sistema === configOriginal.versao_sistema || isSavingConfig !== null}
                 className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                   config.versao_sistema !== configOriginal.versao_sistema && isSavingConfig === null
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -1386,7 +1390,7 @@ const FooterManagement: React.FC = () => {
                 disabled={config.notas_versao === configOriginal.notas_versao || isSavingConfig !== null}
                 className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                   config.notas_versao !== configOriginal.notas_versao && isSavingConfig === null
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -1408,7 +1412,7 @@ const FooterManagement: React.FC = () => {
 
       {/* ─── MODAL DE LINK ─────────────────────────────────────────── */}
       {showModalLink && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -1503,7 +1507,7 @@ const FooterManagement: React.FC = () => {
                 <button
                   onClick={handleSalvarLink}
                   disabled={isSavingLink}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-all disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-sm hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50"
                 >
                   {isSavingLink ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Salvando...</>
@@ -1519,7 +1523,7 @@ const FooterManagement: React.FC = () => {
 
       {/* ─── MODAL DE CONFIRMAÇÃO DE DELEÇÃO ─────────────────────── */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1559,7 +1563,7 @@ const FooterManagement: React.FC = () => {
 
       {/* ─── MODAL DE BOTTOM LINK ────────────────────────────────── */}
       {showModalBottom && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -1636,7 +1640,7 @@ const FooterManagement: React.FC = () => {
                 <button
                   onClick={handleSalvarBottom}
                   disabled={isSavingBottom}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-all disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-sm hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50"
                 >
                   {isSavingBottom ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Salvando...</>
@@ -1652,7 +1656,7 @@ const FooterManagement: React.FC = () => {
 
       {/* ─── MODAL CONFIRMAÇÃO DELETE BOTTOM LINK ────────────────── */}
       {deleteBottomConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">

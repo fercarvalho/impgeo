@@ -150,8 +150,8 @@ const Projects: React.FC = () => {
   }
 
   const getSortIcon = (field: keyof Project) => {
-    if (sortConfig.field !== field) return <span className="text-gray-400">↕</span>
-    return sortConfig.direction === 'asc' ? <span className="text-blue-600">↑</span> : <span className="text-blue-600">↓</span>
+    if (sortConfig.field !== field) return <span className="text-white/50">↕</span>
+    return sortConfig.direction === 'asc' ? <span className="text-white">↑</span> : <span className="text-white">↓</span>
   }
 
   const filteredProjects = useMemo(() => {
@@ -368,34 +368,34 @@ const Projects: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col flex-1 min-w-0">
-            <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Nome</label>
+            <label className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Nome</label>
             <input
               type="text"
               placeholder="Nome..."
               value={filters.name}
               onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
-              className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
             />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Cliente</label>
+            <label className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Cliente</label>
             <input
               type="text"
               placeholder="Cliente..."
               value={filters.client}
               onChange={(e) => setFilters(prev => ({ ...prev, client: e.target.value }))}
-              className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
             />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Status</label>
+            <label className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Status</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
             >
               <option value="">Todos</option>
               <option value="ativo">Ativo</option>
@@ -406,7 +406,7 @@ const Projects: React.FC = () => {
           <div className="flex items-end">
             <button
               onClick={clearFilters}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 w-full"
             >
               Limpar
             </button>
@@ -416,26 +416,22 @@ const Projects: React.FC = () => {
 
       {/* Ações em lote */}
       {selectedProjects.size > 0 && permissions.canDelete && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-blue-800 font-medium">
-              {selectedProjects.size} projeto(s) selecionado(s)
-            </span>
-            <button
-              onClick={deleteMultiple}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
-            >
-              Excluir Selecionados
-            </button>
-          </div>
+        <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-xl p-4">
+          <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedProjects.size} projeto(s) selecionado(s)</span>
+          <button
+            onClick={deleteMultiple}
+            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200"
+          >
+            Excluir Selecionados
+          </button>
         </div>
       )}
 
       {/* Tabela */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-blue-50">
+            <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
               <tr>
                 {permissions.canDelete && (
                   <th className="px-4 sm:px-6 py-3 text-left">
@@ -443,54 +439,54 @@ const Projects: React.FC = () => {
                       type="checkbox"
                       checked={projects.length > 0 && selectedProjects.size === projects.length}
                       onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-300 focus:ring-2"
                     />
                   </th>
                 )}
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Nome</span>
+                  <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Nome</span>
                     {getSortIcon('name')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('client')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Cliente</span>
+                  <button onClick={() => handleSort('client')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Cliente</span>
                     {getSortIcon('client')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('startDate')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Início</span>
+                  <button onClick={() => handleSort('startDate')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Início</span>
                     {getSortIcon('startDate')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Status</span>
+                  <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Status</span>
                     {getSortIcon('status')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('value')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Valor</span>
+                  <button onClick={() => handleSort('value')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Valor</span>
                     {getSortIcon('value')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left">
-                  <button onClick={() => handleSort('progress')} className="flex items-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors">
-                    <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Progresso</span>
+                  <button onClick={() => handleSort('progress')} className="flex items-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200">
+                    <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Progresso</span>
                     {getSortIcon('progress')}
                   </button>
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-center">
-                  <span className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Ações</span>
+                  <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Ações</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProjects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredProjects.map((project, index) => (
+                <tr key={project.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} transition-all duration-200`}>
                   {permissions.canDelete && (
                     <td className="px-4 sm:px-6 py-4">
                       <input
@@ -527,9 +523,9 @@ const Projects: React.FC = () => {
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full" 
+                      <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full"
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
@@ -567,49 +563,37 @@ const Projects: React.FC = () => {
 
       {/* Modal Import/Export */}
       {isImportExportOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Upload className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-bold text-gray-800">Importar/Exportar Projetos</h2>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
+                <h2 className="text-lg font-bold text-white">Importar/Exportar Projetos</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            <div className="border-b border-gray-200 mb-4"></div>
-            <p className="text-sm text-gray-600 mb-6">Escolha uma das opções abaixo para gerenciar seus dados:</p>
-            
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Escolha uma das opções abaixo para gerenciar seus dados:</p>
+
               {/* Seção Baixar Modelo */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-600 font-semibold text-sm mb-2">Primeiro baixe o modelo, depois importe!</p>
-                <p className="text-xs text-gray-600 mb-3">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+                <p className="text-blue-700 dark:text-blue-300 font-semibold text-sm mb-2">Primeiro baixe o modelo, depois importe!</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
                 <button
                   onClick={downloadModel}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
                 >
                   <Download className="w-4 h-4" />
                   Baixar Modelo de Projetos
                 </button>
               </div>
-              
+
               {/* Seção Ações */}
               <div className="space-y-3">
                 {permissions.canImport && (
                   <div className="relative">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                    >
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileSelect} className="hidden" />
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35">
                       <Upload className="w-4 h-4" />
                       <div className="text-center">
                         <div className="font-bold">Selecionar Arquivo</div>
@@ -618,12 +602,8 @@ const Projects: React.FC = () => {
                     </button>
                   </div>
                 )}
-                
                 {permissions.canExport && (
-                  <button
-                    onClick={handleExport}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                  >
+                  <button onClick={handleExport} className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35">
                     <Download className="w-4 h-4" />
                     <div className="text-center">
                       <div className="font-bold">Exportar</div>
@@ -632,12 +612,8 @@ const Projects: React.FC = () => {
                   </button>
                 )}
               </div>
-              
-              {/* Botão Cancelar */}
-              <button
-                onClick={() => setIsImportExportOpen(false)}
-                className="w-full px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-bold transition-colors"
-              >
+
+              <button onClick={() => setIsImportExportOpen(false)} className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all duration-200">
                 Cancelar
               </button>
             </div>
@@ -647,16 +623,14 @@ const Projects: React.FC = () => {
 
       {/* Modal Novo/Editar Projeto */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" />{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-4">
+            <div className="overflow-y-auto">
+            <div className="p-6 space-y-4">
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Nome <span className="text-red-500">*</span>
@@ -665,7 +639,7 @@ const Projects: React.FC = () => {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                     formErrors.name ? 'border-red-500 bg-red-50' : ''
                   }`}
                 />
@@ -685,7 +659,7 @@ const Projects: React.FC = () => {
                   value={form.description}
                   onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                     formErrors.description ? 'border-red-500 bg-red-50' : ''
                   }`}
                 />
@@ -704,7 +678,7 @@ const Projects: React.FC = () => {
                 <select
                   value={form.client}
                   onChange={(e) => setForm(prev => ({ ...prev, client: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                     formErrors.client ? 'border-red-500 bg-red-50' : ''
                   }`}
                 >
@@ -732,7 +706,7 @@ const Projects: React.FC = () => {
                     type="date"
                     value={form.startDate}
                     onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                       formErrors.startDate ? 'border-red-500 bg-red-50' : ''
                     }`}
                   />
@@ -749,7 +723,7 @@ const Projects: React.FC = () => {
                     type="date"
                     value={form.endDate}
                     onChange={(e) => setForm(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -760,7 +734,7 @@ const Projects: React.FC = () => {
                   <select
                     value={form.status}
                     onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as 'ativo' | 'pausado' | 'concluido' }))}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
                   >
                     <option value="ativo">Ativo</option>
                     <option value="pausado">Pausado</option>
@@ -776,7 +750,7 @@ const Projects: React.FC = () => {
                     step="0.01"
                     value={form.value}
                     onChange={(e) => setForm(prev => ({ ...prev, value: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                       formErrors.value ? 'border-red-500 bg-red-50' : ''
                     }`}
                   />
@@ -799,7 +773,7 @@ const Projects: React.FC = () => {
                   max="100"
                   value={form.progress}
                   onChange={(e) => setForm(prev => ({ ...prev, progress: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
                     formErrors.progress ? 'border-red-500 bg-red-50' : ''
                   }`}
                 />
@@ -820,7 +794,7 @@ const Projects: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsServicesModalOpen(true)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
                   >
                     {form.selectedServices.length > 0 
                       ? `${form.selectedServices.length} serviço(s) selecionado(s)`
@@ -845,11 +819,11 @@ const Projects: React.FC = () => {
                   )}
                 </div>
                 {form.selectedServices.length > 0 && (
-                  <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-800">
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
                       <strong>Valor calculado:</strong> R$ {(parseFloat(String(calculateServicesValue(form.selectedServices))) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                       Você pode editar o valor final do projeto abaixo
                     </p>
                   </div>
@@ -857,28 +831,26 @@ const Projects: React.FC = () => {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
-              <button onClick={saveProject} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+            </div>
             </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* Modal Seleção de Serviços */}
       {isServicesModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10001] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsServicesModalOpen(false) }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Selecionar Serviços</h2>
-              <button onClick={() => setIsServicesModalOpen(false)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsServicesModalOpen(false) }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">Selecionar Serviços</h2>
+              <button onClick={() => setIsServicesModalOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            
+            <div className="p-6">
             <div className="max-h-96 overflow-y-auto space-y-3 mb-4">
               {services.filter(s => s.status === 'ativo').map((service) => (
-                <label key={service.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <label key={service.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600 transition-all duration-200">
                   <input
                     type="checkbox"
                     checked={form.selectedServices.includes(service.id)}
@@ -918,35 +890,30 @@ const Projects: React.FC = () => {
             </div>
 
             {form.selectedServices.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
                   <strong>Valor total:</strong> R$ {(parseFloat(String(calculateServicesValue(form.selectedServices))) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                   {form.selectedServices.length} serviço(s) selecionado(s)
                 </p>
               </div>
             )}
 
             <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => {
-                  setForm(prev => ({ 
-                    ...prev, 
-                    selectedServices: [],
-                    value: '0'
-                  }))
-                }}
-                className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+              <button
+                onClick={() => { setForm(prev => ({ ...prev, selectedServices: [], value: '0' })) }}
+                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
               >
                 Limpar Tudo
               </button>
-              <button 
+              <button
                 onClick={() => setIsServicesModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200"
               >
                 Confirmar
               </button>
+            </div>
             </div>
           </div>
         </div>

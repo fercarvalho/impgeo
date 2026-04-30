@@ -106,24 +106,24 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 pb-4 pt-[180px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700 max-h-[calc(100vh-220px)] overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700 max-h-[calc(100vh-220px)] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
-              <Key className="w-6 h-6 text-amber-700" />
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Key className="w-6 h-6 text-white" />
               Alterar Senha
             </h2>
             <button
               onClick={onClose}
-              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all"
+              className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
               disabled={loading}
             >
               <X className="w-5 h-5" />
@@ -148,7 +148,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                 type={showSenhaAtual ? 'text' : 'password'}
                 value={senhaAtual}
                 onChange={(e) => setSenhaAtual(e.target.value)}
-                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.senhaAtual
                     ? 'bg-red-50 border-red-300 focus:ring-red-500'
                     : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
@@ -190,7 +190,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                     }
                   }
                 }}
-                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.novaSenha
                     ? 'bg-red-50 border-red-300 focus:ring-red-500'
                     : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
@@ -234,7 +234,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                     setErrors(prev => ({ ...prev, confirmarSenha: 'As senhas não coincidem' }));
                   }
                 }}
-                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
+                className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.confirmarSenha
                     ? 'bg-red-50 border-red-300 focus:ring-red-500'
                     : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
@@ -266,7 +266,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading}
             >
               {loading ? 'Salvando...' : 'Salvar'}

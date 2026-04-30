@@ -301,22 +301,28 @@ const LegalManagement: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Sub-tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {availableTabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all border ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-md'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="relative">
+        <div
+          className="flex gap-1.5 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {availableTabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all border flex-shrink-0 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-md'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
       </div>
 
       {/* Feedback */}

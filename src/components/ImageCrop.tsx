@@ -47,12 +47,12 @@ const ImageCrop: React.FC<ImageCropProps> = ({ image, onCropComplete, onCancel }
   };
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Recortar Imagem</h2>
-          <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-gray-600" />
+    <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
+          <h2 className="text-lg font-bold text-white">Recortar Imagem</h2>
+          <button onClick={onCancel} className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -96,7 +96,7 @@ const ImageCrop: React.FC<ImageCropProps> = ({ image, onCropComplete, onCancel }
             <button
               onClick={handleConfirm}
               disabled={isProcessing || !croppedAreaPixels}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:transform-none flex items-center gap-2"
             >
               {isProcessing ? (
                 <>

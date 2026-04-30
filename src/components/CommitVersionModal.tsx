@@ -67,25 +67,25 @@ const CommitVersionModal: React.FC<Props> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[120px] z-50 px-4"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-start justify-center pt-[120px] z-50 px-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg my-4 max-h-[calc(100vh-140px)] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4 max-h-[calc(100vh-140px)] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <GitCommit className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-white/20 rounded-lg">
+              <GitCommit className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Novo commit detectado</h2>
-              <p className="text-xs text-gray-500 font-mono">{commitHash.slice(0, 7)} · {data}</p>
+              <h2 className="text-base font-semibold text-white">Novo commit detectado</h2>
+              <p className="text-xs text-white/70 font-mono">{commitHash.slice(0, 7)} · {data}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200">
             <X className="w-4 h-4" />
           </button>
         </div>

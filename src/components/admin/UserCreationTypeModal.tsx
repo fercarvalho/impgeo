@@ -22,17 +22,17 @@ const UserCreationTypeModal: React.FC<UserCreationTypeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-blue-200/50 rounded-t-2xl flex items-center justify-between">
-          <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-blue-700" />
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <UserPlus className="w-6 h-6 text-white" />
             Criar Novo Usuário
           </h2>
-          <button onClick={onClose} className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-full transition-all">
+          <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/15 p-2 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>

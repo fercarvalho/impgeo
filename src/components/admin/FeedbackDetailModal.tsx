@@ -99,12 +99,12 @@ const FeedbackDetailModal: React.FC<FeedbackDetailModalProps> = ({ feedback, onC
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
+        className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
         onClick={e => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
       >
         <div className="bg-white rounded-2xl p-6 w-full max-w-xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200">
           {/* Header */}
-          <div className="bg-blue-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <MessageSquare className="w-6 h-6" />
@@ -113,7 +113,7 @@ const FeedbackDetailModal: React.FC<FeedbackDetailModalProps> = ({ feedback, onC
               <button
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="text-white/70 hover:text-white hover:bg-blue-700 p-2 rounded-full transition-all disabled:opacity-50"
+                className="text-white/70 hover:text-white hover:bg-white/15 p-2 rounded-full transition-all disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>

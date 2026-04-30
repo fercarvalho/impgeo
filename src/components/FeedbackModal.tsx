@@ -183,26 +183,26 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
 
   return (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
       onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-900/80 dark:to-gray-900/80 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-amber-200/50 dark:border-gray-700 rounded-t-2xl">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20 rounded-t-2xl">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
-              <MessageSquarePlus className="w-6 h-6 text-amber-700" />
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <MessageSquarePlus className="w-6 h-6 text-white" />
               Enviar Feedback
             </h2>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 p-2 rounded-full transition-all disabled:opacity-50"
+              className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-sm text-amber-700/70 dark:text-amber-400/70 mt-0.5">Sua opinião nos ajuda a melhorar o sistema</p>
+          <p className="text-sm text-white/70 mt-0.5">Sua opinião nos ajuda a melhorar o sistema</p>
         </div>
 
         {sucesso ? (
@@ -255,7 +255,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                 rows={4}
                 maxLength={1000}
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm resize-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-400"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-400"
               />
               <div className="flex items-center justify-between mt-1">
                 {errors.descricao
@@ -326,7 +326,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   }}
                   placeholder="https://drive.google.com/..."
                   disabled={isSubmitting}
-                  className="w-full pl-9 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-400"
+                  className="w-full pl-9 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-400"
                 />
               </div>
               {errors.linkVideo && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md border border-red-100 mt-1.5">{errors.linkVideo}</p>}
@@ -343,7 +343,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   value={paginaSelecionada}
                   onChange={e => setPaginaSelecionada(e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full pl-9 pr-9 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm text-gray-700 dark:text-gray-100 appearance-none disabled:opacity-50"
+                  className="w-full pl-9 pr-9 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm text-gray-700 dark:text-gray-100 appearance-none disabled:opacity-50"
                 >
                   <option value="">Nenhuma página específica</option>
                   {Object.entries(PAGINA_LABELS).map(([key, label]) => (
@@ -373,7 +373,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl hover:from-amber-600 hover:to-amber-700 disabled:opacity-60 transition-all shadow-sm flex items-center gap-2"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:transform-none transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>

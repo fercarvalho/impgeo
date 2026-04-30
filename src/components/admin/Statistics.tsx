@@ -159,7 +159,7 @@ const Statistics: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -189,10 +189,10 @@ const Statistics: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-amber-900">Estatísticas do Sistema</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Estatísticas do Sistema</h2>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
         >
           <Download className="h-5 w-5" />
           Exportar Relatório
@@ -201,7 +201,7 @@ const Statistics: React.FC = () => {
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-amber-500 to-orange-400 rounded-2xl shadow-lg p-6">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-white/80 font-medium">Total de Usuários</p>
@@ -257,7 +257,7 @@ const Statistics: React.FC = () => {
       </div>
 
       {/* Filtros de Período */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-amber-200 dark:border-gray-700 shadow-lg p-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-blue-200 dark:border-gray-700 shadow-lg p-4">
         <div className="flex items-center gap-4">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</label>
           <div className="flex gap-2">
@@ -267,8 +267,8 @@ const Statistics: React.FC = () => {
                 onClick={() => setPeriod(p)}
                 className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-200 ${
                   period === p
-                    ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-lg'
-                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-amber-300 dark:hover:border-amber-600 hover:text-amber-600 dark:hover:text-amber-400'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400'
                 }`}
               >
                 {p === '7' ? '7 dias' : p === '30' ? '30 dias' : p === '90' ? '90 dias' : 'Personalizado'}
@@ -281,14 +281,14 @@ const Statistics: React.FC = () => {
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 border border-amber-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100 text-sm"
+                className="px-3 py-2 border border-blue-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 text-sm"
               />
-              <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">até</span>
+              <span className="text-sm text-blue-700 dark:text-blue-400 font-medium">até</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 border border-amber-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100 text-sm"
+                className="px-3 py-2 border border-blue-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 text-sm"
               />
             </div>
           )}
@@ -298,8 +298,8 @@ const Statistics: React.FC = () => {
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Timeline de Uso */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Timeline de Uso</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Timeline de Uso</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={timeline}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -319,8 +319,8 @@ const Statistics: React.FC = () => {
         </div>
 
         {/* Uso por Módulo */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Uso por Módulo</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Uso por Módulo</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={moduleData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -334,8 +334,8 @@ const Statistics: React.FC = () => {
         </div>
 
         {/* Distribuição de Usuários por Função */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Usuários por Função</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Usuários por Função</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -361,8 +361,8 @@ const Statistics: React.FC = () => {
         </div>
 
         {/* Top Usuários */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Top 5 Usuários Mais Ativos</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Top 5 Usuários Mais Ativos</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={statistics.activity.topUsers}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -378,8 +378,8 @@ const Statistics: React.FC = () => {
 
       {/* Tabelas de Detalhes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Módulos Mais Usados</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Módulos Mais Usados</h3>
           <div className="space-y-2">
             {statistics.activity.topModules.map((module, _index) => (
               <div key={module.key} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
@@ -390,12 +390,12 @@ const Statistics: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 border-l-4 border-amber-400 pl-3">Resumo de Dados</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold mb-4 border-l-4 border-blue-500 pl-3">Resumo de Dados</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium">Transações</span>
-              <span className="text-lg font-bold text-amber-600">{statistics.data.transactions}</span>
+              <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{statistics.data.transactions}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium">Produtos</span>

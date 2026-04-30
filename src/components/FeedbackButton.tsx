@@ -14,7 +14,7 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ paginaAtual }) => {
       <div className="fixed bottom-6 right-6 z-40 group">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+          className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-200 hover:-translate-y-1 active:translate-y-0"
           aria-label="Enviar feedback"
         >
           <MessageSquarePlus className="w-6 h-6" />

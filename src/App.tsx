@@ -22,7 +22,11 @@ import {
   AlertTriangle,
   ShieldAlert,
   HelpCircle,
-  BookOpen
+  BookOpen,
+  CheckCircle2,
+  Zap,
+  Wallet,
+  XCircle,
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -553,12 +557,6 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     }
   }
 
-  // Função auxiliar para calcular largura da barra de progresso de forma segura
-  const calcularLarguraBarra = (valor: number, total: number, casasDecimais: number = 1): string => {
-    const percentual = parseFloat(calcularPercentualSeguro(valor, total, casasDecimais))
-    return percentual === 0 ? '0%' : `${Math.min(100, percentual)}%`
-  }
-
   // Função auxiliar para calcular percentual de forma segura (evita NaN)
   const calcularPercentualSeguro = (valor: number, total: number, casasDecimais: number = 0): string => {
     if (!total || total === 0) return '0'
@@ -1073,16 +1071,83 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
     return (
-      <div key={monthName} className="space-y-6 mb-32">
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
+      <div key={monthName} className="space-y-6 mb-12">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setSelectedMonth((m) => (m - 1 + 12) % 12)}
+            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors duration-150"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
           <h2 className="text-3xl font-bold text-white text-center uppercase tracking-wider">
-            {monthName} - {new Date().getFullYear()}
+            {monthName} — {new Date().getFullYear()}
           </h2>
+          <button
+            type="button"
+            onClick={() => setSelectedMonth((m) => (m + 1) % 12)}
+            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors duration-150"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
         </div>
         {renderMonthContent(monthName, monthIndex)}
       </div>
     )
   }
+
+  // Helpers reutilizados em renderMonthContent e renderTotalAno
+  const badgeReceita = (real: number, meta: number) => {
+    if (meta <= 0) return null;
+    const pct = (real / meta) * 100;
+    if (pct >= 100) return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
+        <CheckCircle2 className="w-3 h-3" /> Atingido
+      </span>
+    );
+    if (pct >= 75) return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-black/20 px-2 py-0.5 rounded-full">
+        <Zap className="w-3 h-3" /> Em andamento
+      </span>
+    );
+    return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-black/20 px-2 py-0.5 rounded-full">
+        <XCircle className="w-3 h-3" /> Abaixo
+      </span>
+    );
+  };
+
+  const badgeDespesa = (real: number, limite: number) => {
+    if (limite <= 0) return null;
+    const pct = (real / limite) * 100;
+    if (pct > 100) return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-black/20 px-2 py-0.5 rounded-full">
+        <AlertTriangle className="w-3 h-3" /> Estourado
+      </span>
+    );
+    if (pct >= 85) return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-black/20 px-2 py-0.5 rounded-full">
+        <AlertTriangle className="w-3 h-3" /> Próximo
+      </span>
+    );
+    return (
+      <span className="flex items-center gap-1 text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
+        <CheckCircle2 className="w-3 h-3" /> Dentro do limite
+      </span>
+    );
+  };
+
+  const renderBar = (real: number, meta: number) => {
+    const pct = meta > 0 ? Math.min(100, (real / meta) * 100) : 0;
+    return (
+      <div className="w-full bg-white/30 rounded-full h-3 relative overflow-hidden">
+        <div
+          className="bg-white/70 h-3 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    );
+  };
 
   // Conteúdo do mês (stub alinhado com referências existentes)
   const renderMonthContent = (_monthName: string, monthIndex: number) => {
@@ -1160,18 +1225,75 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       restante: Math.max(0, metaValue - totalReceitas)
     })
 
+    // Helpers para badges de status
     return (
       <div className="space-y-6">
+        {/* DONUT CENTRAL — percentual geral de faturamento */}
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            {/* Donut */}
+            {(() => {
+              const color = progressoPercentual >= 100 ? '#22c55e' : progressoPercentual >= 75 ? '#f59e0b' : '#ef4444';
+              const deg = (Math.min(100, progressoPercentual) / 100) * 360;
+              return (
+                <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 200, height: 200 }}>
+                  <div style={{
+                    width: 188, height: 188, borderRadius: '50%',
+                    background: `conic-gradient(${color} ${deg}deg, #e5e7eb ${deg}deg)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{
+                      width: 136, height: 136, borderRadius: '50%',
+                      background: 'white',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span className="text-3xl font-black" style={{ color }}>{progressoPercentual.toFixed(0)}%</span>
+                      <span className="text-xs text-gray-500 font-medium">da meta</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {/* Resumo ao lado do donut */}
+            {(() => {
+              const margemLiquida = totalReceitas > 0 ? ((totalReceitas - totalDespesas) / totalReceitas) * 100 : 0;
+              const resultado = totalReceitas - totalDespesas;
+              return (
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Meta</div>
+                    <div className="text-xl font-black text-gray-800 dark:text-gray-100">R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                    <div className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Realizado</div>
+                    <div className="text-xl font-black text-emerald-700">R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                    <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${resultado >= 0 ? 'text-blue-600' : 'text-red-600'}`}>Resultado</div>
+                    <div className={`text-xl font-black ${resultado >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                      {resultado >= 0 ? '+' : ''}R$ {resultado.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                    <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${margemLiquida >= 0 ? 'text-violet-600' : 'text-red-600'}`}>Margem</div>
+                    <div className={`text-xl font-black ${margemLiquida >= 0 ? 'text-violet-700' : 'text-red-700'}`}>{margemLiquida.toFixed(1)}%</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
         {/* 1. RESULTADO */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-gray-600" />
             Resultado
           </h2>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Quadrante Financeiro */}
-            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
               <div className="space-y-3">
                 {/* REFORÇO DE CAIXA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -1220,7 +1342,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             {/* Quadrante META DO MÊS */}
-            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
               <div className="space-y-4">
                 {/* Status da Meta */}
                 <div className={`text-center p-3 rounded-lg border-2 ${metaAtingida ? 'bg-emerald-50 border-emerald-200' : progressoPercentual >= 80 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
@@ -1281,235 +1403,157 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 2. FATURAMENTO */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-emerald-800 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-emerald-600" />
             Faturamento
           </h2>
           
           {/* Primeira linha: Total, REURB, GEO */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div 
-              className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-2xl border border-indigo-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-indigo-800 mb-3">Faturamento Total</h3>
-              <div className="text-xl font-bold text-indigo-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento Total</h3>
+                {badgeReceita(totalReceitas, metaValue)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitas, metaValue, 0)}%</span>
                 </div>
-                <div className="w-full bg-indigo-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas, metaValue, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: calcularLarguraBarra(Math.max(0, parseFloat(calcularPercentualSeguro(totalReceitas, metaValue, 1)) - 100), 100, 1) }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas, metaValue)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-indigo-700 font-medium">
-                R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaValue - totalReceitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas, metaValue, 0)}% atingido</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-2xl border border-emerald-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-emerald-800 mb-3">Faturamento REURB</h3>
-              <div className="text-xl font-bold text-emerald-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento REURB</h3>
+                {badgeReceita(totalReceitas, getFaturamentoValue('Reurb', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
-                  <span>{calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitas, getFaturamentoValue('Reurb', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-emerald-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: calcularLarguraBarra(Math.max(0, parseFloat(calcularPercentualSeguro(totalReceitas * 1.0, getFaturamentoValue('Reurb', monthIndex), 1)) - 100), 100, 1) }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas, getFaturamentoValue('Reurb', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-emerald-700 font-medium">
-                R$ {(totalReceitas * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Reurb', monthIndex)) - (totalReceitas * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getFaturamentoValue('Reurb', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas, getFaturamentoValue('Reurb', monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-2xl border border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-teal-400 to-teal-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-green-800 mb-3">Faturamento GEO</h3>
-              <div className="text-xl font-bold text-green-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento GEO</h3>
+                {badgeReceita(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-green-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-green-700 to-green-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.8) / (getFaturamentoValue('Geo', monthIndex))) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-green-700 font-medium">
-                R$ {(totalReceitas * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Geo', monthIndex)) - (totalReceitas * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getFaturamentoValue('Geo', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas * 0.8, getFaturamentoValue('Geo', monthIndex), 0)}%</span>
               </div>
             </div>
           </div>
           
           {/* Segunda linha: PLAN, REG, NN */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div 
-              className="bg-gradient-to-br from-teal-50 to-teal-100 p-4 rounded-2xl border border-teal-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-cyan-400 to-cyan-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-teal-800 mb-3">Faturamento PLAN</h3>
-              <div className="text-xl font-bold text-teal-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento PLAN</h3>
+                {badgeReceita(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-teal-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-teal-700 to-teal-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.6) / (getFaturamentoValue('Plan', monthIndex))) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-teal-700 font-medium">
-                R$ {(totalReceitas * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Plan', monthIndex)) - (totalReceitas * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getFaturamentoValue('Plan', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas * 0.6, getFaturamentoValue('Plan', monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-indigo-400 to-indigo-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-cyan-800 mb-3">Faturamento REG</h3>
-              <div className="text-xl font-bold text-cyan-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento REG</h3>
+                {badgeReceita(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-cyan-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.4) / (getFaturamentoValue('Reg', monthIndex))) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-cyan-700 font-medium">
-                R$ {(totalReceitas * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Reg', monthIndex)) - (totalReceitas * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getFaturamentoValue('Reg', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas * 0.4, getFaturamentoValue('Reg', monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-violet-400 to-violet-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-pink-800 mb-3">Faturamento NN</h3>
-              <div className="text-xl font-bold text-pink-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Faturamento NN</h3>
+                {badgeReceita(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-pink-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitas * 0.2) / (getFaturamentoValue('Nn', monthIndex))) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-pink-700 font-medium">
-                R$ {(totalReceitas * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (getFaturamentoValue('Nn', monthIndex)) - (totalReceitas * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getFaturamentoValue('Nn', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas * 0.2, getFaturamentoValue('Nn', monthIndex), 0)}%</span>
               </div>
             </div>
           </div>
@@ -1517,120 +1561,81 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 3. DESPESAS */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-red-800 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-red-800 dark:text-red-300 flex items-center gap-3">
             <TrendingDown className="w-6 h-6 text-red-600" />
             Despesas
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div 
-              className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-2xl border border-red-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-red-400 to-red-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-red-800 mb-3">Despesas TOTAL</h3>
-              <div className="text-xl font-bold text-red-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Despesas TOTAL</h3>
+                {badgeDespesa(totalDespesas, getBudgetValue(monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso (Para despesas, menos é melhor) */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-red-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Limite</span>
                   <span>{calcularPercentualSeguro(totalDespesas, getBudgetValue(monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-red-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesas, getBudgetValue(monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {((totalDespesas / getBudgetValue(monthIndex)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesas / getBudgetValue(monthIndex)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesas, getBudgetValue(monthIndex))}
               </div>
-              
-              {/* Valores Usado/Restante */}
-              <div className="text-xs text-red-700 font-medium">
-                R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getBudgetValue(monthIndex) - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Limite: <span className="font-bold text-white">R$ {getBudgetValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesas, getBudgetValue(monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-2xl border border-orange-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-orange-400 to-orange-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-orange-800 mb-3">Despesas Variáveis</h3>
-              <div className="text-xl font-bold text-orange-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Despesas Variáveis</h3>
+                {badgeDespesa(totalDespesas * 0.7, getVariableExpensesValue(monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalDespesas * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-orange-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Limite</span>
                   <span>{calcularPercentualSeguro(totalDespesas * 0.7, getVariableExpensesValue(monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-orange-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesas * 0.7, getVariableExpensesValue(monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalDespesas * 0.7) / getVariableExpensesValue(monthIndex)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-orange-700 to-orange-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesas * 0.7) / getVariableExpensesValue(monthIndex)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesas * 0.7, getVariableExpensesValue(monthIndex))}
               </div>
-              
-              {/* Valores Usado/Restante */}
-              <div className="text-xs text-orange-700 font-medium">
-                R$ {(totalDespesas * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getVariableExpensesValue(monthIndex) - (totalDespesas * 0.7)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Limite: <span className="font-bold text-white">R$ {getVariableExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesas * 0.7, getVariableExpensesValue(monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-2xl border border-amber-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-amber-400 to-amber-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-amber-800 mb-3">Despesas Fixas</h3>
-              <div className="text-xl font-bold text-amber-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Despesas Fixas</h3>
+                {badgeDespesa(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-amber-700 mb-3">
-                  <span>Progresso</span>
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
+                  <span>Limite</span>
                   <span>{calcularPercentualSeguro(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 0)}%</span>
                 </div>
-                <div className="w-full bg-amber-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-amber-500 to-amber-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-amber-700 to-amber-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesas * 0.25) / Math.max(getFixedExpensesValue(monthIndex), 1) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1))}
               </div>
-              
-              {/* Valores Realizado/Meta */}
-              <div className="text-xs text-amber-700 font-medium">
-                R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Realizado: <span className="font-bold text-white">R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 0)}%</span>
               </div>
             </div>
           </div>
@@ -1638,83 +1643,57 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 4. INVESTIMENTOS */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-indigo-800 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-3">
             <ArrowUpCircle className="w-6 h-6 text-indigo-600" />
             Investimentos
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div 
-              className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-blue-400 to-blue-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openInvestimentosChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-blue-800 mb-3">Investimentos Gerais</h3>
-              <div className="text-xl font-bold text-blue-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Investimentos Gerais</h3>
+                {badgeReceita(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalDespesas * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-blue-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Meta</span>
                   <span>{calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-blue-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-blue-700 to-blue-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 1)) - 100)}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-blue-700 font-medium">
-                R$ {(totalDespesas * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getInvestimentoValue('investimentos', monthIndex) - (totalDespesas * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getInvestimentoValue('investimentos', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesas * 0.05, getInvestimentoValue('investimentos', monthIndex), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-2xl border border-purple-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-purple-400 to-purple-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openInvestimentosChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-purple-800 mb-3">Investimentos em MKT</h3>
-              <div className="text-xl font-bold text-purple-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Investimentos em MKT</h3>
+                {badgeReceita(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitas * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-purple-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Meta</span>
                   <span>{calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 0)}%</span>
                 </div>
-                <div className="w-full bg-purple-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-purple-700 to-purple-900 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 1)) - 100)}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex))}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-purple-700 font-medium">
-                R$ {(totalReceitas * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getInvestimentoValue('mkt', monthIndex) - (totalReceitas * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {getInvestimentoValue('mkt', monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitas * 0.1, getInvestimentoValue('mkt', monthIndex), 0)}%</span>
               </div>
             </div>
           </div>
@@ -1722,71 +1701,67 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 5. PROGRESSO VISUAL */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-cyan-800 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-blue-800 dark:text-blue-300 flex items-center gap-3">
             <BarChart3 className="w-6 h-6 text-blue-600" />
             Progresso Visual
           </h2>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Gráfico de Pizza */}
-            <div 
-              className="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            {/* Donut de Receitas */}
+            <div
+              className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-rose-800 mb-3">Distribuição de Receitas</h3>
-              <div className="flex items-center justify-center h-48">
-                <div className="relative w-32 h-32">
-                  {/* Círculo base */}
-                  <div className="absolute inset-0 rounded-full border-8 border-pink-200"></div>
-                  {/* Círculo de progresso */}
-                  <div 
-                    className="absolute inset-0 rounded-full border-8 border-transparent border-t-pink-500 border-r-pink-500 transition-all duration-500"
-                    style={{ 
-                      transform: `rotate(${((totalReceitas / metaValue) * 360)}deg)`,
-                      clipPath: totalReceitas >= metaValue ? 'none' : 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)'
-                    }}
-                  ></div>
-                  {/* Texto central */}
+              <h3 className="text-lg font-bold text-white mb-4">Distribuição de Receitas</h3>
+              <div className="flex items-center justify-center h-44">
+                <div className="relative w-36 h-36">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3.5" />
+                    <circle
+                      cx="18" cy="18" r="15.9" fill="none"
+                      stroke="rgba(255,255,255,0.85)"
+                      strokeWidth="3.5"
+                      strokeDasharray={`${Math.min(100, (totalReceitas / Math.max(metaValue, 1)) * 100)} 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-xl font-bold text-rose-800">
+                      <div className="text-2xl font-bold text-white">
                         {calcularPercentualSeguro(totalReceitas, metaValue, 0)}%
                       </div>
-                      <div className="text-xs text-rose-600 font-medium">Alcançado</div>
+                      <div className="text-xs text-white/70 font-medium">Alcançado</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="text-center text-xs text-rose-700 font-medium">
+              <div className="text-center text-xs text-white/70 font-medium mt-2">
                 R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
             {/* Barra de Progresso Linear */}
-            <div 
-              className="bg-gradient-to-br from-sky-50 to-blue-50 p-4 rounded-2xl border border-sky-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-indigo-500 to-blue-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openProgressoChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
-              <h3 className="text-base font-bold text-sky-800 mb-3">Progresso Linear</h3>
-              <div className="space-y-4">
+              <h3 className="text-lg font-bold text-white mb-4">Progresso Linear</h3>
+              <div className="space-y-6">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-sky-900 mb-3">
+                  <div className="text-4xl font-bold text-white mb-1">
                     {calcularPercentualSeguro(totalReceitas, metaValue, 1)}%
                   </div>
-                  <div className="text-xs text-sky-700">Meta Alcançada</div>
+                  <div className="text-xs text-white/70 font-medium">Meta Alcançada</div>
                 </div>
-                
-                <div className="w-full bg-sky-200 rounded-full h-4 relative overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-sky-500 to-blue-500 h-4 rounded-full transition-all duration-500 relative"
-                    style={{ width: `${Math.min(100, ((totalReceitas / metaValue) * 100))}%` }}
-                  >
-                    {/* Efeito de brilho */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
-                  </div>
+
+                <div className="w-full bg-white/20 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="bg-white/80 h-4 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (totalReceitas / Math.max(metaValue, 1)) * 100)}%` }}
+                  ></div>
                 </div>
-                
-                <div className="flex justify-between text-xs text-cyan-700 font-medium">
+
+                <div className="flex justify-between text-xs text-white/70 font-medium">
                   <span>R$ 0</span>
                   <span>R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
                 </div>
@@ -1866,63 +1841,61 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     return (
       <div className="space-y-6 mb-32">
         {/* Título Principal do Ano */}
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-8 rounded-2xl shadow-xl">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-8 rounded-2xl shadow-xl">
           <h2 className="text-4xl font-bold text-white text-center uppercase tracking-wider">
-            TOTAL DO ANO - ${new Date().getFullYear()}
+            TOTAL DO ANO — {new Date().getFullYear()}
           </h2>
         </div>
 
         {/* 1. RESULTADO ANUAL */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-pink-800 flex items-center gap-3">
-            <PieChart className="w-8 h-8 text-purple-600" />
+          <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-300 flex items-center gap-3">
+            <PieChart className="w-8 h-8 text-blue-600" />
             Resultado Anual
           </h2>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Quadrante Financeiro Anual */}
-            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-purple-200">
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl shadow-lg border border-blue-100 dark:border-slate-700">
               <div className="space-y-4">
                 {/* REFORÇO DE CAIXA */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-pink-800 text-lg">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-pink-900 text-lg">R$ {reforcoCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-                
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-blue-800 dark:text-blue-300 text-lg">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-200 text-lg">R$ {reforcoCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+
                 {/* SAÍDA DE CAIXA */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-pink-800 text-lg">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-pink-900 text-lg">R$ {saidaCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-                
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-blue-800 dark:text-blue-300 text-lg">SAÍDA DE CAIXA</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-200 text-lg">R$ {saidaCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+
                 {/* RECEITA ANUAL */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
                   <span className="font-bold text-emerald-700 text-lg">RECEITA ANUAL</span>
                   <span className="font-bold text-emerald-800 text-lg">
                     R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-          </div>
-                
+                </div>
+
                 {/* DESPESA ANUAL */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
                   <span className="font-bold text-red-700 text-lg">DESPESA ANUAL</span>
                   <span className="font-bold text-red-800 text-lg">
                     -R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                
+
                 {/* SALDO INICIAL */}
-                <div className="flex justify-between items-center py-3 border-b-2 border-purple-200">
-                  <span className="font-bold text-cyan-700 text-lg">SALDO INICIAL</span>
-                  <span className="font-bold text-cyan-800 text-lg">R$ {saldoInicialAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-indigo-700 dark:text-indigo-400 text-lg">SALDO INICIAL</span>
+                  <span className="font-bold text-indigo-800 dark:text-indigo-300 text-lg">R$ {saldoInicialAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
-                
+
                 {/* TOTAL GERAL ANUAL */}
-                <div className="flex justify-between items-center py-6 bg-gradient-to-r from-purple-100 to-indigo-100 px-6 rounded-xl border-3 border-purple-400 mt-6">
-                  <span className="font-bold text-pink-900 text-2xl">Total Geral Anual</span>
-                  <span className={`font-bold text-2xl ${
-                    (saldoInicialAno + totalReceitasAno - totalDespesasAno) >= 0 ? 'text-emerald-800' : 'text-red-800'
-                  }`}>
+                <div className="flex justify-between items-center py-6 bg-gradient-to-r from-blue-500 to-indigo-600 px-6 rounded-xl mt-6">
+                  <span className="font-bold text-white text-2xl">Total Geral Anual</span>
+                  <span className="font-bold text-2xl text-white">
                     R$ {(saldoInicialAno + totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -1930,7 +1903,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             {/* Quadrante META ANUAL */}
-            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-8 rounded-2xl shadow-lg border-2 border-purple-200">
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl shadow-lg border border-blue-100 dark:border-slate-700">
               <div className="space-y-4">
                 {/* Status da Meta Anual */}
                 <div className={`text-center p-4 rounded-lg border-2 ${metaAnualAtingida ? 'bg-emerald-50 border-emerald-200' : progressoPercentualAnual >= 80 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
@@ -1944,27 +1917,27 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 </div>
                 
                 {/* Cabeçalho com colunas R$ e % */}
-                <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-purple-300">
+                <div className="grid grid-cols-3 gap-4 pb-2 border-b-2 border-blue-200 dark:border-slate-600">
                   <div className="text-center">
-                    <span className="font-bold text-purple-600 text-lg"></span>
+                    <span className="font-bold text-blue-600 text-lg"></span>
                   </div>
                   <div className="text-center">
-                    <span className="font-bold text-pink-800 text-xl">R$</span>
+                    <span className="font-bold text-blue-800 dark:text-blue-300 text-xl">R$</span>
                   </div>
                   <div className="text-center">
-                    <span className="font-bold text-pink-800 text-xl">%</span>
+                    <span className="font-bold text-blue-800 dark:text-blue-300 text-xl">%</span>
                   </div>
                 </div>
-                
+
                 {/* META ANUAL */}
-                <div className="grid grid-cols-3 gap-4 py-3 border-b border-purple-200">
-                  <div className="font-bold text-pink-800 italic text-lg">META ANUAL</div>
-                  <div className="text-center font-bold text-pink-900 text-lg">R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                  <div className="text-center font-bold text-pink-900 text-lg">100%</div>
+                <div className="grid grid-cols-3 gap-4 py-3 border-b border-blue-100 dark:border-slate-600">
+                  <div className="font-bold text-blue-800 dark:text-blue-300 italic text-lg">META ANUAL</div>
+                  <div className="text-center font-bold text-blue-900 dark:text-blue-200 text-lg">R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-center font-bold text-blue-900 dark:text-blue-200 text-lg">100%</div>
                 </div>
-                
+
                 {/* ALCANÇADO ANUAL */}
-                <div className="grid grid-cols-3 gap-4 py-3 border-b border-purple-200">
+                <div className="grid grid-cols-3 gap-4 py-3 border-b border-blue-100 dark:border-slate-600">
                   <div className="font-bold text-emerald-700 italic text-lg">ALCANÇADO</div>
                   <div className="text-center font-bold text-emerald-800 text-lg">
                     R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1973,7 +1946,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     {calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%
                   </div>
                 </div>
-                
+
                 {/* RESTANTE ANUAL */}
                 <div className="grid grid-cols-3 gap-4 py-3">
                   <div className="font-bold text-red-700 italic text-lg">RESTANTE</div>
@@ -1991,235 +1964,157 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 2. FATURAMENTO ANUAL */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-emerald-800 flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-emerald-600" />
+          <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-300 flex items-center gap-3">
+            <TrendingUp className="w-8 h-8 text-blue-600" />
             Faturamento Anual
           </h2>
           
           {/* Primeira linha: Total, REURB, GEO */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div 
-              className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-2xl border border-indigo-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-indigo-800 mb-3">Faturamento Total Anual</h3>
-              <div className="text-xl font-bold text-indigo-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. Total Anual</h3>
+                {badgeReceita(totalReceitasAno, metaTotalAno)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-indigo-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
-                <div className="w-full bg-indigo-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {((totalReceitasAno / metaTotalAno) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-indigo-700 to-indigo-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalReceitasAno / metaTotalAno) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno, metaTotalAno)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-indigo-700 font-medium">
-                R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaTotalAno - totalReceitasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-2xl border border-emerald-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-emerald-800 mb-3">Faturamento REURB Anual</h3>
-              <div className="text-xl font-bold text-emerald-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. REURB Anual</h3>
+                {badgeReceita(totalReceitasAno, metaTotalAno)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-emerald-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
                   <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
                 </div>
-                <div className="w-full bg-emerald-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 1.0) / (metaTotalAno * 1.0)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-emerald-700 to-emerald-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 1.0) / (metaTotalAno * 1.0)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno, metaTotalAno)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-emerald-700 font-medium">
-                R$ {(totalReceitasAno * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 1.0) - (totalReceitasAno * 1.0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {(metaTotalAno * 1.0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-2xl border border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-teal-400 to-teal-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-green-800 mb-3">Faturamento GEO Anual</h3>
-              <div className="text-xl font-bold text-green-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. GEO Anual</h3>
+                {badgeReceita(totalReceitasAno * 0.8, metaTotalAno * 0.8)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-green-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
-                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno * 0.8, metaTotalAno * 0.8, 0)}%</span>
                 </div>
-                <div className="w-full bg-green-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.8) / (metaTotalAno * 0.8)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-green-700 to-green-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.8) / (metaTotalAno * 0.8)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno * 0.8, metaTotalAno * 0.8)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-green-700 font-medium">
-                R$ {(totalReceitasAno * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.8) - (totalReceitasAno * 0.8)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {(metaTotalAno * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno * 0.8, metaTotalAno * 0.8, 0)}%</span>
               </div>
             </div>
           </div>
-          
+
           {/* Segunda linha: PLAN, REG, NN */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div 
-              className="bg-gradient-to-br from-teal-50 to-teal-100 p-4 rounded-2xl border border-teal-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-cyan-400 to-cyan-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-teal-800 mb-3">Faturamento PLAN Anual</h3>
-              <div className="text-xl font-bold text-teal-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. PLAN Anual</h3>
+                {badgeReceita(totalReceitasAno * 0.6, metaTotalAno * 0.6)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-teal-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
-                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno * 0.6, metaTotalAno * 0.6, 0)}%</span>
                 </div>
-                <div className="w-full bg-teal-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.6) / (metaTotalAno * 0.6)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-teal-700 to-teal-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.6) / (metaTotalAno * 0.6)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno * 0.6, metaTotalAno * 0.6)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-teal-700 font-medium">
-                R$ {(totalReceitasAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.6) - (totalReceitasAno * 0.6)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {(metaTotalAno * 0.6).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno * 0.6, metaTotalAno * 0.6, 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-indigo-400 to-indigo-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-cyan-800 mb-3">Faturamento REG Anual</h3>
-              <div className="text-xl font-bold text-cyan-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. REG Anual</h3>
+                {badgeReceita(totalReceitasAno * 0.4, metaTotalAno * 0.4)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-cyan-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
-                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno * 0.4, metaTotalAno * 0.4, 0)}%</span>
                 </div>
-                <div className="w-full bg-cyan-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-cyan-700 to-cyan-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.4) / (metaTotalAno * 0.4)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno * 0.4, metaTotalAno * 0.4)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-cyan-700 font-medium">
-                R$ {(totalReceitasAno * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.4) - (totalReceitasAno * 0.4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {(metaTotalAno * 0.4).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno * 0.4, metaTotalAno * 0.4, 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-violet-400 to-violet-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openFaturamentoAnualChart()}
             >
-              <h3 className="text-base font-bold text-pink-800 mb-3">Faturamento NN Anual</h3>
-              <div className="text-xl font-bold text-pink-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Fat. NN Anual</h3>
+                {badgeReceita(totalReceitasAno * 0.2, metaTotalAno * 0.2)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-pink-700 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso</span>
-                  <span>{calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%</span>
+                  <span>{calcularPercentualSeguro(totalReceitasAno * 0.2, metaTotalAno * 0.2, 0)}%</span>
                 </div>
-                <div className="w-full bg-pink-200 rounded-full h-2 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-pink-500 to-pink-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-pink-700 to-pink-800 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalReceitasAno * 0.2) / (metaTotalAno * 0.2)) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno * 0.2, metaTotalAno * 0.2)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-pink-700 font-medium">
-                R$ {(totalReceitasAno * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, (metaTotalAno * 0.2) - (totalReceitasAno * 0.2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {(metaTotalAno * 0.2).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno * 0.2, metaTotalAno * 0.2, 0)}%</span>
               </div>
             </div>
           </div>
@@ -2227,120 +2122,81 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 3. DESPESAS ANUAIS */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-red-800 flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-red-800 dark:text-red-300 flex items-center gap-3">
             <TrendingDown className="w-8 h-8 text-red-600" />
             Despesas Anuais
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div 
-              className="bg-gradient-to-br from-red-100 to-red-200 p-8 rounded-2xl border-2 border-red-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-red-400 to-red-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasAnualChart()}
             >
-              <h3 className="text-xl font-bold text-red-900 mb-6">Despesas TOTAL Anuais</h3>
-              <div className="text-3xl font-bold text-red-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Despesas TOTAL Anuais</h3>
+                {badgeDespesa(totalDespesasAno, getBudgetValueAnual())}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso Anual */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-red-800 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Limite Anual</span>
                   <span>{calcularPercentualSeguro(totalDespesasAno, getBudgetValueAnual(), 0)}%</span>
                 </div>
-                <div className="w-full bg-red-300 rounded-full h-3 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesasAno, getBudgetValueAnual(), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {((totalDespesasAno / getBudgetValueAnual()) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-red-800 to-red-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesasAno / getBudgetValueAnual()) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesasAno, getBudgetValueAnual())}
               </div>
-              
-              {/* Valores Usado/Restante */}
-              <div className="text-xs text-red-800 font-medium">
-                R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getBudgetValueAnual() - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Limite: <span className="font-bold text-white">R$ {getBudgetValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesasAno, getBudgetValueAnual(), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-orange-100 to-orange-200 p-8 rounded-2xl border-2 border-orange-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-orange-400 to-orange-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasAnualChart()}
             >
-              <h3 className="text-xl font-bold text-orange-900 mb-6">Despesas Variáveis Anuais</h3>
-              <div className="text-3xl font-bold text-orange-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Desp. Variáveis Anuais</h3>
+                {badgeDespesa(totalDespesasAno * 0.7, getVariableExpensesValueAnual())}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalDespesasAno * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso Anual */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-orange-800 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Limite Anual</span>
                   <span>{calcularPercentualSeguro(totalDespesasAno * 0.7, getVariableExpensesValueAnual(), 0)}%</span>
                 </div>
-                <div className="w-full bg-orange-300 rounded-full h-3 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-orange-600 to-orange-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.7, getVariableExpensesValueAnual(), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {(((totalDespesasAno * 0.7) / getVariableExpensesValueAnual()) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-orange-800 to-orange-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, ((((totalDespesasAno * 0.7) / getVariableExpensesValueAnual()) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesasAno * 0.7, getVariableExpensesValueAnual())}
               </div>
-              
-              {/* Valores Usado/Restante */}
-              <div className="text-xs text-orange-800 font-medium">
-                R$ {(totalDespesasAno * 0.7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, getVariableExpensesValueAnual() - (totalDespesasAno * 0.7)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Limite: <span className="font-bold text-white">R$ {getVariableExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesasAno * 0.7, getVariableExpensesValueAnual(), 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-amber-100 to-amber-200 p-8 rounded-2xl border-2 border-amber-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-amber-400 to-amber-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasAnualChart()}
             >
-              <h3 className="text-xl font-bold text-amber-900 mb-6">Despesas Fixas Anuais</h3>
-              <div className="text-3xl font-bold text-amber-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Desp. Fixas Anuais</h3>
+                {badgeDespesa(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1))}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso Anual */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-amber-800 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Progresso Anual</span>
                   <span>{calcularPercentualSeguro(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 0)}%</span>
                 </div>
-                <div className="w-full bg-amber-300 rounded-full h-3 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-amber-800 to-amber-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (((totalDespesasAno * 0.25) / Math.max(getFixedExpensesValueAnual(), 1) * 100) - 100))}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1))}
               </div>
-              
-              {/* Valores Realizado/Meta */}
-              <div className="text-xs text-amber-800 font-medium">
-                R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Realizado: <span className="font-bold text-white">R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 0)}%</span>
               </div>
             </div>
           </div>
@@ -2348,83 +2204,57 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 4. INVESTIMENTOS ANUAIS */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-indigo-800 flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-3">
             <ArrowUpCircle className="w-8 h-8 text-indigo-600" />
             Investimentos Anuais
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div 
-              className="bg-gradient-to-br from-blue-100 to-blue-200 p-8 rounded-2xl border-2 border-blue-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-blue-400 to-blue-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openInvestimentosAnualChart()}
             >
-              <h3 className="text-xl font-bold text-blue-900 mb-6">Investimentos Gerais Anuais</h3>
-              <div className="text-3xl font-bold text-blue-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Invest. Gerais Anuais</h3>
+                {badgeReceita(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso Anual */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-blue-800 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Meta Anual</span>
                   <span>{calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 0)}%</span>
                 </div>
-                <div className="w-full bg-blue-300 rounded-full h-3 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-blue-800 to-blue-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 1)) - 100)}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-cyan-800 font-medium">
-                R$ {(totalDespesasAno * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaInvestimentosGeraisAnual - (totalDespesasAno * 0.05)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesasAno * 0.05, metaInvestimentosGeraisAnual, 0)}%</span>
               </div>
             </div>
 
-            <div 
-              className="bg-gradient-to-br from-purple-100 to-purple-200 p-8 rounded-2xl border-2 border-purple-300 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            <div
+              className="bg-gradient-to-br from-purple-400 to-purple-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openInvestimentosAnualChart()}
             >
-              <h3 className="text-xl font-bold text-purple-900 mb-6">Investimentos MKT Anuais</h3>
-              <div className="text-3xl font-bold text-purple-900 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-white">Invest. MKT Anuais</h3>
+                {badgeReceita(totalReceitasAno * 0.1, metaInvestimentosMktAnual)}
+              </div>
+              <div className="text-2xl font-bold text-white mb-4">
                 R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              
-              {/* Barra de Progresso Anual */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs font-medium text-purple-800 mb-3">
+                <div className="flex justify-between text-sm font-medium text-white/80 mb-1">
                   <span>Meta Anual</span>
                   <span>{calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 0)}%</span>
                 </div>
-                <div className="w-full bg-purple-300 rounded-full h-3 relative">
-                  {/* Barra base (0-100%) */}
-                  <div 
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 h-3 rounded-full transition-all duration-300"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1) }}
-                  ></div>
-                  {/* Barra de excesso (>100%) */}
-                  {parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)) > 100 && (
-                    <div 
-                      className="absolute top-0 left-0 bg-gradient-to-r from-purple-800 to-purple-900 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, parseFloat(calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 1)) - 100)}%` }}
-                    ></div>
-                  )}
-                </div>
+                {renderBar(totalReceitasAno * 0.1, metaInvestimentosMktAnual)}
               </div>
-              
-              {/* Valores Alcançado/Restante */}
-              <div className="text-xs text-pink-800 font-medium">
-                R$ {(totalReceitasAno * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {Math.max(0, metaInvestimentosMktAnual - (totalReceitasAno * 0.1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="text-xs text-white/70 font-medium flex justify-between">
+                <span>Meta: <span className="font-bold text-white">R$ {metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span className="font-bold text-white/90">{calcularPercentualSeguro(totalReceitasAno * 0.1, metaInvestimentosMktAnual, 0)}%</span>
               </div>
             </div>
           </div>
@@ -2432,67 +2262,67 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
         {/* 5. PROGRESSO VISUAL ANUAL */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-cyan-800 flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-blue-800 dark:text-blue-300 flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Progresso Visual Anual
           </h2>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Gráfico de Pizza Anual */}
-            <div 
-              className="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-2xl border border-pink-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            {/* Donut Anual */}
+            <div
+              className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openProgressoAnualChart()}
             >
-              <h3 className="text-base font-bold text-pink-800 mb-3">Distribuição de Receitas Anuais</h3>
-              <div className="flex items-center justify-center h-48">
-                <div className="relative w-32 h-32">
-                  <div className="absolute inset-0 rounded-full border-8 border-pink-200"></div>
-                  <div 
-                    className="absolute inset-0 rounded-full border-8 border-transparent border-t-pink-500 border-r-pink-500 transition-all duration-500"
-                    style={{ 
-                      transform: `rotate(${((totalReceitasAno / metaTotalAno) * 360)}deg)`,
-                      clipPath: totalReceitasAno >= metaTotalAno ? 'none' : 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)'
-                    }}
-                  ></div>
+              <h3 className="text-lg font-bold text-white mb-4">Distribuição de Receitas Anuais</h3>
+              <div className="flex items-center justify-center h-44">
+                <div className="relative w-36 h-36">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3.5" />
+                    <circle
+                      cx="18" cy="18" r="15.9" fill="none"
+                      stroke="rgba(255,255,255,0.85)"
+                      strokeWidth="3.5"
+                      strokeDasharray={`${Math.min(100, (totalReceitasAno / Math.max(metaTotalAno, 1)) * 100)} 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-xl font-bold text-pink-800">
+                      <div className="text-2xl font-bold text-white">
                         {calcularPercentualSeguro(totalReceitasAno, metaTotalAno, 0)}%
                       </div>
-                      <div className="text-xs text-pink-600 font-medium">Alcançado</div>
+                      <div className="text-xs text-white/70 font-medium">Alcançado</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="text-center text-xs text-pink-700 font-medium">
+              <div className="text-center text-xs text-white/70 font-medium mt-2">
                 R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
-            {/* Barra de Progresso Linear Anual */}
-            <div 
-              className="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-2xl border border-cyan-200 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105"
+            {/* Barra Linear Anual */}
+            <div
+              className="bg-gradient-to-br from-indigo-500 to-blue-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openProgressoAnualChart()}
             >
-              <h3 className="text-base font-bold text-cyan-800 mb-3">Progresso Linear Anual</h3>
-              <div className="space-y-4">
+              <h3 className="text-lg font-bold text-white mb-4">Progresso Linear Anual</h3>
+              <div className="space-y-6">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-900 mb-3">
+                  <div className="text-4xl font-bold text-white mb-1">
                     {metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(1) : 0}%
                   </div>
-                  <div className="text-xs text-cyan-700">Meta Anual Alcançada</div>
+                  <div className="text-xs text-white/70 font-medium">Meta Anual Alcançada</div>
                 </div>
-                
-                <div className="w-full bg-cyan-200 rounded-full h-4 relative overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full transition-all duration-500 relative"
-                    style={{ width: calcularLarguraBarra(totalReceitasAno, metaTotalAno, 1) }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
-                  </div>
+
+                <div className="w-full bg-white/20 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="bg-white/80 h-4 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (totalReceitasAno / Math.max(metaTotalAno, 1)) * 100)}%` }}
+                  ></div>
                 </div>
-                
-                <div className="flex justify-between text-xs text-cyan-700 font-medium">
+
+                <div className="flex justify-between text-xs text-white/70 font-medium">
                   <span>R$ 0</span>
                   <span>R$ {metaTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
                 </div>
@@ -2909,36 +2739,29 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </div>
         )}
 
-        {/* Renderizar Mês Selecionado com Dropdown Integrado */}
+        {/* Renderizar Mês Selecionado com navegador horizontal */}
         {mesSelecionado && (
-          <div className="space-y-6 mb-32">
-            {/* Dropdown do Mês Selecionado */}
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
-                <select
-                id="metas-month-selector"
-                name="metas-month-selector"
-                aria-label="Selecionar mês para metas"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="w-full text-3xl font-bold text-white text-center uppercase tracking-wider bg-transparent border-none outline-none cursor-pointer"
-                style={{ 
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 1rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.2em 1.2em',
-                  paddingRight: '3rem'
-                }}
+          <div className="space-y-6 mb-12">
+            {/* Navegador de Mês */}
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSelectedMonth((m) => (m - 1 + 12) % 12)}
+                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors duration-150"
               >
-                {mesesMetas.map((mes) => (
-                  <option key={mes.indice} value={mes.indice} className="text-gray-800 bg-white normal-case text-lg font-normal">
-                    {mes.nome} - {new Date().getFullYear()}
-                  </option>
-                ))}
-                </select>
-              </div>
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <h2 className="text-3xl font-bold text-white text-center uppercase tracking-wider">
+                {mesSelecionado.nome} — {new Date().getFullYear()}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedMonth((m) => (m + 1) % 12)}
+                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors duration-150"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
               
             {/* Conteúdo do Mês */}
             {renderMonthContent(mesSelecionado.nome, mesSelecionado.indice)}
@@ -3047,19 +2870,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const total = data.reduce((sum, item) => sum + item.value, 0);
 
       return (
-        <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 mt-4">
-          <h3 className="text-base font-bold text-gray-800 mb-3">{title}</h3>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mt-4">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">{title}</h3>
           {hasData ? (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={280}>
               <RechartsPieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={3}
+                  innerRadius={70}
+                  outerRadius={110}
+                  paddingAngle={5}
                   dataKey="value"
+                  cornerRadius={6}
+                  stroke="none"
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -3067,8 +2892,15 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 </Pie>
                 <RechartsTooltip
                   formatter={(value: any) => [`R$ ${(parseFloat(String(value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, '']}
+                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                 />
-                <Legend formatter={(value) => <span className="text-sm text-gray-700">{value}</span>} />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  iconType="circle"
+                  wrapperStyle={{ paddingTop: '16px', fontSize: '14px', fontWeight: 600 }}
+                  formatter={(value) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>}
+                />
               </RechartsPieChart>
             </ResponsiveContainer>
           ) : (
@@ -3077,7 +2909,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
           )}
           {hasData && (
-            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between text-xs text-gray-500 dark:text-gray-400">
               {data.map(item => (
                 <span key={item.name}>
                   <span className="font-semibold" style={{ color: item.color }}>{item.name}:</span>{' '}
@@ -3089,7 +2921,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           )}
         </div>
       );
-  }
+    }
 
     return (
       <div className="space-y-8">
@@ -3099,9 +2931,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             Dashboard IMPGEO
           </h1>
           {permissions.canCreate && (
-            <button 
+            <button
               onClick={() => setShowTransactionModal(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 whitespace-nowrap"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap"
             >
               <Plus className="h-5 w-5" />
               Nova Transação
@@ -3110,101 +2942,160 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
 
         {/* Seção Mês */}
-          <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-3">
-            <PieChart className="w-6 h-6 text-gray-600" />
-            Mês
-            <select
-              id="dashboard-month-selector"
-              name="dashboard-month-selector"
-              aria-label="Selecionar mês do dashboard"
-              value={dashboardSelectedMonth}
-              onChange={(e) => setDashboardSelectedMonth(Number(e.target.value))}
-              className="text-lg font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 outline-none cursor-pointer"
-            >
-              {nomesMeses.map((mes, index) => (
-                <option key={mes} value={index}>
-                  {mes} {dashboardSelectedYear}
-                </option>
-              ))}
-            </select>
-          </h2>
-          
-          <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card Receitas */}
-              <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('receitas-mensal')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-white" />
-            </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
+        <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/40 dark:from-blue-900/20 dark:to-indigo-900/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-900/30 space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
+              <PieChart className="w-6 h-6 text-blue-600" />
+              Dados do mês
+            </h2>
+            <div className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setDashboardSelectedMonth((m) => (m - 1 + 12) % 12)}
+                className="px-2 py-1.5 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors duration-150"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 px-2 min-w-[140px] text-center">
+                {nomesMeses[dashboardSelectedMonth]} {dashboardSelectedYear}
+              </span>
+              <button
+                onClick={() => setDashboardSelectedMonth((m) => (m + 1) % 12)}
+                className="px-2 py-1.5 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors duration-150"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
             </div>
           </div>
+
+          {/* Resumo rápido do mês */}
+          {(() => {
+            const recCount = transacoesMesSelecionado.filter(t => t.type === 'Receita').length
+            const despCount = transacoesMesSelecionado.filter(t => t.type === 'Despesa').length
+            const margem = totalReceitasMes > 0 ? (lucroLiquidoMes / totalReceitasMes) * 100 : 0
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Receitas</p>
+                    <p className="text-xl font-black text-emerald-600">{recCount} <span className="text-sm font-semibold">lançamento{recCount !== 1 ? 's' : ''}</span></p>
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                    <TrendingDown className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Despesas</p>
+                    <p className="text-xl font-black text-red-600">{despCount} <span className="text-sm font-semibold">lançamento{despCount !== 1 ? 's' : ''}</span></p>
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${lucroLiquidoMes >= 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+                    <Wallet className={`w-5 h-5 ${lucroLiquidoMes >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Lucro Líquido</p>
+                    <p className={`text-base font-black ${lucroLiquidoMes >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                      {lucroLiquidoMes >= 0 ? '+' : ''}R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                </div>
+                <div className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${margem >= 20 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : margem >= 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${margem >= 20 ? 'bg-emerald-100 dark:bg-emerald-900/40' : margem >= 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+                    <Zap className={`w-5 h-5 ${margem >= 20 ? 'text-emerald-600' : margem >= 0 ? 'text-amber-600' : 'text-red-600'}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Margem</p>
+                    <p className={`text-xl font-black ${margem >= 20 ? 'text-emerald-700 dark:text-emerald-400' : margem >= 0 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>{margem.toFixed(1)}%</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card Receitas */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('receitas-mensal')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Receitas</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalReceitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3" /> {transacoesMesSelecionado.filter(t => t.type === 'Receita').length} lançamentos
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {expandedCharts.includes('receitas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
             </div>
-                {expandedCharts.includes('receitas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
+
+            {/* Card Despesas */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-red-400 to-rose-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('despesas-mensal')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Despesas</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="w-3 h-3" /> {transacoesMesSelecionado.filter(t => t.type === 'Despesa').length} lançamentos
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {expandedCharts.includes('despesas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
+            </div>
+
+            {/* Card Saldo */}
+            <div className="space-y-4">
+              <div
+                className={`p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
+                  lucroLiquidoMes >= 0 ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-red-400 to-red-500'
+                }`}
+                onClick={() => toggleChart('saldo-mensal')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Saldo</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 mt-1 text-xs font-bold px-2 py-0.5 rounded-full ${lucroLiquidoMes >= 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white/90'}`}>
+                      {lucroLiquidoMes >= 0 ? <><CheckCircle2 className="w-3 h-3" /> Positivo</> : <><AlertTriangle className="w-3 h-3" /> Negativo</>}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Receitas vs Despesas — ${nomesMeses[dashboardSelectedMonth]}`)}
+            </div>
+          </div>
         </div>
 
-              {/* Card Despesas */}
-              <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('despesas-mensal')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <TrendingDown className="h-6 w-6 text-white" />
-            </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalDespesasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-          </div>
-                {expandedCharts.includes('despesas-mensal') && renderPieChart(pieChartData, 'Distribuição Mensal: Receitas vs Despesas')}
-        </div>
-
-              {/* Card Saldo */}
-          <div className="space-y-4">
-                <div 
-                  className={`p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
-                    lucroLiquidoMes >= 0 ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-red-600'
-                  }`}
-                  onClick={() => toggleChart('saldo-mensal')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <BarChart3 className="h-6 w-6 text-white" />
-            </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo</p>
-                      <p className={`text-xl font-bold mt-1 ${
-                        lucroLiquidoMes >= 0 ? 'text-green-900' : 'text-red-900'
-                      }`}>
-                        R$ {Math.abs(lucroLiquidoMes).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-        </div>
-                {expandedCharts.includes('saldo-mensal') && renderPieChart(pieChartData, `Comparação: Meta vs Real (${nomesMeses[dashboardSelectedMonth]})`)}
-      </div>
-        </div>
-      </div>
-    </div>
-            
         {/* Seção Trimestre */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-cyan-800 flex items-center gap-3">
+        <div className="bg-gradient-to-br from-cyan-50/60 to-sky-50/40 dark:from-cyan-900/20 dark:to-sky-900/10 rounded-2xl p-5 border border-cyan-100 dark:border-cyan-900/30 space-y-4">
+          <h2 className="text-2xl font-bold text-cyan-800 dark:text-cyan-300 flex items-center gap-3">
             <PieChart className="w-6 h-6 text-cyan-600" />
             Trimestre
             <select
@@ -3213,90 +3104,95 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               aria-label="Selecionar trimestre do dashboard"
               value={dashboardSelectedQuarter}
               onChange={(e) => setDashboardSelectedQuarter(Number(e.target.value))}
-              className="text-lg font-medium text-cyan-600 bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-200 outline-none cursor-pointer"
+              className="text-sm font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/40 px-3 py-1 rounded-lg border border-cyan-200 dark:border-cyan-800 outline-none cursor-pointer"
             >
               {nomesTrimestres.map((t, i) => (
                 <option key={i} value={i}>{t} {dashboardSelectedYear}</option>
               ))}
             </select>
           </h2>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card Receitas Trimestrais */}
-              <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('receitas-trimestre')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-white" />
-            </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalReceitasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-            </div>
-            </div>
-          </div>
-                {expandedCharts.includes('receitas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
-        </div>
 
-              {/* Card Despesas Trimestrais */}
-              <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('despesas-trimestre')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <TrendingDown className="h-6 w-6 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card Receitas Trimestrais */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('receitas-trimestre')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Receitas</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalReceitasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3" /> {nomesTrimestres[dashboardSelectedQuarter]}
+                    </span>
+                  </div>
+                </div>
               </div>
-            <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
+              {expandedCharts.includes('receitas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
+            </div>
+
+            {/* Card Despesas Trimestrais */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-red-400 to-rose-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('despesas-trimestre')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Despesas</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalDespesasTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="w-3 h-3" /> {nomesTrimestres[dashboardSelectedQuarter]}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
+            </div>
+
+            {/* Card Saldo Trimestral */}
+            <div className="space-y-4">
+              <div
+                className={`p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
+                  lucroLiquidoTrimestre >= 0 ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-red-400 to-red-500'
+                }`}
+                onClick={() => toggleChart('saldo-trimestre')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Saldo</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {lucroLiquidoTrimestre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 mt-1 text-xs font-bold px-2 py-0.5 rounded-full ${lucroLiquidoTrimestre >= 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white/90'}`}>
+                      {lucroLiquidoTrimestre >= 0 ? <><CheckCircle2 className="w-3 h-3" /> Positivo</> : <><AlertTriangle className="w-3 h-3" /> Negativo</>}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Receitas vs Despesas — ${nomesTrimestres[dashboardSelectedQuarter]}`)}
+            </div>
           </div>
         </div>
-      </div>
-                {expandedCharts.includes('despesas-trimestre') && renderPieChart(pieChartDataTrimestre, 'Distribuição Trimestral: Receitas vs Despesas')}
-    </div>
-
-              {/* Card Saldo Trimestral */}
-              <div className="space-y-4">
-                <div 
-                  className={`p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
-                    lucroLiquidoTrimestre >= 0 ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-red-600'
-                  }`}
-                  onClick={() => toggleChart('saldo-trimestre')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <BarChart3 className="h-6 w-6 text-white" />
-      </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo</p>
-                      <p className={`text-xl font-bold mt-1 ${
-                        lucroLiquidoTrimestre >= 0 ? 'text-green-900' : 'text-red-900'
-                      }`}>
-                        R$ {Math.abs(lucroLiquidoTrimestre).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-                        </div>
-                      </div>
-                        </div>
-                {expandedCharts.includes('saldo-trimestre') && renderPieChart(pieChartDataTrimestre, `Comparação Trimestral: Meta vs Real (${nomesTrimestres[dashboardSelectedQuarter]})`)}
-                      </div>
-                    </div>
-        </div>
-      </div>
 
         {/* Seção Ano */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-pink-800 flex items-center gap-3">
-            <PieChart className="w-6 h-6 text-purple-600" />
+        <div className="bg-gradient-to-br from-indigo-50/60 to-blue-50/40 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-900/30 space-y-4">
+          <h2 className="text-2xl font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-3">
+            <PieChart className="w-6 h-6 text-indigo-600" />
             Ano
             <select
               id="dashboard-year-selector"
@@ -3310,138 +3206,185 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 setDashboardSelectedQuarter(isCurrentYear ? Math.floor(new Date().getMonth() / 3) : 0)
                 setDashboardSelectedMonth(isCurrentYear ? new Date().getMonth() : 0)
               }}
-              className="text-lg font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-lg border border-pink-200 outline-none cursor-pointer"
+              className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 outline-none cursor-pointer"
             >
               {availableYears.map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </h2>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card Receitas Anuais */}
-              <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('receitas-anual')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-white" />
-          </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Receitas Anuais</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-        </div>
-                {expandedCharts.includes('receitas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
-          </div>
 
-              {/* Card Despesas Anuais */}
-          <div className="space-y-4">
-                <div 
-                  className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
-                  onClick={() => toggleChart('despesas-anual')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <TrendingDown className="h-6 w-6 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card Receitas Anuais */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('receitas-anual')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Receitas Anuais</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalReceitasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3" /> {dashboardSelectedYear}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Despesas Anuais</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
+              {expandedCharts.includes('receitas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
             </div>
-      </div>
-                {expandedCharts.includes('despesas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
-          </div>
 
-              {/* Card Saldo Anual */}
-              <div className="space-y-4">
-                <div 
-                  className={`p-4 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
-                    lucroLiquidoAno >= 0 ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-red-600'
-                  }`}
-                  onClick={() => toggleChart('saldo-anual')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                      <BarChart3 className="h-6 w-6 text-white" />
+            {/* Card Despesas Anuais */}
+            <div className="space-y-4">
+              <div
+                className="bg-gradient-to-br from-red-400 to-rose-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+                onClick={() => toggleChart('despesas-anual')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Despesas Anuais</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="w-3 h-3" /> {dashboardSelectedYear}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                      <p className="text-base font-bold text-white text-opacity-80 uppercase tracking-wide">Saldo Anual</p>
-                      <p className={`text-xl font-bold mt-1 ${
-                        lucroLiquidoAno >= 0 ? 'text-green-900' : 'text-red-900'
-                      }`}>
-                        R$ {Math.abs(lucroLiquidoAno).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
+              {expandedCharts.includes('despesas-anual') && renderPieChart(pieChartDataAnual, 'Distribuição Anual: Receitas vs Despesas')}
             </div>
-          </div>
-                {expandedCharts.includes('saldo-anual') && renderPieChart(pieChartDataAnual, 'Comparação Anual: Meta vs Real')}
+
+            {/* Card Saldo Anual */}
+            <div className="space-y-4">
+              <div
+                className={`p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
+                  lucroLiquidoAno >= 0 ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-red-400 to-red-500'
+                }`}
+                onClick={() => toggleChart('saldo-anual')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide">Saldo Anual</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 mt-1 text-xs font-bold px-2 py-0.5 rounded-full ${lucroLiquidoAno >= 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white/90'}`}>
+                      {lucroLiquidoAno >= 0 ? <><CheckCircle2 className="w-3 h-3" /> Positivo</> : <><AlertTriangle className="w-3 h-3" /> Negativo</>}
+                    </span>
+                  </div>
+                </div>
               </div>
+              {expandedCharts.includes('saldo-anual') && renderPieChart(pieChartDataAnual, `Receitas vs Despesas — ${dashboardSelectedYear}`)}
             </div>
           </div>
         </div>
 
         {/* Lista de Transações Recentes */}
-          <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-3">
-            <DollarSign className="w-6 h-6 text-gray-600" />
-            Transações Recentes
-          </h2>
-          
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            {transacoesRecentes.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-gray-500">Nenhuma transação encontrada.</p>
-                <p className="text-xs text-gray-400 mt-1">Adicione suas primeiras transações para vê-las aqui.</p>
-          </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {transacoesRecentes.map((transacao, index) => (
-                  <div key={index} className="p-4 hover:bg-gray-50 transition-colors duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          transacao.type === 'Receita' ? 'bg-emerald-500' : 'bg-red-500'
-                        }`}></div>
-              <div>
-                          <p className="font-medium text-gray-900">{transacao.description}</p>
-                          <p className="text-xs text-gray-500">{transacao.category}</p>
-        </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+              <DollarSign className="w-5 h-5 text-white" />
             </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${
-                          transacao.type === 'Receita' ? 'text-emerald-600' : 'text-red-600'
-                        }`}>
-                          {transacao.type === 'Receita' ? '+' : '-'}R$ {Math.abs(transacao.value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(transacao.date).toLocaleDateString('pt-BR')}
-                </p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Transações Recentes
+            </h2>
+          </div>
+
+          {transacoesRecentes.length > 0 && (() => {
+            const rec = transacoesRecentes.filter(t => t.type === 'Receita')
+            const desp = transacoesRecentes.filter(t => t.type === 'Despesa')
+            const totalRec = rec.reduce((s, t) => s + (Number(t.value) || 0), 0)
+            const totalDesp = desp.reduce((s, t) => s + (Number(t.value) || 0), 0)
+            return (
+              <div className="flex flex-wrap gap-3 mb-2">
+                <span className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 text-sm font-bold px-3 py-1.5 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  {rec.length} receita{rec.length !== 1 ? 's' : ''} · +R$ {totalRec.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <span className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 text-sm font-bold px-3 py-1.5 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  {desp.length} despesa{desp.length !== 1 ? 's' : ''} · -R$ {totalDesp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <span className={`flex items-center gap-2 border text-sm font-bold px-3 py-1.5 rounded-full ${(totalRec - totalDesp) >= 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-400' : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-700 text-rose-700 dark:text-rose-400'}`}>
+                  Saldo: {(totalRec - totalDesp) >= 0 ? '+' : ''}R$ {(totalRec - totalDesp).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
-            </div>
-          </div>
+            )
+          })()}
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_4px_24px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-gray-600 overflow-hidden">
+            {transacoesRecentes.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-4">
+                    <DollarSign className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                  </div>
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">Nenhuma transação encontrada.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Adicione suas primeiras transações para vê-las aqui.</p>
+              </div>
+            ) : (
+              <div>
+                {transacoesRecentes.map((transacao, index) => (
+                  <div
+                    key={index}
+                    className={`px-5 py-3.5 border-b last:border-b-0 border-gray-100 dark:border-gray-700/60 transition-colors duration-150 ${
+                      index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-offset-1 ${
+                          index % 2 === 0 ? 'ring-offset-white dark:ring-offset-[#1f2937]' : 'ring-offset-gray-50 dark:ring-offset-[#374151]'
+                        } ${
+                          transacao.type === 'Receita'
+                            ? 'bg-emerald-500 ring-emerald-200 dark:ring-emerald-700'
+                            : 'bg-red-500 ring-red-200 dark:ring-red-700'
+                        }`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate text-sm">{transacao.description}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{transacao.category}</p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-bold whitespace-nowrap text-sm ${
+                          transacao.type === 'Receita'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {transacao.type === 'Receita' ? '+' : '-'}R$ {Math.abs(transacao.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                          {new Date(transacao.date).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
-          
-            <div className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-100">
-            <button
-                onClick={() => { setActiveTab('transactions'); window.scrollTo({ top: 0, behavior: "instant" }); }}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group"
+
+            <div className="px-5 py-4 bg-gradient-to-r from-gray-50 to-blue-50/60 dark:from-gray-700/30 dark:to-blue-900/20 border-t border-gray-100 dark:border-gray-600/60">
+              <button
+                onClick={() => { setActiveTab('transactions'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 group"
               >
-                <DollarSign className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
+                <DollarSign className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
                 Ver todas as transações
-                <ArrowUpCircle className="h-5 w-5 rotate-90 group-hover:translate-x-1 transition-all duration-300" />
-            </button>
+                <ArrowUpCircle className="h-4 w-4 rotate-90 group-hover:translate-x-1 transition-all duration-200" />
+              </button>
             </div>
           </div>
         </div>

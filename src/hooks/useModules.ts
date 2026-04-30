@@ -35,7 +35,7 @@ export const useModules = () => {
       const res = await fetch(`${API_BASE_URL}/modules-catalog`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setModules(data);
+        setModules(Array.isArray(data) ? data : (data.data ?? []));
       }
     } catch {
       // silently ignore

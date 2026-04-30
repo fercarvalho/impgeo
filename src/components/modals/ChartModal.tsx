@@ -99,7 +99,7 @@ const ChartModal: React.FC<ChartModalProps> = ({
 
   return (
     <div 
-      className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
       style={{ margin: 0, padding: 0 }}
       onClick={onClose}
     >

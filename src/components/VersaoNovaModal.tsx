@@ -16,7 +16,7 @@ const VersaoNovaModal: React.FC<Props> = ({ versao, texto, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[120px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[120px]"
       onClick={onClose}
     >
       <div

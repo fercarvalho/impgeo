@@ -100,7 +100,7 @@ export default function ActiveSessions() {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-600 mx-auto mb-3" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" />
           <p className="text-gray-500">Carregando sessões...</p>
         </div>
       </div>
@@ -125,37 +125,37 @@ export default function ActiveSessions() {
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-blue-100 rounded-lg">
-          <Lock className="w-6 h-6 text-blue-600" />
+        <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+          <Lock className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Sessões Ativas</h2>
-          <p className="text-sm text-gray-500">Gerencie os dispositivos conectados à sua conta</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Sessões Ativas</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie os dispositivos conectados à sua conta</p>
         </div>
         <button onClick={fetchSessions} className="ml-auto p-2 hover:bg-gray-100 rounded-lg" title="Atualizar">
           <RefreshCw className="w-4 h-4 text-gray-500" />
         </button>
       </div>
 
-      <div className="h-px bg-blue-200 mb-6" />
+      <div className="h-px bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 mb-6" />
 
       {sessions.length === 0 ? (
         <div className="text-center py-12 text-gray-400">Nenhuma sessão ativa encontrada.</div>
       ) : (
         <div className="space-y-4">
           {sessions.map((session, index) => (
-            <div key={session.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div key={session.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
                     {getDeviceIcon(session.device_type)}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 truncate">{session.device_name || 'Dispositivo desconhecido'}</span>
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">@{session.username}</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{session.device_name || 'Dispositivo desconhecido'}</span>
+                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">@{session.username}</span>
                     </div>
-                    <p className="text-sm text-gray-500">{session.browser} · {session.os}</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">{session.browser} · {session.os}</p>
                   </div>
                 </div>
                 {index !== 0 && (

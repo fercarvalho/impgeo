@@ -7821,7 +7821,7 @@ Continuar mesmo assim?`)
       {/* Modal de Limpeza Seletiva das Tabelas da Projeção */}
       {showSelectiveClearModal && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
           onClick={() => setShowSelectiveClearModal(false)}
         >
           <div 

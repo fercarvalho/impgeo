@@ -108,7 +108,7 @@ export default function SecurityAlerts() {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" />
           <p className="text-gray-500">Carregando alertas...</p>
         </div>
       </div>
@@ -133,22 +133,22 @@ export default function SecurityAlerts() {
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-blue-100 rounded-lg">
-          <Bell className="w-6 h-6 text-blue-600" />
+        <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+          <Bell className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Portal de Alertas de Segurança</h2>
-          <p className="text-sm text-gray-500">Monitoramento de eventos de segurança em tempo real</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Portal de Alertas de Segurança</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Monitoramento de eventos de segurança em tempo real</p>
         </div>
         <button onClick={fetchData} className="ml-auto p-2 hover:bg-gray-100 rounded-lg" title="Atualizar">
           <RefreshCw className="w-4 h-4 text-gray-500" />
         </button>
       </div>
 
-      <div className="h-px bg-blue-200 mb-6" />
+      <div className="h-px bg-gradient-to-r from-blue-200 to-indigo-200 mb-6" />
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200 shadow-sm mb-6">
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 p-4 rounded-2xl border border-blue-200 dark:border-gray-700 shadow-sm mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-blue-500" />
@@ -163,7 +163,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por período"
                 value={days}
                 onChange={(e) => { setDays(Number(e.target.value)); setPage(0); }}
-                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
               >
                 <option value={1}>Últimas 24 horas</option>
                 <option value={7}>Últimos 7 dias</option>
@@ -179,7 +179,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por tipo de alerta"
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-                className="px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
               >
                 <option value="">Todos</option>
                 {Object.entries(ALERT_LABELS).map(([k, v]) => (
@@ -200,11 +200,11 @@ export default function SecurityAlerts() {
             { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: stats.byType?.length ?? 0, label: 'Tipos Diferentes' },
             { icon: <Clock className="w-8 h-8 text-blue-500" />, value: stats.period, label: 'Período' },
           ].map((card, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3">
               <div className="flex-shrink-0">{card.icon}</div>
               <div>
-                <div className="text-2xl font-bold text-gray-900">{card.value}</div>
-                <div className="text-xs text-gray-500">{card.label}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{card.value}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{card.label}</div>
               </div>
             </div>
           ))}
@@ -213,8 +213,8 @@ export default function SecurityAlerts() {
 
       {/* Distribuição por Tipo */}
       {stats && stats.byType && stats.byType.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-600" /> Distribuição por Tipo
           </h3>
           <div className="space-y-2">
@@ -237,8 +237,8 @@ export default function SecurityAlerts() {
       )}
 
       {/* Lista de Alertas */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
           <Bell className="w-4 h-4 text-blue-600" /> Alertas Recentes
         </h3>
         {alerts.length === 0 ? (

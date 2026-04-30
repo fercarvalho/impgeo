@@ -579,40 +579,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-[1180px] w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left">
                     <button
                       type="button"
                       onClick={() => setNameSortOrder((previous) => (previous === 'asc' ? 'desc' : 'asc'))}
-                      className="inline-flex items-center gap-2 hover:text-gray-700"
+                      className="inline-flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wide hover:text-white/80"
                       title={`Ordenar por nome (${nameSortOrder === 'asc' ? 'crescente' : 'decrescente'})`}
                     >
                       <span>Usuário</span>
                       <span className="text-[10px]">{nameSortOrder === 'asc' ? '▲' : '▼'}</span>
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cadastro</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Módulos</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credenciais</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">Cadastro</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">Módulos</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">Credenciais</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wide">Ações</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {users.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Nenhum usuário encontrado</td>
                   </tr>
                 ) : (
-                  sortedUsers.map((user) => {
+                  sortedUsers.map((user, index) => {
                     const isCurrent = user.id === currentUser?.id;
                     const isActive = user.isActive !== false;
                     const isSuperadminTarget = user.role === 'superadmin' && currentUser?.role !== 'superadmin';
 
                     return (
-                      <tr key={user.id} className={isSuperadminTarget ? 'bg-gray-50 opacity-60 pointer-events-none' : !isActive ? 'bg-gray-50' : 'hover:bg-gray-50'}>
+                      <tr key={user.id} className={isSuperadminTarget ? 'bg-gray-50 dark:bg-gray-700/30 opacity-60 pointer-events-none' : !isActive ? 'bg-gray-50 dark:bg-gray-700/30' : `${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'}`}>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -759,7 +759,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
           return true;
         });
         return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowCreateModal(false)}>
+          <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowCreateModal(false)}>
             <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200/50 rounded-t-2xl flex items-center justify-between">
@@ -872,7 +872,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       })()}
 
       {showProfileModal && editingUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowProfileModal(false)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowProfileModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Editar cadastro de {editingUser.username}</h2>
@@ -997,7 +997,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showUsernameModal && editingUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowUsernameModal(false)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowUsernameModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar nome de usuário</h2>
@@ -1020,7 +1020,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showPasswordModal && editingUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowPasswordModal(false)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowPasswordModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar senha de {editingUser.username}</h2>
@@ -1046,7 +1046,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {showModulesModal && modulesTargetUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowModulesModal(false)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowModulesModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Módulos de acesso de {modulesTargetUser.username}</h2>
@@ -1102,7 +1102,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {temporaryPassword && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setTemporaryPassword(null)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setTemporaryPassword(null)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Senha resetada</h2>
             <p className="text-gray-600 mb-4">
@@ -1118,7 +1118,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setDeleteConfirm(null)}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setDeleteConfirm(null)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Confirmar exclusão</h2>
             <p className="text-gray-600 mb-6">

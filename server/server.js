@@ -4725,10 +4725,18 @@ app.post('/api/notificacao-versao/vista', authenticateToken, async (req, res) =>
 });
 
 // Iniciar servidor
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
   console.log(`📡 API disponível em http://localhost:${port}`);
   console.log(`🧪 Teste a API em http://localhost:${port}/api/test`);
+
+  // Garantir que todas as tabelas existam antes de iniciar timers/monitoramento
+  try {
+    await db.ensureProfileSchema();
+    console.log('✅ Schema do banco inicializado com sucesso.');
+  } catch (err) {
+    console.error('❌ Erro ao inicializar schema no startup:', err.message);
+  }
 
   const cleanupIntervalMs = PASSWORD_RESET_CLEANUP_INTERVAL_MINUTES * 60 * 1000;
   const timer = setInterval(async () => {

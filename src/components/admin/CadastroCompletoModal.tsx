@@ -162,17 +162,17 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
       onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
     >
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200/50 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
-          <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-blue-700" />
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <UserPlus className="w-6 h-6 text-white" />
             Cadastro Completo
           </h2>
-          <button onClick={onClose} disabled={isSubmitting} className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-full transition-all">
+          <button onClick={onClose} disabled={isSubmitting} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -382,7 +382,7 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2">
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:transform-none flex items-center gap-2">
               {isSubmitting ? (
                 <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>Criando...</>
               ) : (

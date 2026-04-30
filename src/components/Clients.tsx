@@ -88,8 +88,8 @@ const Clients: React.FC = () => {
   }
 
   const getSortIcon = (field: keyof Client) => {
-    if (sortConfig.field !== field) return <span className="text-gray-400">↕</span>
-    return sortConfig.direction === 'asc' ? <span className="text-blue-600">↑</span> : <span className="text-blue-600">↓</span>
+    if (sortConfig.field !== field) return <span className="text-white/50">↕</span>
+    return sortConfig.direction === 'asc' ? <span className="text-white">↑</span> : <span className="text-white">↓</span>
   }
 
   const filteredAndSorted = useMemo(() => {
@@ -247,15 +247,15 @@ const Clients: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 shadow-sm">
+      <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide">Filtre seus itens:</h2>
+            <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Filtros</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
             <div className="flex flex-col flex-1 min-w-0">
-              <label htmlFor="client-name-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Nome</label>
+              <label htmlFor="client-name-filter" className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Nome</label>
               <input
                 id="client-name-filter"
                 name="client-name-filter"
@@ -264,11 +264,11 @@ const Clients: React.FC = () => {
                 placeholder="Nome..."
                 value={filters.name}
                 onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label htmlFor="client-email-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Email</label>
+              <label htmlFor="client-email-filter" className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Email</label>
               <input
                 id="client-email-filter"
                 name="client-email-filter"
@@ -277,11 +277,11 @@ const Clients: React.FC = () => {
                 placeholder="Email..."
                 value={filters.email}
                 onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label htmlFor="client-phone-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Telefone</label>
+              <label htmlFor="client-phone-filter" className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 truncate">Telefone</label>
               <input
                 id="client-phone-filter"
                 name="client-phone-filter"
@@ -290,12 +290,12 @@ const Clients: React.FC = () => {
                 placeholder="Telefone..."
                 value={filters.phone}
                 onChange={(e) => setFilters(prev => ({ ...prev, phone: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
           </div>
           <div className="lg:ml-auto">
-            <button onClick={clearFilters} className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 bg-blue-600 text-white rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors w-full lg:w-auto">
+            <button onClick={clearFilters} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 w-full lg:w-auto">
               Limpar Filtros
             </button>
           </div>
@@ -310,8 +310,8 @@ const Clients: React.FC = () => {
             <p className="text-gray-500 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4 min-w-max">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 min-w-max">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                 {permissions.canDelete && (
                   <div className="flex justify-center">
@@ -319,34 +319,34 @@ const Clients: React.FC = () => {
                       type="checkbox"
                       checked={clients.length > 0 && selectedClients.size === clients.length}
                       onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-300 focus:ring-2"
                     />
                   </div>
                 )}
-                <button onClick={() => handleSort('name')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-52 sm:w-60">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Nome</p>
+                <button onClick={() => handleSort('name')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200 flex-shrink-0 w-52 sm:w-60">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Nome</p>
                   {getSortIcon('name')}
                 </button>
-                <button onClick={() => handleSort('email')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-36 sm:w-44">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Email</p>
+                <button onClick={() => handleSort('email')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200 flex-shrink-0 w-36 sm:w-44">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Email</p>
                   {getSortIcon('email')}
                 </button>
-                <button onClick={() => handleSort('phone')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-28 sm:w-32">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Telefone</p>
+                <button onClick={() => handleSort('phone')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200 flex-shrink-0 w-28 sm:w-32">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Telefone</p>
                   {getSortIcon('phone')}
                 </button>
-                <button onClick={() => handleSort('address')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Endereço</p>
+                <button onClick={() => handleSort('address')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-all duration-200 flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Endereço</p>
                   {getSortIcon('address')}
                 </button>
                 <div className="flex-shrink-0 w-16 sm:w-20 flex justify-center">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Ações</p>
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Ações</p>
                 </div>
               </div>
             </div>
 
             {filteredAndSorted.map((c, index) => (
-              <div key={c.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={c.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
@@ -390,10 +390,11 @@ const Clients: React.FC = () => {
             ))}
 
             {selectedClients.size > 0 && permissions.canDelete && (
-              <div className="flex justify-end p-4 bg-red-50 border-t border-red-200">
-                <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/40">
+                <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedClients.size} selecionado{selectedClients.size > 1 ? 's' : ''}</span>
+                <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">
                   <Trash2 className="h-4 w-4" />
-                  Deletar Selecionado{selectedClients.size > 1 ? 's' : ''} ({selectedClients.size})
+                  Deletar Selecionado{selectedClients.size > 1 ? 's' : ''}
                 </button>
               </div>
             )}
@@ -403,24 +404,24 @@ const Clients: React.FC = () => {
 
       {/* Modal Novo/Editar Cliente */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-3">
+            <div className="p-6 space-y-3">
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Nome <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  value={form.name} 
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.name ? 'border-red-500 bg-red-50' : ''
-                  }`} 
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
                 {formErrors.name && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -430,16 +431,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Email <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="email" 
-                  value={form.email} 
-                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.email ? 'border-red-500 bg-red-50' : ''
-                  }`} 
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
                 {formErrors.email && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -449,16 +450,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Telefone <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  value={form.phone} 
-                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.phone ? 'border-red-500 bg-red-50' : ''
-                  }`} 
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
                 {formErrors.phone && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -468,16 +469,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Endereço <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  value={form.address} 
-                  onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.address ? 'border-red-500 bg-red-50' : ''
-                  }`} 
+                <input
+                  type="text"
+                  value={form.address}
+                  onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
                 {formErrors.address && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -487,38 +488,38 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Tipo de Documento <span className="text-red-500">*</span>
                 </label>
-                <select 
-                  value={form.documentType} 
-                  onChange={(e) => setForm(prev => ({ 
-                    ...prev, 
+                <select
+                  value={form.documentType}
+                  onChange={(e) => setForm(prev => ({
+                    ...prev,
                     documentType: e.target.value as 'cpf' | 'cnpj',
-                    cpf: '', // Limpar campos ao trocar tipo
+                    cpf: '',
                     cnpj: ''
-                  }))} 
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
                 >
                   <option value="cpf">CPF (Pessoa Física)</option>
                   <option value="cnpj">CNPJ (Pessoa Jurídica)</option>
                 </select>
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   {form.documentType === 'cpf' ? 'CPF' : 'CNPJ'} <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  value={form.documentType === 'cpf' ? form.cpf : form.cnpj} 
-                  onChange={(e) => setForm(prev => ({ 
-                    ...prev, 
-                    [form.documentType]: e.target.value 
-                  }))} 
+                <input
+                  type="text"
+                  value={form.documentType === 'cpf' ? form.cpf : form.cnpj}
+                  onChange={(e) => setForm(prev => ({
+                    ...prev,
+                    [form.documentType]: e.target.value
+                  }))}
                   placeholder={form.documentType === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50' : ''
-                  }`} 
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
                 {((form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj)) && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -527,10 +528,10 @@ const Clients: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
-              <button onClick={saveClient} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={saveClient} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+              </div>
             </div>
           </div>
         </div>
@@ -538,15 +539,15 @@ const Clients: React.FC = () => {
 
       {/* Modal Importar/Exportar */}
       {isImportExportOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-b from-blue-50 to-white border-b">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-5 h-5 text-blue-700" />
-                <h2 className="text-xl font-extrabold text-gray-800">Importar/Exportar Clientes</h2>
+                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
+                <h2 className="text-lg font-bold text-white">Importar/Exportar Clientes</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
 
             {/* Body */}

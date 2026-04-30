@@ -146,19 +146,19 @@ const FAQManagement: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-100 rounded-xl p-2">
-            <HelpCircle className="h-5 w-5 text-blue-600" />
+          <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+            <HelpCircle className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Gerenciar FAQ</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Gerenciar FAQ</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {items.length} {items.length === 1 ? 'item cadastrado' : 'itens cadastrados'}
             </p>
           </div>
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold text-sm shadow hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 transition-all duration-200"
         >
           <Plus className="h-4 w-4" />
           Nova Pergunta
@@ -240,20 +240,20 @@ const FAQManagement: React.FC = () => {
       {/* Modal Criar/Editar */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget && !isSaving) setShowModal(false); }}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-blue-600" />
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-white" />
                 {editingItem ? 'Editar Pergunta' : 'Nova Pergunta'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
                 disabled={isSaving}
-                className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -324,7 +324,7 @@ const FAQManagement: React.FC = () => {
       {/* Modal de confirmação de exclusão */}
       {deleteConfirm && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">

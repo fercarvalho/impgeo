@@ -415,7 +415,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           {permissions.canImport && (
             <button
               onClick={() => { setIsImportExtratoModalOpen(true); setExtratoStep(0); setImportType(null); setSelectedBank(null); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-200"
             >
               <Upload className="h-5 w-5" />
               Importar Extrato
@@ -450,11 +450,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       </div>
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 shadow-sm">
+      <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide">Filtre seus itens:</h2>
+            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Filtros</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
             {/* Busca por descrição */}
@@ -469,7 +469,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   placeholder="Nome da transação..."
                   value={filters.description}
                   onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full pr-7"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full pr-7"
                 />
                 {filters.description && (
                   <button
@@ -490,7 +490,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 aria-label="Filtrar por tipo"
                 value={filters.type}
                 onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value as any }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
               >
                 <option value="">Todos os tipos</option>
                 <option value="Receita">Receitas</option>
@@ -507,7 +507,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 placeholder="Categoria..."
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
@@ -520,7 +520,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 placeholder="Subcategoria..."
                 value={filters.subcategory}
                 onChange={(e) => setFilters(prev => ({ ...prev, subcategory: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
@@ -533,7 +533,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
                 />
                 <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
               </div>
@@ -548,14 +548,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
                 />
                 <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
               </div>
             </div>
           </div>
           <div className="lg:ml-auto">
-            <button onClick={clearFilters} className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 bg-blue-600 text-white rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors w-full lg:w-auto">
+            <button onClick={clearFilters} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl text-xs sm:text-sm hover:from-blue-600 hover:to-indigo-700 shadow-sm hover:shadow-md transition-all duration-200 w-full lg:w-auto">
               Limpar Filtros
             </button>
           </div>
@@ -570,8 +570,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             <p className="text-gray-500 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden overflow-x-auto">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-100 border-b border-blue-200 p-4 min-w-max">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 min-w-max">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                 {permissions.canDelete && (
                   <div className="flex justify-center">
@@ -579,41 +579,41 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       type="checkbox"
                       checked={transactions.length > 0 && selectedTransactions.size === transactions.length}
                       onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-500 focus:ring-2"
                     />
                   </div>
                 )}
-                <button onClick={() => handleSort('date')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Data</p>
+                <button onClick={() => handleSort('date')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Data</p>
                   {getSortIcon('date')}
                 </button>
-                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Descrição</p>
+                <button onClick={() => handleSort('description')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-colors flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Descrição</p>
                   {getSortIcon('description')}
                 </button>
-                <button onClick={() => handleSort('type')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-16 sm:w-20">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Tipo</p>
+                <button onClick={() => handleSort('type')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-16 sm:w-20">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Tipo</p>
                   {getSortIcon('type')}
                 </button>
-                <button onClick={() => handleSort('category')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Categoria</p>
+                <button onClick={() => handleSort('category')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-20 sm:w-24">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Categoria</p>
                   {getSortIcon('category')}
                 </button>
                 <div className="flex items-center justify-center gap-1 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-24 sm:w-28">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide truncate">Subcategoria</p>
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide truncate">Subcategoria</p>
                 </div>
-                <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-blue-100 rounded px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-28 sm:w-36">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Valor</p>
+                <button onClick={() => handleSort('value')} className="flex items-center justify-center gap-1 hover:bg-white/20 rounded-lg px-1 sm:px-2 py-1 transition-colors flex-shrink-0 w-28 sm:w-36">
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Valor</p>
                   {getSortIcon('value')}
                 </button>
                 <div className="flex-shrink-0 w-16 sm:w-20 flex justify-center">
-                  <p className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wide">Ações</p>
+                  <p className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">Ações</p>
                 </div>
               </div>
             </div>
 
             {filteredAndSorted.map((t, index) => (
-              <div key={t.id} className={`bg-white border-b border-gray-100 p-4 hover:bg-blue-50/30 transition-all duration-200 ${index === transactions.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={t.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === transactions.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
@@ -632,13 +632,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{t.description}</h3>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
-                    <span className={`px-0.5 sm:px-1 py-0.5 rounded-full text-xs font-medium ${t.type === 'Receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{t.type}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.type === 'Receita' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>{t.type}</span>
                   </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
-                    <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.category}</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.category}</span>
                   </div>
                   <div className="flex-shrink-0 w-24 sm:w-28 text-center">
-                    <span className="text-xs sm:text-sm text-gray-600 bg-gray-50 px-0.5 sm:px-1 py-0.5 rounded-md truncate">{t.subcategory || '-'}</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.subcategory || '-'}</span>
                   </div>
                   <div className="flex-shrink-0 w-28 sm:w-36 text-center">
                     <p className={`text-xs sm:text-sm md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
@@ -662,8 +662,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             ))}
 
             {selectedTransactions.size > 0 && permissions.canDelete && (
-              <div className="flex justify-end p-4 bg-red-50 border-t border-red-200">
-                <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/30">
+                <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedTransactions.size} selecionada{selectedTransactions.size > 1 ? 's' : ''}</span>
+                <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
                   <Trash2 className="h-4 w-4" />
                   Deletar Selecionada{selectedTransactions.size > 1 ? 's' : ''} ({selectedTransactions.size})
                 </button>
@@ -675,13 +676,16 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
       {/* Modal Nova/Editar Transação */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { closeModal() } }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">{editing ? 'Editar Transação' : 'Nova Transação'}</h2>
-              <button onClick={closeModal} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { closeModal() } }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                {editing ? 'Editar Transação' : 'Nova Transação'}
+              </h2>
+              <button onClick={closeModal} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-3">
+            <div className="p-6 space-y-3">
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Data <span className="text-red-500">*</span>
@@ -690,8 +694,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="date" 
                   value={form.date} 
                   onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.date ? 'border-red-500 bg-red-50' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                    formErrors.date ? 'border-red-500 bg-red-50' : 'border-gray-300'
                   }`} 
                 />
                 {formErrors.date && (
@@ -709,8 +713,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="text" 
                   value={form.description} 
                   onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))} 
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.description ? 'border-red-500 bg-red-50' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                    formErrors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'
                   }`} 
                 />
                 {formErrors.description && (
@@ -730,8 +734,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     step="0.01" 
                     value={form.value} 
                     onChange={(e) => setForm(prev => ({ ...prev, value: e.target.value }))} 
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.value ? 'border-red-500 bg-red-50' : ''
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                      formErrors.value ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`} 
                   />
                   {formErrors.value && (
@@ -755,8 +759,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       category: '', // Limpar categoria quando tipo mudar
                       subcategory: '' // Limpar subcategoria quando tipo mudar
                     }))}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.type ? 'border-red-500 bg-red-50' : ''
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                      formErrors.type ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`}
                   >
                     <option value="Receita">Receita</option>
@@ -779,8 +783,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   name="transaction-form-category"
                   value={form.category}
                   onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.category ? 'border-red-500 bg-red-50' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                    formErrors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'
                   }`}
                 >
                   <option value="">Selecione uma categoria</option>
@@ -818,8 +822,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     <select 
                       value={form.subcategory} 
                       onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} 
-                      className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
+                      className={`flex-1 px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                        formErrors.subcategory ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     >
                       <option value="">Selecione uma subcategoria</option>
@@ -846,8 +850,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     value={form.subcategory} 
                     onChange={(e) => setForm(prev => ({ ...prev, subcategory: e.target.value }))} 
                     placeholder="Digite a subcategoria (opcional)"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.subcategory ? 'border-red-500 bg-red-50' : ''
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 transition-all duration-200 ${
+                      formErrors.subcategory ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`} 
                   />
                 )}
@@ -860,8 +864,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={closeModal} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
-              <button onClick={saveTransaction} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Salvar</button>
+              <button onClick={closeModal} className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={saveTransaction} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">Salvar</button>
             </div>
           </div>
         </div>
@@ -870,14 +874,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal Importar/Exportar (estrutura Alya com visual IMPGEO) */}
       {isImportExportOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-b from-blue-50 to-white border-b">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
               <div className="flex items-center gap-3">
-                <Upload className="w-5 h-5 text-blue-700" />
-                <h2 className="text-xl font-extrabold text-gray-800">Importar/Exportar Transações</h2>
+                <Upload className="w-5 h-5 text-white" />
+                <h2 className="text-lg font-bold text-white">Importar/Exportar Transações</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
 
             {/* Body */}
@@ -888,7 +892,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6 text-center">
                 <p className="font-bold text-blue-800 mb-1">Primeiro baixe o modelo, depois importe!</p>
                 <p className="text-blue-700 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
-                <button onClick={downloadModel} className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow mx-auto">
+                <button onClick={downloadModel} className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 mx-auto">
                   <Download className="w-4 h-4" /> Baixar Modelo de Transações
                 </button>
               </div>
@@ -923,7 +927,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
               {/* Footer */}
               <div className="mt-6">
-                <button onClick={() => setIsImportExportOpen(false)} className="w-full px-6 py-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold">
+                <button onClick={() => setIsImportExportOpen(false)} className="w-full px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 text-gray-800 font-semibold transition-all duration-200">
                   Cancelar
                 </button>
               </div>
@@ -934,12 +938,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
       {/* Modal Adicionar Nova Subcategoria */}
       {isAddSubcategoryOpen && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') } }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Adicionar Nova Subcategoria</h2>
-              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') } }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" /> Adicionar Nova Subcategoria</h2>
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
+            <div className="p-6">
             <div className="space-y-4">
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -967,40 +972,43 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
-              <button onClick={addNewSubcategory} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Adicionar</button>
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={addNewSubcategory} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Adicionar</button>
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Modal Remover Subcategoria */}
       {isRemoveSubcategoryOpen && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRemoveSubcategoryOpen(false) }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Remover Subcategoria</h2>
-              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRemoveSubcategoryOpen(false) }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Trash2 className="w-5 h-5" /> Remover Subcategoria</h2>
+              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">!</span>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">!</span>
+                    </div>
+                    <h3 className="font-semibold text-yellow-800 dark:text-yellow-300">Atenção</h3>
                   </div>
-                  <h3 className="font-semibold text-yellow-800">Atenção</h3>
+                  <p className="text-yellow-700 dark:text-yellow-400 text-sm">
+                    Você está ocultando a subcategoria <strong>"{form.subcategory}"</strong> da sua lista.
+                  </p>
+                  <p className="text-yellow-700 dark:text-yellow-400 text-sm mt-2">
+                    <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas, mas não aparecerá mais na sua lista mesmo após atualizar a página.
+                  </p>
                 </div>
-                <p className="text-yellow-700 text-sm">
-                  Você está ocultando a subcategoria <strong>"{form.subcategory}"</strong> da sua lista.
-                </p>
-                <p className="text-yellow-700 text-sm mt-2">
-                  <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas, mas não aparecerá mais na sua lista mesmo após atualizar a página.
-                </p>
               </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
-              <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold">Remover da Lista</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">Remover da Lista</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1008,7 +1016,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal de Importar Extrato / Fatura */}
       {isImportExtratoModalOpen && (
         <div
-          className={`fixed inset-0 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 ${extratoStep === 3 ? 'z-[70] pt-4' : 'z-50 pt-[100px]'}`}
+          className={`fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 ${extratoStep === 3 ? 'z-[70] pt-4' : 'z-50 pt-[100px]'}`}
           onClick={(e) => { if (e.target === e.currentTarget) { setIsImportExtratoModalOpen(false); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) } }}
         >
           <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200 overflow-hidden`}>

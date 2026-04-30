@@ -455,7 +455,7 @@ const DRE: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div role="status" aria-label="Carregando...">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" aria-hidden="true"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" aria-hidden="true"></div>
         </div>
       </div>
     )
@@ -489,7 +489,7 @@ const DRE: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3"><BarChart3 className="w-8 h-8 text-amber-500" aria-hidden="true" />DRE - Demonstrativo de Resultado do Exercício</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3"><BarChart3 className="w-8 h-8 text-blue-500" aria-hidden="true" />DRE - Demonstrativo de Resultado do Exercício</h2>
           <p className="text-gray-600 dark:text-gray-400">Análise de receitas e despesas do período</p>
         </div>
         <div className="flex gap-3">
@@ -497,7 +497,7 @@ const DRE: React.FC = () => {
             onClick={exportarPDF}
             disabled={!!isExporting}
             aria-busy={!!isExporting}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isExporting === 'pdf'
               ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true" />
@@ -519,11 +519,11 @@ const DRE: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 p-4 rounded-2xl border border-amber-200 dark:border-gray-700 shadow-lg">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 p-4 rounded-2xl border border-blue-200 dark:border-gray-700 shadow-lg">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           {/* Título */}
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-amber-600" aria-hidden="true" />
+            <Filter className="w-5 h-5 text-blue-600" aria-hidden="true" />
             <span className="text-lg font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">
               FILTRE SEUS ITENS:
             </span>
@@ -547,7 +547,7 @@ const DRE: React.FC = () => {
                     setSelectedMonth(Math.floor(selectedMonth / 3) * 3)
                   }
                 }}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-amber-300 dark:border-gray-600 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-gray-600 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full transition-all duration-200"
               >
                 <option value="mensal">Mensal</option>
                 <option value="trimestral">Trimestral</option>
@@ -568,7 +568,7 @@ const DRE: React.FC = () => {
                     const month = parseInt(e.target.value)
                     setSelectedMonth(selectedPeriod === 'trimestral' ? Math.floor(month / 3) * 3 : month)
                   }}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-amber-300 dark:border-gray-600 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-gray-600 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full transition-all duration-200"
                 >
                   {selectedPeriod === 'trimestral' ? (
                     <>
@@ -597,7 +597,7 @@ const DRE: React.FC = () => {
                 name="dre-year-filter"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-amber-300 dark:border-gray-600 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-gray-600 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full transition-all duration-200"
               >
                 {Array.from({ length: 10 }, (_, i) => {
                   const year = new Date().getFullYear() - 7 + i
@@ -622,7 +622,7 @@ const DRE: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               DRE
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
                 {getPeriodLabel()}
               </span>
             </h3>
@@ -637,20 +637,20 @@ const DRE: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full" aria-label={`DRE – ${getPeriodLabel()}`}>
-            <thead className="bg-amber-50 dark:bg-gray-700 border-b border-amber-200 dark:border-gray-600">
+            <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
               <tr>
-                <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Descrição
                 </th>
-                <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                   Valor Atual
                 </th>
                 {previousPeriodTransactions.length > 0 && (
                   <>
-                    <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                       Valor Anterior
                     </th>
-                    <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                       Variação
                     </th>
                   </>
@@ -676,11 +676,11 @@ const DRE: React.FC = () => {
                   const isResultado = row.id === 'resultado'
                   const borderColor = isReceitas ? 'border-l-4 border-l-emerald-500'
                     : isDespesas ? 'border-l-4 border-l-rose-500'
-                    : isResultado ? `border-l-4 ${row.value >= 0 ? 'border-l-amber-500' : 'border-l-red-500'}`
+                    : isResultado ? `border-l-4 ${row.value >= 0 ? 'border-l-blue-500' : 'border-l-red-500'}`
                     : ''
                   const rowBg = isResultado
                     ? row.value >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
-                    : row.level === 0 ? 'bg-amber-50 dark:bg-amber-900/20' : row.level === 1 ? 'bg-gray-50 dark:bg-gray-700/50' : ''
+                    : row.level === 0 ? 'bg-blue-50 dark:bg-blue-900/20' : row.level === 1 ? 'bg-gray-50 dark:bg-gray-700/50' : ''
 
                   // Para linhas de despesa (exceto resultado), aumento é ruim → inverter cores
                   const isExpenseRow = row.id === 'despesas' || (row.type === 'despesa' && row.id !== 'resultado')
@@ -694,7 +694,7 @@ const DRE: React.FC = () => {
                     className={`${rowBg} ${row.level === 0 ? 'font-semibold' : ''} ${borderColor} ${isResultado ? 'border-t-2 border-t-gray-300 dark:border-t-gray-600' : ''}`}
                   >
                     <td
-                      className={`py-3 text-sm ${isResultado ? (row.value >= 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300') : row.level === 0 ? 'text-amber-900 dark:text-amber-300' : 'text-gray-900 dark:text-gray-100'}`}
+                      className={`py-3 text-sm ${isResultado ? (row.value >= 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300') : row.level === 0 ? 'text-blue-900 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}`}
                       style={{ paddingLeft: `${row.level * 20 + 16}px`, paddingRight: '24px' }}
                     >
                       {isResultado ? <span className="text-base font-bold">{row.description}</span> : row.description}
@@ -824,7 +824,7 @@ const DRE: React.FC = () => {
           )}
         </div>
 
-        <div className={`bg-gradient-to-r ${resultadoLiquido >= 0 ? 'from-amber-500 to-orange-400' : 'from-rose-600 to-red-500'} rounded-2xl shadow-lg p-6`}>
+        <div className={`bg-gradient-to-r ${resultadoLiquido >= 0 ? 'from-blue-500 to-indigo-600' : 'from-rose-600 to-red-500'} rounded-2xl shadow-lg p-6`}>
           <div className="flex items-center">
             <div className="flex-shrink-0 bg-white/20 rounded-xl p-2">
               <DollarSign className="h-8 w-8 text-white" aria-hidden="true" />

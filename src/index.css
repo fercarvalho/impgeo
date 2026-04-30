@@ -300,3 +300,98 @@ html.dark .border-sky-200    { border-color: #0c4a6e; }
 html.dark .border-rose-200   { border-color: #881337; }
 html.dark .border-orange-200 { border-color: #7c2d12; }
 html.dark .border-pink-200   { border-color: #831843; }
+
+/* ==========================================================================
+   DESIGN SYSTEM — Classes reutilizáveis (@layer components)
+   ========================================================================== */
+
+@layer components {
+  /* Card padrão com hover lift */
+  .imp-card {
+    @apply bg-white rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200;
+  }
+
+  /* Botão primário (azul/índigo) */
+  .imp-btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold
+           rounded-xl shadow-lg shadow-blue-500/25
+           hover:from-blue-600 hover:to-indigo-700
+           hover:shadow-xl hover:shadow-blue-500/35
+           hover:-translate-y-0.5
+           active:translate-y-0
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+           transition-all duration-200;
+  }
+
+  /* Botão secundário (cinza neutro) */
+  .imp-btn-secondary {
+    @apply bg-gray-100 text-gray-700 font-medium rounded-xl
+           hover:bg-gray-200 hover:-translate-y-0.5
+           active:translate-y-0
+           transition-all duration-200;
+  }
+
+  /* Botão destrutivo (vermelho) */
+  .imp-btn-danger {
+    @apply bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold
+           rounded-xl shadow-lg shadow-red-500/25
+           hover:from-red-600 hover:to-red-700
+           hover:shadow-xl hover:shadow-red-500/35
+           hover:-translate-y-0.5
+           active:translate-y-0
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+           transition-all duration-200;
+  }
+
+  /* Overlay de modal */
+  .imp-modal-overlay {
+    @apply fixed inset-0 z-50
+           bg-gradient-to-br from-blue-900/50 to-indigo-900/50
+           backdrop-blur-sm
+           flex items-center justify-center p-4;
+  }
+
+  /* Container do modal */
+  .imp-modal-container {
+    @apply bg-white rounded-2xl shadow-2xl w-full overflow-hidden;
+  }
+
+  /* Header do modal com gradiente sólido */
+  .imp-modal-header {
+    @apply bg-gradient-to-r from-blue-500 to-indigo-600
+           px-6 py-4
+           flex items-center justify-between;
+  }
+
+  /* Título do modal (branco sobre o gradiente) */
+  .imp-modal-title {
+    @apply text-white font-bold text-lg flex items-center gap-2;
+  }
+
+  /* Botão X de fechar no modal */
+  .imp-modal-close {
+    @apply text-white/80 hover:text-white hover:bg-white/20
+           rounded-lg p-1.5 transition-all duration-200;
+  }
+
+  /* Input padronizado */
+  .imp-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-xl
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+           bg-white text-gray-900
+           transition-all duration-200;
+  }
+
+  /* Badge de status */
+  .imp-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5
+           text-xs font-medium rounded-full;
+  }
+}
+
+/* Dark mode para as classes do design system */
+html.dark .imp-card        { background-color: #1e293b; }
+html.dark .imp-modal-container { background-color: #1e293b; }
+html.dark .imp-input       { background-color: #1e293b; border-color: #475569; color: #f1f5f9; }
+html.dark .imp-input:focus { border-color: #3b82f6; }
+

@@ -84,25 +84,48 @@ const FeedbackManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
+            <MessageSquare className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Gerenciar Feedbacks</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {contadores.total} {contadores.total === 1 ? 'feedback recebido' : 'feedbacks recebidos'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={carregarFeedbacks}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </button>
+      </div>
+
       {/* Contadores */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total',       value: contadores.total,      bg: 'bg-gray-50',   text: 'text-gray-700',  border: 'border-gray-200' },
-          { label: 'Pendentes',   value: contadores.pendente,   bg: 'bg-orange-50', text: 'text-orange-700',border: 'border-orange-200' },
-          { label: 'Respondidos', value: contadores.respondido, bg: 'bg-blue-50',   text: 'text-blue-700',  border: 'border-blue-200' },
-          { label: 'Aceitos',     value: contadores.aceito,     bg: 'bg-green-50',  text: 'text-green-700', border: 'border-green-200' },
+          { label: 'Total',       value: contadores.total,      bg: 'bg-white dark:bg-gray-800',  text: 'text-gray-700 dark:text-gray-200',  border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Pendentes',   value: contadores.pendente,   bg: 'bg-white dark:bg-gray-800',  text: 'text-yellow-600 dark:text-yellow-400', border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Respondidos', value: contadores.respondido, bg: 'bg-white dark:bg-gray-800',  text: 'text-blue-600 dark:text-blue-400',   border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Aceitos',     value: contadores.aceito,     bg: 'bg-white dark:bg-gray-800',  text: 'text-green-600 dark:text-green-400', border: 'border-gray-200 dark:border-gray-700' },
         ].map(card => (
-          <div key={card.label} className={`${card.bg} border ${card.border} rounded-xl p-4 text-center`}>
+          <div key={card.label} className={`${card.bg} border ${card.border} rounded-xl p-4 text-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}>
             <p className={`text-2xl font-bold ${card.text}`}>{card.value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{card.label}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 uppercase tracking-wide font-medium">{card.label}</p>
           </div>
         ))}
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-gray-500">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <Filter className="w-4 h-4" />
             <span className="text-sm font-medium">Filtros:</span>
           </div>
@@ -110,7 +133,7 @@ const FeedbackManagement: React.FC = () => {
           <select
             value={filtroCategoria}
             onChange={e => setFiltroCategoria(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           >
             <option value="">Todas as categorias</option>
             {Object.entries(CATEGORIA_CONFIG).map(([id, cfg]) => (
@@ -121,22 +144,13 @@ const FeedbackManagement: React.FC = () => {
           <select
             value={filtroStatus}
             onChange={e => setFiltroStatus(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           >
             <option value="">Todos os status</option>
             {Object.entries(STATUS_CONFIG).map(([id, cfg]) => (
               <option key={id} value={id}>{cfg.label}</option>
             ))}
           </select>
-
-          <button
-            onClick={carregarFeedbacks}
-            disabled={isLoading}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </button>
         </div>
       </div>
 
