@@ -1,4 +1,4 @@
--- Schema PostgreSQL para Impgeo
+-- Schema PostgreSQL para IMPGeo
 -- Criar banco de dados: CREATE DATABASE impgeo;
 
 -- Tabelas Core

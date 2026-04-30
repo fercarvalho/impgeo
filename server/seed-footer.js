@@ -70,7 +70,7 @@ Este site e os produtos e serviços oferecidos neste site não são associados, 
     const links = [
       // Coluna Contato
       ['lnk-tel',   'col-contato', '(11) 97103-9181',
-        'https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20sistema%20ImpGeo%20e%20gostaria%20de%20saber%20mais%20sobre%20a%20Viver%20de%20PJ',
+        'https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20sistema%20IMPGeo%20e%20gostaria%20de%20saber%20mais%20sobre%20a%20Viver%20de%20PJ',
         true, 0],
       ['lnk-email', 'col-contato', 'vem@viverdepj.com.br',
         'mailto:vem@viverdepj.com.br',
@@ -111,7 +111,7 @@ Este site e os produtos e serviços oferecidos neste site não são associados, 
       ['bl-consideracoes','Considerações importantes', '',                      true,  3],
       ['bl-branding',     'Branding Kit',              '',                      true,  4],
       ['bl-contato',      'Contato',
-        'https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20sistema%20ImpGeo%20e%20gostaria%20de%20saber%20mais%20sobre%20a%20Viver%20de%20PJ',
+        'https://wa.me/5511971039181?text=Oi%20Sofia%2C%20tudo%20bem%3F%20Vim%20pelo%20sistema%20IMPGeo%20e%20gostaria%20de%20saber%20mais%20sobre%20a%20Viver%20de%20PJ',
         true, 5],
     ];
 

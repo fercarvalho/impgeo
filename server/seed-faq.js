@@ -47,7 +47,7 @@ async function seedFAQ() {
   // ─── BLOCO 1: Primeiros Passos ─────────────────────────────────────────────
 
   await insert(
-    'Como faço login no ImpGeo?',
+    'Como faço login no IMPGeo?',
     'Na tela inicial, informe seu e-mail e senha cadastrados e clique em "Entrar". Se for seu primeiro acesso, use as credenciais fornecidas pelo administrador.\n\nCaso esqueça a senha, clique em "Esqueci minha senha" e siga as instruções enviadas para o seu e-mail.',
     ordem++
   );
@@ -72,7 +72,7 @@ async function seedFAQ() {
 
   await insert(
     'O sistema funciona no celular?',
-    'Sim! O ImpGeo é totalmente responsivo e pode ser acessado pelo navegador do celular ou tablet. Para melhor experiência, recomendamos usar Chrome, Safari ou Firefox em versões atualizadas.',
+    'Sim! O IMPGeo é totalmente responsivo e pode ser acessado pelo navegador do celular ou tablet. Para melhor experiência, recomendamos usar Chrome, Safari ou Firefox em versões atualizadas.',
     ordem++
   );
 

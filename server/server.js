@@ -303,7 +303,10 @@ const authenticateToken = (req, res, next) => {
 const publicApiRoutes = [
   '/auth/login',
   '/auth/recuperar-senha',
-  '/auth/resetar-senha'
+  '/auth/resetar-senha',
+  '/faq',
+  '/cookie-banner-config',
+  '/cookie-categorias'
 ];
 
 const publicApiPrefixes = [
@@ -312,7 +315,8 @@ const publicApiPrefixes = [
   '/auth/validar-token/',
   '/acompanhamentos/public',
   '/modelo/',
-  '/webhooks/'
+  '/webhooks/',
+  '/documentation/public'
 ];
 
 app.use('/api', (req, res, next) => {

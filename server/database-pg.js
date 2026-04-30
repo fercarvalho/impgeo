@@ -392,6 +392,17 @@ class Database {
       await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_active_sessions_refresh_id ON active_sessions(refresh_token_id)`);
       // ────────────────────────────────────────────────────────────
 
+      // ── Tabela de notificações de versão ───────────────────────
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS versao_notificacoes_vistas (
+          user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          versao  VARCHAR(50)  NOT NULL,
+          visto_em TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (user_id, versao)
+        )
+      `);
+      // ────────────────────────────────────────────────────────────
+
       // ── Tabelas do rodapé ──────────────────────────────────────
       await this.queryWithRetry(`
         CREATE TABLE IF NOT EXISTS rodape_configuracoes (
@@ -4355,7 +4366,8 @@ class Database {
       }
 
       await client.query(
-        `UPDATE rodape_configuracoes SET valor = $1, updated_at = $2 WHERE chave = 'notas_versao'`,
+        `INSERT INTO rodape_configuracoes (chave, valor, updated_at) VALUES ('notas_versao', $1, $2)
+         ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
         [notas, now]
       );
 

@@ -1,7 +1,7 @@
 {
   "name": "impgeo-backend",
   "version": "1.0.0",
-  "description": "Backend API for Impgeo Financial System",
+  "description": "Backend API for IMPGeo Financial System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

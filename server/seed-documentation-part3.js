@@ -183,7 +183,7 @@ async function seedFAQ() {
 
 ## O que é o FAQ?
 
-O **FAQ (Frequently Asked Questions)** é o espaço de perguntas e respostas frequentes do sistema. Se você tiver uma dúvida sobre como usar o ImpGeo, comece aqui antes de buscar ajuda.
+O **FAQ (Frequently Asked Questions)** é o espaço de perguntas e respostas frequentes do sistema. Se você tiver uma dúvida sobre como usar o IMPGeo, comece aqui antes de buscar ajuda.
 
 ---
 
@@ -276,7 +276,7 @@ async function seedRoadmap() {
 
 ## Onde ver a versão do sistema
 
-A versão atual do ImpGeo está visível no **rodapé** de todas as telas. Você também encontra no módulo **Roadmap** (se habilitado para você).
+A versão atual do IMPGeo está visível no **rodapé** de todas as telas. Você também encontra no módulo **Roadmap** (se habilitado para você).
 
 ---
 
@@ -293,7 +293,7 @@ Você pode usar o Roadmap para:
 
 ## Versão atual — v1.0.0
 
-O ImpGeo foi lançado com os módulos completos:
+O IMPGeo foi lançado com os módulos completos:
 
 ✅ Dashboard com indicadores e gráficos
 ✅ Gestão de Clientes, Projetos e Serviços
@@ -315,7 +315,7 @@ Consulte o módulo **Roadmap** para ver a lista completa e atualizada. As próxi
 
 ## Sua opinião importa
 
-O ImpGeo é um sistema que cresce com o uso. Se você encontrar algo que poderia funcionar melhor, ou tiver uma ideia de nova funcionalidade, há formas de contribuir:
+O IMPGeo é um sistema que cresce com o uso. Se você encontrar algo que poderia funcionar melhor, ou tiver uma ideia de nova funcionalidade, há formas de contribuir:
 
 ---
 
@@ -364,7 +364,7 @@ Se você tem uma ideia de funcionalidade nova ou de melhoria em algo existente, 
 async function seedAdministracao() {
   const sid = await createSection('Administração', 15, true); // admin_only
 
-  await createPage(sid, 'Visão geral para administradores', `# Administração do ImpGeo ⚙️
+  await createPage(sid, 'Visão geral para administradores', `# Administração do IMPGeo ⚙️
 
 > 🔐 **Esta seção é destinada aos administradores do sistema.** Se você não é admin, pode não ter acesso ao módulo Administração.
 

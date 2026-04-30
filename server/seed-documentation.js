@@ -1,6 +1,6 @@
 /**
  * seed-documentation.js  —  Parte 1: Seções 1–6
- * Guia de uso do ImpGeo para o usuário final.
+ * Guia de uso do IMPGeo para o usuário final.
  * Execute: node server/seed-documentation-run.js
  */
 
@@ -45,11 +45,11 @@ async function clearExisting() {
 // SEÇÃO 1 — BEM-VINDO AO IMPGEO
 // ============================================================
 async function seedBemVindo() {
-  const sid = await createSection('Bem-vindo ao ImpGeo', 1);
+  const sid = await createSection('Bem-vindo ao IMPGeo', 1);
 
-  await createPage(sid, 'O que é o ImpGeo', `# Bem-vindo ao ImpGeo 👋
+  await createPage(sid, 'O que é o IMPGeo', `# Bem-vindo ao IMPGeo 👋
 
-O **ImpGeo** é o sistema de gestão da sua empresa de geoprocessamento. Aqui você controla tudo em um só lugar: clientes, projetos, serviços, imóveis rurais em acompanhamento, finanças e muito mais.
+O **IMPGeo** é o sistema de gestão da sua empresa de geoprocessamento. Aqui você controla tudo em um só lugar: clientes, projetos, serviços, imóveis rurais em acompanhamento, finanças e muito mais.
 
 ---
 
@@ -197,7 +197,7 @@ Todos os gráficos do Dashboard, DRE, Projeção e os diagramas da Documentaçã
 
 ## O que você encontra no rodapé
 
-O rodapé do sistema, visível na parte inferior de todas as telas, exibe informações sobre o ImpGeo:
+O rodapé do sistema, visível na parte inferior de todas as telas, exibe informações sobre o IMPGeo:
 
 ---
 
@@ -225,7 +225,7 @@ Encontrou um problema ou tem uma sugestão de melhoria? Você pode:
 
 ## Sobre o sistema
 
-O ImpGeo é desenvolvido e mantido pela equipe técnica da empresa. Atualizações são lançadas periodicamente com melhorias e novas funcionalidades. Fique de olho no **Roadmap** para acompanhar o que está por vir.
+O IMPGeo é desenvolvido e mantido pela equipe técnica da empresa. Atualizações são lançadas periodicamente com melhorias e novas funcionalidades. Fique de olho no **Roadmap** para acompanhar o que está por vir.
 `, 5);
 
   console.log('✅ Seção 1 (Bem-vindo) criada.');
@@ -474,7 +474,7 @@ Clique nas **legendas** dos gráficos para mostrar ou ocultar séries específic
 
 ## Seu ponto de partida
 
-Sempre que você se perder no sistema ou quiser "zerar" a navegação, clique no **logo do ImpGeo** no topo da página para voltar ao Dashboard.
+Sempre que você se perder no sistema ou quiser "zerar" a navegação, clique no **logo do IMPGeo** no topo da página para voltar ao Dashboard.
 `, 3);
 
   console.log('✅ Seção 3 (Dashboard) criada.');
@@ -615,7 +615,7 @@ async function seedProjetos() {
 
   await createPage(sid, 'Criando e gerenciando projetos', `# Criando e gerenciando projetos 📁
 
-## O que é um Projeto no ImpGeo?
+## O que é um Projeto no IMPGeo?
 
 Um **projeto** representa um trabalho contratado por um cliente — pode ser a regularização de uma fazenda, um contrato de georreferenciamento de várias propriedades, ou qualquer conjunto de serviços prestados para um mesmo contratante.
 

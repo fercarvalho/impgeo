@@ -13,7 +13,7 @@ const scripts = [
   'seed-documentation-part3.js',
 ];
 
-console.log('🚀 Iniciando seed completo de documentação do ImpGeo...\n');
+console.log('🚀 Iniciando seed completo de documentação do IMPGeo...\n');
 
 for (const script of scripts) {
   const fullPath = path.join(__dirname, script);
@@ -27,4 +27,4 @@ for (const script of scripts) {
 }
 
 console.log('\n🎉 Documentação completa inserida com sucesso!');
-console.log('📚 17 seções disponíveis no módulo Documentação do ImpGeo.');
+console.log('📚 17 seções disponíveis no módulo Documentação do IMPGeo.');

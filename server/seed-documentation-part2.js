@@ -137,7 +137,7 @@ Informe a situação atual do ITR: Pendente, Em dia, Atrasado ou Isento.
 
 ## CAR — Cadastro Ambiental Rural
 
-O CAR é obrigatório para imóveis rurais e necessário para acessar crédito rural e programas governamentais. O ImpGeo te ajuda a controlar a situação de cada imóvel.
+O CAR é obrigatório para imóveis rurais e necessário para acessar crédito rural e programas governamentais. O IMPGeo te ajuda a controlar a situação de cada imóvel.
 
 ### Status do CAR
 
@@ -464,7 +464,7 @@ Se você tiver muitas transações para lançar de uma vez (ex: ao começar a us
 
 ## Conciliação com o banco
 
-Use o extrato exportado para conferir se os valores no ImpGeo batem com o extrato bancário real. Se encontrar diferença:
+Use o extrato exportado para conferir se os valores no IMPGeo batem com o extrato bancário real. Se encontrar diferença:
 - **Transação faltando no sistema**: lance a transação com a data correta
 - **Valor errado**: edite a transação e corrija
 - **Transação a mais**: verifique se foi um lançamento duplicado e exclua
@@ -590,7 +590,7 @@ async function seedDRE() {
 
 A **DRE (Demonstração do Resultado do Exercício)** é um relatório que mostra, de forma organizada, quanto a empresa faturou, quanto gastou e qual foi o resultado final (lucro ou prejuízo) em um período.
 
-No ImpGeo, a DRE é gerada automaticamente a partir das **transações lançadas** no sistema.
+No IMPGeo, a DRE é gerada automaticamente a partir das **transações lançadas** no sistema.
 
 ---
 

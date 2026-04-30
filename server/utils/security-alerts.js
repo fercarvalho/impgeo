@@ -67,13 +67,13 @@ function generateEmailHTML(title, message, severity, fields = []) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alerta de Segurança - Impgeo</title>
+  <title>Alerta de Segurança - IMPGeo</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4;">
   <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
     <div style="background-color: ${color}; color: white; padding: 20px; text-align: center;">
       <h1 style="margin: 0; font-size: 24px;">${emoji} Alerta de Segurança</h1>
-      <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Impgeo System</p>
+      <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">IMPGeo System</p>
     </div>
     <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid ${color};">
       <strong style="color: ${color}; font-size: 16px;">Severidade: ${severity}</strong>
@@ -93,7 +93,7 @@ function generateEmailHTML(title, message, severity, fields = []) {
     </div>
     <div style="background-color: #f8f9fa; padding: 15px; text-align: center; border-top: 1px solid #dee2e6;">
       <p style="margin: 0; font-size: 12px; color: #666;">
-        Este é um alerta automático do sistema de segurança Impgeo.<br>
+        Este é um alerta automático do sistema de segurança IMPGeo.<br>
         Não responda este email.
       </p>
     </div>
@@ -113,7 +113,7 @@ async function sendEmailAlert(title, message, severity, fields = []) {
     const msg = {
       to: ALERT_EMAIL_TO.split(',').map(email => email.trim()),
       from: ALERT_EMAIL_FROM,
-      subject: `[${severity}] ${title} - Impgeo Security`,
+      subject: `[${severity}] ${title} - IMPGeo Security`,
       html: generateEmailHTML(title, message, severity, fields),
       text: `
 ${SEVERITY_EMOJI[severity]} ALERTA DE SEGURANÇA - ${severity}
@@ -127,7 +127,7 @@ ${fields.map(f => `${f.title}: ${f.value}`).join('\n')}
 Data/Hora: ${new Date().toLocaleString('pt-BR')}
 
 ---
-Este é um alerta automático do sistema de segurança Impgeo.
+Este é um alerta automático do sistema de segurança IMPGeo.
       `.trim()
     };
 
