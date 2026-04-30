@@ -306,7 +306,8 @@ const publicApiRoutes = [
   '/auth/resetar-senha',
   '/faq',
   '/cookie-banner-config',
-  '/cookie-categorias'
+  '/cookie-categorias',
+  '/rodape'
 ];
 
 const publicApiPrefixes = [
