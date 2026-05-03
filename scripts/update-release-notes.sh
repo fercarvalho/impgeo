@@ -9,7 +9,7 @@
 set -e
 
 # Configuração do banco de dados
-DB_URL="${DATABASE_URL:-}"
+DB_URL="${DATABASE_URL_IMPGEO:-}"
 API_PORT="${PORT:-9001}"
 
 # Pega o hash e a mensagem do último commit
