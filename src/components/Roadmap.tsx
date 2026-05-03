@@ -122,7 +122,7 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
         <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50 min-w-[300px]">
+        <div className="absolute top-full left-0 mt-2 bg-white dark:!bg-[#243040] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50 min-w-[300px]">
           <div className="flex items-center justify-between mb-3">
             <button type="button" onClick={() => navigateMonth('prev')}
               className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
@@ -1093,12 +1093,12 @@ const Roadmap = () => {
         {isSuperAdmin && (
           <div className="flex items-center gap-2">
             <button onClick={() => setShowConfig(true)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/80 dark:!bg-[#243040]/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm"
               title="Configurações do Roadmap">
               <Settings size={15} />
             </button>
             <button onClick={() => setShowNovaColuna(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 dark:!bg-[#243040]/80 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm">
               <Layers size={15} />
               Nova Coluna
             </button>

@@ -210,7 +210,7 @@ const Login: React.FC = () => {
       {/* ─── Modal FAQ ─── */}
       {showFaqModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[9999] p-4" onClick={closeFaqModal}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
@@ -275,7 +275,7 @@ const Login: React.FC = () => {
       {/* ─── Modal Primeiro Acesso ─── */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4" onClick={() => setShowPasswordModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-6">
               <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4"><Lock className="w-8 h-8 text-white" /></div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Primeiro Acesso</h2>

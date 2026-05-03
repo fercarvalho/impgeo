@@ -617,7 +617,7 @@ const DRE: React.FC = () => {
       <div ref={dreContentRef} className="space-y-6">
 
       {/* DRE Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
@@ -657,7 +657,7 @@ const DRE: React.FC = () => {
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white dark:!bg-[#243040] divide-y divide-gray-200 dark:divide-gray-700">
               {filteredTransactions.length === 0 ||
                !filteredTransactions.some(t => isReceita(t.type) || isDespesa(t.type)) ? (
                 <tr>

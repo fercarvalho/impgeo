@@ -379,14 +379,14 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[90] px-4 pb-4 pt-[180px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
@@ -414,7 +414,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
           {/* Senha Atual */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Senha Atual <span className="text-red-500">*</span>
             </label>
             <input
@@ -446,7 +446,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Nome e Sobrenome */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Nome <span className="text-red-500">*</span>
               </label>
               <input
@@ -464,7 +464,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Sobrenome <span className="text-red-500">*</span>
               </label>
               <input
@@ -485,7 +485,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Email e Telefone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Email <span className="text-red-500">*</span>
               </label>
               <input
@@ -504,7 +504,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Telefone <span className="text-red-500">*</span>
               </label>
               <input
@@ -526,7 +526,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* CPF e Data de Nascimento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 CPF <span className="text-red-500">*</span>
               </label>
               <input
@@ -546,7 +546,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Data de Nascimento <span className="text-red-500">*</span>
               </label>
               <input
@@ -562,7 +562,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Gênero e Cargo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Gênero <span className="text-red-500">*</span>
               </label>
               <select
@@ -581,7 +581,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Cargo <span className="text-red-500">*</span>
               </label>
               <input
@@ -597,7 +597,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
           {/* Endereço - CEP */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               CEP <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
@@ -613,7 +613,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 disabled={isSubmitting || isSearchingCep}
               />
               {isSearchingCep && (
-                <div className="flex items-center px-4 text-amber-600">
+                <div className="flex items-center px-4 text-blue-500">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                 </div>
               )}
@@ -626,7 +626,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Endereço - Rua e Número */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Rua/Logradouro <span className="text-red-500">*</span>
               </label>
               <input
@@ -639,7 +639,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Número <span className="text-red-500">*</span>
               </label>
               <input
@@ -656,7 +656,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Endereço - Complemento e Bairro */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Complemento
               </label>
               <input
@@ -669,7 +669,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Bairro <span className="text-red-500">*</span>
               </label>
               <input
@@ -686,7 +686,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Endereço - Cidade e Estado */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Cidade <span className="text-red-500">*</span>
               </label>
               <input
@@ -699,7 +699,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Estado <span className="text-red-500">*</span>
               </label>
               <input
@@ -716,7 +716,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
           {/* Foto */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Foto de Perfil
             </label>
             <PhotoUpload

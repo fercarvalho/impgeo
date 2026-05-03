@@ -153,7 +153,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Vendas por Categoria */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:!bg-[#243040] p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
@@ -182,7 +182,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                         </div>
                       </div>
                       {isOpen && (
-                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                           <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={[{ name: item.nome, valor: item.valor }]}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -216,7 +216,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                   </div>
                 </div>
                 {expandedCharts.includes(`total-vendas-categoria-${periodo}`) && (
-                  <div className="mt-2 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={dados.vendasPorCategoria}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -260,7 +260,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                         </div>
                       </div>
                       {isOpen && (
-                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                           <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={[{ name: item.nome, valor: item.valor }]}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -294,7 +294,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                   </div>
                 </div>
                 {expandedCharts.includes(`total-vendas-produto-${periodo}`) && (
-                  <div className="mt-2 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={dados.vendasPorProduto}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -311,7 +311,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
           </div>
 
           {/* Despesas por Categoria */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:!bg-[#243040] p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
                 <TrendingDown className="w-4 h-4 text-white" />
@@ -339,7 +339,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                       </div>
                     </div>
                     {isOpen && (
-                      <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                      <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                         <ResponsiveContainer width="100%" height={220}>
                           <BarChart data={[{ name: item.nome, valor: item.valor }]}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -373,7 +373,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                 </div>
               </div>
               {expandedCharts.includes(`total-despesas-${periodo}`) && (
-                <div className="mt-2 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={dados.despesasPorCategoria}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -390,7 +390,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
         </div>
 
         {/* Serviços Vendidos por Período */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:!bg-[#243040] p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
@@ -412,7 +412,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
             </button>
           </div>
           {expandedCharts.includes(`produtos-${periodo}`) && (
-            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+            <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={
                   periodo === 'Semana' ? dados.produtosPorDia :

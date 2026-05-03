@@ -77,8 +77,8 @@ const TipTapEditor: React.FC<{ content: string; onChange: (html: string) => void
   );
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-      <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-100 bg-gray-50">
+    <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden bg-[#ffffff] dark:bg-[#141e2d]">
+      <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-[#111827]">
         <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Negrito"><strong>N</strong></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Itálico"><em>I</em></ToolBtn>
         <div className="w-px bg-gray-200 mx-1" />
@@ -313,7 +313,7 @@ const LegalManagement: React.FC = () => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all border flex-shrink-0 whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-md'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                    : 'bg-[#ffffff] dark:bg-[#243040] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-blue-300 hover:text-blue-600'
                 }`}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
@@ -339,7 +339,7 @@ const LegalManagement: React.FC = () => {
 
       {/* ── Aba: Termos de Uso ── */}
       {activeTab === 'termos' && canTermos && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -360,7 +360,7 @@ const LegalManagement: React.FC = () => {
 
       {/* ── Aba: Política de Privacidade ── */}
       {activeTab === 'politica' && canPolitica && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -383,7 +383,7 @@ const LegalManagement: React.FC = () => {
       {activeTab === 'cookies' && canCookies && (
         <div className="space-y-5">
           {/* Banner Config */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <Cookie className="h-4 w-4 text-blue-600" /> Configuração do Banner
@@ -401,7 +401,7 @@ const LegalManagement: React.FC = () => {
                   <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
                   <input type="text" value={bannerConfig[field.key] || ''} placeholder={field.placeholder}
                     onChange={e => setBannerConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 transition-colors"
                   />
                 </div>
               ))}
@@ -409,21 +409,21 @@ const LegalManagement: React.FC = () => {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Texto do Banner</label>
                 <textarea rows={2} value={bannerConfig.texto || ''}
                   onChange={e => setBannerConfig(prev => ({ ...prev, texto: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 transition-colors resize-none"
                 />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Descrição no Modal de Gerenciamento</label>
                 <textarea rows={2} value={bannerConfig.textoDescricaoGerenciamento || ''}
                   onChange={e => setBannerConfig(prev => ({ ...prev, textoDescricaoGerenciamento: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 transition-colors resize-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Categorias */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800 text-sm">Categorias de Cookies</h3>
               <button onClick={() => abrirFormCategoria()}
@@ -435,8 +435,8 @@ const LegalManagement: React.FC = () => {
 
             <div className="space-y-2">
               {categorias.map(cat => (
-                <div key={cat.id} className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50/50">
+                <div key={cat.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50/50 dark:bg-[#1a2535]">
                     <button onClick={() => setExpandedCat(expandedCat === cat.id ? null : cat.id)} className="flex items-center gap-2 flex-1 text-left">
                       {expandedCat === cat.id ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
                       <span className="text-sm font-medium text-gray-800">{cat.nome}</span>
@@ -476,7 +476,7 @@ const LegalManagement: React.FC = () => {
                       <label className="block text-xs font-medium text-gray-600 mb-1">Chave <span className="text-red-500">*</span></label>
                       <input type="text" value={catForm.chave} placeholder="ex: analytics"
                         onChange={e => setCatForm(prev => ({ ...prev, chave: e.target.value }))}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 font-mono"
+                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 font-mono"
                       />
                     </div>
                   )}
@@ -484,14 +484,14 @@ const LegalManagement: React.FC = () => {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Nome <span className="text-red-500">*</span></label>
                     <input type="text" value={catForm.nome} placeholder="Nome exibido"
                       onChange={e => setCatForm(prev => ({ ...prev, nome: e.target.value }))}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
                     />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-medium text-gray-600 mb-1">Descrição <span className="text-red-500">*</span></label>
                     <textarea rows={2} value={catForm.descricao}
                       onChange={e => setCatForm(prev => ({ ...prev, descricao: e.target.value }))}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 resize-none"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 resize-none"
                     />
                   </div>
                   <div className="flex items-center gap-4">
@@ -507,7 +507,7 @@ const LegalManagement: React.FC = () => {
                       <span className="text-xs text-gray-600">Ordem:</span>
                       <input type="number" value={catForm.ordem}
                         onChange={e => setCatForm(prev => ({ ...prev, ordem: parseInt(e.target.value) || 0 }))}
-                        className="w-16 px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400"
+                        className="w-16 px-2 py-1 text-xs border border-gray-200 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
                       />
                     </div>
                   </div>

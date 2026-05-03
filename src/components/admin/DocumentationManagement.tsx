@@ -389,7 +389,7 @@ const DocumentationManagement: React.FC = () => {
 
   // Conteúdo reutilizável da sidebar (desktop estático + mobile drawer)
   const sidebarContent = (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col overflow-hidden h-full">
+    <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col overflow-hidden h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
         <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Estrutura</span>
         <button
@@ -520,7 +520,7 @@ const DocumentationManagement: React.FC = () => {
         {selectedPage ? (
           <>
             {/* Toolbar */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-3 sm:px-4 py-2.5 mb-3 flex flex-wrap items-center gap-2 justify-between flex-shrink-0">
+            <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-3 sm:px-4 py-2.5 mb-3 flex flex-wrap items-center gap-2 justify-between flex-shrink-0">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <input
                   type="text"
@@ -570,7 +570,7 @@ const DocumentationManagement: React.FC = () => {
             <div className="flex-1 flex gap-3 min-h-0">
               {/* Editor */}
               {(previewMode === 'editor' || previewMode === 'split') && (
-                <div className={`flex flex-col ${previewMode === 'split' ? 'w-1/2' : 'flex-1'} bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden`}>
+                <div className={`flex flex-col ${previewMode === 'split' ? 'w-1/2' : 'flex-1'} bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden`}>
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex-shrink-0">
                     <Code2 className="h-3.5 w-3.5 text-gray-400" />
                     <span className="text-xs text-gray-500 dark:text-gray-300 font-medium">Markdown + Mermaid</span>
@@ -587,7 +587,7 @@ const DocumentationManagement: React.FC = () => {
 
               {/* Preview */}
               {(previewMode === 'preview' || previewMode === 'split') && (
-                <div className={`flex flex-col ${previewMode === 'split' ? 'w-1/2' : 'flex-1'} bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden`}>
+                <div className={`flex flex-col ${previewMode === 'split' ? 'w-1/2' : 'flex-1'} bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden`}>
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex-shrink-0">
                     <Eye className="h-3.5 w-3.5 text-gray-400" />
                     <span className="text-xs text-gray-500 dark:text-gray-300 font-medium">Preview</span>
@@ -602,7 +602,7 @@ const DocumentationManagement: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-center">
+          <div className="flex-1 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-center">
             <div className="text-center px-6">
               <div className="flex justify-center mb-3">
                 <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
@@ -624,7 +624,7 @@ const DocumentationManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setShowNewSection(false)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -682,7 +682,7 @@ const DocumentationManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={e => e.target === e.currentTarget && setShowNewPage(null)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 className="text-base font-bold text-gray-800 mb-4">Nova Página</h3>
             <input
               autoFocus
@@ -718,7 +718,7 @@ const DocumentationManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setEditingSection(null)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit2 className="h-4 w-4" />
@@ -776,7 +776,7 @@ const DocumentationManagement: React.FC = () => {
       {/* Modal: Confirmar Delete */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-red-100 rounded-full p-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />

@@ -110,10 +110,10 @@ const FeedbackManagement: React.FC = () => {
       {/* Contadores */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total',       value: contadores.total,      bg: 'bg-white dark:bg-gray-800',  text: 'text-gray-700 dark:text-gray-200',  border: 'border-gray-200 dark:border-gray-700' },
-          { label: 'Pendentes',   value: contadores.pendente,   bg: 'bg-white dark:bg-gray-800',  text: 'text-yellow-600 dark:text-yellow-400', border: 'border-gray-200 dark:border-gray-700' },
-          { label: 'Respondidos', value: contadores.respondido, bg: 'bg-white dark:bg-gray-800',  text: 'text-blue-600 dark:text-blue-400',   border: 'border-gray-200 dark:border-gray-700' },
-          { label: 'Aceitos',     value: contadores.aceito,     bg: 'bg-white dark:bg-gray-800',  text: 'text-green-600 dark:text-green-400', border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Total',       value: contadores.total,      bg: 'bg-white dark:!bg-[#243040]',  text: 'text-gray-700 dark:text-gray-200',  border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Pendentes',   value: contadores.pendente,   bg: 'bg-white dark:!bg-[#243040]',  text: 'text-yellow-600 dark:text-yellow-400', border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Respondidos', value: contadores.respondido, bg: 'bg-white dark:!bg-[#243040]',  text: 'text-blue-600 dark:text-blue-400',   border: 'border-gray-200 dark:border-gray-700' },
+          { label: 'Aceitos',     value: contadores.aceito,     bg: 'bg-white dark:!bg-[#243040]',  text: 'text-green-600 dark:text-green-400', border: 'border-gray-200 dark:border-gray-700' },
         ].map(card => (
           <div key={card.label} className={`${card.bg} border ${card.border} rounded-xl p-4 text-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}>
             <p className={`text-2xl font-bold ${card.text}`}>{card.value}</p>

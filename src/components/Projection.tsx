@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { ChartCard } from './projection/charts/ChartCard'
 import { buildMonthlyMktComponentsData, buildMonthlyScenarioData } from './projection/charts/buildData'
 import { GrowthPercentBarChart } from './projection/charts/GrowthPercentBarChart'
@@ -95,6 +96,7 @@ const API_BASE_URL = '/api'
 
 const Projection: React.FC = () => {
   const { token, user } = useAuth()
+  const { isDark } = useTheme()
   const [data, setData] = useState<ProjectionData>({
     despesasVariaveis: new Array(12).fill(0),
     despesasFixas: new Array(12).fill(0),
@@ -2316,8 +2318,10 @@ Continuar mesmo assim?`)
     className?: string
   }> = ({ value, className = '' }) => {
     const isNegative = value < 0
-    const textColor = isNegative ? 'text-red-600' : 'text-gray-900'
-    
+    const textColor = isNegative
+      ? 'text-red-500'
+      : isDark ? 'text-slate-200' : 'text-gray-900'
+
     return (
       <div className={`px-3 py-1 text-sm font-semibold text-center ${textColor} ${className}`}>
         {formatCurrency(value)}
@@ -3074,7 +3078,7 @@ Continuar mesmo assim?`)
         <>
       {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
       <div id="projection-section-resultadoFinanceiro" className="mb-8">
-        <div className="overflow-x-auto rounded-xl bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
+        <div className={`overflow-x-auto rounded-xl shadow-2xl border-2 ${isDark ? 'bg-[#1a2535] border-blue-800' : 'bg-gradient-to-br from-white to-blue-50 border-blue-200'}`}>
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
@@ -3101,8 +3105,8 @@ Continuar mesmo assim?`)
             </thead>
             <tbody>
               {/* Linha Previsto */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
+              <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
+                <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
                 </td>
@@ -3144,8 +3148,8 @@ Continuar mesmo assim?`)
               </tr>
 
               {/* Linha Médio */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaChartLine className="inline mr-2" /> Cenário Médio</td>
+              <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
+                <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaChartLine className="inline mr-2" /> Cenário Médio</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
                 </td>
@@ -3187,8 +3191,8 @@ Continuar mesmo assim?`)
               </tr>
 
               {/* Linha Máximo */}
-              <tr className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 text-gray-800 font-semibold sticky left-0 z-10" style={{backgroundColor: '#fbfdff'}}><FaRocket className="inline mr-2" /> Cenário Máximo</td>
+              <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
+                <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaRocket className="inline mr-2" /> Cenário Máximo</td>
                 <td className="px-3 py-3">
                   <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
                 </td>
@@ -3234,9 +3238,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Resultado Financeiro */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Resultado Financeiro:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Resultado Financeiro:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, cálculo automático</p>
             <p><span className="font-semibold">Fórmula:</span> Faturamento Total - Orçamento</p>

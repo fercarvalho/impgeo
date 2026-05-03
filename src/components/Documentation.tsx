@@ -185,7 +185,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
 
   // Sidebar reutilizável (mesmo conteúdo no mobile overlay e no desktop estático)
   const sidebarContent = (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden h-full flex flex-col">
+    <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden h-full flex flex-col">
       {/* Busca */}
       <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
         <div className="relative">
@@ -287,7 +287,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
       )}
 
       {sections.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
               <FileText className="h-10 w-10 text-blue-400" />
@@ -358,7 +358,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
           {/* Conteúdo principal */}
           <main className="flex-1 min-w-0">
             {activePage ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                 {/* Título da página */}
                 <div className="px-5 sm:px-8 py-4 sm:py-5 border-b border-gray-100 dark:border-gray-700">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
@@ -385,7 +385,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                 />
               </div>
             ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
+              <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
                 <div className="flex justify-center mb-4">
                   <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
                     <BookOpen className="h-10 w-10 text-blue-400" />

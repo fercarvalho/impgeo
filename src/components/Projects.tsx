@@ -377,7 +377,7 @@ const Projects: React.FC = () => {
               placeholder="Nome..."
               value={filters.name}
               onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
-              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
             />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
@@ -387,7 +387,7 @@ const Projects: React.FC = () => {
               placeholder="Cliente..."
               value={filters.client}
               onChange={(e) => setFilters(prev => ({ ...prev, client: e.target.value }))}
-              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
             />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
@@ -395,7 +395,7 @@ const Projects: React.FC = () => {
             <select
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200 w-full transition-all duration-200"
+              className="px-2 md:px-3 py-1.5 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
             >
               <option value="">Todos</option>
               <option value="ativo">Ativo</option>
@@ -428,7 +428,7 @@ const Projects: React.FC = () => {
       )}
 
       {/* Tabela */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:!bg-[#243040] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -564,7 +564,7 @@ const Projects: React.FC = () => {
       {/* Modal Import/Export */}
       {isImportExportOpen && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
@@ -613,7 +613,7 @@ const Projects: React.FC = () => {
                 )}
               </div>
 
-              <button onClick={() => setIsImportExportOpen(false)} className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all duration-200">
+              <button onClick={() => setIsImportExportOpen(false)} className="w-full px-4 py-2 bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 rounded-xl font-semibold transition-all duration-200">
                 Cancelar
               </button>
             </div>
@@ -624,7 +624,7 @@ const Projects: React.FC = () => {
       {/* Modal Novo/Editar Projeto */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" />{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
@@ -831,7 +831,7 @@ const Projects: React.FC = () => {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
               <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
             </div>
             </div>
@@ -842,7 +842,7 @@ const Projects: React.FC = () => {
       {/* Modal Seleção de Serviços */}
       {isServicesModalOpen && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsServicesModalOpen(false) }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Selecionar Serviços</h2>
               <button onClick={() => setIsServicesModalOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
@@ -903,7 +903,7 @@ const Projects: React.FC = () => {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => { setForm(prev => ({ ...prev, selectedServices: [], value: '0' })) }}
-                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
+                className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200"
               >
                 Limpar Tudo
               </button>

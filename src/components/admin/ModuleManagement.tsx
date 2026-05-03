@@ -79,7 +79,7 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border-2 flex items-center gap-3 hover:-translate-y-0.5 transition-all duration-200 ${
+      className={`bg-white dark:!bg-[#243040] rounded-xl shadow-md p-4 border-2 flex items-center gap-3 hover:-translate-y-0.5 transition-all duration-200 ${
         module.isSystem ? 'border-blue-300 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700'
       } ${isDragging ? 'shadow-xl' : ''}`}
     >
@@ -352,7 +352,7 @@ const ModuleManagement: React.FC = () => {
       {/* Modal: bloqueio admin */}
       {showAdminBlockModal && createPortal(
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-white" />
@@ -382,7 +382,7 @@ const ModuleManagement: React.FC = () => {
       {/* Modal: criar/editar módulo */}
       {showModuleModal && createPortal(
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <h3 className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
               <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="h-5 w-5" /></button>

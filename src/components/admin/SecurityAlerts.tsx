@@ -200,7 +200,7 @@ export default function SecurityAlerts() {
             { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: stats.byType?.length ?? 0, label: 'Tipos Diferentes' },
             { icon: <Clock className="w-8 h-8 text-blue-500" />, value: stats.period, label: 'Período' },
           ].map((card, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3">
+            <div key={i} className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3">
               <div className="flex-shrink-0">{card.icon}</div>
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{card.value}</div>
@@ -213,7 +213,7 @@ export default function SecurityAlerts() {
 
       {/* Distribuição por Tipo */}
       {stats && stats.byType && stats.byType.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
+        <div className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-600" /> Distribuição por Tipo
           </h3>
@@ -237,7 +237,7 @@ export default function SecurityAlerts() {
       )}
 
       {/* Lista de Alertas */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
           <Bell className="w-4 h-4 text-blue-600" /> Alertas Recentes
         </h3>

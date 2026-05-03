@@ -300,6 +300,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware de auth opcional — preenche req.user se token válido, mas não bloqueia sem token
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return next();
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (!err) req.user = user;
+    next();
+  });
+};
+
 const publicApiRoutes = [
   '/auth/login',
   '/auth/recuperar-senha',
@@ -3988,8 +3999,8 @@ app.post('/api/admin/feedbacks/:id/aceitar', authenticateToken, requireSuperAdmi
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 
-// GET /api/faq — autenticado; filtra itens admin_only pelo role do usuário
-app.get('/api/faq', async (req, res) => {
+// GET /api/faq — auth opcional; filtra por visibilidade conforme role do usuário
+app.get('/api/faq', optionalAuth, async (req, res) => {
   try {
     const userRole = req.user?.role || 'guest';
     const items = await db.obterFAQ(userRole);
@@ -4504,7 +4515,7 @@ app.post('/api/admin/roadmap/:id/parar-tempo', authenticateToken, requireSuperAd
 // ─── RODAPÉ ──────────────────────────────────────────────────────────────────
 
 // Pública: retorna dados do rodapé para o componente Footer
-app.get('/api/rodape', async (req, res) => {
+app.get('/api/rodape', optionalAuth, async (req, res) => {
   try {
     const data = await db.obterRodapeCompleto();
     res.json({ success: true, data });

@@ -576,7 +576,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-[1180px] w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -873,7 +873,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {showProfileModal && editingUser && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowProfileModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Editar cadastro de {editingUser.username}</h2>
               <button onClick={() => setShowProfileModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -985,7 +985,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
               )}
 
               <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowProfileModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button type="button" onClick={() => setShowProfileModal(false)} className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   Salvar cadastro
@@ -998,7 +998,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {showUsernameModal && editingUser && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowUsernameModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar nome de usuário</h2>
               <button onClick={() => setShowUsernameModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -1008,7 +1008,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
             <form onSubmit={handleUsernameUpdate}>
               <input type="text" required value={usernameForm.username} onChange={(e) => setUsernameForm({ username: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
               <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowUsernameModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button type="button" onClick={() => setShowUsernameModal(false)} className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   Salvar nome
@@ -1021,7 +1021,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {showPasswordModal && editingUser && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowPasswordModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Alterar senha de {editingUser.username}</h2>
               <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -1034,7 +1034,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
                 <input type="password" required placeholder="Confirmar nova senha" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowPasswordModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
+                <button type="button" onClick={() => setShowPasswordModal(false)} className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   Salvar senha
@@ -1047,7 +1047,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {showModulesModal && modulesTargetUser && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setShowModulesModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Módulos de acesso de {modulesTargetUser.username}</h2>
               <button onClick={() => setShowModulesModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -1083,7 +1083,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
               <button
                 type="button"
                 onClick={() => setShowModulesModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]"
               >
                 Cancelar
               </button>
@@ -1103,12 +1103,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {temporaryPassword && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setTemporaryPassword(null)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Senha resetada</h2>
             <p className="text-gray-600 mb-4">
               Senha temporária de <strong>{temporaryPassword.username}</strong>:
             </p>
-            <div className="bg-gray-100 rounded-lg px-3 py-2 font-mono text-gray-900 break-all">{temporaryPassword.value}</div>
+            <div className="bg-gray-100 dark:!bg-[#1e2d3e] rounded-lg px-3 py-2 font-mono text-gray-900 dark:text-gray-100 break-all">{temporaryPassword.value}</div>
             <p className="text-xs text-gray-500 mt-3">Compartilhe esta senha com o usuário e peça para alterar no próximo login.</p>
             <div className="mt-5 flex justify-end">
               <button onClick={() => setTemporaryPassword(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Fechar</button>
@@ -1119,13 +1119,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ embedded = false }) => {
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Confirmar exclusão</h2>
             <p className="text-gray-600 mb-6">
               Tem certeza que deseja excluir <strong>{users.find((u) => u.id === deleteConfirm)?.username}</strong>?
             </p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
+              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]">Cancelar</button>
               <button onClick={() => handleDelete(deleteConfirm)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
                 <Trash2 className="h-4 w-4" />
                 Excluir

@@ -469,7 +469,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   placeholder="Nome da transação..."
                   value={filters.description}
                   onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full pr-7"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full pr-7"
                 />
                 {filters.description && (
                   <button
@@ -490,7 +490,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 aria-label="Filtrar por tipo"
                 value={filters.type}
                 onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value as any }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
               >
                 <option value="">Todos os tipos</option>
                 <option value="Receita">Receitas</option>
@@ -507,7 +507,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 placeholder="Categoria..."
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
@@ -520,7 +520,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 placeholder="Subcategoria..."
                 value={filters.subcategory}
                 onChange={(e) => setFilters(prev => ({ ...prev, subcategory: e.target.value }))}
-                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
@@ -533,7 +533,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
                 />
                 <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
               </div>
@@ -548,7 +548,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:text-gray-100 w-full"
+                  className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
                 />
                 <Calendar className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-blue-600 pointer-events-none" />
               </div>
@@ -570,7 +570,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             <p className="text-gray-500 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 min-w-max">
               <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                 {permissions.canDelete && (
@@ -677,7 +677,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal Nova/Editar Transação */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { closeModal() } }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
@@ -864,7 +864,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={closeModal} className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={closeModal} className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:!bg-[#2d3f52] dark:hover:!bg-[#354b60] dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
               <button onClick={saveTransaction} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">Salvar</button>
             </div>
           </div>
@@ -874,7 +874,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal Importar/Exportar (estrutura Alya com visual IMPGEO) */}
       {isImportExportOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="relative bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
               <div className="flex items-center gap-3">
@@ -927,7 +927,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
               {/* Footer */}
               <div className="mt-6">
-                <button onClick={() => setIsImportExportOpen(false)} className="w-full px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 text-gray-800 font-semibold transition-all duration-200">
+                <button onClick={() => setIsImportExportOpen(false)} className="w-full px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:!bg-[#2d3f52] dark:hover:!bg-[#354b60] dark:text-gray-200 text-gray-800 font-semibold transition-all duration-200">
                   Cancelar
                 </button>
               </div>
@@ -939,7 +939,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal Adicionar Nova Subcategoria */}
       {isAddSubcategoryOpen && (
         <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') } }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" /> Adicionar Nova Subcategoria</h2>
               <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
@@ -972,7 +972,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
               <button onClick={addNewSubcategory} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Adicionar</button>
             </div>
           </div>
@@ -983,7 +983,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Modal Remover Subcategoria */}
       {isRemoveSubcategoryOpen && (
         <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRemoveSubcategoryOpen(false) }}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Trash2 className="w-5 h-5" /> Remover Subcategoria</h2>
               <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
@@ -1006,7 +1006,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">Remover da Lista</button>
               </div>
             </div>
@@ -1067,7 +1067,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       </div>
                     </button>
                   </div>
-                  <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setExtratoStep(0); setExtratoFile(null) }} className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">Cancelar</button>
+                  <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setExtratoStep(0); setExtratoFile(null) }} className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors">Cancelar</button>
                 </div>
               )}
 
@@ -1077,7 +1077,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   const isDisabled = disabledInFatura && importType === 'fatura'
                   if (isDisabled) return (
                     <div className="relative group">
-                      <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed w-full">
+                      <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
                         <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
                           <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
                           <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
@@ -1103,7 +1103,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 }
                 const DevBtn = ({ label, bg, domain, initials }: { label: string; bg: string; domain: string; initials: string }) => (
                   <div className="relative group">
-                    <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed w-full">
+                    <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
                       <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
                         <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
                         <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
@@ -1138,7 +1138,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               {/* Rodapé passo 1 */}
               {extratoStep === 1 && (
                 <div className="mt-4 flex gap-3">
-                  <button type="button" onClick={() => { setSelectedBank(null); setExtratoStep(0) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all">Voltar</button>
+                  <button type="button" onClick={() => { setSelectedBank(null); setExtratoStep(0) }} className="flex-1 px-4 py-3 bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-200 dark:hover:!bg-[#354b60] transition-all">Voltar</button>
                   <button type="button" disabled={!selectedBank} onClick={() => setExtratoStep(2)}
                     className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${selectedBank ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                     <ChevronRight className="w-4 h-4" />Continuar
@@ -1183,7 +1183,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" />
                   </div>
                   <div className="flex gap-3">
-                    <button type="button" onClick={() => { setExtratoStep(1); setExtratoFile(null) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
+                    <button type="button" onClick={() => { setExtratoStep(1); setExtratoFile(null) }} className="flex-1 px-4 py-3 bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-200 dark:hover:!bg-[#354b60] transition-all flex items-center justify-center gap-2">
                       <ChevronLeft className="w-4 h-4" />Voltar
                     </button>
                     <button type="button" disabled={!extratoFile || isUploadingExtrato}
@@ -1286,7 +1286,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       <Plus className="w-4 h-4" />Adicionar transação
                     </button>
                     <div className="flex gap-3 pt-1">
-                      <button type="button" onClick={() => { setExtratoStep(2); setExtratoPreview([]) }} className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
+                      <button type="button" onClick={() => { setExtratoStep(2); setExtratoPreview([]) }} className="flex-1 px-4 py-3 bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-200 dark:hover:!bg-[#354b60] transition-all flex items-center justify-center gap-2">
                         <ChevronLeft className="w-4 h-4" />Voltar
                       </button>
                       <button type="button" disabled={extratoPreview.length === 0 || isConfirmingImport}

@@ -136,7 +136,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         }
       }}
     >
-      <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
@@ -160,7 +160,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         ) : profileData ? (
           <div className="space-y-6">
             {/* Avatar e Nome */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm text-center">
+            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-center">
               <div className="flex flex-col items-center gap-4">
                 <LazyAvatar
                   photoUrl={profileData.photoUrl}
@@ -170,16 +170,16 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                   size="lg"
                 />
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800">
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                     {profileData.firstName && profileData.lastName
                       ? `${profileData.firstName} ${profileData.lastName}`
                       : profileData.username}
                   </h3>
-                  <p className="text-gray-500 mt-1">@{profileData.username}</p>
+                  <p className="text-gray-500 dark:text-gray-400 mt-1">@{profileData.username}</p>
                 </div>
                 <button
                   onClick={() => setShowEditProfileModal(true)}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
                 >
                   <Edit className="w-4 h-4" />
                   Editar Perfil
@@ -188,49 +188,49 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
 
             {/* Informações Básicas */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-amber-600" />
+            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-500" />
                 Informações Básicas
               </h3>
               <div className="space-y-4">
                 {profileData.email && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Mail className="w-4 h-4" />
                       Email
                     </label>
-                    <p className="text-lg text-gray-800 mt-1">{profileData.email}</p>
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1">{profileData.email}</p>
                   </div>
                 )}
 
                 {profileData.phone && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Phone className="w-4 h-4" />
                       Telefone
                     </label>
-                    <p className="text-lg text-gray-800 mt-1">{applyPhoneMask(profileData.phone)}</p>
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1">{applyPhoneMask(profileData.phone)}</p>
                   </div>
                 )}
 
                 {profileData.cpf && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <CreditCard className="w-4 h-4" />
                       CPF
                     </label>
-                    <p className="text-lg text-gray-800 mt-1">{applyCpfMask(profileData.cpf)}</p>
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1">{applyCpfMask(profileData.cpf)}</p>
                   </div>
                 )}
 
                 {profileData.birthDate && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
                       Data de Nascimento
                     </label>
-                    <p className="text-lg text-gray-800 mt-1">
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1">
                       {(() => {
                         const [year, month, day] = profileData.birthDate.split('T')[0].split('-');
                         return `${day}/${month}/${year}`;
@@ -241,8 +241,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
 
                 {profileData.gender && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Gênero</label>
-                    <p className="text-lg text-gray-800 mt-1 capitalize">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Gênero</label>
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1 capitalize">
                       {profileData.gender.replace('-', ' ')}
                     </p>
                   </div>
@@ -250,21 +250,21 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
 
                 {profileData.position && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Briefcase className="w-4 h-4" />
                       Cargo
                     </label>
-                    <p className="text-lg text-gray-800 mt-1">{profileData.position}</p>
+                    <p className="text-lg text-gray-800 dark:text-gray-200 mt-1">{profileData.position}</p>
                   </div>
                 )}
 
                 {profileData.address && (profileData.address.cep || profileData.address.street) && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
                       <MapPin className="w-4 h-4" />
                       Endereço
                     </label>
-                    <div className="text-lg text-gray-800 mt-1 space-y-1">
+                    <div className="text-lg text-gray-800 dark:text-gray-200 mt-1 space-y-1">
                       {profileData.address.street && (
                         <p>
                           {profileData.address.street}
@@ -283,14 +283,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                         </p>
                       )}
                       {profileData.address.cep && (
-                        <p className="text-sm text-gray-500">CEP: {applyCepMask(profileData.address.cep)}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">CEP: {applyCepMask(profileData.address.cep)}</p>
                       )}
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Função</label>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Função</label>
                   <div className="mt-1">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleBadgeColor(profileData.role)}`}>
                       <Shield className="w-3 h-3 mr-1" />
@@ -300,7 +300,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
                   <div className="mt-1">
                     {profileData.isActive !== false ? (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
@@ -319,20 +319,20 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
 
             {/* Acesso */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-amber-600" />
+            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-500" />
                 Acesso
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Módulos Ativos</label>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 block">Módulos Ativos</label>
                   <div className="flex flex-wrap gap-2">
                     {profileData.modules && profileData.modules.length > 0 ? (
                       profileData.modules.map((module) => (
                         <span
                           key={module}
-                          className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                          className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
                         >
                           {module}
                         </span>
@@ -344,25 +344,25 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     Última Data de Login
                   </label>
-                  <p className="text-gray-800 mt-1">{formatDate(profileData.lastLogin)}</p>
+                  <p className="text-gray-800 dark:text-gray-200 mt-1">{formatDate(profileData.lastLogin)}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Data de Criação da Conta
                   </label>
-                  <p className="text-gray-800 mt-1">{formatDate(profileData.createdAt)}</p>
+                  <p className="text-gray-800 dark:text-gray-200 mt-1">{formatDate(profileData.createdAt)}</p>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             Erro ao carregar dados do perfil
           </div>
         )}

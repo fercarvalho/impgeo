@@ -75,7 +75,7 @@ const AdminTabs: React.FC = () => {
             );
           })}
         </div>
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white dark:from-[#0f172a] to-transparent" />
       </div>
 
       <div className="mt-6">

@@ -261,7 +261,7 @@ const FAQManagement: React.FC = () => {
 
       {/* Lista */}
       {items.length === 0 ? (
-        <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
           <HelpCircle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Nenhuma pergunta cadastrada</p>
           <p className="text-gray-400 text-sm mt-1">Clique em "Nova Pergunta" para começar</p>
@@ -271,7 +271,7 @@ const FAQManagement: React.FC = () => {
           {items.map((item, index) => (
             <div
               key={item.id}
-              className={`bg-white rounded-2xl border-2 p-5 flex gap-4 items-start transition-all ${
+              className={`bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 p-5 flex gap-4 items-start transition-all ${
                 item.ativo ? 'border-gray-200' : 'border-gray-100 opacity-60'
               }`}
             >
@@ -340,7 +340,7 @@ const FAQManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget && !isSaving) setShowModal(false); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -434,7 +434,7 @@ const FAQManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="flex justify-center mb-4">
               <div className="bg-red-100 rounded-full p-4">
                 <AlertTriangle className="h-8 w-8 text-red-500" />

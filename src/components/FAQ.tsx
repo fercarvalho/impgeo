@@ -72,7 +72,7 @@ const FAQ: React.FC = () => {
           value={busca}
           onChange={e => setBusca(e.target.value)}
           placeholder="Buscar pergunta ou resposta..."
-          className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none"
+          className="w-full pl-11 pr-4 py-3 bg-[#ffffff] dark:bg-[#243040] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
         />
       </div>
 
@@ -82,7 +82,7 @@ const FAQ: React.FC = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
       ) : itemsFiltrados.length === 0 ? (
-        <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
           <HelpCircle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">
             {busca ? 'Nenhuma pergunta encontrada para a busca' : 'Nenhuma pergunta disponível'}
@@ -99,7 +99,7 @@ const FAQ: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {itemsFiltrados.map(item => (
-            <div key={item.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden transition-all duration-200">
+            <div key={item.id} className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden transition-all duration-200">
               <button
                 onClick={() => toggle(item.id)}
                 className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"

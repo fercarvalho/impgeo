@@ -111,8 +111,8 @@ const TipTapEditor: React.FC<{ content: string; onChange: (html: string) => void
   );
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-      <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-100 bg-gray-50">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-[#ffffff] dark:bg-[#141e2d]">
+      <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-[#111827]">
         <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Negrito"><strong>N</strong></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Itálico"><em>I</em></ToolBtn>
         <div className="w-px bg-gray-200 mx-1" />
@@ -150,7 +150,7 @@ const SortableLinkItem: React.FC<SortableLinkItemProps> = ({ link, onEdit, onDel
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 group"
+      className="flex items-center gap-2 bg-[#ffffff] dark:bg-[#243040] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 group"
     >
       <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0">
         <GripVertical className="h-4 w-4" />
@@ -230,7 +230,7 @@ const SortableColuna: React.FC<SortableColunaProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-gray-50 border border-gray-200 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
+      className="bg-[#1e2d42] border border-gray-700 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
     >
       {/* Header da coluna */}
       <div className="flex items-center gap-2 mb-3">
@@ -317,8 +317,8 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
       style={style}
       className={`flex items-center gap-3 border rounded-xl px-4 py-3 transition-colors ${
         link.ativo
-          ? 'bg-white border-gray-200'
-          : 'bg-gray-50 border-gray-200 opacity-60'
+          ? 'bg-[#ffffff] dark:bg-[#243040] border-gray-200 dark:border-gray-700'
+          : 'bg-gray-50 dark:bg-[#1a2535] border-gray-200 dark:border-gray-700 opacity-60'
       }`}
     >
       <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0">
@@ -329,7 +329,7 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
       <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
         link.ativo
           ? 'bg-green-100 text-green-700'
-          : 'bg-gray-100 text-gray-500'
+          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
       }`}>
         {link.ativo ? 'Ativo' : 'Inativo'}
       </span>
@@ -917,7 +917,7 @@ const FooterManagement: React.FC = () => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                    : 'bg-[#ffffff] dark:!bg-[#2d3f52] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-blue-300 hover:text-blue-600'
                 }`}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
@@ -927,7 +927,7 @@ const FooterManagement: React.FC = () => {
           })}
         </div>
         {/* fade right hint de scroll */}
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white dark:from-[#0f172a] to-transparent" />
       </div>
 
       {/* ─── ABA: COLUNAS ─────────────────────────────────────────── */}
@@ -986,7 +986,7 @@ const FooterManagement: React.FC = () => {
                 type="text"
                 value={config.empresa_nome}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_nome: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
@@ -995,7 +995,7 @@ const FooterManagement: React.FC = () => {
                 type="text"
                 value={config.empresa_tagline}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_tagline: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
@@ -1004,7 +1004,7 @@ const FooterManagement: React.FC = () => {
                 value={config.empresa_descricao}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_descricao: e.target.value }))}
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
               />
             </div>
             <div>
@@ -1013,7 +1013,7 @@ const FooterManagement: React.FC = () => {
                 type="text"
                 value={config.empresa_autor}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_autor: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
@@ -1025,7 +1025,7 @@ const FooterManagement: React.FC = () => {
                 type="text"
                 value={config.empresa_logo}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_logo: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
               />
             </div>
             <button
@@ -1034,7 +1034,7 @@ const FooterManagement: React.FC = () => {
               className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 empresaDirty && isSavingConfig === null
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 dark:bg-[#1a2535] text-gray-400 cursor-not-allowed'
               }`}
             >
               {isSavingConfig !== null ? (
@@ -1106,7 +1106,7 @@ const FooterManagement: React.FC = () => {
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
                       config.info_alinhamento === valor
                         ? 'bg-blue-500 border-blue-500 text-white shadow-md'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-blue-400'
+                        : 'bg-[#ffffff] dark:!bg-[#2d3f52] border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400'
                     }`}
                   >
                     <Icone className="h-4 w-4" />
@@ -1121,7 +1121,7 @@ const FooterManagement: React.FC = () => {
               <button
                 onClick={aplicarNegrito}
                 title="Negrito (selecione o texto e clique)"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all font-semibold"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffffff] dark:!bg-[#2d3f52] border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 transition-all font-semibold"
               >
                 <Bold className="h-3.5 w-3.5" />
                 Negrito
@@ -1138,7 +1138,7 @@ const FooterManagement: React.FC = () => {
               onChange={e => setConfig(prev => ({ ...prev, info_texto: e.target.value }))}
               rows={8}
               placeholder="Ex: CNPJ: 00.000.000/0001-00 · Razão Social: Empresa Ltda.&#10;Endereço: Rua Exemplo, 123 · São Paulo, SP · CEP 00000-000&#10;&#10;Todos os direitos reservados."
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none font-mono"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none font-mono"
             />
 
             {/* Botão salvar */}
@@ -1148,7 +1148,7 @@ const FooterManagement: React.FC = () => {
               className={`mt-3 flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 infoDirty && isSavingConfig === null
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 dark:bg-[#1a2535] text-gray-400 cursor-not-allowed'
               }`}
             >
               {isSavingConfig === 'info_texto' ? (
@@ -1208,7 +1208,7 @@ const FooterManagement: React.FC = () => {
                 type="text"
                 value={config.copyright}
                 onChange={e => setConfig(prev => ({ ...prev, copyright: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <button
@@ -1217,7 +1217,7 @@ const FooterManagement: React.FC = () => {
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                 config.copyright !== configOriginal.copyright && isSavingConfig === null
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 dark:bg-[#1a2535] text-gray-400 cursor-not-allowed'
               }`}
             >
               {isSavingConfig === 'copyright' ? (
@@ -1257,7 +1257,7 @@ const FooterManagement: React.FC = () => {
               </p>
               {/* Preview da barra */}
               {bottomLinks.filter(l => l.ativo).length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-x-0 text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded-xl px-4 py-2">
+                <div className="mt-3 flex flex-wrap items-center gap-x-0 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-[#1a2535] border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2">
                   {bottomLinks.filter(l => l.ativo).map((item, idx, arr) => (
                     <span key={item.id} className="flex items-center">
                       <span className="px-1 font-medium">{item.texto}</span>
@@ -1322,7 +1322,7 @@ const FooterManagement: React.FC = () => {
                   value={config.versao_sistema}
                   onChange={e => setConfig(prev => ({ ...prev, versao_sistema: e.target.value }))}
                   placeholder="ex: 2.0 Beta"
-                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                  className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                 />
               </div>
               <button
@@ -1331,7 +1331,7 @@ const FooterManagement: React.FC = () => {
                 className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                   config.versao_sistema !== configOriginal.versao_sistema && isSavingConfig === null
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-100 dark:bg-[#1a2535] text-gray-400 cursor-not-allowed'
                 }`}
               >
                 {isSavingConfig === 'versao_sistema' ? (
@@ -1391,7 +1391,7 @@ const FooterManagement: React.FC = () => {
                 className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
                   config.notas_versao !== configOriginal.notas_versao && isSavingConfig === null
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-100 dark:bg-[#1a2535] text-gray-400 cursor-not-allowed'
                 }`}
               >
                 {isSavingConfig === 'notas_versao' ? (
@@ -1413,7 +1413,7 @@ const FooterManagement: React.FC = () => {
       {/* ─── MODAL DE LINK ─────────────────────────────────────────── */}
       {showModalLink && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-base font-bold text-gray-800">
@@ -1433,7 +1433,7 @@ const FooterManagement: React.FC = () => {
                 <select
                   value={linkColunaId}
                   onChange={e => setLinkColunaId(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   {colunas.map(c => (
                     <option key={c.id} value={c.id}>{c.titulo}</option>
@@ -1451,12 +1451,12 @@ const FooterManagement: React.FC = () => {
                   placeholder="Ex: Entre em contato"
                   value={linkTexto}
                   onChange={e => setLinkTexto(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
 
               {/* Toggle é link */}
-              <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
                   <p className="text-sm font-semibold text-gray-700">É um link clicável?</p>
                   <p className="text-xs text-gray-500">
@@ -1482,7 +1482,7 @@ const FooterManagement: React.FC = () => {
                     placeholder="https://..."
                     value={linkUrl}
                     onChange={e => setLinkUrl(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                   />
                 </div>
               )}
@@ -1500,7 +1500,7 @@ const FooterManagement: React.FC = () => {
                 <button
                   onClick={fecharModalLink}
                   disabled={isSavingLink}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -1524,7 +1524,7 @@ const FooterManagement: React.FC = () => {
       {/* ─── MODAL DE CONFIRMAÇÃO DE DELEÇÃO ─────────────────────── */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -1541,7 +1541,7 @@ const FooterManagement: React.FC = () => {
               <button
                 onClick={() => setDeleteConfirm(null)}
                 disabled={isDeleting}
-                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -1564,7 +1564,7 @@ const FooterManagement: React.FC = () => {
       {/* ─── MODAL DE BOTTOM LINK ────────────────────────────────── */}
       {showModalBottom && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-base font-bold text-gray-800">
@@ -1586,7 +1586,7 @@ const FooterManagement: React.FC = () => {
                   placeholder="Ex: Política de Privacidade"
                   value={bottomTexto}
                   onChange={e => setBottomTexto(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
 
@@ -1600,12 +1600,12 @@ const FooterManagement: React.FC = () => {
                   placeholder="https://... ou mailto:..."
                   value={bottomUrl}
                   onChange={e => setBottomUrl(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-[#141e2d] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                 />
               </div>
 
               {/* Status */}
-              <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
                   <p className="text-sm font-semibold text-gray-700">Ativo</p>
                   <p className="text-xs text-gray-500">
@@ -1633,7 +1633,7 @@ const FooterManagement: React.FC = () => {
                 <button
                   onClick={fecharModalBottom}
                   disabled={isSavingBottom}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -1657,7 +1657,7 @@ const FooterManagement: React.FC = () => {
       {/* ─── MODAL CONFIRMAÇÃO DELETE BOTTOM LINK ────────────────── */}
       {deleteBottomConfirm && (
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200">
+          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -1673,7 +1673,7 @@ const FooterManagement: React.FC = () => {
               <button
                 onClick={() => setDeleteBottomConfirm(null)}
                 disabled={isDeletingBottom}
-                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>

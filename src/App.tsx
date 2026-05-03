@@ -59,7 +59,7 @@ import Footer from './components/Footer'
 import CommitVersionModal from './components/CommitVersionModal'
 import VersaoNovaModal from './components/VersaoNovaModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { ThemeProvider } from './contexts/ThemeContext'
+import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from './components/ThemeToggle'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -189,6 +189,7 @@ const AppContent: React.FC = () => {
 const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
   const permissions = usePermissions();
   const { token } = useAuth();
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
@@ -1239,16 +1240,16 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 200, height: 200 }}>
                   <div style={{
                     width: 188, height: 188, borderRadius: '50%',
-                    background: `conic-gradient(${color} ${deg}deg, #e5e7eb ${deg}deg)`,
+                    background: `conic-gradient(${color} ${deg}deg, ${isDark ? '#334155' : '#e5e7eb'} ${deg}deg)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <div style={{
                       width: 136, height: 136, borderRadius: '50%',
-                      background: 'white',
+                      background: isDark ? '#1e293b' : 'white',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <span className="text-3xl font-black" style={{ color }}>{progressoPercentual.toFixed(0)}%</span>
-                      <span className="text-xs text-gray-500 font-medium">da meta</span>
+                      <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>da meta</span>
                     </div>
                   </div>
                 </div>
@@ -1260,21 +1261,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               const resultado = totalReceitas - totalDespesas;
               return (
                 <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:!bg-[#243040] rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Meta</div>
                     <div className="text-xl font-black text-gray-800 dark:text-gray-100">R$ {metaValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:!bg-[#243040] rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
                     <div className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Realizado</div>
                     <div className="text-xl font-black text-emerald-700">R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:!bg-[#243040] rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
                     <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${resultado >= 0 ? 'text-blue-600' : 'text-red-600'}`}>Resultado</div>
                     <div className={`text-xl font-black ${resultado >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                       {resultado >= 0 ? '+' : ''}R$ {resultado.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:!bg-[#243040] rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
                     <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${margemLiquida >= 0 ? 'text-violet-600' : 'text-red-600'}`}>Margem</div>
                     <div className={`text-xl font-black ${margemLiquida >= 0 ? 'text-violet-700' : 'text-red-700'}`}>{margemLiquida.toFixed(1)}%</div>
                   </div>
@@ -2870,7 +2871,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const total = data.reduce((sum, item) => sum + item.value, 0);
 
       return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mt-4">
+        <div className="bg-white dark:!bg-[#243040] p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mt-4">
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">{title}</h3>
           {hasData ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -2974,7 +2975,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             const margem = totalReceitasMes > 0 ? (lucroLiquidoMes / totalReceitasMes) * 100 : 0
             return (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
                     <DollarSign className="w-5 h-5 text-emerald-600" />
                   </div>
@@ -2983,7 +2984,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     <p className="text-xl font-black text-emerald-600">{recCount} <span className="text-sm font-semibold">lançamento{recCount !== 1 ? 's' : ''}</span></p>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
                     <TrendingDown className="w-5 h-5 text-red-600" />
                   </div>
@@ -2992,7 +2993,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     <p className="text-xl font-black text-red-600">{despCount} <span className="text-sm font-semibold">lançamento{despCount !== 1 ? 's' : ''}</span></p>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
+                <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${lucroLiquidoMes >= 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
                     <Wallet className={`w-5 h-5 ${lucroLiquidoMes >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
                   </div>
@@ -3324,7 +3325,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             )
           })()}
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_4px_24px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-gray-600 overflow-hidden">
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_4px_24px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-gray-600 overflow-hidden">
             {transacoesRecentes.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="flex justify-center mb-3">

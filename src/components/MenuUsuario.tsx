@@ -99,7 +99,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
   const dropdownContent = showMenu ? (
     <div
       ref={menuRef}
-      className="fixed w-56 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-2xl border border-blue-200/50 dark:border-blue-800/40 overflow-hidden z-[9999]"
+      className="fixed w-56 bg-white/95 dark:!bg-[#243040]/95 backdrop-blur-md rounded-2xl shadow-2xl border border-blue-200/50 dark:border-blue-800/40 overflow-hidden z-[9999]"
       style={{
         top: `${dropdownPosition.top}px`,
         right: `${dropdownPosition.right}px`,
