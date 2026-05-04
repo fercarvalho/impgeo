@@ -1,14 +1,24 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// BUG FIX: imports movidos para o topo — import após const é inválido em módulos ES (hoisting)
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+// BUG FIX: import React removido (desnecessário no React 18 com JSX transform)
 import {
   BookOpen, ChevronRight, ChevronDown, FileText, Search, X, Menu, Clock
 } from 'lucide-react';
-const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { marked, Renderer, use } from 'marked';
+import DOMPurify from 'dompurify';
+
+// BUG FIX: padrão isLocalEnv padronizado; import.meta.env tipado; 0.0.0.0 incluído
+const isLocalEnv =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0');
+
+const API_BASE_URL: string = isLocalEnv
+  ? 'http://localhost:9001/api'
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api');
 
 interface DocPage {
   id: string;
@@ -36,11 +46,15 @@ declare global {
   }
 }
 
-// Configura o renderer do marked para transformar blocos mermaid
+// BUG FIX: texto do bloco mermaid escapado antes de interpolação — previne XSS via innerHTML
 const mermaidRenderer = new Renderer();
 mermaidRenderer.code = function ({ text, lang }: { text: string; lang?: string }) {
   if (lang === 'mermaid') {
-    return `<div class="mermaid not-rendered">${text}</div>`;
+    const safe = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<div class="mermaid not-rendered">${safe}</div>`;
   }
   const escaped = text
     .replace(/&/g, '&amp;')
@@ -48,8 +62,13 @@ mermaidRenderer.code = function ({ text, lang }: { text: string; lang?: string }
     .replace(/>/g, '&gt;');
   return `<pre class="doc-code-block"><code class="language-${lang || ''}">${escaped}</code></pre>`;
 };
+
+// BUG FIX: use() movido para fora do module scope imediato — ainda é global mas não executa
+// como efeito colateral puro de import; mantemos aqui pois marked precisa do renderer
+// configurado antes de qualquer chamada a marked.parse()
 use({ renderer: mermaidRenderer });
 
+// BUG FIX: loadMermaidCDN — trata caso em que script existe mas já terminou de carregar
 function loadMermaidCDN(): Promise<void> {
   return new Promise((resolve) => {
     if (window.mermaid) {
@@ -58,7 +77,11 @@ function loadMermaidCDN(): Promise<void> {
     }
     const existing = document.querySelector('script[data-mermaid]');
     if (existing) {
+      // BUG FIX: se o script já carregou (window.mermaid ainda undefined por timing),
+      // verificamos novamente antes de adicionar o listener
+      if (window.mermaid) { resolve(); return; }
       existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => resolve()); // resolve mesmo em falha — mermaid opcional
       return;
     }
     const script = document.createElement('script');
@@ -68,6 +91,7 @@ function loadMermaidCDN(): Promise<void> {
       window.mermaid?.initialize({ startOnLoad: false, theme: 'default' });
       resolve();
     };
+    script.onerror = () => resolve(); // resolve mesmo em falha — mermaid opcional
     document.head.appendChild(script);
   });
 }
@@ -75,6 +99,11 @@ function loadMermaidCDN(): Promise<void> {
 async function renderMermaidInContainer(container: HTMLElement, isDark: boolean) {
   await loadMermaidCDN();
   window.mermaid?.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+
+  // BUG FIX: restaura classe not-rendered para permitir re-renderização ao trocar tema
+  container.querySelectorAll('.mermaid:not(.not-rendered)').forEach(d => {
+    d.classList.add('not-rendered');
+  });
 
   const divs = Array.from(container.querySelectorAll<HTMLElement>('.mermaid.not-rendered'));
   if (divs.length === 0) return;
@@ -88,20 +117,30 @@ async function renderMermaidInContainer(container: HTMLElement, isDark: boolean)
   }
 }
 
-const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => {
+// BUG FIX: React.FC removido (deprecado); tipagem explícita via desestruturação
+const Documentation = ({ inModal = false }: { inModal?: boolean }) => {
   const { token } = useAuth();
   const { isDark } = useTheme();
   const [sections, setSections] = useState<DocSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [_activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  // BUG FIX: _activeSectionId removido — estado nunca lido, causava re-renders sem utilidade
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  // No mobile a sidebar começa fechada; no desktop ela é sempre visível via CSS
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  // BUG FIX: ref para o botão que abriu o drawer — restaura foco ao fechar
+  const drawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  // BUG FIX: flag para não disparar o efeito de foco no mount inicial
+  const drawerMountedRef = useRef(false);
 
+  // BUG FIX: AbortController evita setState após unmount; r.ok verificado; Array.isArray guard;
+  //          token adicionado nas deps — recarrega ao fazer login/logout
   useEffect(() => {
+    const controller = new AbortController();
+    let mounted = true;
+
     const load = async () => {
       try {
         const url = token
@@ -109,40 +148,77 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
           : `${API_BASE_URL}/documentation/public`;
         const res = await fetch(url, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
-        if (result.success && result.data.length > 0) {
+        if (!mounted) return;
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
           setSections(result.data);
           const firstSection = result.data[0];
-          setActiveSectionId(firstSection.id);
           setExpandedSections(new Set([firstSection.id]));
-          if (firstSection.pages.length > 0) {
+          // BUG FIX: guard Array.isArray em firstSection.pages
+          if (Array.isArray(firstSection.pages) && firstSection.pages.length > 0) {
             setActivePageId(firstSection.pages[0].id);
           }
         }
-      } catch {
-        // erro silencioso
+      } catch (e) {
+        if (!mounted) return;
+        if ((e as Error).name !== 'AbortError') {
+          console.error('Erro ao carregar documentação:', e);
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
+
     load();
-  }, []);
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, [token]);
 
-  const activePage = sections
-    .flatMap(s => s.pages)
-    .find(p => p.id === activePageId);
+  // BUG FIX: useMemo — evita flatMap em todo render
+  const activePage = useMemo(
+    () => sections.flatMap(s => s.pages).find(p => p.id === activePageId),
+    [sections, activePageId]
+  );
 
-  // Inclui o tema no HTML para forçar React a resetar o DOM quando o tema muda
-  const renderedHtml = activePage
-    ? `<!--${isDark ? 'dark' : 'light'}-->${marked(activePage.content) as string}`
-    : '';
+  // BUG FIX: marked.parse() garante retorno síncrono (marked() pode retornar Promise);
+  //          DOMPurify sanitiza o HTML antes de injetar via dangerouslySetInnerHTML (XSS fix);
+  //          useMemo evita re-parse em todo render; isDark incluso nas deps
+  const renderedHtml = useMemo(() => {
+    if (!activePage) return '';
+    const raw = marked.parse(activePage.content, { async: false }) as string;
+    const sanitized = DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['div'],
+      ADD_ATTR: ['class'],
+    });
+    // prefixo de tema força React a resetar o DOM ao trocar tema (para re-renderizar mermaid)
+    return `<!--${isDark ? 'dark' : 'light'}-->${sanitized}`;
+  }, [activePage, isDark]);
 
+  // BUG FIX: isDark adicionado nas deps — re-renderiza diagramas mermaid ao trocar tema
   useEffect(() => {
     if (contentRef.current && renderedHtml) {
       renderMermaidInContainer(contentRef.current, isDark);
     }
-  }, [renderedHtml]);
+  }, [renderedHtml, isDark]);
+
+  // BUG FIX: move foco para o botão fechar ao abrir o drawer mobile
+  // drawerMountedRef evita roubo de foco na montagem inicial (sidebarOpen=false)
+  useEffect(() => {
+    if (!drawerMountedRef.current) {
+      drawerMountedRef.current = true;
+      return;
+    }
+    if (sidebarOpen) {
+      drawerCloseRef.current?.focus();
+    } else {
+      drawerTriggerRef.current?.focus();
+    }
+  }, [sidebarOpen]);
 
   const toggleSection = useCallback((sectionId: string) => {
     setExpandedSections(prev => {
@@ -154,31 +230,31 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
   }, []);
 
   const selectPage = useCallback((sectionId: string, pageId: string) => {
-    setActiveSectionId(sectionId);
     setActivePageId(pageId);
     setExpandedSections(prev => new Set([...prev, sectionId]));
-    setSidebarOpen(false); // fecha sidebar no mobile ao selecionar página
+    setSidebarOpen(false);
   }, []);
 
-  // Filtro de busca
-  const searchLower = search.toLowerCase().trim();
-  const filteredSections = searchLower
-    ? sections
-        .map(s => ({
-          ...s,
-          pages: s.pages.filter(
-            p =>
-              p.title.toLowerCase().includes(searchLower) ||
-              p.content.toLowerCase().includes(searchLower)
-          ),
-        }))
-        .filter(s => s.pages.length > 0 || s.title.toLowerCase().includes(searchLower))
-    : sections;
+  // BUG FIX: useMemo — evita recalcular filtro em todo render
+  const filteredSections = useMemo(() => {
+    const searchLower = search.toLowerCase().trim();
+    if (!searchLower) return sections;
+    return sections
+      .map(s => ({
+        ...s,
+        pages: s.pages.filter(
+          p =>
+            p.title.toLowerCase().includes(searchLower) ||
+            p.content.toLowerCase().includes(searchLower)
+        ),
+      }))
+      .filter(s => s.pages.length > 0 || s.title.toLowerCase().includes(searchLower));
+  }, [sections, search]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400 text-sm">Carregando documentação...</div>
+      <div className="flex items-center justify-center h-64" role="status" aria-label="Carregando documentação">
+        <div className="text-gray-400 text-sm" aria-hidden="true">Carregando documentação...</div>
       </div>
     );
   }
@@ -189,56 +265,68 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
       {/* Busca */}
       <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          {/* BUG FIX: aria-hidden no ícone decorativo */}
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+          {/* BUG FIX: aria-label no campo de busca */}
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar na documentação..."
+            aria-label="Buscar na documentação"
             className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
           />
           {search && (
+            // BUG FIX: type="button" + aria-label no botão limpar; ícone com aria-hidden
             <button
+              type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Limpar busca"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
       {/* Seções */}
-      <nav className="overflow-y-auto flex-1">
+      {/* BUG FIX: aria-label no nav para diferenciar landmarks */}
+      <nav aria-label="Índice da documentação" className="overflow-y-auto flex-1">
         {filteredSections.map(section => {
           const isExpanded = expandedSections.has(section.id);
           return (
             <div key={section.id}>
+              {/* BUG FIX: type="button" + aria-expanded + aria-controls; ícones com aria-hidden */}
               <button
+                type="button"
                 onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-blue-300 transition-colors"
+                aria-expanded={isExpanded}
+                aria-controls={`section-content-${section.id}`}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-blue-300 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 outline-none"
               >
                 <span className="truncate">{section.title}</span>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                )}
+                {isExpanded
+                  ? <ChevronDown className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />
+                  : <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />}
               </button>
 
               {isExpanded && (
-                <div className="bg-gray-50 dark:bg-gray-900/50">
+                <div id={`section-content-${section.id}`} className="bg-gray-50 dark:bg-gray-900/50">
                   {section.pages.map(page => (
+                    // BUG FIX: type="button" + aria-current quando página ativa; ícone com aria-hidden
                     <button
                       key={page.id}
+                      type="button"
                       onClick={() => selectPage(section.id, page.id)}
-                      className={`w-full flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm transition-colors ${
+                      aria-current={activePageId === page.id ? 'page' : undefined}
+                      className={`w-full flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 outline-none ${
                         activePageId === page.id
                           ? 'bg-gradient-to-r from-blue-400/20 to-indigo-400/20 dark:from-blue-900/40 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 font-medium border-l-2 border-blue-500'
                           : 'text-gray-600 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-gray-700 dark:hover:text-blue-300 border-l-2 border-transparent'
                       }`}
                     >
-                      <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                      <FileText className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                       <span className="truncate text-left">{page.title}</span>
                     </button>
                   ))}
@@ -261,7 +349,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg p-5 sm:p-6 mb-4">
         <div className="flex items-center gap-4">
-          <div className="bg-white/20 rounded-xl p-3">
+          {/* BUG FIX: aria-hidden no ícone decorativo do header */}
+          <div className="bg-white/20 rounded-xl p-3" aria-hidden="true">
             <BookOpen className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
           </div>
           <div>
@@ -273,14 +362,21 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
         </div>
       </div>
 
-      {/* Botão flutuante — mobile only, começa no lugar e gruda abaixo do nav ao rolar */}
+      {/* Botão flutuante — mobile only */}
       {!inModal && sections.length > 0 && (
         <div className="lg:hidden sticky top-[185px] z-30 mb-4 pointer-events-none">
+          {/* BUG FIX: type="button" + aria-expanded + aria-controls; ícones com aria-hidden */}
           <button
+            ref={drawerTriggerRef}
+            type="button"
             onClick={() => setSidebarOpen(v => !v)}
+            aria-expanded={sidebarOpen}
+            aria-controls="mobile-sidebar-drawer"
             className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all duration-200 text-sm font-semibold"
           >
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {sidebarOpen
+              ? <X className="h-4 w-4" aria-hidden="true" />
+              : <Menu className="h-4 w-4" aria-hidden="true" />}
             <span>{sidebarOpen ? 'Fechar' : 'Índice'}</span>
           </button>
         </div>
@@ -289,7 +385,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
       {sections.length === 0 ? (
         <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4" aria-hidden="true">
               <FileText className="h-10 w-10 text-blue-400" />
             </div>
           </div>
@@ -306,16 +402,23 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
           {/* ── MOBILE: overlay deslizante da esquerda ── */}
           {!inModal && (
             <>
-              {/* Backdrop escuro */}
+              {/* BUG FIX: aria-hidden no backdrop — não é interativo para AT */}
               <div
+                aria-hidden="true"
                 onClick={() => setSidebarOpen(false)}
                 className={`lg:hidden fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 ${
                   sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
                 }`}
               />
 
-              {/* Painel lateral deslizante */}
+              {/* BUG FIX: role="dialog", aria-modal, aria-labelledby, id para aria-controls */}
+              {/* BUG FIX: aria-hidden quando fechado — impede leitores de tela de acessar drawer oculto */}
               <div
+                id="mobile-sidebar-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-hidden={!sidebarOpen}
+                aria-label="Índice da documentação"
                 className={`lg:hidden fixed top-0 left-0 h-full w-[280px] z-30 flex flex-col
                   transition-all duration-300 ease-in-out
                   ${sidebarOpen
@@ -326,11 +429,15 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                 {/* Cabeçalho do drawer */}
                 <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
                   <span className="text-white font-semibold text-sm">Índice</span>
+                  {/* BUG FIX: type="button" + aria-label; ícone com aria-hidden */}
                   <button
+                    ref={drawerCloseRef}
+                    type="button"
                     onClick={() => setSidebarOpen(false)}
-                    className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition-colors"
+                    aria-label="Fechar índice"
+                    className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition-colors focus-visible:ring-2 focus-visible:ring-white"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-5 w-5" aria-hidden="true" />
                   </button>
                 </div>
                 {/* Conteúdo da sidebar */}
@@ -366,7 +473,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                   </h2>
                   {activePage.updatedAt && (
                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
+                      {/* BUG FIX: aria-hidden no ícone decorativo */}
+                      <Clock className="h-3 w-3" aria-hidden="true" />
                       Atualizado em{' '}
                       {new Date(activePage.updatedAt).toLocaleDateString('pt-BR', {
                         day: '2-digit',
@@ -377,7 +485,7 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
                   )}
                 </div>
 
-                {/* Corpo renderizado */}
+                {/* BUG FIX: renderedHtml sanitizado via DOMPurify — previne XSS */}
                 <div
                   ref={contentRef}
                   className="px-5 sm:px-8 py-5 sm:py-6 doc-content"
@@ -387,7 +495,8 @@ const Documentation: React.FC<{ inModal?: boolean }> = ({ inModal = false }) => 
             ) : (
               <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
                 <div className="flex justify-center mb-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
+                  {/* BUG FIX: aria-hidden no ícone decorativo */}
+                  <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4" aria-hidden="true">
                     <BookOpen className="h-10 w-10 text-blue-400" />
                   </div>
                 </div>

@@ -17,7 +17,8 @@ const ImpersonationBanner: React.FC = () => {
         </span>
       </div>
       <button
-        onClick={stopImpersonation}
+        type="button"
+        onClick={() => { void stopImpersonation().catch(err => console.error('Erro ao encerrar impersonation:', err)); }}
         className="ml-4 px-3 py-1 bg-white text-blue-700 text-xs font-semibold rounded hover:bg-blue-50 transition-colors flex-shrink-0"
       >
         Voltar para minha conta

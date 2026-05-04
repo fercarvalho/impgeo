@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Lock, User, Eye, EyeOff, Copy, Check,
@@ -11,14 +11,21 @@ import PoliticaPrivacidadeModal from './PoliticaPrivacidadeModal';
 import Footer from './Footer';
 import Documentation from './Documentation';
 
-const LOGIN_API_URL = typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+// BUG FIX: inclui 0.0.0.0; tipo explícito string; import.meta.env tipado corretamente
+const isLocalEnv =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0');
+
+const LOGIN_API_URL: string = isLocalEnv
   ? 'http://localhost:9001/api'
-  : ((import.meta as any).env?.VITE_API_URL || '/api');
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api');
 
 interface FaqItem { id: string; pergunta: string; resposta: string; }
 
-const Login: React.FC = () => {
+// BUG FIX: removido React.FC (deprecado no React 18)
+const Login = () => {
   const [username, setUsername]             = useState('');
   const [password, setPassword]             = useState('');
   const [showPassword, setShowPassword]     = useState(false);
@@ -42,6 +49,19 @@ const Login: React.FC = () => {
 
   const { login, completeFirstLogin } = useAuth();
 
+  // BUG FIX: ref para cancelar setTimeout no unmount
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // BUG FIX: refs para mover foco ao abrir modais (a11y trap)
+  const faqCloseRef     = useRef<HTMLButtonElement>(null);
+  const docsCloseRef    = useRef<HTMLButtonElement>(null);
+  const passwordBtnRef  = useRef<HTMLButtonElement>(null);
+
+  // BUG FIX: limpa timer no unmount
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
+
   // ── Pontos do fundo ──
   const bgDots = useMemo(() => {
     const step = 52, cols = Math.ceil(1440 / step) + 1, rows = Math.ceil(920 / step) + 1;
@@ -54,59 +74,150 @@ const Login: React.FC = () => {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const el = spotlightRef.current;
-      if (el) { el.style.background = `radial-gradient(650px circle at ${e.clientX}px ${e.clientY}px, rgba(99,102,241,0.18), transparent 65%)`; el.style.opacity = '1'; }
+      if (el) {
+        el.style.background = `radial-gradient(650px circle at ${e.clientX}px ${e.clientY}px, rgba(99,102,241,0.18), transparent 65%)`;
+        el.style.opacity = '1';
+      }
       const dl = dotsLayerRef.current;
-      if (dl) { const m = `radial-gradient(200px circle at ${e.clientX}px ${e.clientY}px, black 20%, transparent 100%)`; dl.style.webkitMaskImage = m; (dl.style as any).maskImage = m; }
+      if (dl) {
+        const m = `radial-gradient(200px circle at ${e.clientX}px ${e.clientY}px, black 20%, transparent 100%)`;
+        dl.style.webkitMaskImage = m;
+        // BUG FIX: uso de setProperty em vez de (as any) — seguro e tipado
+        dl.style.setProperty('mask-image', m);
+      }
     };
     const onLeave = () => {
       if (spotlightRef.current) spotlightRef.current.style.opacity = '0';
-      if (dotsLayerRef.current) { const e2 = 'radial-gradient(0px circle at 50% 50%, black, transparent)'; dotsLayerRef.current.style.webkitMaskImage = e2; (dotsLayerRef.current.style as any).maskImage = e2; }
+      if (dotsLayerRef.current) {
+        const reset = 'radial-gradient(0px circle at 50% 50%, black, transparent)';
+        dotsLayerRef.current.style.webkitMaskImage = reset;
+        dotsLayerRef.current.style.setProperty('mask-image', reset);
+      }
     };
     window.addEventListener('mousemove', onMove);
     document.documentElement.addEventListener('mouseleave', onLeave);
-    return () => { window.removeEventListener('mousemove', onMove); document.documentElement.removeEventListener('mouseleave', onLeave); };
-  }, []);
-
-  const closeFaqModal  = () => { setShowFaqModal(false);  setFaqSearch('');  setFaqOpenId(null); };
-  const closeDocsModal = () => { setShowDocsModal(false); };
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (showFaqModal)       { closeFaqModal();  return; }
-      if (showDocsModal)      { closeDocsModal(); return; }
-      if (showPasswordModal)  setShowPasswordModal(false);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      document.documentElement.removeEventListener('mouseleave', onLeave);
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showFaqModal, showDocsModal, showPasswordModal]);
-
-  useEffect(() => {
-    fetch(`${LOGIN_API_URL}/faq`)
-      .then(r => r.json())
-      .then(result => { if (result.success) setFaqItems(result.data); })
-      .catch(() => {});
   }, []);
 
-  const filteredFaq = faqSearch
-    ? faqItems.filter(f => f.pergunta.toLowerCase().includes(faqSearch.toLowerCase()) || f.resposta.toLowerCase().includes(faqSearch.toLowerCase()))
-    : faqItems;
+  // BUG FIX: useCallback para estabilizar funções usadas em useEffect
+  const closeFaqModal = useCallback(() => {
+    setShowFaqModal(false);
+    setFaqSearch('');
+    setFaqOpenId(null);
+  }, []);
 
+  const closeDocsModal = useCallback(() => setShowDocsModal(false), []);
+
+  // BUG FIX: AbortController para evitar setState em componente desmontado;
+  //          r.ok verificado antes de r.json(); Array.isArray guard
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${LOGIN_API_URL}/faq`, { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(result => {
+        if (result.success && Array.isArray(result.data)) setFaqItems(result.data);
+      })
+      .catch(err => {
+        if ((err as Error).name !== 'AbortError') console.error('FAQ fetch error:', err);
+      });
+    return () => controller.abort();
+  }, []);
+
+  // BUG FIX: useMemo evita recalcular a cada render; toLowerCase extraído para fora do filter
+  const filteredFaq = useMemo(() => {
+    if (!faqSearch) return faqItems;
+    const term = faqSearch.trim().toLowerCase();
+    return faqItems.filter(f =>
+      f.pergunta.toLowerCase().includes(term) ||
+      f.resposta.toLowerCase().includes(term)
+    );
+  }, [faqItems, faqSearch]);
+
+  // BUG FIX: try/catch/finally — isLoading nunca fica travado; erros de rede exibem mensagem
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setIsLoading(true); setError('');
-    const result = await login(username, password);
-    if (!result.success) { setError('Usuário ou senha incorretos'); setIsLoading(false); }
-    else {
-      if (result.firstLogin && result.newPassword) { setNewPassword(result.newPassword); setShowPasswordModal(true); setIsLoading(false); return; }
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+      const result = await login(username, password);
+      if (!result.success) {
+        setError('Usuário ou senha incorretos');
+      } else if (result.firstLogin && result.newPassword) {
+        setNewPassword(result.newPassword);
+        setShowPasswordModal(true);
+      }
+    } catch {
+      setError('Erro de conexão. Tente novamente.');
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCopyPassword = () => { navigator.clipboard.writeText(newPassword); setPasswordCopied(true); setTimeout(() => setPasswordCopied(false), 2000); };
-  const handleCloseModal   = async () => { setShowPasswordModal(false); setPasswordCopied(false); await completeFirstLogin(); };
+  // BUG FIX: async/await + try/catch — feedback só dado se cópia realmente funcionou;
+  //          timer armazenado em ref para cancelamento no unmount
+  const handleCopyPassword = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(newPassword);
+      setPasswordCopied(true);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setPasswordCopied(false), 2000);
+    } catch {
+      /* clipboard negado — falha silenciosa */
+    }
+  }, [newPassword]);
+
+  // BUG FIX: completeFirstLogin chamado antes de fechar; try/catch; useCallback
+  // Bug fix (caller): verifica o retorno booleano — falha agora é sinalizada ao usuário
+  //   em vez de silenciosamente fechar o modal sem autenticar
+  const handleCloseModal = useCallback(async () => {
+    try {
+      const ok = await completeFirstLogin();
+      if (!ok) {
+        setError('Não foi possível verificar sua sessão. Tente fazer login novamente.');
+        setShowPasswordModal(false);
+        setPasswordCopied(false);
+        return;
+      }
+    } catch {
+      console.error('Erro ao completar primeiro acesso');
+      setError('Erro inesperado ao completar o primeiro acesso.');
+      setShowPasswordModal(false);
+      setPasswordCopied(false);
+      return;
+    }
+    setShowPasswordModal(false);
+    setPasswordCopied(false);
+  }, [completeFirstLogin]);
+
+  // BUG FIX: useEffect de teclado declarado APÓS todos os handlers para evitar referência
+  //          a handleCloseModal antes da sua declaração (erro TS2448)
+  //          closeFaqModal, closeDocsModal e handleCloseModal nas deps — sem stale closures
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showFaqModal)      { closeFaqModal();         return; }
+      if (showDocsModal)     { closeDocsModal();        return; }
+      // BUG FIX: Escape no modal de senha deve chamar handleCloseModal (completeFirstLogin)
+      // em vez de só fechar o modal — evita que o estado de primeiro acesso fique incompleto
+      if (showPasswordModal) { void handleCloseModal(); return; }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showFaqModal, showDocsModal, showPasswordModal, closeFaqModal, closeDocsModal, handleCloseModal]);
+
+  // BUG FIX: move foco para o botão fechar ao abrir cada modal (a11y)
+  useEffect(() => { if (showFaqModal)  faqCloseRef.current?.focus(); }, [showFaqModal]);
+  useEffect(() => { if (showDocsModal) docsCloseRef.current?.focus(); }, [showDocsModal]);
+  useEffect(() => { if (showPasswordModal) passwordBtnRef.current?.focus(); }, [showPasswordModal]);
 
   return (
     <div className="relative min-h-screen flex flex-col imp-login-page-bg">
+
+      {/* BUG FIX: h1 sr-only para hierarquia de headings (WCAG 1.3.1) */}
+      <h1 className="sr-only">IMPGEO — Sistema de Gestão Inteligente</h1>
 
       {/* ─── Camada decorativa de fundo ─── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
@@ -136,7 +247,7 @@ const Login: React.FC = () => {
         <div className="imp-login-card-enter imp-login-card w-full max-w-md rounded-3xl p-6 sm:p-8">
           <div className="text-center mb-8">
             <div className="relative flex flex-col items-center mb-1">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-16 bg-blue-400/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-16 bg-blue-400/20 rounded-full blur-2xl pointer-events-none" aria-hidden="true" />
               <img src="/imp_logo.png" alt="IMPGEO" className="relative h-16 w-auto object-contain" />
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 font-medium tracking-wide">Sistema de Gestão Inteligente</p>
@@ -144,16 +255,31 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="relative">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"><User className="h-4 w-4 text-gray-400" /></div>
+              {/* BUG FIX: aria-hidden em ícone decorativo */}
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <User className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              </div>
               <input id="login-username" name="username" type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder=" " className="imp-float-input" autoComplete="username" required />
               <label htmlFor="login-username" className="imp-float-label">Usuário</label>
             </div>
             <div className="relative">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"><Lock className="h-4 w-4 text-gray-400" /></div>
+              {/* BUG FIX: aria-hidden em ícone decorativo */}
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <Lock className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              </div>
               <input id="login-password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder=" " className="imp-float-input pr-11" autoComplete="current-password" required />
               <label htmlFor="login-password" className="imp-float-label">Senha</label>
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10">
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {/* BUG FIX: aria-label + aria-pressed no botão de toggle de senha */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-pressed={showPassword}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10 focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              >
+                {showPassword
+                  ? <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  : <Eye    className="h-4 w-4" aria-hidden="true" />}
               </button>
             </div>
             <div className="flex justify-end -mt-1">
@@ -161,7 +287,12 @@ const Login: React.FC = () => {
                 Esqueci minha senha
               </button>
             </div>
-            {error && <div className="imp-error-block rounded-xl p-3.5"><p className="text-sm font-medium">{error}</p></div>}
+            {/* BUG FIX: role="alert" + aria-live para anunciar erro a leitores de tela */}
+            {error && (
+              <div role="alert" aria-live="assertive" className="imp-error-block rounded-xl p-3.5">
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
             <button type="submit" disabled={isLoading} className="w-full py-3.5 px-4 mt-1 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-lg">
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -183,7 +314,8 @@ const Login: React.FC = () => {
             onClick={() => setShowDocsModal(true)}
             className="flex items-center justify-center gap-2 px-4 py-3 imp-help-btn rounded-xl text-sm font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 transition-all duration-200"
           >
-            <BookOpen className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            {/* BUG FIX: aria-hidden em ícones decorativos (texto já descreve a ação) */}
+            <BookOpen className="h-4 w-4 text-blue-500 dark:text-blue-400" aria-hidden="true" />
             Documentação
           </button>
           <button
@@ -191,61 +323,101 @@ const Login: React.FC = () => {
             onClick={() => setShowFaqModal(true)}
             className="flex items-center justify-center gap-2 px-4 py-3 imp-help-btn rounded-xl text-sm font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 transition-all duration-200"
           >
-            <HelpCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            <HelpCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" aria-hidden="true" />
             Dúvidas Frequentes
           </button>
         </div>
 
         {/* ─── Links legais ─── */}
+        {/* BUG FIX: type="button" nos botões fora de form */}
         <div className="w-full max-w-md grid grid-cols-2 gap-3 mt-3 mb-6 imp-login-legal-enter">
           <div className="flex justify-center">
-            <button onClick={() => setShowTermos(true)} className="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:underline underline-offset-2">Termos de Uso</button>
+            <button type="button" onClick={() => setShowTermos(true)} className="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:underline underline-offset-2">Termos de Uso</button>
           </div>
           <div className="flex justify-center">
-            <button onClick={() => setShowPolitica(true)} className="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:underline underline-offset-2">Política de Privacidade</button>
+            <button type="button" onClick={() => setShowPolitica(true)} className="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hover:underline underline-offset-2">Política de Privacidade</button>
           </div>
         </div>
       </div>
 
       {/* ─── Modal FAQ ─── */}
+      {/* BUG FIX: role="dialog", aria-modal, aria-labelledby no painel; aria-label no overlay */}
       {showFaqModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[9999] p-4" onClick={closeFaqModal}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[9999] p-4"
+          onClick={closeFaqModal}
+          aria-label="Fechar perguntas frequentes"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="faq-modal-title"
+            className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+                {/* BUG FIX: aria-hidden no ícone decorativo do header */}
+                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center" aria-hidden="true">
                   <HelpCircle className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-white font-bold text-lg">Perguntas Frequentes</h2>
-                  <p className="text-blue-100 text-xs">{faqItems.length} pergunta{faqItems.length !== 1 ? 's' : ''}</p>
+                  <h2 id="faq-modal-title" className="text-white font-bold text-lg">Perguntas Frequentes</h2>
+                  {/* BUG FIX: mostrar contagem filtrada quando há busca ativa */}
+                  <p className="text-blue-100 text-xs">
+                    {faqSearch
+                      ? `${filteredFaq.length} de ${faqItems.length} pergunta${faqItems.length !== 1 ? 's' : ''}`
+                      : `${faqItems.length} pergunta${faqItems.length !== 1 ? 's' : ''}`}
+                  </p>
                 </div>
               </div>
-              <button onClick={closeFaqModal} className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
-                <X className="h-4 w-4 text-white" />
+              {/* BUG FIX: aria-label no botão fechar */}
+              <button
+                ref={faqCloseRef}
+                type="button"
+                onClick={closeFaqModal}
+                aria-label="Fechar perguntas frequentes"
+                className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <X className="h-4 w-4 text-white" aria-hidden="true" />
               </button>
             </div>
             <div className="px-4 pt-4 pb-2 flex-shrink-0">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input type="text" placeholder="Buscar pergunta..." value={faqSearch} onChange={e => setFaqSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                {/* BUG FIX: aria-label no campo de busca */}
+                <input
+                  type="text"
+                  aria-label="Buscar pergunta frequente"
+                  placeholder="Buscar pergunta..."
+                  value={faqSearch}
+                  onChange={e => setFaqSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                />
               </div>
             </div>
             <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-2">
               {filteredFaq.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Nenhuma pergunta encontrada.</div>
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  {faqSearch ? `Nenhuma pergunta encontrada para "${faqSearch}".` : 'Nenhuma pergunta disponível.'}
+                </div>
               ) : filteredFaq.map(item => (
                 <div key={item.id} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-                  <button type="button" onClick={() => setFaqOpenId(prev => prev === item.id ? null : item.id)}
-                    className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-blue-50/60 dark:hover:bg-blue-900/20 transition-colors">
+                  {/* BUG FIX: aria-expanded + aria-controls no botão do acordeão */}
+                  <button
+                    type="button"
+                    onClick={() => setFaqOpenId(prev => prev === item.id ? null : item.id)}
+                    aria-expanded={faqOpenId === item.id}
+                    aria-controls={`faq-answer-${item.id}`}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-blue-50/60 dark:hover:bg-blue-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 outline-none"
+                  >
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">{item.pergunta}</span>
                     {faqOpenId === item.id
-                      ? <ChevronUp className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      : <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />}
+                      ? <ChevronUp   className="h-4 w-4 text-blue-500 flex-shrink-0" aria-hidden="true" />
+                      : <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" aria-hidden="true" />}
                   </button>
                   {faqOpenId === item.id && (
-                    <div className="px-4 pb-4 pt-1 border-t border-blue-50 dark:border-gray-700 bg-blue-50/30 dark:bg-gray-900/40">
+                    <div id={`faq-answer-${item.id}`} className="px-4 pb-4 pt-1 border-t border-blue-50 dark:border-gray-700 bg-blue-50/30 dark:bg-gray-900/40">
                       <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{item.resposta}</p>
                     </div>
                   )}
@@ -257,15 +429,28 @@ const Login: React.FC = () => {
       )}
 
       {/* ─── Modal Documentação ─── */}
+      {/* BUG FIX: role="dialog", aria-modal, aria-label no painel */}
       {showDocsModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={closeDocsModal}>
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          onClick={closeDocsModal}
+          aria-label="Fechar documentação"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Documentação do sistema"
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto relative"
+            onClick={e => e.stopPropagation()}
+          >
             <button
+              ref={docsCloseRef}
+              type="button"
               onClick={closeDocsModal}
-              className="absolute top-4 right-4 z-10 w-9 h-9 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full flex items-center justify-center shadow transition-colors"
+              className="absolute top-4 right-4 z-10 w-9 h-9 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full flex items-center justify-center shadow transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="Fechar documentação"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
             <Documentation inModal />
           </div>
@@ -273,28 +458,71 @@ const Login: React.FC = () => {
       )}
 
       {/* ─── Modal Primeiro Acesso ─── */}
+      {/* BUG FIX: role="dialog", aria-modal, aria-labelledby;
+                  overlay chama handleCloseModal (não setShowPasswordModal diretamente) */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4" onClick={() => setShowPasswordModal(false)}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4"
+          onClick={handleCloseModal}
+          aria-label="Fechar modal de primeiro acesso"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="first-login-title"
+            className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl p-8 w-full max-w-md"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4"><Lock className="w-8 h-8 text-white" /></div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Primeiro Acesso</h2>
+              {/* BUG FIX: ícone decorativo com aria-hidden */}
+              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4" aria-hidden="true">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+              <h2 id="first-login-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Primeiro Acesso</h2>
               <p className="text-gray-600 dark:text-gray-400">Uma nova senha foi gerada para você</p>
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Sua Nova Senha</label>
+              {/* BUG FIX: htmlFor associado ao id do input */}
+              <label htmlFor="new-password-display" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Sua Nova Senha</label>
               <div className="relative">
-                <input type="text" value={newPassword} readOnly className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 dark:!bg-blue-900/30 font-mono text-lg font-bold text-gray-900 dark:text-gray-100 pr-12" autoComplete="off" />
-                <button type="button" onClick={handleCopyPassword} className="absolute inset-y-0 right-0 pr-3 flex items-center" title="Copiar senha">
-                  {passwordCopied ? <Check className="h-5 w-5 text-green-600" /> : <Copy className="h-5 w-5 text-gray-400 hover:text-gray-600" />}
+                <input
+                  id="new-password-display"
+                  type="text"
+                  value={newPassword}
+                  readOnly
+                  className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 dark:!bg-blue-900/30 font-mono text-lg font-bold text-gray-900 dark:text-gray-100 pr-12"
+                  autoComplete="off"
+                />
+                {/* BUG FIX: aria-label dinâmico no botão copiar; ícones com aria-hidden */}
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  aria-label={passwordCopied ? 'Senha copiada' : 'Copiar senha'}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                >
+                  {passwordCopied
+                    ? <Check className="h-5 w-5 text-green-600" aria-hidden="true" />
+                    : <Copy  className="h-5 w-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />}
                 </button>
               </div>
-              {passwordCopied && <p className="text-green-600 text-sm mt-2">Senha copiada!</p>}
+              {passwordCopied && (
+                <p role="status" aria-live="polite" className="text-green-600 text-sm mt-2">Senha copiada!</p>
+              )}
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-              <p className="text-blue-800 dark:text-blue-300 text-sm"><strong>⚠️ Importante:</strong> Anote esta senha em local seguro. Você precisará dela para fazer login novamente.</p>
+              {/* BUG FIX: emoji de alerta com alternativa textual para leitores de tela */}
+              <p className="text-blue-800 dark:text-blue-300 text-sm">
+                <strong><span aria-hidden="true">⚠️ </span>Importante:</strong>{' '}
+                Anote esta senha em local seguro. Você precisará dela para fazer login novamente.
+              </p>
             </div>
-            <button onClick={handleCloseModal} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+            {/* BUG FIX: type="button" explícito; ref para foco inicial */}
+            <button
+              ref={passwordBtnRef}
+              type="button"
+              onClick={handleCloseModal}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+            >
               Entendi, continuar
             </button>
           </div>

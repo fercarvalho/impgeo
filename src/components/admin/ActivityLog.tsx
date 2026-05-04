@@ -4,10 +4,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModules } from '../../hooks/useModules';
+// Bug fix: removed `import.meta as any` cast (loses type safety) and `||` (drops empty string)
 const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0')
     ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+    : (import.meta.env.VITE_API_URL ?? '/api');
 
 interface ActivityLog {
   id: string;
@@ -123,7 +127,8 @@ const DiffView: React.FC<DiffViewProps> = ({ before, after }) => {
 
 const ActivityLog: React.FC = () => {
   const { token } = useAuth();
-  const { modules } = useModules();
+  // Bug fix: destructure `error` so module load failures can be surfaced if needed
+  const { modules, error: modulesError } = useModules();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -338,9 +343,14 @@ const ActivityLog: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 transition-all duration-200"
             >
               <option value="">Todos</option>
+              {/* Bug fix: show stale modules even when error exists — don't hide working data */}
               {modules.map(mod => (
-                <option key={mod.id} value={mod.key}>{mod.name}</option>
+                <option key={mod.moduleKey} value={mod.moduleKey}>{mod.moduleName}</option>
               ))}
+              {/* Show error only when there are no modules to display */}
+              {modulesError && modules.length === 0 && (
+                <option disabled value="">Erro ao carregar módulos</option>
+              )}
             </select>
           </div>
           <div>

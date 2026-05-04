@@ -1,9 +1,14 @@
 import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL =
-  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+const isLocalEnv =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0');
+
+const API_BASE_URL: string = isLocalEnv
+  ? 'http://localhost:9001/api'
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api');
 
 const api = axios.create({ baseURL: API_BASE_URL });
 

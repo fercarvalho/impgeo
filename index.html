@@ -8,6 +8,35 @@
     <meta name="description" content="IMPGEO - Sistema de Gestão Inteligente" />
     <meta name="author" content="IMPGEO" />
     <title>IMPGEO - Sistema de Gestão Inteligente</title>
+    <!--
+      Bug fix #4 — FOUC prevention (Flash of Unstyled Content).
+      This blocking script runs before any CSS is parsed and before the first paint,
+      applying the `dark` class and `color-scheme` synchronously so users with a dark
+      preference never see a flash of light mode. Must stay inline and in <head>.
+    -->
+    <script>
+      (function () {
+        try {
+          var key = 'impgeo-theme-preference';
+          var isDemoMode =
+            location.hostname.includes('github.io') ||
+            location.hostname.includes('demo');
+          var storage = isDemoMode ? sessionStorage : localStorage;
+          var saved = storage.getItem(key);
+          var prefersDark =
+            saved === 'dark' ||
+            (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (prefersDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.style.colorScheme = 'light';
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (_) { /* storage blocked — default to light */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
