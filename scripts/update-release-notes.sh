@@ -8,9 +8,27 @@
 
 set -e
 
+# Carrega .env da raiz do projeto (caso o hook rode sem variáveis de ambiente)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 # Configuração do banco de dados
+# Usa DATABASE_URL_IMPGEO (produção) ou fallback para banco local em desenvolvimento
 DB_URL="${DATABASE_URL_IMPGEO:-}"
 API_PORT="${PORT:-9001}"
+
+# Fallback para desenvolvimento local: conecta sem URL usando peer auth
+if [ -z "$DB_URL" ] && command -v psql &> /dev/null; then
+  DB_NAME="${DB_NAME:-impgeo}"
+  DB_USER="${DB_USER:-$(whoami)}"
+  DB_URL="postgresql://$DB_USER@localhost/$DB_NAME"
+fi
 
 # Pega o hash e a mensagem do último commit
 COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "")
