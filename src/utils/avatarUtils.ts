@@ -1,31 +1,36 @@
 export function getUserInitials(firstName?: string, lastName?: string, username: string = ''): string {
-  if (firstName && lastName) {
-    return `${firstName.charAt(0).toUpperCase()}${lastName.charAt(0).toUpperCase()}`;
+  const first = firstName?.trim();
+  const last = lastName?.trim();
+  const user = username.trim();
+
+  if (first && last) {
+    return `${[...first][0].toUpperCase()}${[...last][0].toUpperCase()}`;
   }
 
-  if (firstName) {
-    const initials = firstName.substring(0, 2).toUpperCase();
-    return initials.length === 1 ? `${initials}${initials}` : initials;
+  if (first) {
+    const chars = [...first].slice(0, 2).join('').toUpperCase();
+    return chars.length === 1 ? `${chars}${chars}` : chars;
   }
 
-  if (lastName) {
-    const initials = lastName.substring(0, 2).toUpperCase();
-    return initials.length === 1 ? `${initials}${initials}` : initials;
+  if (last) {
+    const chars = [...last].slice(0, 2).join('').toUpperCase();
+    return chars.length === 1 ? `${chars}${chars}` : chars;
   }
 
-  if (username) {
-    const initials = username.substring(0, 2).toUpperCase();
-    return initials.length === 1 ? `${initials}${initials}` : initials;
+  if (user) {
+    const chars = [...user].slice(0, 2).join('').toUpperCase();
+    return chars.length === 1 ? `${chars}${chars}` : chars;
   }
 
   return '?';
 }
 
 export function getAvatarUrl(photoUrl?: string): string | null {
-  if (!photoUrl) return null;
-  if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) return photoUrl;
-  if (photoUrl.startsWith('/api/avatars')) return photoUrl;
-  return `/api/avatars/${photoUrl}`;
+  const url = photoUrl?.trim();
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/api/avatars')) return url;
+  return `/api/avatars/${url}`;
 }
 
 export function getAvatarColor(username?: string): string {

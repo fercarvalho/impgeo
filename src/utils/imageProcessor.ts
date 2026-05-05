@@ -40,6 +40,13 @@ export async function cropImage(
   imageFile: File,
   cropArea: { x: number; y: number; width: number; height: number }
 ): Promise<File> {
+  if (cropArea.width <= 0 || cropArea.height <= 0) {
+    return Promise.reject(new Error('Dimensões de recorte inválidas: width e height devem ser maiores que zero'));
+  }
+  if (cropArea.x < 0 || cropArea.y < 0) {
+    return Promise.reject(new Error('Coordenadas de recorte inválidas: x e y não podem ser negativos'));
+  }
+
   let fileToCrop = imageFile;
 
   if (imageFile.type === 'image/heic' || imageFile.type === 'image/heif' || imageFile.name.toLowerCase().match(/\.(heic|heif)$/)) {
@@ -60,10 +67,6 @@ export async function cropImage(
       console.error('Erro ao converter imagem HEIC para recorte:', error);
       throw new Error('Falha ao processar imagem HEIC para recorte.', { cause: error });
     }
-  }
-
-  if (cropArea.width <= 0 || cropArea.height <= 0) {
-    return Promise.reject(new Error('Dimensões de recorte inválidas: width e height devem ser maiores que zero'));
   }
 
   return new Promise((resolve, reject) => {
@@ -106,8 +109,11 @@ export async function cropImage(
                 reject(new Error('Falha ao criar blob da imagem recortada'));
                 return;
               }
+              const baseName = imageFile.name.includes('.')
+                ? imageFile.name.replace(/\.[^/.]+$/, '.webp')
+                : `${imageFile.name}.webp`;
               resolve(
-                new File([blob], imageFile.name.replace(/\.[^/.]+$/, '.webp'), {
+                new File([blob], baseName, {
                   type: 'image/webp',
                 })
               );

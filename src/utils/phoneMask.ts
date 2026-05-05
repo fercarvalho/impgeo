@@ -1,6 +1,11 @@
 export function applyPhoneMask(value: string): string {
   if (!value) return '';
-  const numbers = value.replace(/\D/g, '').slice(0, 11);
+  let raw = value.replace(/\D/g, '');
+  // Remove prefixo internacional do Brasil (+55 ou 55) quando resultar em mais de 11 dígitos
+  if (raw.length > 11 && raw.startsWith('55')) {
+    raw = raw.slice(2);
+  }
+  const numbers = raw.slice(0, 11);
 
   if (numbers.length <= 2) {
     return numbers.length > 0 ? `(${numbers}` : '';
