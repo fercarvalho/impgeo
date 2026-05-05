@@ -18,7 +18,7 @@ export function getUserInitials(firstName?: string, lastName?: string, username:
     return initials.length === 1 ? `${initials}${initials}` : initials;
   }
 
-  return '??';
+  return '?';
 }
 
 export function getAvatarUrl(photoUrl?: string): string | null {
@@ -28,14 +28,16 @@ export function getAvatarUrl(photoUrl?: string): string | null {
   return `/api/avatars/${photoUrl}`;
 }
 
-export function getAvatarColor(username: string): string {
+export function getAvatarColor(username?: string): string {
   const colors = [
     '#3B82F6', '#2563EB', '#4F46E5', '#0EA5E9', '#0284C7',
     '#06B6D4', '#14B8A6', '#64748B', '#334155', '#1D4ED8'
   ];
+  if (!username) return colors[0];
   let hash = 0;
   for (let index = 0; index < username.length; index += 1) {
     hash = username.charCodeAt(index) + ((hash << 5) - hash);
+    hash = hash >>> 0; // garante inteiro de 32 bits sem sinal, evitando overflow e valores negativos
   }
-  return colors[Math.abs(hash) % colors.length];
+  return colors[hash % colors.length];
 }

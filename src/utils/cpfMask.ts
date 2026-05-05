@@ -1,4 +1,5 @@
 export function applyCpfMask(value: string): string {
+  if (!value) return '';
   const numbers = value.replace(/\D/g, '').slice(0, 11);
   if (numbers.length <= 3) return numbers;
   if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
@@ -7,6 +8,7 @@ export function applyCpfMask(value: string): string {
 }
 
 export function removeCpfMask(value: string): string {
+  if (!value) return '';
   return value.replace(/\D/g, '');
 }
 

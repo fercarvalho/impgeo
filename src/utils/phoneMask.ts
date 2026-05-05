@@ -1,5 +1,6 @@
 export function applyPhoneMask(value: string): string {
-  const numbers = value.replace(/\D/g, '');
+  if (!value) return '';
+  const numbers = value.replace(/\D/g, '').slice(0, 11);
 
   if (numbers.length <= 2) {
     return numbers.length > 0 ? `(${numbers}` : '';
@@ -14,6 +15,7 @@ export function applyPhoneMask(value: string): string {
 }
 
 export function removePhoneMask(value: string): string {
+  if (!value) return '';
   return value.replace(/\D/g, '');
 }
 
@@ -24,9 +26,6 @@ export function validatePhoneFormat(phone: string): { isValid: boolean; error?: 
   const digits = removePhoneMask(phone);
   if (digits.length !== 10 && digits.length !== 11) {
     return { isValid: false, error: 'Telefone deve ter 10 ou 11 dígitos' };
-  }
-  if (!/^\d+$/.test(digits)) {
-    return { isValid: false, error: 'Telefone deve conter apenas números' };
   }
   return { isValid: true };
 }
