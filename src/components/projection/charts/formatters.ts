@@ -29,9 +29,20 @@ export type SeriesKpis = {
 }
 
 export function computeSeriesKpis(values: number[], months: string[]): SeriesKpis {
-  const safeValues = values.map(v => (Number.isFinite(v) ? v : 0))
+  const safeValues = (values ?? []).map(v => (Number.isFinite(v) ? v : 0))
+  const safeMonths = months ?? []
+
+  const emptyResult: SeriesKpis = {
+    total: 0,
+    average: 0,
+    best: { month: '—', value: 0 },
+    worst: { month: '—', value: 0 },
+  }
+
+  if (safeValues.length === 0) return emptyResult
+
   const total = safeValues.reduce((acc, v) => acc + v, 0)
-  const average = safeValues.length ? total / safeValues.length : 0
+  const average = total / safeValues.length
 
   let bestIdx = 0
   let worstIdx = 0
@@ -43,8 +54,8 @@ export function computeSeriesKpis(values: number[], months: string[]): SeriesKpi
   return {
     total,
     average,
-    best: { month: months[bestIdx] ?? String(bestIdx + 1), value: safeValues[bestIdx] ?? 0 },
-    worst: { month: months[worstIdx] ?? String(worstIdx + 1), value: safeValues[worstIdx] ?? 0 }
+    best: { month: safeMonths[bestIdx] ?? String(bestIdx + 1), value: safeValues[bestIdx] },
+    worst: { month: safeMonths[worstIdx] ?? String(worstIdx + 1), value: safeValues[worstIdx] },
   }
 }
 

@@ -21,9 +21,11 @@ export function ChartCard({ title, subtitle, onEditSection, kpis = [], children 
           </div>
           {onEditSection && (
             <button
+              type="button"
               onClick={onEditSection}
               className="px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
               title="Voltar para tabelas e editar esta seção"
+              aria-label="Editar esta seção"
             >
               Editar esta seção
             </button>
@@ -33,7 +35,7 @@ export function ChartCard({ title, subtitle, onEditSection, kpis = [], children 
         {kpis.length > 0 && (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {kpis.map((k, idx) => (
-              <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div key={`${k.label}-${idx}`} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                 <p className="text-xs font-semibold text-gray-600">{k.label}</p>
                 <p className="text-sm font-bold text-gray-900 mt-1">{k.value}</p>
               </div>
