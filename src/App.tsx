@@ -1285,8 +1285,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     </div>
                   </div>
                   <div className="bg-white dark:!bg-[#243040] rounded-xl p-4 text-center shadow-md border border-gray-100 dark:border-gray-700">
-                    <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${margemLiquida >= 0 ? 'text-violet-600' : 'text-red-600'}`}>Margem</div>
-                    <div className={`text-xl font-black ${margemLiquida >= 0 ? 'text-violet-700' : 'text-red-700'}`}>{margemLiquida.toFixed(1)}%</div>
+                    <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${margemLiquida >= 0 ? 'text-blue-600' : 'text-red-600'}`}>Margem</div>
+                    <div className={`text-xl font-black ${margemLiquida >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-700 dark:text-red-400'}`}>{margemLiquida.toFixed(1)}%</div>
                   </div>
                 </div>
               );
@@ -1602,7 +1602,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div
-              className="bg-gradient-to-br from-orange-400 to-orange-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+              className="bg-gradient-to-br from-rose-500 to-red-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
               <div className="flex items-center justify-between mb-3">
@@ -1626,7 +1626,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div
-              className="bg-gradient-to-br from-amber-400 to-amber-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+              className="bg-gradient-to-br from-red-600 to-rose-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasChart(monthIndex, mesesMetas[monthIndex].nome)}
             >
               <div className="flex items-center justify-between mb-3">
@@ -2163,7 +2163,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div
-              className="bg-gradient-to-br from-orange-400 to-orange-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+              className="bg-gradient-to-br from-rose-500 to-red-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasAnualChart()}
             >
               <div className="flex items-center justify-between mb-3">
@@ -2187,7 +2187,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             </div>
 
             <div
-              className="bg-gradient-to-br from-amber-400 to-amber-500 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+              className="bg-gradient-to-br from-red-600 to-rose-600 p-6 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               onClick={() => openDespesasAnualChart()}
             >
               <div className="flex items-center justify-between mb-3">
@@ -2623,7 +2623,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               className={`flex items-center gap-3 px-6 py-3 font-semibold rounded-xl shadow-lg transition-all duration-300 ${
                 isReloadingProjection 
                   ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 hover:shadow-xl hover:-translate-y-1'
+                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-1'
               }`}
             >
               {isReloadingProjection ? (
@@ -3013,13 +3013,13 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                     </p>
                   </div>
                 </div>
-                <div className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${margem >= 20 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : margem >= 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${margem >= 20 ? 'bg-emerald-100 dark:bg-emerald-900/40' : margem >= 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
-                    <Zap className={`w-5 h-5 ${margem >= 20 ? 'text-emerald-600' : margem >= 0 ? 'text-amber-600' : 'text-red-600'}`} />
+                <div className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${margem >= 20 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : margem >= 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${margem >= 20 ? 'bg-emerald-100 dark:bg-emerald-900/40' : margem >= 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+                    <Zap className={`w-5 h-5 ${margem >= 20 ? 'text-emerald-600' : margem >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Margem</p>
-                    <p className={`text-xl font-black ${margem >= 20 ? 'text-emerald-700 dark:text-emerald-400' : margem >= 0 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>{margem.toFixed(1)}%</p>
+                    <p className={`text-xl font-black ${margem >= 20 ? 'text-emerald-700 dark:text-emerald-400' : margem >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-700 dark:text-red-400'}`}>{margem.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>

@@ -1111,8 +1111,300 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </div>
         </div>
 
-        {/* Tabela */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Ordenação */}
+        <div className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
+          <span className="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">Ordenar por</span>
+          <select
+            value={sortField}
+            onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
+            className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer"
+          >
+            <option value="codImovel">Código</option>
+            <option value="imovel">Imóvel</option>
+            <option value="municipio">Município</option>
+            <option value="areaTotal">Área Total</option>
+            <option value="reservaLegal">Reserva Legal</option>
+            <option value="saldoReservaLegal">Saldo R.L.</option>
+            <option value="geoCertificacao">Geo Certificação</option>
+            <option value="geoRegistro">Geo Registro</option>
+            <option value="car">CAR</option>
+            <option value="statusCar">Status CAR</option>
+          </select>
+          <button
+            onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
+          >
+            {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
+          </button>
+        </div>
+
+        {/* Cards */}
+        <div className="space-y-4">
+          {sortedAcompanhamentos.length === 0 ? (
+            <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+              <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Nenhum registro disponível</p>
+            </div>
+          ) : sortedAcompanhamentos.map((acomp) => {
+            const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+            const hasDocs = !!acomp.carUrl
+              || (acomp.matriculasDados || []).some(m => m.url)
+              || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+              || (acomp.ccirDados || []).some(m => m.url)
+            const hasMatriculas = (acomp.matriculasDados || []).length > 0
+            const hasCcir = (acomp.ccirDados || []).length > 0
+            const hasItr = (acomp.itrDados || []).length > 0
+            const hasMatriculasPdfs = (acomp.matriculasDados || []).some(m => m.url)
+            const hasCcirPdfs = (acomp.ccirDados || []).some(m => m.url)
+            const hasItrPdfs = (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+            const hasUsoDoSolo = acomp.cultura1 || acomp.cultura2 || acomp.outros
+            const hasApp = acomp.appCodigoFlorestal > 0 || acomp.appVegetada > 0 || acomp.appNaoVegetada > 0 || acomp.remanescenteFlorestal > 0
+
+            return (
+              <div key={acomp.id} className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+
+                {/* ── HEADER ───────────────────────────────── */}
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
+                      #{formatCodImovel(acomp.codImovel)}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-white font-bold text-sm leading-tight truncate">{acomp.imovel}</div>
+                      <div className="text-blue-200 text-xs mt-0.5">{acomp.municipio}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {acomp.mapaUrl && (
+                      <button
+                        onClick={() => { setSelectedMapUrl(acomp.mapaUrl || ''); setSelectedImovel(acomp.imovel); setIsMapModalOpen(true) }}
+                        title="Ver mapa do imóvel"
+                        className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                      >
+                        <MapIcon className="w-4 h-4 text-white" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDownloadRegistroZip(acomp)}
+                      disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
+                      title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
+                      className={`p-1.5 rounded-lg transition-colors ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
+                    >
+                      {isDownloadingRecordZip === acomp.id
+                        ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+                        : <Archive className="w-4 h-4 text-white" />
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── BODY ─────────────────────────────────── */}
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+
+                  {/* DOCUMENTOS */}
+                  <div className="px-4 py-3 space-y-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5" /> Documentos
+                    </p>
+
+                    {/* Matrículas */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">Matrículas</span>
+                      <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                        {hasMatriculas ? acomp.matriculasDados!.map((mat, i) => (
+                          <React.Fragment key={mat.id}>
+                            {mat.url
+                              ? <a href={mat.url} target="_blank" rel="noopener noreferrer" title={`Baixar matrícula ${mat.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{mat.numero}</a>
+                              : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{mat.numero}</span>
+                            }
+                            {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          </React.Fragment>
+                        )) : <span className="text-xs text-gray-400">—</span>}
+                      </div>
+                      {hasMatriculas && (
+                        <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
+                          onClick={() => handleDownloadAllZipped(acomp.id, acomp.matriculasDados || [], acomp.imovel)}
+                          title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Sem PDFs disponíveis'}
+                          className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                          {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* N. INCRA / CCIR */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">N. INCRA/CCIR</span>
+                      <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                        {hasCcir ? acomp.ccirDados!.map((item, i) => (
+                          <React.Fragment key={item.id}>
+                            {item.url
+                              ? <a href={item.url} target="_blank" rel="noopener noreferrer" title={`Baixar CCIR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</a>
+                              : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{item.numero}</span>
+                            }
+                            {i < acomp.ccirDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          </React.Fragment>
+                        )) : <span className="text-xs text-gray-400">{acomp.nIncraCcir || '—'}</span>}
+                      </div>
+                      {hasCcir && (
+                        <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
+                          onClick={() => handleDownloadAllCcirZipped(acomp.id, acomp.ccirDados || [], acomp.imovel)}
+                          title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Sem PDFs disponíveis'}
+                          className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                          {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* CAR */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">CAR</span>
+                      <div className="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                        {acomp.car ? (
+                          acomp.carUrl
+                            ? <a href={acomp.carUrl} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${acomp.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{acomp.car}</a>
+                            : <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{acomp.car}</span>
+                        ) : <span className="text-xs text-gray-400">—</span>}
+                        {acomp.statusCar && (
+                          <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">{acomp.statusCar}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ITR */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">ITR</span>
+                      <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                        {hasItr ? acomp.itrDados!.map((item, i) => (
+                          <React.Fragment key={item.id}>
+                            {item.declaracaoUrl || item.reciboUrl || item.url
+                              ? <button type="button" onClick={() => setItrDownloadModal({ item, imovel: acomp.imovel })} title={`Opções de download ITR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</button>
+                              : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{item.numero}</span>
+                            }
+                            {i < acomp.itrDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          </React.Fragment>
+                        )) : <span className="text-xs text-gray-400">{acomp.itr || '—'}</span>}
+                      </div>
+                      {hasItr && (
+                        <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
+                          onClick={() => handleDownloadAllItrZipped(acomp.id, acomp.itrDados || [], acomp.imovel)}
+                          title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Sem PDFs disponíveis'}
+                          className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                          {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* GEORREFERENCIAMENTO */}
+                  <div className="px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+                      <MapIcon className="w-3.5 h-3.5" /> Georreferenciamento
+                    </p>
+                    <div className="flex items-center gap-5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Certificação</span>
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {acomp.geoCertificacao}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Registro</span>
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {acomp.geoRegistro}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ÁREAS */}
+                  <div className="px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">Áreas (ha)</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Total</div>
+                        <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.areaTotal)}</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Res. Legal</div>
+                        <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.reservaLegal)}</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Saldo RL</div>
+                        <div className={`text-sm font-bold leading-tight ${saldo >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {saldo >= 0 ? '+' : ''}{formatNumber(saldo)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* USO DO SOLO */}
+                  {hasUsoDoSolo && (
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">Uso do Solo</p>
+                      <div className="flex flex-wrap gap-2">
+                        {acomp.cultura1 && (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl px-3 py-1.5">
+                            <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">{acomp.cultura1}</div>
+                            <div className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">{formatNumber(acomp.areaCultura1)} ha</div>
+                          </div>
+                        )}
+                        {acomp.cultura2 && (
+                          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5">
+                            <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">{acomp.cultura2}</div>
+                            <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">{formatNumber(acomp.areaCultura2)} ha</div>
+                          </div>
+                        )}
+                        {acomp.outros && (
+                          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-3 py-1.5">
+                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{acomp.outros}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatNumber(acomp.areaOutros)} ha</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* APP / AMBIENTAL */}
+                  {hasApp && (
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">APP / Ambiental (ha)</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {acomp.appCodigoFlorestal > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Cód. Florestal</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{formatNumber(acomp.appCodigoFlorestal)}</span>
+                          </div>
+                        )}
+                        {acomp.appVegetada > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">APP Vegetada</span>
+                            <span className="text-xs font-semibold text-green-600 dark:text-green-400">{formatNumber(acomp.appVegetada)}</span>
+                          </div>
+                        )}
+                        {acomp.appNaoVegetada > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">APP Não Veg.</span>
+                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{formatNumber(acomp.appNaoVegetada)}</span>
+                          </div>
+                        )}
+                        {acomp.remanescenteFlorestal > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Remanescente</span>
+                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatNumber(acomp.remanescenteFlorestal)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* --- TABELA ORIGINAL (mantida mas oculta — para referência futura) --- */}
+        {false && <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[2000px]">
               <thead>
@@ -1516,7 +1808,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               </tbody>
             </table>
           </div>
-        </div>
+        </div>}
+
       </main>
 
       {/* Footer */}
