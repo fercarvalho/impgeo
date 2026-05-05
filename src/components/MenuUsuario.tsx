@@ -31,12 +31,38 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!showMenu) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setShowMenu(false);
+        buttonRef.current?.focus();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+        if (!items || items.length === 0) return;
+        const focused = document.activeElement;
+        const idx = Array.from(items).indexOf(focused as HTMLButtonElement);
+        if (event.key === 'ArrowDown') {
+          const next = idx < items.length - 1 ? idx + 1 : 0;
+          items[next].focus();
+        } else {
+          const prev = idx > 0 ? idx - 1 : items.length - 1;
+          items[prev].focus();
+        }
+      }
+    };
+
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showMenu]);
 
@@ -57,28 +83,32 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
   const handleProfileClick = () => {
     setShowProfileModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handleUsernameClick = () => {
     setShowUsernameModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handlePasswordClick = () => {
     setShowPasswordModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handleEditProfileClick = () => {
     setShowEditProfileModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const getUserDisplayName = () => {
-    if (user?.firstName && user?.lastName) {
+    if (user.firstName && user.lastName) {
       return `${user.firstName} ${user.lastName}`;
     }
-    return user?.username || 'Usuário';
+    return user.username || 'Usuário';
   };
 
   const getRoleLabel = (role: string) => {
@@ -99,6 +129,8 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
   const dropdownContent = showMenu ? (
     <div
       ref={menuRef}
+      role="menu"
+      aria-label="Menu do usuário"
       className="fixed w-56 bg-white/95 dark:!bg-[#243040]/95 backdrop-blur-md rounded-2xl shadow-2xl border border-blue-200/50 dark:border-blue-800/40 overflow-hidden z-[9999]"
       style={{
         top: `${dropdownPosition.top}px`,
@@ -109,34 +141,42 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
     >
       <div className="py-2">
         <button
+          type="button"
+          role="menuitem"
           onClick={handleProfileClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300"
         >
-          <User className="w-4 h-4 text-blue-600" />
+          <User className="w-4 h-4 text-blue-600" aria-hidden="true" />
           <span className="text-sm font-medium">Ver Perfil</span>
         </button>
 
         <button
+          type="button"
+          role="menuitem"
           onClick={handleUsernameClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300"
         >
-          <Edit className="w-4 h-4 text-blue-600" />
+          <Edit className="w-4 h-4 text-blue-600" aria-hidden="true" />
           <span className="text-sm font-medium">Alterar Username</span>
         </button>
 
         <button
+          type="button"
+          role="menuitem"
           onClick={handlePasswordClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300 min-h-[44px]"
         >
-          <Key className="w-4 h-4 text-blue-600" />
+          <Key className="w-4 h-4 text-blue-600" aria-hidden="true" />
           <span className="text-sm font-medium">Alterar Senha</span>
         </button>
 
         <button
+          type="button"
+          role="menuitem"
           onClick={handleEditProfileClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300 min-h-[44px]"
         >
-          <Edit className="w-4 h-4 text-blue-600" />
+          <Edit className="w-4 h-4 text-blue-600" aria-hidden="true" />
           <span className="text-sm font-medium">Editar Perfil</span>
         </button>
       </div>
@@ -149,6 +189,9 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
         <button
           ref={buttonRef}
           onClick={handleMenuClick}
+          aria-expanded={showMenu}
+          aria-haspopup="menu"
+          aria-label={`Menu do usuário: ${getUserDisplayName()}`}
           className="flex items-center gap-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 text-white transition-colors shadow-sm min-h-[44px] flex-shrink-0 whitespace-nowrap"
           title={getUserDisplayName()}
         >
@@ -164,7 +207,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
           
           {/* Nome e Role */}
           <div className="hidden sm:flex items-center gap-2 flex-1 min-w-0">
-            <User className="w-4 h-4 text-white/70 flex-shrink-0" />
+            <User className="w-4 h-4 text-white/70 flex-shrink-0" aria-hidden="true" />
             {user.firstName ? (
               <span className="text-sm font-medium text-white whitespace-nowrap">
                 {user.firstName}
@@ -183,7 +226,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
           </div>
           
           {/* Ícone de dropdown */}
-          <ChevronDown className={`w-4 h-4 text-white/70 flex-shrink-0 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-white/70 flex-shrink-0 transition-transform ${showMenu ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>
       </div>
 

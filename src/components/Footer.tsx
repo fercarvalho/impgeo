@@ -78,10 +78,10 @@ function renderInfoTexto(texto: string) {
 }
 
 function ContatoIcon({ link, texto }: { link: string; texto: string }) {
-  if (link.startsWith('https://wa.me') || texto.includes('(')) return <Phone className="h-4 w-4 mr-2 flex-shrink-0" />;
-  if (link.startsWith('mailto:') || texto.includes('@')) return <Mail className="h-4 w-4 mr-2 flex-shrink-0" />;
-  if (link.startsWith('https://') || link.startsWith('http://')) return <Globe className="h-4 w-4 mr-2 flex-shrink-0" />;
-  return <Map className="h-4 w-4 mr-2 flex-shrink-0" />;
+  if (link.startsWith('https://wa.me') || texto.includes('(')) return <Phone className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  if (link.startsWith('mailto:') || texto.includes('@')) return <Mail className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  if (link.startsWith('https://') || link.startsWith('http://')) return <Globe className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  return <Map className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
 }
 
 const Footer: React.FC = () => {
@@ -123,62 +123,74 @@ const Footer: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKey);
   }, [showNotas]);
 
-  const carregarRodape = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/rodape`);
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json.success || !json.data) return;
-      const { configuracoes, colunas: colsDados, bottomLinks: bottomDados } = json.data;
-
-      if (configuracoes && Object.keys(configuracoes).length > 0) {
-        setConfig({
-          empresa_nome:       configuracoes.empresa_nome       || RODAPE_DEFAULTS.empresa_nome,
-          empresa_tagline:    configuracoes.empresa_tagline    || RODAPE_DEFAULTS.empresa_tagline,
-          empresa_descricao:  configuracoes.empresa_descricao  || RODAPE_DEFAULTS.empresa_descricao,
-          empresa_autor:      configuracoes.empresa_autor      || RODAPE_DEFAULTS.empresa_autor,
-          empresa_logo:       configuracoes.empresa_logo       || RODAPE_DEFAULTS.empresa_logo,
-          info_texto:         configuracoes.info_texto         || '',
-          info_alinhamento:   (configuracoes.info_alinhamento as RodapeConfig['info_alinhamento']) || 'left',
-          copyright:          configuracoes.copyright          || RODAPE_DEFAULTS.copyright,
-          versao_sistema:     configuracoes.versao_sistema     || '',
-          notas_versao:       configuracoes.notas_versao       || '',
-        });
-      }
-      if (colsDados && colsDados.length > 0) setColunas(colsDados);
-      if (bottomDados) setBottomLinks(bottomDados.filter((l: BottomLink) => l.ativo));
-    } catch {
-      // fallback silencioso
-    }
-  };
-
   useEffect(() => {
+    let cancelled = false;
+
+    const carregarRodape = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/rodape`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!json.success || !json.data || cancelled) return;
+        const { configuracoes, colunas: colsDados, bottomLinks: bottomDados } = json.data;
+
+        if (configuracoes && Object.keys(configuracoes).length > 0) {
+          const alinhamentoValido: RodapeConfig['info_alinhamento'][] = ['left', 'center', 'right'];
+          const alinhamento: RodapeConfig['info_alinhamento'] =
+            alinhamentoValido.includes(configuracoes.info_alinhamento)
+              ? configuracoes.info_alinhamento
+              : 'left';
+          setConfig({
+            empresa_nome:       configuracoes.empresa_nome       || RODAPE_DEFAULTS.empresa_nome,
+            empresa_tagline:    configuracoes.empresa_tagline    || RODAPE_DEFAULTS.empresa_tagline,
+            empresa_descricao:  configuracoes.empresa_descricao  || RODAPE_DEFAULTS.empresa_descricao,
+            empresa_autor:      configuracoes.empresa_autor      || RODAPE_DEFAULTS.empresa_autor,
+            empresa_logo:       configuracoes.empresa_logo       || RODAPE_DEFAULTS.empresa_logo,
+            info_texto:         configuracoes.info_texto         || '',
+            info_alinhamento:   alinhamento,
+            copyright:          configuracoes.copyright          || RODAPE_DEFAULTS.copyright,
+            versao_sistema:     configuracoes.versao_sistema     || '',
+            notas_versao:       configuracoes.notas_versao       || '',
+          });
+        }
+        if (colsDados && colsDados.length > 0) setColunas(colsDados);
+        if (bottomDados) setBottomLinks(bottomDados.filter((l: BottomLink) => l.ativo));
+      } catch {
+        // fallback silencioso
+      }
+    };
+
     carregarRodape();
-    const handleUpdate = () => carregarRodape();
-    window.addEventListener('rodape-updated', handleUpdate);
-    return () => window.removeEventListener('rodape-updated', handleUpdate);
+    window.addEventListener('rodape-updated', carregarRodape);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('rodape-updated', carregarRodape);
+    };
   }, []);
 
   const totalColunas = 1 + colunas.length;
   const gridClass =
+    totalColunas <= 1 ? 'grid grid-cols-1 gap-8' :
     totalColunas === 2 ? 'grid grid-cols-1 md:grid-cols-2 gap-8' :
     totalColunas === 3 ? 'grid grid-cols-1 md:grid-cols-3 gap-8' :
                         'grid grid-cols-1 md:grid-cols-4 gap-8';
 
   return (
     <>
-    <footer className="bg-gray-800 text-white py-8 mt-12 w-full">
+    <footer aria-label="Rodapé do site" className="bg-gray-800 text-white py-8 mt-12 w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className={gridClass}>
           {/* Coluna da empresa */}
           <div>
             <div className="flex items-center mb-3">
-              <img
-                src={config.empresa_logo}
-                alt={config.empresa_nome + ' Logo'}
-                className="h-12 w-12 mr-2 object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
+              {config.empresa_logo && (
+                <img
+                  src={config.empresa_logo}
+                  alt={config.empresa_nome + ' Logo'}
+                  className="h-12 w-12 mr-2 object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.style.marginRight = '0'; }}
+                />
+              )}
               <div>
                 <span className="text-base font-bold">{config.empresa_nome}</span>
                 <p className="text-gray-400 text-sm">{config.empresa_tagline}</p>
@@ -257,7 +269,7 @@ const Footer: React.FC = () => {
                     <span className="px-2 py-0.5">{item.texto}</span>
                   )}
                   {idx < bottomLinks.length - 1 && (
-                    <span className="text-gray-600 select-none">|</span>
+                    <span className="text-gray-600 select-none" aria-hidden="true">|</span>
                   )}
                 </span>
               ))}
@@ -266,7 +278,9 @@ const Footer: React.FC = () => {
               {config.versao_sistema && (
                 config.notas_versao ? (
                   <button
+                    type="button"
                     onClick={() => setShowNotas(true)}
+                    aria-label={`Abrir notas da versão ${config.versao_sistema}`}
                     className="text-gray-600 tabular-nums hover:text-gray-400 transition-colors cursor-pointer"
                   >
                     v{config.versao_sistema}
@@ -291,19 +305,23 @@ const Footer: React.FC = () => {
         onClick={() => setShowNotas(false)}
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notas-versao-title"
           className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[68vh] flex flex-col"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">Notas da Versão</h3>
+              <h3 id="notas-versao-title" className="font-bold text-gray-900 text-base">Notas da Versão</h3>
               <p className="text-xs text-blue-600 font-mono mt-0.5">v{config.versao_sistema}</p>
             </div>
             <button
               onClick={() => setShowNotas(false)}
+              aria-label="Fechar notas da versão"
               className="text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1 hover:bg-gray-100"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
           <div

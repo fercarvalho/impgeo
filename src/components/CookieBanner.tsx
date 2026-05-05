@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Cookie, X, Settings, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 
 const API_BASE_URL =
@@ -49,28 +49,43 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
     const existingConsent = localStorage.getItem(STORAGE_KEY);
     if (existingConsent) return;
 
+    let cancelled = false;
+    let visibilityTimer: ReturnType<typeof setTimeout>;
+
     Promise.all([
       fetch(`${API_BASE_URL}/cookie-banner-config`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE_URL}/cookie-categorias`).then(r => r.json()).catch(() => null),
     ]).then(([configRes, categRes]) => {
-      if (configRes?.success) setConfig(configRes.data);
-      if (categRes?.success) {
+      if (cancelled) return;
+      // Só exibe o banner se ao menos uma das APIs retornou dados válidos
+      const hasConfig = configRes?.success;
+      const hasCategorias = categRes?.success;
+      if (!hasConfig && !hasCategorias) return;
+      if (hasConfig) setConfig(configRes.data);
+      if (hasCategorias) {
         setCategorias(categRes.data);
         const prefs: CookiePreferences = {};
         categRes.data.forEach((c: CookieCategoria) => { prefs[c.chave] = c.obrigatorio; });
         setPreferences(prefs);
       }
       setShowBanner(true);
-      setTimeout(() => setIsVisible(true), 100);
+      visibilityTimer = setTimeout(() => { if (!cancelled) setIsVisible(true); }, 100);
     });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(visibilityTimer);
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const handleOpen = () => {
       Promise.all([
         fetch(`${API_BASE_URL}/cookie-banner-config`).then(r => r.json()).catch(() => null),
         fetch(`${API_BASE_URL}/cookie-categorias`).then(r => r.json()).catch(() => null),
       ]).then(([configRes, categRes]) => {
+        if (cancelled) return;
         if (configRes?.success) setConfig(configRes.data);
         if (categRes?.success) {
           setCategorias(categRes.data);
@@ -78,7 +93,12 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
           categRes.data.forEach((c: CookieCategoria) => { prefs[c.chave] = c.obrigatorio; });
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) Object.assign(prefs, JSON.parse(saved));
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                Object.assign(prefs, parsed as CookiePreferences);
+              }
+            }
           } catch {}
           setPreferences(prefs);
         }
@@ -87,35 +107,40 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
       });
     };
     window.addEventListener('cookie:open-manager', handleOpen);
-    return () => window.removeEventListener('cookie:open-manager', handleOpen);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('cookie:open-manager', handleOpen);
+    };
   }, []);
 
-  const fecharModal = () => {
+  const fecharModal = useCallback(() => {
     setShowModal(false);
     if (localStorage.getItem(STORAGE_KEY)) {
       setIsVisible(false);
       setTimeout(() => setShowBanner(false), 300);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!showModal) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') fecharModal(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [showModal]);
+  }, [showModal, fecharModal]);
 
   const salvarPreferencias = (prefs: CookiePreferences) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
     setIsVisible(false);
     setTimeout(() => setShowBanner(false), 300);
     setShowModal(false);
+    // Nota: o timeout acima pode disparar após unmount em casos extremos, mas é tolerável
+    // pois apenas atualiza estado de visibilidade sem side-effects críticos.
   };
 
   const handleAceitarTodos = () => {
     const all: CookiePreferences = {};
     categorias.forEach(c => { all[c.chave] = true; });
-    all['necessary'] = true;
+    // Não adicionar chave hardcoded 'necessary' — as categorias obrigatórias já vêm da API
     salvarPreferencias(all);
   };
 
@@ -149,6 +174,9 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
     <>
       {/* Banner Principal */}
       <div
+        role="region"
+        aria-label="Aviso de cookies"
+        aria-live="polite"
         className={`fixed bottom-0 left-0 right-0 z-[9998] transition-transform duration-300 ${
           isVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
@@ -157,7 +185,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
           <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl p-2.5">
-                <Cookie className="h-6 w-6 text-blue-600" />
+                <Cookie className="h-6 w-6 text-blue-600" aria-hidden="true" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -185,7 +213,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                   onClick={() => setShowModal(true)}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
                 >
-                  <Settings className="h-3.5 w-3.5" />
+                  <Settings className="h-3.5 w-3.5" aria-hidden="true" />
                   {btnPersonalizar}
                 </button>
                 <button
@@ -207,21 +235,25 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
           onClick={fecharModal}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cookie-modal-title"
             className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg max-h-[85vh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="bg-blue-100 rounded-lg p-1.5">
-                  <Shield className="h-4 w-4 text-blue-600" />
+                  <Shield className="h-4 w-4 text-blue-600" aria-hidden="true" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-base">Gerenciar Cookies</h3>
+                <h3 id="cookie-modal-title" className="font-bold text-gray-900 text-base">Gerenciar Cookies</h3>
               </div>
               <button
                 onClick={fecharModal}
+                aria-label="Fechar gerenciamento de cookies"
                 className="text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1 hover:bg-gray-100"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -234,11 +266,13 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                     <div className="flex items-center justify-between p-3.5 bg-gray-50/50">
                       <button
                         onClick={() => setExpandedCategoria(expandedCategoria === cat.chave ? null : cat.chave)}
+                        aria-expanded={expandedCategoria === cat.chave}
+                        aria-controls={`cookie-cat-desc-${cat.chave}`}
                         className="flex items-center gap-2 flex-1 text-left"
                       >
                         {expandedCategoria === cat.chave
-                          ? <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                          : <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          ? <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
+                          : <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
                         }
                         <span className="text-sm font-medium text-gray-800">{cat.nome}</span>
                         {cat.obrigatorio && (
@@ -249,8 +283,10 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                       </button>
 
                       <button
+                        role="switch"
                         onClick={() => toggleCategoria(cat.chave)}
                         disabled={cat.obrigatorio}
+                        aria-checked={!!preferences[cat.chave]}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${
                           cat.obrigatorio ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
                         } ${
@@ -269,7 +305,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                     </div>
 
                     {expandedCategoria === cat.chave && (
-                      <div className="px-4 pb-3.5 pt-2.5 text-xs text-gray-500 leading-relaxed">
+                      <div id={`cookie-cat-desc-${cat.chave}`} className="px-4 pb-3.5 pt-2.5 text-xs text-gray-500 leading-relaxed">
                         {cat.descricao}
                       </div>
                     )}
