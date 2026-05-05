@@ -39,11 +39,17 @@ export async function cropImage(
   imageFile: File,
   cropArea: { x: number; y: number; width: number; height: number }
 ): Promise<File> {
-  if (cropArea.width <= 0 || cropArea.height <= 0) {
-    return Promise.reject(new Error('Dimensões de recorte inválidas: width e height devem ser maiores que zero'));
+  if (
+    !Number.isFinite(cropArea.width) || cropArea.width <= 0 ||
+    !Number.isFinite(cropArea.height) || cropArea.height <= 0
+  ) {
+    return Promise.reject(new Error('Dimensões de recorte inválidas: width e height devem ser números finitos maiores que zero'));
   }
-  if (cropArea.x < 0 || cropArea.y < 0) {
-    return Promise.reject(new Error('Coordenadas de recorte inválidas: x e y não podem ser negativos'));
+  if (
+    !Number.isFinite(cropArea.x) || cropArea.x < 0 ||
+    !Number.isFinite(cropArea.y) || cropArea.y < 0
+  ) {
+    return Promise.reject(new Error('Coordenadas de recorte inválidas: x e y devem ser números finitos não negativos'));
   }
 
   let fileToCrop = imageFile;
@@ -80,6 +86,16 @@ export async function cropImage(
       const img = new Image();
       img.onload = () => {
         try {
+          if (
+            cropArea.x + cropArea.width > img.naturalWidth ||
+            cropArea.y + cropArea.height > img.naturalHeight
+          ) {
+            reject(new Error(
+              `Área de recorte ultrapassa os limites da imagem (${img.naturalWidth}x${img.naturalHeight})`
+            ));
+            return;
+          }
+
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           if (!context) {
@@ -120,7 +136,8 @@ export async function cropImage(
             0.95
           );
         } catch (err) {
-          reject(new Error('Erro ao recortar imagem no canvas'));
+          console.error('Erro ao recortar imagem no canvas:', err);
+          reject(err instanceof Error ? err : new Error('Erro ao recortar imagem no canvas'));
         }
       };
       img.onerror = () => reject(new Error('Erro ao carregar imagem'));
