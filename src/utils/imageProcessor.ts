@@ -14,9 +14,8 @@ export async function processImage(file: File): Promise<File> {
     // Check if the file is HEIC/HEIF
     if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().match(/\.(heic|heif)$/)) {
       // Import heic2any dynamically only when needed to save bundle size
-      // @ts-expect-error heic2any não possui tipagem oficial
       const heic2any = (await import('heic2any')).default;
-      const convertedBlob = await heic2any({
+      const convertedBlob = await (heic2any as Function)({
         blob: file,
         toType: 'image/jpeg',
         quality: 0.8,
@@ -32,7 +31,7 @@ export async function processImage(file: File): Promise<File> {
     return await imageCompression(fileToCompress, options);
   } catch (error) {
     console.error('Erro ao processar imagem:', error);
-    throw new Error('Falha ao processar imagem. Este formato pode não ser suportado pelo seu navegador.', { cause: error });
+    throw new Error('Falha ao processar imagem. Este formato pode não ser suportado pelo seu navegador.');
   }
 }
 
@@ -51,9 +50,8 @@ export async function cropImage(
 
   if (imageFile.type === 'image/heic' || imageFile.type === 'image/heif' || imageFile.name.toLowerCase().match(/\.(heic|heif)$/)) {
     try {
-      // @ts-expect-error heic2any não possui tipagem oficial
       const heic2any = (await import('heic2any')).default;
-      const convertedBlob = await heic2any({
+      const convertedBlob = await (heic2any as Function)({
         blob: imageFile,
         toType: 'image/jpeg',
         quality: 0.8,
@@ -65,7 +63,7 @@ export async function cropImage(
       });
     } catch (error) {
       console.error('Erro ao converter imagem HEIC para recorte:', error);
-      throw new Error('Falha ao processar imagem HEIC para recorte.', { cause: error });
+      throw new Error('Falha ao processar imagem HEIC para recorte.');
     }
   }
 
@@ -122,7 +120,7 @@ export async function cropImage(
             0.95
           );
         } catch (err) {
-          reject(new Error('Erro ao recortar imagem no canvas', { cause: err }));
+          reject(new Error('Erro ao recortar imagem no canvas'));
         }
       };
       img.onerror = () => reject(new Error('Erro ao carregar imagem'));
