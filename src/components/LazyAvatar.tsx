@@ -22,6 +22,11 @@ const LazyAvatar: React.FC<LazyAvatarProps> = ({
   const [hasError, setHasError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Reseta o erro quando photoUrl muda, permitindo recarregar com nova URL
+  useEffect(() => {
+    setHasError(false);
+  }, [photoUrl]);
+
   useEffect(() => {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
       setIsInView(true);
@@ -54,10 +59,14 @@ const LazyAvatar: React.FC<LazyAvatarProps> = ({
     lg: 'w-24 h-24 sm:w-32 sm:h-32 text-xl sm:text-2xl',
   };
 
+  const avatarAltName = `${firstName || ''} ${lastName || ''}`.trim() || username;
+
   if (!avatarUrl || hasError || !isInView) {
     return (
       <div
         ref={containerRef}
+        role="img"
+        aria-label={`Avatar de ${avatarAltName}`}
         className={`${sizeClasses[size]} rounded-full flex items-center justify-center font-semibold text-white ${className}`}
         style={{ backgroundColor: bgColor }}
       >
@@ -70,7 +79,7 @@ const LazyAvatar: React.FC<LazyAvatarProps> = ({
     <div ref={containerRef} className={`${sizeClasses[size]} rounded-full overflow-hidden ${className}`}>
       <img
         src={avatarUrl}
-        alt={`${firstName || ''} ${lastName || ''}`.trim() || username}
+        alt={avatarAltName}
         className="w-full h-full object-cover"
         loading="lazy"
         onError={() => setHasError(true)}
