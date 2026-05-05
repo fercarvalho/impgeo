@@ -675,27 +675,25 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
   return (
     <div className={embedded ? '' : 'p-6 max-w-7xl mx-auto'}>
       {!embedded && (
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            {/* BUG FIX: h2 em vez de h1 — AdminPanel é sempre filho de uma página com seu próprio h1 */}
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Painel Administrativo</h2>
-            <p className="text-gray-600">Gerencie usuários, permissões e credenciais</p>
-          </div>
-          {/* BUG FIX: botão duplicado removido — único ponto de entrada via modal de tipo de criação */}
-          <button
-            type="button"
-            onClick={() => {
-              clearFeedback();
-              lastTriggerRef.current = document.activeElement as HTMLElement;
-              setShowCreationTypeModal(true);
-            }}
-            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-          >
-            <UserPlus className="h-5 w-5" aria-hidden="true" />
-            Novo Usuário
-          </button>
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Painel Administrativo</h2>
+          <p className="text-gray-600">Gerencie usuários, permissões e credenciais</p>
         </div>
       )}
+      <div className="mb-6 flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            clearFeedback();
+            lastTriggerRef.current = document.activeElement as HTMLElement;
+            setShowCreationTypeModal(true);
+          }}
+          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+        >
+          <UserPlus className="h-5 w-5" aria-hidden="true" />
+          Novo Usuário
+        </button>
+      </div>
 
       {/* BUG FIX: role="alert" aria-live="assertive" para erros; role="status" aria-live="polite" para sucesso */}
       <div role="alert" aria-live="assertive" aria-atomic="true">
