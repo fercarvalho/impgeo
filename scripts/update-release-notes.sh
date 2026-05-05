@@ -11,10 +11,10 @@ set -e
 # Carrega .env da raiz do projeto (caso o hook rode sem variáveis de ambiente)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-if [ -f "$ROOT_DIR/.env" ]; then
+if [ -f "$ROOT_DIR/server/.env" ]; then
   set -a
   # shellcheck disable=SC1091
-  source "$ROOT_DIR/.env"
+  source "$ROOT_DIR/server/.env"
   set +a
 fi
 
