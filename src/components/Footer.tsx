@@ -123,40 +123,49 @@ const Footer: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKey);
   }, [showNotas]);
 
-  const carregarRodape = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/rodape`);
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json.success || !json.data) return;
-      const { configuracoes, colunas: colsDados, bottomLinks: bottomDados } = json.data;
-
-      if (configuracoes && Object.keys(configuracoes).length > 0) {
-        setConfig({
-          empresa_nome:       configuracoes.empresa_nome       || RODAPE_DEFAULTS.empresa_nome,
-          empresa_tagline:    configuracoes.empresa_tagline    || RODAPE_DEFAULTS.empresa_tagline,
-          empresa_descricao:  configuracoes.empresa_descricao  || RODAPE_DEFAULTS.empresa_descricao,
-          empresa_autor:      configuracoes.empresa_autor      || RODAPE_DEFAULTS.empresa_autor,
-          empresa_logo:       configuracoes.empresa_logo       || RODAPE_DEFAULTS.empresa_logo,
-          info_texto:         configuracoes.info_texto         || '',
-          info_alinhamento:   (configuracoes.info_alinhamento as RodapeConfig['info_alinhamento']) || 'left',
-          copyright:          configuracoes.copyright          || RODAPE_DEFAULTS.copyright,
-          versao_sistema:     configuracoes.versao_sistema     || '',
-          notas_versao:       configuracoes.notas_versao       || '',
-        });
-      }
-      if (colsDados && colsDados.length > 0) setColunas(colsDados);
-      if (bottomDados) setBottomLinks(bottomDados.filter((l: BottomLink) => l.ativo));
-    } catch {
-      // fallback silencioso
-    }
-  };
-
   useEffect(() => {
+    let cancelled = false;
+
+    const carregarRodape = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/rodape`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!json.success || !json.data || cancelled) return;
+        const { configuracoes, colunas: colsDados, bottomLinks: bottomDados } = json.data;
+
+        if (configuracoes && Object.keys(configuracoes).length > 0) {
+          const alinhamentoValido: RodapeConfig['info_alinhamento'][] = ['left', 'center', 'right'];
+          const alinhamento: RodapeConfig['info_alinhamento'] =
+            alinhamentoValido.includes(configuracoes.info_alinhamento)
+              ? configuracoes.info_alinhamento
+              : 'left';
+          setConfig({
+            empresa_nome:       configuracoes.empresa_nome       || RODAPE_DEFAULTS.empresa_nome,
+            empresa_tagline:    configuracoes.empresa_tagline    || RODAPE_DEFAULTS.empresa_tagline,
+            empresa_descricao:  configuracoes.empresa_descricao  || RODAPE_DEFAULTS.empresa_descricao,
+            empresa_autor:      configuracoes.empresa_autor      || RODAPE_DEFAULTS.empresa_autor,
+            empresa_logo:       configuracoes.empresa_logo       || RODAPE_DEFAULTS.empresa_logo,
+            info_texto:         configuracoes.info_texto         || '',
+            info_alinhamento:   alinhamento,
+            copyright:          configuracoes.copyright          || RODAPE_DEFAULTS.copyright,
+            versao_sistema:     configuracoes.versao_sistema     || '',
+            notas_versao:       configuracoes.notas_versao       || '',
+          });
+        }
+        if (colsDados && colsDados.length > 0) setColunas(colsDados);
+        if (bottomDados) setBottomLinks(bottomDados.filter((l: BottomLink) => l.ativo));
+      } catch {
+        // fallback silencioso
+      }
+    };
+
     carregarRodape();
     window.addEventListener('rodape-updated', carregarRodape);
-    return () => window.removeEventListener('rodape-updated', carregarRodape);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+      window.removeEventListener('rodape-updated', carregarRodape);
+    };
   }, []);
 
   const totalColunas = 1 + colunas.length;
@@ -168,7 +177,7 @@ const Footer: React.FC = () => {
 
   return (
     <>
-    <footer className="bg-gray-800 text-white py-8 mt-12 w-full">
+    <footer aria-label="Rodapé do site" className="bg-gray-800 text-white py-8 mt-12 w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className={gridClass}>
           {/* Coluna da empresa */}
@@ -179,7 +188,7 @@ const Footer: React.FC = () => {
                   src={config.empresa_logo}
                   alt={config.empresa_nome + ' Logo'}
                   className="h-12 w-12 mr-2 object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.style.marginRight = '0'; }}
                 />
               )}
               <div>
@@ -260,7 +269,7 @@ const Footer: React.FC = () => {
                     <span className="px-2 py-0.5">{item.texto}</span>
                   )}
                   {idx < bottomLinks.length - 1 && (
-                    <span className="text-gray-600 select-none">|</span>
+                    <span className="text-gray-600 select-none" aria-hidden="true">|</span>
                   )}
                 </span>
               ))}
@@ -269,6 +278,7 @@ const Footer: React.FC = () => {
               {config.versao_sistema && (
                 config.notas_versao ? (
                   <button
+                    type="button"
                     onClick={() => setShowNotas(true)}
                     aria-label={`Abrir notas da versão ${config.versao_sistema}`}
                     className="text-gray-600 tabular-nums hover:text-gray-400 transition-colors cursor-pointer"

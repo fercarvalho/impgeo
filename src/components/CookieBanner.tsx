@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Cookie, X, Settings, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 
 const API_BASE_URL =
@@ -79,11 +79,13 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const handleOpen = () => {
       Promise.all([
         fetch(`${API_BASE_URL}/cookie-banner-config`).then(r => r.json()).catch(() => null),
         fetch(`${API_BASE_URL}/cookie-categorias`).then(r => r.json()).catch(() => null),
       ]).then(([configRes, categRes]) => {
+        if (cancelled) return;
         if (configRes?.success) setConfig(configRes.data);
         if (categRes?.success) {
           setCategorias(categRes.data);
@@ -105,26 +107,26 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
       });
     };
     window.addEventListener('cookie:open-manager', handleOpen);
-    return () => window.removeEventListener('cookie:open-manager', handleOpen);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('cookie:open-manager', handleOpen);
+    };
   }, []);
 
-  const fecharModal = () => {
+  const fecharModal = useCallback(() => {
     setShowModal(false);
     if (localStorage.getItem(STORAGE_KEY)) {
       setIsVisible(false);
-      const timer = setTimeout(() => setShowBanner(false), 300);
-      return () => clearTimeout(timer);
+      setTimeout(() => setShowBanner(false), 300);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!showModal) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') fecharModal(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  // fecharModal é estável em relação às deps necessárias; showModal captura a versão correta
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showModal]);
+  }, [showModal, fecharModal]);
 
   const salvarPreferencias = (prefs: CookiePreferences) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
@@ -172,6 +174,9 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
     <>
       {/* Banner Principal */}
       <div
+        role="region"
+        aria-label="Aviso de cookies"
+        aria-live="polite"
         className={`fixed bottom-0 left-0 right-0 z-[9998] transition-transform duration-300 ${
           isVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
@@ -261,6 +266,8 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                     <div className="flex items-center justify-between p-3.5 bg-gray-50/50">
                       <button
                         onClick={() => setExpandedCategoria(expandedCategoria === cat.chave ? null : cat.chave)}
+                        aria-expanded={expandedCategoria === cat.chave}
+                        aria-controls={`cookie-cat-desc-${cat.chave}`}
                         className="flex items-center gap-2 flex-1 text-left"
                       >
                         {expandedCategoria === cat.chave
@@ -276,8 +283,10 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                       </button>
 
                       <button
+                        role="switch"
                         onClick={() => toggleCategoria(cat.chave)}
                         disabled={cat.obrigatorio}
+                        aria-checked={!!preferences[cat.chave]}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${
                           cat.obrigatorio ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
                         } ${
@@ -296,7 +305,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
                     </div>
 
                     {expandedCategoria === cat.chave && (
-                      <div className="px-4 pb-3.5 pt-2.5 text-xs text-gray-500 leading-relaxed">
+                      <div id={`cookie-cat-desc-${cat.chave}`} className="px-4 pb-3.5 pt-2.5 text-xs text-gray-500 leading-relaxed">
                         {cat.descricao}
                       </div>
                     )}

@@ -31,12 +31,38 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!showMenu) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setShowMenu(false);
+        buttonRef.current?.focus();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+        if (!items || items.length === 0) return;
+        const focused = document.activeElement;
+        const idx = Array.from(items).indexOf(focused as HTMLButtonElement);
+        if (event.key === 'ArrowDown') {
+          const next = idx < items.length - 1 ? idx + 1 : 0;
+          items[next].focus();
+        } else {
+          const prev = idx > 0 ? idx - 1 : items.length - 1;
+          items[prev].focus();
+        }
+      }
+    };
+
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showMenu]);
 
@@ -57,21 +83,25 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
   const handleProfileClick = () => {
     setShowProfileModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handleUsernameClick = () => {
     setShowUsernameModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handlePasswordClick = () => {
     setShowPasswordModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const handleEditProfileClick = () => {
     setShowEditProfileModal(true);
     setShowMenu(false);
+    buttonRef.current?.focus();
   };
 
   const getUserDisplayName = () => {
@@ -111,6 +141,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
     >
       <div className="py-2">
         <button
+          type="button"
           role="menuitem"
           onClick={handleProfileClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300"
@@ -120,6 +151,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
         </button>
 
         <button
+          type="button"
           role="menuitem"
           onClick={handleUsernameClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300"
@@ -129,6 +161,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
         </button>
 
         <button
+          type="button"
           role="menuitem"
           onClick={handlePasswordClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300 min-h-[44px]"
@@ -138,6 +171,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
         </button>
 
         <button
+          type="button"
           role="menuitem"
           onClick={handleEditProfileClick}
           className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-700 dark:text-gray-300 min-h-[44px]"
