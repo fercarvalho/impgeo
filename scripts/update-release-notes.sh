@@ -29,15 +29,23 @@ echo "📅 Data: $COMMIT_DATE"
 # Usa psql (disponível no servidor) para inserir no banco
 if command -v psql &> /dev/null && [ -n "$DB_URL" ]; then
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  # Escapa aspas simples na mensagem (commits podem conter ')
+  ESCAPED_MSG=$(printf '%s' "$COMMIT_MSG" | sed "s/'/''/g")
   psql "$DB_URL" <<-SQL
+    -- Empilha o commit na fila de pendentes (não sobrescreve commits anteriores)
+    INSERT INTO commits_pendentes (commit_hash, mensagem, data, detectado_em)
+    VALUES ('$COMMIT_HASH', '$ESCAPED_MSG', '$COMMIT_DATE', '$NOW')
+    ON CONFLICT (commit_hash) DO NOTHING;
+
+    -- Mantém o "ultimo_commit_inserido" para compatibilidade (rastreia ponteiro mais recente)
     INSERT INTO rodape_configuracoes (chave, valor, updated_at)
     VALUES
       ('ultimo_commit_inserido', '$COMMIT_HASH', '$NOW'),
-      ('ultimo_commit_msg',      '$COMMIT_MSG',  '$NOW'),
+      ('ultimo_commit_msg',      '$ESCAPED_MSG', '$NOW'),
       ('ultimo_commit_data',     '$COMMIT_DATE', '$NOW')
     ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = EXCLUDED.updated_at;
 SQL
-  echo "✅ Commit pendente registrado no banco."
+  echo "✅ Commit pendente registrado na fila."
 else
   echo "⚠️  psql não encontrado ou DATABASE_URL não definida."
   echo "   Execute manualmente o SQL acima no banco de dados."

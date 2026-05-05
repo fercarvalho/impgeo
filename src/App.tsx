@@ -206,18 +206,19 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [catalogModules, setCatalogModules] = useState<{ moduleKey: string; moduleName: string; iconName?: string | null }[] | null>(null)
 
-  // Commit pendente (superadmin)
-  const [commitPendente, setCommitPendente] = useState<{
-    commitHash: string;
+  // Commits pendentes em fila (superadmin) — carrossel
+  const [commitsPendentes, setCommitsPendentes] = useState<{
     versaoAtual: string;
-    mensagem: string;
-    data: string;
+    commits: Array<{ commitHash: string; mensagem: string; data: string }>;
+    manterSessionId: number;
   } | null>(null);
 
   // Notificação de nova versão (outros usuários)
   const [versoesNovas, setVersoesNovas] = useState<Array<{
     versao: string;
     texto: string;
+    tipo?: 'versao' | 'aviso';
+    versaoReferencia?: string;
   }> | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
@@ -245,24 +246,27 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
 
-  // Verificar commit pendente quando superadmin faz login
+  // Verificar commits pendentes (fila) quando superadmin faz login
   useEffect(() => {
     if (!token || !user || user.role !== 'superadmin') return;
     let cancelled = false;
 
-    const checkCommit = async () => {
+    const checkCommits = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/rodape/commit-pendente`, {
+        const res = await fetch(`${API_BASE_URL}/admin/rodape/commits-pendentes`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok || cancelled) return;
         const json = await res.json();
-        if (json.success && json.data?.pendente && !cancelled) {
-          setCommitPendente({
-            commitHash: json.data.commitHash,
+        if (json.success && Array.isArray(json.data?.commits) && json.data.commits.length > 0 && !cancelled) {
+          setCommitsPendentes({
             versaoAtual: json.data.versaoAtual || '',
-            mensagem: json.data.mensagem || '',
-            data: json.data.data || '',
+            commits: json.data.commits.map((c: any) => ({
+              commitHash: c.commitHash,
+              mensagem: c.mensagem || '',
+              data: c.data || '',
+            })),
+            manterSessionId: Date.now(),
           });
         }
       } catch {
@@ -270,7 +274,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       }
     };
 
-    checkCommit();
+    checkCommits();
     return () => { cancelled = true; };
   }, [token, user?.id]);
 
@@ -287,7 +291,12 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         if (!res.ok || cancelled) return;
         const json = await res.json();
         if (json.success && json.data?.notificar && Array.isArray(json.data.versoes) && json.data.versoes.length > 0 && !cancelled) {
-          setVersoesNovas(json.data.versoes.map((v: any) => ({ versao: v.versao, texto: v.texto || '' })));
+          setVersoesNovas(json.data.versoes.map((v: any) => ({
+            versao: v.versao,
+            texto: v.texto || '',
+            tipo: v.tipo === 'aviso' ? 'aviso' : 'versao',
+            versaoReferencia: v.versaoReferencia || v.versao,
+          })));
         }
       } catch {
         // silently ignore
@@ -3512,44 +3521,27 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
       <Footer />
 
-      {/* Modal de confirmação de commit pendente (somente superadmin) */}
-      {commitPendente && (
+      {/* Modal de commits pendentes (carrossel — somente superadmin) */}
+      {commitsPendentes && commitsPendentes.commits.length > 0 && (
         <CommitVersionModal
-          commitHash={commitPendente.commitHash}
-          versaoAtual={commitPendente.versaoAtual}
-          mensagemOriginal={commitPendente.mensagem}
-          data={commitPendente.data}
-          onClose={() => setCommitPendente(null)}
-          onIgnore={async () => {
-            const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                action: 'ignorar',
-                commitHash: commitPendente.commitHash,
-                mensagem: '',
-                data: commitPendente.data,
-                rolesNotificados: [],
-              }),
-            });
-            if (!res.ok) throw new Error('Falha na requisição');
-            setCommitPendente(null);
-          }}
-          onConfirm={async ({ action, novaVersao, mensagem, data, rolesNotificados }) => {
+          commits={commitsPendentes.commits}
+          versaoAtual={commitsPendentes.versaoAtual}
+          onClose={() => setCommitsPendentes(null)}
+          onProcess={async ({ commitHash, action, novaVersao, mensagem, data, rolesNotificados }) => {
             const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({
                 action,
                 novaVersao,
-                commitHash: commitPendente.commitHash,
+                commitHash,
                 mensagem,
                 data,
                 rolesNotificados,
+                manterSessionId: commitsPendentes.manterSessionId,
               }),
             });
             if (!res.ok) throw new Error('Falha na requisição');
-            setCommitPendente(null);
             window.dispatchEvent(new Event('rodape-updated'));
           }}
         />

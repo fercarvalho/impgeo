@@ -4,6 +4,8 @@ import { Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react';
 export interface VersaoItem {
   versao: string;
   texto: string;
+  tipo?: 'versao' | 'aviso';
+  versaoReferencia?: string;
 }
 
 interface Props {
@@ -64,7 +66,11 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
                 <p className="text-white/80 text-xs font-medium uppercase tracking-wide">
                   {total > 1 ? `Novidades disponíveis (${index + 1} de ${total})` : 'Novidade disponível'}
                 </p>
-                <h2 className="text-white text-xl font-bold leading-tight">Versão {atual.versao}</h2>
+                <h2 className="text-white text-xl font-bold leading-tight">
+                  {atual.tipo === 'aviso'
+                    ? `Atualização em ${atual.versaoReferencia || ''}`.trim()
+                    : `Versão ${atual.versao}`}
+                </h2>
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white/70 hover:text-white transition-colors">

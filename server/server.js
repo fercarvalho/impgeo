@@ -4697,10 +4697,10 @@ app.delete('/api/admin/rodape/bottom-links/:id', authenticateToken, requireSuper
   }
 });
 
-// Commit pendente
-app.get('/api/admin/rodape/commit-pendente', authenticateToken, requireSuperAdmin, async (req, res) => {
+// Commits pendentes (fila completa para o superadmin processar em carrossel)
+app.get('/api/admin/rodape/commits-pendentes', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const data = await db.obterCommitPendente();
+    const data = await db.obterCommitsPendentes();
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -4709,14 +4709,18 @@ app.get('/api/admin/rodape/commit-pendente', authenticateToken, requireSuperAdmi
 
 app.post('/api/admin/rodape/confirmar-commit', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const { action, novaVersao, mensagem, data, commitHash, rolesNotificados } = req.body;
+    const { action, novaVersao, mensagem, data, commitHash, rolesNotificados, manterSessionId } = req.body;
     if (!['manter', 'nova_versao', 'ignorar'].includes(action)) {
       return res.status(400).json({ success: false, error: 'action inválido.' });
     }
     if (action !== 'ignorar' && !mensagem?.trim()) {
       return res.status(400).json({ success: false, error: 'mensagem obrigatória.' });
     }
-    await db.confirmarCommit({ action, novaVersao, mensagem, data, commitHash, rolesNotificados: rolesNotificados || [] });
+    await db.confirmarCommit({
+      action, novaVersao, mensagem, data, commitHash,
+      rolesNotificados: rolesNotificados || [],
+      manterSessionId,
+    });
     await logActivity(req, { action: 'UPDATE', entity: 'rodape_commit', details: `action=${action}` });
     res.json({ success: true });
   } catch (err) {

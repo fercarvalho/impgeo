@@ -412,19 +412,55 @@ class Database {
       `);
       await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_versao_notificacoes_criado ON versao_notificacoes(criado_em)`);
 
+      // Colunas para diferenciar 'versao' (release) de 'aviso' (commit sem nova versão)
+      await this.queryWithRetry(`ALTER TABLE versao_notificacoes ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) DEFAULT 'versao'`);
+      await this.queryWithRetry(`ALTER TABLE versao_notificacoes ADD COLUMN IF NOT EXISTS versao_referencia VARCHAR(50)`);
+
       // Migração one-shot: traz a notificação atual (chaves antigas) para o histórico
       await this.queryWithRetry(`
-        INSERT INTO versao_notificacoes (versao, texto, roles, criado_em)
+        INSERT INTO versao_notificacoes (versao, texto, roles, criado_em, tipo, versao_referencia)
         SELECT
           v.valor,
           COALESCE(t.valor, ''),
           COALESCE(r.valor, '[]'),
-          COALESCE(v.updated_at, NOW())
+          COALESCE(v.updated_at, NOW()),
+          'versao',
+          v.valor
         FROM rodape_configuracoes v
         LEFT JOIN rodape_configuracoes t ON t.chave = 'versao_notificada_texto'
         LEFT JOIN rodape_configuracoes r ON r.chave = 'versao_notificada_roles'
         WHERE v.chave = 'versao_notificada' AND v.valor IS NOT NULL AND v.valor <> ''
         ON CONFLICT (versao) DO NOTHING
+      `);
+
+      // Fila de commits pendentes (cada commit detectado pelo hook empilha aqui)
+      await this.queryWithRetry(`
+        CREATE TABLE IF NOT EXISTS commits_pendentes (
+          commit_hash   VARCHAR(50) PRIMARY KEY,
+          mensagem      TEXT,
+          data          VARCHAR(20),
+          detectado_em  TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_commits_pendentes_detectado ON commits_pendentes(detectado_em)`);
+
+      // Migração one-shot: se o último commit detectado ainda não foi confirmado,
+      // joga ele na fila para não ser perdido na transição
+      await this.queryWithRetry(`
+        INSERT INTO commits_pendentes (commit_hash, mensagem, data, detectado_em)
+        SELECT
+          ins.valor,
+          COALESCE(msg.valor, ''),
+          COALESCE(dt.valor, ''),
+          COALESCE(ins.updated_at, NOW())
+        FROM rodape_configuracoes ins
+        LEFT JOIN rodape_configuracoes msg ON msg.chave = 'ultimo_commit_msg'
+        LEFT JOIN rodape_configuracoes dt  ON dt.chave  = 'ultimo_commit_data'
+        LEFT JOIN rodape_configuracoes cf  ON cf.chave  = 'ultimo_commit_confirmado'
+        WHERE ins.chave = 'ultimo_commit_inserido'
+          AND ins.valor IS NOT NULL AND ins.valor <> ''
+          AND (cf.valor IS NULL OR cf.valor <> ins.valor)
+        ON CONFLICT (commit_hash) DO NOTHING
       `);
       // ────────────────────────────────────────────────────────────
 
@@ -4320,36 +4356,43 @@ class Database {
 
   // ========== RODAPÉ — COMMIT PENDENTE & NOTIFICAÇÕES ==========
 
-  async obterCommitPendente() {
-    const r = await this.pool.query(
-      `SELECT chave, valor FROM rodape_configuracoes
-       WHERE chave IN ('ultimo_commit_inserido','ultimo_commit_confirmado','ultimo_commit_msg','ultimo_commit_data','versao_sistema')`
+  async obterCommitsPendentes() {
+    const versaoRes = await this.pool.query(
+      `SELECT valor FROM rodape_configuracoes WHERE chave = 'versao_sistema'`
     );
-    const obj = {};
-    for (const row of r.rows) obj[row.chave] = row.valor;
+    const versaoAtual = versaoRes.rows.length > 0 ? (versaoRes.rows[0].valor || '') : '';
 
-    const inserido   = obj['ultimo_commit_inserido']  || null;
-    const confirmado = obj['ultimo_commit_confirmado'] || null;
-    const versao     = obj['versao_sistema'] || '';
-    const msg        = obj['ultimo_commit_msg']  || '';
-    const data       = obj['ultimo_commit_data'] || '';
+    const r = await this.pool.query(
+      `SELECT commit_hash, mensagem, data, detectado_em
+         FROM commits_pendentes
+         ORDER BY detectado_em ASC`
+    );
 
-    const pendente = inserido && inserido !== confirmado;
-    return { pendente: !!pendente, commitHash: inserido, versaoAtual: versao, mensagem: msg, data };
+    return {
+      versaoAtual,
+      commits: r.rows.map(row => ({
+        commitHash: row.commit_hash,
+        mensagem: row.mensagem || '',
+        data: row.data || '',
+        detectadoEm: row.detectado_em,
+      })),
+    };
   }
 
-  async confirmarCommit({ action, novaVersao, mensagem, data, commitHash, rolesNotificados = [] }) {
+  async confirmarCommit({ action, novaVersao, mensagem, data, commitHash, rolesNotificados = [], manterSessionId }) {
     const now = new Date().toISOString();
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
+      // Marca este commit como confirmado (compat com código antigo) e remove da fila
       await client.query(
         `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
          VALUES ('ultimo_commit_confirmado', $1, $2)
          ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
         [commitHash, now]
       );
+      await client.query(`DELETE FROM commits_pendentes WHERE commit_hash = $1`, [commitHash]);
 
       if (action === 'ignorar') {
         await client.query('COMMIT');
@@ -4372,17 +4415,46 @@ class Database {
         notas = notas.includes('<h2>') ? notas.replace('<h2>', novaSecao + '<h2>') : novaSecao + notas;
 
         await client.query(
-          `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (versao) DO UPDATE SET texto = $2, roles = $3, criado_em = $4`,
+          `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em, tipo, versao_referencia)
+           VALUES ($1, $2, $3, $4, 'versao', $1)
+           ON CONFLICT (versao) DO UPDATE SET texto = $2, roles = $3, criado_em = $4, tipo = 'versao', versao_referencia = $1`,
           [novaVersao, mensagem, JSON.stringify(rolesNotificados), now]
         );
 
         await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [novaVersao]).catch(() => {});
       } else {
+        // action === 'manter': adiciona o item na seção atual das notas
         notas = notas.includes('<!--COMMITS-->')
           ? notas.replace('<!--COMMITS-->', `<!--COMMITS-->\n${novoItem}`)
           : `<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n` + notas;
+
+        // Notifica usuários (consolidando todos os "manter" da mesma sessão num único card)
+        if (manterSessionId && Array.isArray(rolesNotificados) && rolesNotificados.length > 0) {
+          const versaoRefRes = await client.query(`SELECT valor FROM rodape_configuracoes WHERE chave = 'versao_sistema'`);
+          const versaoRef = versaoRefRes.rows.length > 0 ? (versaoRefRes.rows[0].valor || '') : '';
+          const chave = `m:${manterSessionId}`;
+          const itemBullet = `• ${mensagem}`;
+
+          const existeRes = await client.query(`SELECT texto FROM versao_notificacoes WHERE versao = $1`, [chave]);
+          if (existeRes.rows.length > 0) {
+            const textoAtual = existeRes.rows[0].texto || '';
+            const textoNovo = textoAtual ? `${textoAtual}\n${itemBullet}` : itemBullet;
+            await client.query(
+              `UPDATE versao_notificacoes
+                  SET texto = $2, roles = $3, criado_em = $4, tipo = 'aviso', versao_referencia = $5
+                WHERE versao = $1`,
+              [chave, textoNovo, JSON.stringify(rolesNotificados), now, versaoRef]
+            );
+            // Reseta vistas para que usuários que abriram antes vejam a nova consolidação
+            await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [chave]).catch(() => {});
+          } else {
+            await client.query(
+              `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em, tipo, versao_referencia)
+               VALUES ($1, $2, $3, $4, 'aviso', $5)`,
+              [chave, itemBullet, JSON.stringify(rolesNotificados), now, versaoRef]
+            );
+          }
+        }
       }
 
       await client.query(
@@ -4403,7 +4475,7 @@ class Database {
 
   async obterNotificacaoVersao(userId, userRole) {
     const r = await this.pool.query(
-      `SELECT n.versao, n.texto, n.roles, n.criado_em
+      `SELECT n.versao, n.texto, n.roles, n.criado_em, n.tipo, n.versao_referencia
          FROM versao_notificacoes n
          LEFT JOIN versao_notificacoes_vistas v
            ON v.versao = n.versao AND v.user_id = $1
@@ -4417,7 +4489,13 @@ class Database {
       let roles = [];
       try { roles = JSON.parse(row.roles || '[]'); } catch { roles = []; }
       if (!roles.includes(userRole)) continue;
-      versoes.push({ versao: row.versao, texto: row.texto || '', criadoEm: row.criado_em });
+      versoes.push({
+        versao: row.versao,
+        texto: row.texto || '',
+        criadoEm: row.criado_em,
+        tipo: row.tipo || 'versao',
+        versaoReferencia: row.versao_referencia || row.versao,
+      });
     }
 
     if (versoes.length === 0) return { notificar: false, versoes: [] };
