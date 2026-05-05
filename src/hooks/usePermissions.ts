@@ -104,11 +104,9 @@ export const usePermissions = (): Permissions => {
       }
     }
 
-    // Bug fix #6: narrow by modulesAccess when present.
-    // If the server has restricted a user's access to specific modules, those restrictions
-    // take precedence over the role-based baseline (principle of least privilege).
-    // Only applies when modulesAccess is a non-empty array — absence means "no restriction".
-    if (Array.isArray(user.modulesAccess) && user.modulesAccess.length > 0) {
+    // Narrow by modulesAccess only for non-privileged roles.
+    // superadmin and admin always have full access regardless of modulesAccess entries.
+    if (role !== 'superadmin' && role !== 'admin' && Array.isArray(user.modulesAccess) && user.modulesAccess.length > 0) {
       // If the user has at least one module with accessLevel 'read', they can view.
       // If none has 'write' or higher, restrict create/edit/delete/import/export.
       const levels = new Set(
