@@ -54,7 +54,7 @@ const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html:
   const editor = useEditor({
     extensions: [StarterKit],
     content,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     editorProps: {
       attributes: { class: 'min-h-[320px] px-4 py-3 text-sm text-gray-800 dark:text-gray-200 focus:outline-none leading-relaxed' },
     },
@@ -270,7 +270,7 @@ const LegalManagement = () => {
       if (data.success) {
         showFeedback('success', editingCat ? 'Categoria atualizada!' : 'Categoria criada!');
         setShowCatForm(false); setEditingCat(null);
-        setCatForm({ chave: '', nome: '', descricao: '', ativo: true, obrigatorio: false, ordem: categorias.length });
+        setCatForm({ chave: '', nome: '', descricao: '', ativo: true, obrigatorio: false, ordem: 0 });
         await reloadCategorias();
       } else showFeedback('error', data.error || 'Erro ao salvar categoria.');
     } catch (err) { showFeedback('error', err instanceof Error ? err.message : 'Erro de conexão.'); }
