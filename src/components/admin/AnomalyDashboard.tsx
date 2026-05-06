@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Activity, Users, TrendingUp, AlertTriangle, Clock, RefreshCw, XCircle, Globe, BarChart3, User, MapPin, Hash, Filter } from 'lucide-react';
 
 const API_BASE_URL =
@@ -53,6 +53,7 @@ const getTimeAgo = (timestamp: string): string => {
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return 'Desconhecido';
   const diff = Date.now() - date.getTime();
+  if (diff < 0) return 'Agora';
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const d = Math.floor(hours / 24);
@@ -68,6 +69,9 @@ export default function AnomalyDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<number>(0);
   const [days, setDays] = useState(7);
+
+  // Ref para rastrear controladores de requisições manuais (retry/refresh)
+  const manualAbortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -85,7 +89,8 @@ export default function AnomalyDashboard() {
       setAnomalies(filtered);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
-      setError('Erro ao carregar dados');
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Erro ao carregar dados: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -97,18 +102,36 @@ export default function AnomalyDashboard() {
     return () => controller.abort();
   }, [fetchData]);
 
+  // Dispara fetch manual com AbortController próprio para evitar race conditions
+  const handleManualRefresh = useCallback(() => {
+    if (manualAbortRef.current) manualAbortRef.current.abort();
+    const controller = new AbortController();
+    manualAbortRef.current = controller;
+    fetchData(controller.signal);
+  }, [fetchData]);
+
   // Estatísticas calculadas no frontend
-  const displayed = severityFilter > 0
-    ? anomalies.filter(a => (a.details?.score ?? 0) >= severityFilter)
-    : anomalies;
+  const displayed = useMemo(
+    () => severityFilter > 0
+      ? anomalies.filter(a => (a.details?.score ?? 0) >= severityFilter)
+      : anomalies,
+    [anomalies, severityFilter]
+  );
 
-  const affectedUsers = new Set(anomalies.map(a => a.user_id)).size;
-  const highSeverityCount = anomalies.filter(a => (a.details?.score ?? 0) >= 70).length;
-  const avgScore = anomalies.length > 0
-    ? anomalies.reduce((sum, a) => sum + (a.details?.score ?? 0), 0) / anomalies.length
-    : 0;
+  // Stats calculados sobre `displayed` para refletir o filtro ativo
+  const affectedUsers = useMemo(() => new Set(displayed.map(a => a.user_id)).size, [displayed]);
+  const highSeverityCount = useMemo(
+    () => displayed.filter(a => (a.details?.score ?? 0) >= 70).length,
+    [displayed]
+  );
+  const avgScore = useMemo(
+    () => displayed.length > 0
+      ? displayed.reduce((sum, a) => sum + (a.details?.score ?? 0), 0) / displayed.length
+      : 0,
+    [displayed]
+  );
 
-  const byType = Object.entries(
+  const byType = useMemo(() => Object.entries(
     anomalies.reduce((acc: Record<string, { count: number; scoreSum: number }>, a) => {
       const type = a.details?.type || a.operation;
       if (!acc[type]) acc[type] = { count: 0, scoreSum: 0 };
@@ -116,19 +139,22 @@ export default function AnomalyDashboard() {
       acc[type].scoreSum += a.details?.score ?? 0;
       return acc;
     }, {})
-  ).map(([type, v]) => ({ type, count: v.count, avg_score: v.scoreSum / v.count }));
+  ).map(([type, v]) => ({ type, count: v.count, avg_score: v.scoreSum / v.count })), [anomalies]);
 
-  const topUsers = Object.entries(
+  const topUsers = useMemo(() => Object.entries(
     anomalies.reduce((acc: Record<string, { username: string; count: number; last: string }>, a) => {
       if (!acc[a.user_id]) acc[a.user_id] = { username: a.username, count: 0, last: a.timestamp };
       acc[a.user_id].count++;
-      if (new Date(a.timestamp) > new Date(acc[a.user_id].last)) acc[a.user_id].last = a.timestamp;
+      // Bug #4: proteção contra Invalid Date em timestamps malformados
+      const aTime = new Date(a.timestamp).getTime();
+      const lastTime = new Date(acc[a.user_id].last).getTime();
+      if (!isNaN(aTime) && (isNaN(lastTime) || aTime > lastTime)) acc[a.user_id].last = a.timestamp;
       return acc;
     }, {})
   )
     .map(([user_id, v]) => ({ user_id, username: v.username, anomaly_count: v.count, last_anomaly: v.last }))
     .sort((a, b) => b.anomaly_count - a.anomaly_count)
-    .slice(0, 10);
+    .slice(0, 10), [anomalies]);
 
   if (loading) {
     return (
@@ -148,7 +174,7 @@ export default function AnomalyDashboard() {
           <XCircle className="w-5 h-5" aria-hidden="true" />
           <span className="font-medium">{error}</span>
         </div>
-        <button onClick={() => fetchData()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <button onClick={handleManualRefresh} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <RefreshCw className="w-4 h-4" aria-hidden="true" /> Tentar novamente
         </button>
       </div>
@@ -166,7 +192,7 @@ export default function AnomalyDashboard() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Anomalias</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Monitoramento de comportamentos suspeitos detectados por ML</p>
         </div>
-        <button onClick={() => fetchData()} className="ml-auto p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Atualizar" aria-label="Atualizar dados">
+        <button onClick={handleManualRefresh} className="ml-auto p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Atualizar" aria-label="Atualizar dados">
           <RefreshCw className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         </button>
       </div>
@@ -178,7 +204,7 @@ export default function AnomalyDashboard() {
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-blue-500" aria-hidden="true" />
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">FILTRE SEUS ITENS:</h3>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Filtre seus itens:</h3>
           </div>
           <div className="flex items-end gap-3 flex-1">
             <div className="flex flex-col flex-1 min-w-0">
@@ -250,7 +276,7 @@ export default function AnomalyDashboard() {
                     <span className="text-gray-700 dark:text-gray-200">{ANOMALY_LABELS[item.type] || item.type} <span className="text-gray-400 dark:text-gray-500">({item.count})</span></span>
                     <span className="text-gray-500 text-xs">Score: {item.avg_score.toFixed(0)}</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${ANOMALY_LABELS[item.type] || item.type}: ${Math.round(pct)}%`}>
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
@@ -285,10 +311,14 @@ export default function AnomalyDashboard() {
       {/* Anomalias Recentes */}
       <div className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-blue-600" aria-hidden="true" /> Anomalias Recentes
+          <AlertTriangle className="w-4 h-4 text-orange-500" aria-hidden="true" /> Anomalias Recentes
         </h3>
         {displayed.length === 0 ? (
-          <p className="text-center py-8 text-gray-400">Nenhuma anomalia encontrada no período selecionado</p>
+          <p className="text-center py-8 text-gray-400">
+            {severityFilter > 0
+              ? 'Nenhuma anomalia encontrada para os filtros de período e severidade selecionados'
+              : 'Nenhuma anomalia encontrada no período selecionado'}
+          </p>
         ) : (
           <div className="space-y-3">
             {displayed.map(anomaly => {
