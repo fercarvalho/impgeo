@@ -41,6 +41,13 @@ const defaultForm = {
   isActive: true
 };
 
+// Bug 5 fix: constantes extraídas do componente para evitar recriação a cada render
+const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
+const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
+
+// Bug 7 fix: array extraído do componente
+const COMMON_ICONS = ['Home', 'DollarSign', 'Package', 'Users', 'BarChart3', 'Target', 'Shield', 'Settings', 'Activity', 'TrendingUp'];
+
 /* ─── Card arrastável ─── */
 interface SortableCardProps {
   module: ModuleItem;
@@ -142,10 +149,12 @@ const SortableModuleCard = ({
         >
           <Edit className="h-4 w-4" aria-hidden="true" />
         </button>
+        {/* Bug 4 fix: botão deletar também verifica isLocked */}
         {!module.isSystem && (
           <button
-            onClick={() => onDelete(module.moduleKey)}
-            className="p-1.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+            onClick={() => { if (!isLocked) onDelete(module.moduleKey); }}
+            disabled={isLocked}
+            className="p-1.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Deletar"
             aria-label="Deletar módulo"
           >
@@ -166,9 +175,9 @@ const ModuleManagement = () => {
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [showAdminBlockModal, setShowAdminBlockModal] = useState(false);
+  // Bug 9 fix: estado de loading
+  const [isLoading, setIsLoading] = useState(false);
 
-  const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
-  const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
   const isSuperAdmin = currentUser?.role === 'superadmin';
 
   const sensors = useSensors(
@@ -188,6 +197,7 @@ const ModuleManagement = () => {
   }, [showAdminBlockModal, showModuleModal]);
 
   const loadModules = useCallback(async () => {
+    setIsLoading(true);
     try {
       const response = await fetch(`${apiBase}/admin/modules`, { headers: getAuthHeaders() });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -197,17 +207,24 @@ const ModuleManagement = () => {
       }
     } catch (err) {
       console.error('Erro ao carregar módulos:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [apiBase]);
 
   useEffect(() => { loadModules(); }, [loadModules]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // Bug 5 (handleDragEnd) fix: useCallback + validação de índices -1
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const oldIndex = orderedModules.findIndex(m => m.moduleKey === active.id);
     const newIndex = orderedModules.findIndex(m => m.moduleKey === over.id);
+
+    // Bug 1 fix: validar que ambos os índices foram encontrados
+    if (oldIndex === -1 || newIndex === -1) return;
+
     const newOrder = arrayMove(orderedModules, oldIndex, newIndex);
 
     setOrderedModules(newOrder); // otimista
@@ -223,7 +240,7 @@ const ModuleManagement = () => {
       console.error('Erro ao salvar ordem:', err);
       loadModules(); // reverter em caso de erro
     }
-  };
+  }, [apiBase, orderedModules, loadModules]);
 
   const openEditModal = (module: ModuleItem) => {
     setEditingModule(module);
@@ -238,14 +255,23 @@ const ModuleManagement = () => {
     setShowModuleModal(true);
   };
 
+  // Bug 2 fix: validação de campos obrigatórios antes de enviar
   const handleCreateModule = async () => {
+    if (!form.moduleName.trim()) {
+      alert('O nome do módulo é obrigatório');
+      return;
+    }
+    if (!form.moduleKey.trim()) {
+      alert('A key do módulo é obrigatória');
+      return;
+    }
     try {
       const response = await fetch(`${apiBase}/admin/modules`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          moduleName: form.moduleName,
-          moduleKey: form.moduleKey,
+          moduleName: form.moduleName.trim(),
+          moduleKey: form.moduleKey.trim(),
           iconName: form.iconName,
           description: form.description,
           routePath: form.routePath || null,
@@ -267,7 +293,7 @@ const ModuleManagement = () => {
     }
   };
 
-  const handleUpdateModule = async (moduleKey: string, updates: Partial<ModuleItem>) => {
+  const handleUpdateModule = async (moduleKey: string, updates: Partial<ModuleItem>): Promise<boolean> => {
     try {
       const response = await fetch(`${apiBase}/admin/modules/${moduleKey}`, {
         method: 'PUT',
@@ -278,12 +304,15 @@ const ModuleManagement = () => {
       const result = await response.json();
       if (result.success) {
         loadModules();
+        return true;
       } else {
         alert(result.error || 'Erro ao atualizar módulo');
+        return false;
       }
     } catch (err) {
       console.error('Erro ao atualizar módulo:', err);
       alert('Erro ao atualizar módulo');
+      return false;
     }
   };
 
@@ -307,21 +336,22 @@ const ModuleManagement = () => {
     }
   };
 
+  // Bug 3 fix: só fecha o modal se o update foi bem-sucedido
   const handleSaveEdit = async () => {
     if (!editingModule) return;
-    await handleUpdateModule(editingModule.moduleKey, {
+    const success = await handleUpdateModule(editingModule.moduleKey, {
       moduleName: form.moduleName,
       iconName: form.iconName,
       description: form.description,
       routePath: form.routePath || null,
       isActive: form.isActive
     });
-    setShowModuleModal(false);
-    setEditingModule(null);
-    setForm(defaultForm);
+    if (success) {
+      setShowModuleModal(false);
+      setEditingModule(null);
+      setForm(defaultForm);
+    }
   };
-
-  const commonIcons = ['Home', 'DollarSign', 'Package', 'Users', 'BarChart3', 'Target', 'Shield', 'Settings', 'Activity', 'TrendingUp'];
 
   return (
     <div className="space-y-6">
@@ -330,11 +360,12 @@ const ModuleManagement = () => {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gerenciar Módulos</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
         </div>
+        {/* Bug 10 fix: removido mr-2 duplicado (container já tem gap-2) */}
         <button
           onClick={() => { setEditingModule(null); setForm(defaultForm); setShowModuleModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
         >
-          <Plus className="h-5 w-5 mr-2" aria-hidden="true" />
+          <Plus className="h-5 w-5" aria-hidden="true" />
           Novo Módulo
         </button>
       </div>
@@ -342,33 +373,52 @@ const ModuleManagement = () => {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedModules.map(m => m.moduleKey)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
-            {orderedModules.map((module) => (
-              <SortableModuleCard
-                key={module.moduleKey}
-                module={module}
-                isSuperAdmin={isSuperAdmin}
-                protectedModules={PROTECTED_MODULES}
-                superAdminModules={SUPERADMIN_MODULES}
-                onToggleActive={(key, active) => handleUpdateModule(key, { isActive: !active })}
-                onEdit={openEditModal}
-                onDelete={handleDeleteModule}
-                onAdminBlock={() => setShowAdminBlockModal(true)}
-              />
-            ))}
+            {/* Bug 8 fix: empty state e loading state */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                <span className="text-sm">Carregando módulos...</span>
+              </div>
+            ) : orderedModules.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                <p className="text-sm font-medium">Nenhum módulo cadastrado</p>
+                <p className="text-xs mt-1">Clique em "Novo Módulo" para começar</p>
+              </div>
+            ) : (
+              orderedModules.map((module) => (
+                <SortableModuleCard
+                  key={module.moduleKey}
+                  module={module}
+                  isSuperAdmin={isSuperAdmin}
+                  protectedModules={PROTECTED_MODULES}
+                  superAdminModules={SUPERADMIN_MODULES}
+                  onToggleActive={(key, active) => handleUpdateModule(key, { isActive: !active })}
+                  onEdit={openEditModal}
+                  onDelete={handleDeleteModule}
+                  onAdminBlock={() => setShowAdminBlockModal(true)}
+                />
+              ))
+            )}
           </div>
         </SortableContext>
       </DndContext>
 
       {/* Modal: bloqueio admin */}
+      {/* Bug 11 fix: role="dialog" e aria-modal="true" */}
       {showAdminBlockModal && createPortal(
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
+        <div
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4"
+          onClick={() => setShowAdminBlockModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-block-modal-title"
+        >
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Ação bloqueada</h3>
+                <h3 id="admin-block-modal-title" className="text-lg font-bold text-white">Ação bloqueada</h3>
                 <p className="text-sm text-white/80">Módulo protegido pelo sistema</p>
               </div>
             </div>
@@ -391,10 +441,16 @@ const ModuleManagement = () => {
 
       {/* Modal: criar/editar módulo */}
       {showModuleModal && createPortal(
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
+        <div
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+          onClick={() => { setShowModuleModal(false); setEditingModule(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="module-modal-title"
+        >
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
-              <h3 className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
+              <h3 id="module-modal-title" className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
               <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200" aria-label="Fechar modal">
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -412,7 +468,7 @@ const ModuleManagement = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ícone (Lucide)</label>
                 <select value={form.iconName} onChange={(e) => setForm({ ...form, iconName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200">
-                  {commonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
+                  {COMMON_ICONS.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
                 </select>
               </div>
               <div>
