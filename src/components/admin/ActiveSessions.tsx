@@ -32,7 +32,7 @@ export default function ActiveSessions() {
   const [error, setError] = useState<string | null>(null);
 
   const authHeaders = useCallback(() => ({
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${token ?? ''}`,
     'Content-Type': 'application/json',
   }), [token]);
 
@@ -44,10 +44,10 @@ export default function ActiveSessions() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSessions(data.sessions || []);
+      setLoading(false);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       setError('Erro ao carregar sessões');
-    } finally {
       setLoading(false);
     }
   }, [authHeaders]);
@@ -76,11 +76,12 @@ export default function ActiveSessions() {
       const res = await fetch(`${API_BASE_URL}/sessions`, {
         method: 'DELETE',
         headers: authHeaders(),
-        body: JSON.stringify({ currentRefreshTokenId: null }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       alert('Todas as outras sessões foram encerradas!');
-      fetchSessions();
+      const controller = new AbortController();
+      fetchSessions(controller.signal);
     } catch {
       alert('Erro ao encerrar sessões');
     }
@@ -156,7 +157,7 @@ export default function ActiveSessions() {
       <div className="h-px bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 mb-6" />
 
       {sessions.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">Nenhuma sessão ativa encontrada.</div>
+        <div className="text-center py-12 text-gray-400 dark:text-gray-500">Nenhuma sessão ativa encontrada.</div>
       ) : (
         <div className="space-y-4">
           {sessions.map((session, index) => (
@@ -171,7 +172,7 @@ export default function ActiveSessions() {
                       <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{session.device_name || 'Dispositivo desconhecido'}</span>
                       <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">@{session.username}</span>
                     </div>
-                    <p className="text-sm text-gray-400 dark:text-gray-500">{session.browser} · {session.os}</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">{session.browser || 'Navegador desconhecido'} · {session.os || 'SO desconhecido'}</p>
                   </div>
                 </div>
                 {index !== 0 && (
@@ -192,7 +193,7 @@ export default function ActiveSessions() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                  <span className="truncate font-mono text-xs">{session.ip_address}</span>
+                  <span className="truncate font-mono text-xs">{session.ip_address || 'IP desconhecido'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
