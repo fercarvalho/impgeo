@@ -81,7 +81,7 @@ const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html:
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: 'min-h-[280px] px-4 py-3 text-sm text-gray-800 focus:outline-none leading-relaxed',
+        class: 'min-h-[280px] px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none leading-relaxed',
       },
     },
   });
@@ -90,8 +90,7 @@ const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html:
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content || '', { emitUpdate: false });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [content, editor]);
 
   if (!editor) return null;
 
@@ -102,8 +101,8 @@ const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html:
       title={title}
       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
         active
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-500 hover:bg-gray-100'
+          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
       }`}
     >
       {children}
@@ -204,6 +203,10 @@ const SortableColuna = ({
   const [titulo, setTitulo] = useState(coluna.titulo);
   const [editandoTitulo, setEditandoTitulo] = useState(false);
 
+  useEffect(() => {
+    if (!editandoTitulo) setTitulo(coluna.titulo);
+  }, [coluna.titulo, editandoTitulo]);
+
   const linkSensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -232,7 +235,7 @@ const SortableColuna = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-[#1e2d42] border border-gray-700 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
+      className="bg-[#ffffff] dark:bg-[#1e2d42] border border-gray-200 dark:border-gray-700 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
     >
       {/* Header da coluna */}
       <div className="flex items-center gap-2 mb-3">
@@ -484,11 +487,13 @@ const FooterManagement = () => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (deleteConfirm) { setDeleteConfirm(null); return; }
-      if (showModalLink && !isSavingLink) { fecharModalLink(); }
+      if (deleteBottomConfirm) { setDeleteBottomConfirm(null); return; }
+      if (showModalLink && !isSavingLink) { fecharModalLink(); return; }
+      if (showModalBottom && !isSavingBottom) { fecharModalBottom(); }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [showModalLink, isSavingLink, deleteConfirm]);
+  }, [showModalLink, isSavingLink, deleteConfirm, showModalBottom, isSavingBottom, deleteBottomConfirm]);
 
   // ─── Colunas ────────────────────────────────────────────────────────────────
 
@@ -528,17 +533,20 @@ const FooterManagement = () => {
   };
 
   const handleRenameColuna = async (id: string, novoTitulo: string) => {
-    const prev = colunas;
-    setColunas(colunas.map(c => c.id === id ? { ...c, titulo: novoTitulo } : c));
+    let prevColunas: RodapeColuna[] | null = null;
+    setColunas(current => {
+      prevColunas = current;
+      return current.map(c => c.id === id ? { ...c, titulo: novoTitulo } : c);
+    });
     try {
       const res = await fetch(`${API_BASE_URL}/admin/rodape/colunas/${id}`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify({ titulo: novoTitulo }),
       });
-      if (!res.ok) setColunas(prev);
+      if (!res.ok && prevColunas) setColunas(prevColunas);
       else dispatchUpdate();
-    } catch { setColunas(prev); }
+    } catch { if (prevColunas) setColunas(prevColunas); }
   };
 
   const handleDeleteColuna = (id: string) => {
@@ -702,7 +710,7 @@ const FooterManagement = () => {
   const handleSalvarInfo = async () => {
     setIsSavingConfig('info_texto');
     try {
-      await Promise.all([
+      const [resTexto, resAlinhamento] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/rodape/config/info_texto`, {
           method: 'PUT', headers: authHeaders,
           body: JSON.stringify({ valor: config.info_texto }),
@@ -712,8 +720,10 @@ const FooterManagement = () => {
           body: JSON.stringify({ valor: config.info_alinhamento }),
         }),
       ]);
-      setConfigOriginal(prev => ({ ...prev, info_texto: config.info_texto, info_alinhamento: config.info_alinhamento }));
-      dispatchUpdate();
+      if (resTexto.ok && resAlinhamento.ok) {
+        setConfigOriginal(prev => ({ ...prev, info_texto: config.info_texto, info_alinhamento: config.info_alinhamento }));
+        dispatchUpdate();
+      }
     } finally {
       setIsSavingConfig(null);
     }
@@ -745,17 +755,21 @@ const FooterManagement = () => {
     setIsSavingConfig('empresa_nome');
     const chaves: (keyof RodapeConfig)[] = ['empresa_nome', 'empresa_tagline', 'empresa_descricao', 'empresa_autor', 'empresa_logo'];
     try {
+      let allOk = true;
       for (const chave of chaves) {
         if (config[chave] !== configOriginal[chave]) {
-          await fetch(`${API_BASE_URL}/admin/rodape/config/${chave}`, {
+          const res = await fetch(`${API_BASE_URL}/admin/rodape/config/${chave}`, {
             method: 'PUT',
             headers: authHeaders,
             body: JSON.stringify({ valor: config[chave] }),
           });
+          if (!res.ok) { allOk = false; break; }
         }
       }
-      setConfigOriginal(prev => ({ ...prev, ...Object.fromEntries(chaves.map(k => [k, config[k]])) }));
-      dispatchUpdate();
+      if (allOk) {
+        setConfigOriginal(prev => ({ ...prev, ...Object.fromEntries(chaves.map(k => [k, config[k]])) }));
+        dispatchUpdate();
+      }
     } finally {
       setIsSavingConfig(null);
     }
@@ -914,12 +928,14 @@ const FooterManagement = () => {
 
       {/* Abas */}
       <div className="relative mb-6">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div role="tablist" className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex-shrink-0 ${
                   activeTab === tab.id
@@ -1268,7 +1284,7 @@ const FooterManagement = () => {
                   {bottomLinks.filter(l => l.ativo).map((item, idx, arr) => (
                     <span key={item.id} className="flex items-center">
                       <span className="px-1 font-medium">{item.texto}</span>
-                      {idx < arr.length - 1 && <span className="text-gray-400 select-none">|</span>}
+                      {idx < arr.length - 1 && <span className="text-gray-400 select-none" aria-hidden="true">|</span>}
                     </span>
                   ))}
                 </div>
@@ -1465,12 +1481,14 @@ const FooterManagement = () => {
               {/* Toggle é link */}
               <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">É um link clicável?</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">É um link clicável?</p>
                   <p className="text-xs text-gray-500">
                     {linkEhLink ? 'Abre uma URL ao clicar' : 'Apenas texto informativo'}
                   </p>
                 </div>
                 <button
+                  role="switch"
+                  aria-checked={linkEhLink}
                   onClick={() => setLinkEhLink(v => !v)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${linkEhLink ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
@@ -1614,12 +1632,14 @@ const FooterManagement = () => {
               {/* Status */}
               <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">Ativo</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ativo</p>
                   <p className="text-xs text-gray-500">
                     {bottomAtivo ? 'Aparece no rodapé' : 'Oculto no rodapé'}
                   </p>
                 </div>
                 <button
+                  role="switch"
+                  aria-checked={bottomAtivo}
                   onClick={() => setBottomAtivo(v => !v)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${bottomAtivo ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
