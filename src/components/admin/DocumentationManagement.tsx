@@ -225,10 +225,10 @@ const DocumentationManagement: React.FC = () => {
           setExpandedSections(new Set([result.data[0].id]));
         }
       }
+      setIsLoading(false);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       // silencioso — componente mostra estrutura vazia
-    } finally {
       setIsLoading(false);
     }
   }, [token]);
@@ -356,13 +356,13 @@ const DocumentationManagement: React.FC = () => {
             : s
           )
         );
+        setEditingSection(null);
       } else {
         alert(result.error || 'Erro ao atualizar seção');
       }
     } catch {
       alert('Erro ao conectar com o servidor');
     }
-    setEditingSection(null);
   };
 
   // Deletar seção
