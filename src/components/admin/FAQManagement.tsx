@@ -116,20 +116,21 @@ const FAQManagement = () => {
   const [resposta, setResposta] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('todos');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const loadItems = useCallback(async () => {
+  const loadItems = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
-      if (result.success) setItems(result.data);
+      if (result.success) setItems(result.data || []);
     } catch (e) {
       console.error('Erro ao carregar FAQ:', e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
@@ -137,9 +138,9 @@ const FAQManagement = () => {
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key !== 'Escape') return;
-    if (deleteConfirm) { setDeleteConfirm(null); return; }
+    if (deleteConfirm && !isDeleting) { setDeleteConfirm(null); return; }
     if (showModal && !isSaving) { setShowModal(false); }
-  }, [showModal, isSaving, deleteConfirm]);
+  }, [showModal, isSaving, deleteConfirm, isDeleting]);
 
   useEffect(() => {
     if (showModal || deleteConfirm) document.addEventListener('keydown', handleKeyDown);
@@ -205,6 +206,8 @@ const FAQManagement = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (isDeleting) return;
+    setIsDeleting(true);
     try {
       const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq/${id}`, {
         method: 'DELETE',
@@ -214,6 +217,7 @@ const FAQManagement = () => {
       const result = await res.json();
       if (result.success) { setDeleteConfirm(null); loadItems(); }
     } catch (e) { console.error('Erro ao deletar:', e); }
+    finally { setIsDeleting(false); }
   };
 
   const handleMover = async (index: number, direcao: 'cima' | 'baixo') => {
@@ -229,7 +233,7 @@ const FAQManagement = () => {
         body: JSON.stringify({ faqIds: novoArray.map(i => i.id) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch (e) { console.error('Erro ao reordenar:', e); loadItems(); }
+    } catch (e) { console.error('Erro ao reordenar:', e); loadItems(true); }
   };
 
   if (isLoading) {
@@ -352,10 +356,15 @@ const FAQManagement = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget && !isSaving) setShowModal(false); }}
         >
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="faq-modal-title"
+            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <h3 id="faq-modal-title" className="text-lg font-bold text-white flex items-center gap-2">
                 <HelpCircle className="h-5 w-5 text-white" aria-hidden="true" />
                 {editingItem ? 'Editar Pergunta' : 'Nova Pergunta'}
               </h3>
@@ -431,7 +440,7 @@ const FAQManagement = () => {
                 className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2 text-sm font-medium shadow-sm"
               >
                 {isSaving ? (
-                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" role="status" aria-label="Salvando" aria-hidden="true" />Salvando...</>
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Salvando...</>
                 ) : (
                   <><Save className="h-4 w-4" aria-hidden="true" />Salvar</>
                 )}
@@ -445,28 +454,37 @@ const FAQManagement = () => {
       {deleteConfirm && (
         <div
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+          onClick={e => { if (e.target === e.currentTarget && !isDeleting) setDeleteConfirm(null); }}
         >
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center"
+          >
             <div className="flex justify-center mb-4">
               <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-4">
                 <AlertTriangle className="h-8 w-8 text-red-500 dark:text-red-400" aria-hidden="true" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Confirmar Exclusão</h3>
+            <h3 id="delete-modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Confirmar Exclusão</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Esta ação não pode ser desfeita.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium"
+                onClick={() => handleDelete(deleteConfirm!)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Excluir
+                {isDeleting ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Excluindo...</>
+                ) : 'Excluir'}
               </button>
             </div>
           </div>
