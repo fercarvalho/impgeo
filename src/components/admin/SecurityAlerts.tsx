@@ -1,17 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, Shield, BarChart3, Clock, Globe, User, XCircle, RefreshCw, Filter } from 'lucide-react';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+    : ((import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || '/api');
+
+interface AlertDetails {
+  message?: string;
+  attempts?: number;
+  country?: string;
+  payload?: unknown;
+}
 
 interface Alert {
   id: string;
   user_id: string;
   username: string;
   action: string;
-  details: any;
+  details: AlertDetails | null;
   ip_address: string;
   created_at: string;
 }
@@ -62,7 +69,10 @@ const getSeverityBarColor = (action: string): string => {
 };
 
 const getTimeAgo = (timestamp: string): string => {
-  const diff = Date.now() - new Date(timestamp).getTime();
+  if (!timestamp) return 'Desconhecido';
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return 'Desconhecido';
+  const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const d = Math.floor(hours / 24);
@@ -70,6 +80,13 @@ const getTimeAgo = (timestamp: string): string => {
   if (hours > 0) return `${hours}h atrás`;
   if (minutes > 0) return `${minutes}min atrás`;
   return 'Agora';
+};
+
+const formatDate = (timestamp: string): string => {
+  if (!timestamp) return 'Data desconhecida';
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return 'Data inválida';
+  return date.toLocaleString('pt-BR');
 };
 
 const LIMIT = 20;
@@ -83,9 +100,7 @@ export default function SecurityAlerts() {
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
 
-  useEffect(() => { fetchData(); }, [days, typeFilter, page]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -93,6 +108,8 @@ export default function SecurityAlerts() {
         fetch(`${API_BASE_URL}/security-alerts?limit=${LIMIT}&offset=${page * LIMIT}${typeFilter ? `&type=${typeFilter}` : ''}`, { headers: authHeaders() }),
         fetch(`${API_BASE_URL}/security-alerts?days=${days}&stats=1`, { headers: authHeaders() }),
       ]);
+      if (!alertsRes.ok) throw new Error(`HTTP ${alertsRes.status}`);
+      if (!statsRes.ok) throw new Error(`HTTP ${statsRes.status}`);
       const alertsData = await alertsRes.json();
       const statsData = await statsRes.json();
       setAlerts(alertsData.alerts || []);
@@ -102,14 +119,16 @@ export default function SecurityAlerts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days, typeFilter, page]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading && alerts.length === 0) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" />
-          <p className="text-gray-500">Carregando alertas...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" role="status" aria-label="Carregando alertas" />
+          <p className="text-gray-500 dark:text-gray-400">Carregando alertas...</p>
         </div>
       </div>
     );
@@ -118,12 +137,12 @@ export default function SecurityAlerts() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="flex items-center gap-2 text-red-600 mb-3">
-          <XCircle className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-3">
+          <XCircle className="w-5 h-5" aria-hidden="true" />
           <span className="font-medium">{error}</span>
         </div>
         <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          <RefreshCw className="w-4 h-4" /> Tentar novamente
+          <RefreshCw className="w-4 h-4" aria-hidden="true" /> Tentar novamente
         </button>
       </div>
     );
@@ -134,36 +153,36 @@ export default function SecurityAlerts() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
         <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
-          <Bell className="w-6 h-6 text-white" />
+          <Bell className="w-6 h-6 text-white" aria-hidden="true" />
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Portal de Alertas de Segurança</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Monitoramento de eventos de segurança em tempo real</p>
         </div>
-        <button onClick={fetchData} className="ml-auto p-2 hover:bg-gray-100 rounded-lg" title="Atualizar">
-          <RefreshCw className="w-4 h-4 text-gray-500" />
+        <button onClick={fetchData} className="ml-auto p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Atualizar" aria-label="Atualizar alertas">
+          <RefreshCw className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="h-px bg-gradient-to-r from-blue-200 to-indigo-200 mb-6" />
+      <div className="h-px bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 mb-6" />
 
       {/* Filtros */}
       <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 p-4 rounded-2xl border border-blue-200 dark:border-gray-700 shadow-sm mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-500" />
-            <h3 className="text-lg font-bold text-gray-800 uppercase tracking-wide">FILTRE SEUS ITENS:</h3>
+            <Filter className="w-5 h-5 text-blue-500" aria-hidden="true" />
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide">FILTRE SEUS ITENS:</h3>
           </div>
           <div className="flex items-end gap-3 flex-1">
             <div className="flex flex-col flex-1 min-w-0">
-              <label htmlFor="alert-period-filter" className="text-xs font-semibold text-gray-700 mb-1">Período</label>
+              <label htmlFor="alert-period-filter" className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Período</label>
               <select
                 id="alert-period-filter"
                 name="alert-period-filter"
                 aria-label="Filtrar por período"
                 value={days}
                 onChange={(e) => { setDays(Number(e.target.value)); setPage(0); }}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
               >
                 <option value={1}>Últimas 24 horas</option>
                 <option value={7}>Últimos 7 dias</option>
@@ -172,14 +191,14 @@ export default function SecurityAlerts() {
               </select>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label htmlFor="alert-type-filter" className="text-xs font-semibold text-gray-700 mb-1">Tipo de Alerta</label>
+              <label htmlFor="alert-type-filter" className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo de Alerta</label>
               <select
                 id="alert-type-filter"
                 name="alert-type-filter"
                 aria-label="Filtrar por tipo de alerta"
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
               >
                 <option value="">Todos</option>
                 {Object.entries(ALERT_LABELS).map(([k, v]) => (
@@ -195,10 +214,10 @@ export default function SecurityAlerts() {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[
-            { icon: <Shield className="w-8 h-8 text-blue-500" />, value: stats.total, label: 'Total de Alertas' },
-            { icon: <User className="w-8 h-8 text-blue-500" />, value: stats.affectedUsers, label: 'Usuários Afetados' },
-            { icon: <BarChart3 className="w-8 h-8 text-blue-500" />, value: stats.byType?.length ?? 0, label: 'Tipos Diferentes' },
-            { icon: <Clock className="w-8 h-8 text-blue-500" />, value: stats.period, label: 'Período' },
+            { icon: <Shield className="w-8 h-8 text-blue-500" aria-hidden="true" />, value: stats.total, label: 'Total de Alertas' },
+            { icon: <User className="w-8 h-8 text-blue-500" aria-hidden="true" />, value: stats.affectedUsers, label: 'Usuários Afetados' },
+            { icon: <BarChart3 className="w-8 h-8 text-blue-500" aria-hidden="true" />, value: stats.byType?.length ?? 0, label: 'Tipos Diferentes' },
+            { icon: <Clock className="w-8 h-8 text-blue-500" aria-hidden="true" />, value: stats.period, label: 'Período' },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3">
               <div className="flex-shrink-0">{card.icon}</div>
@@ -215,7 +234,7 @@ export default function SecurityAlerts() {
       {stats && stats.byType && stats.byType.length > 0 && (
         <div className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm mb-6">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-blue-600" /> Distribuição por Tipo
+            <BarChart3 className="w-4 h-4 text-blue-600" aria-hidden="true" /> Distribuição por Tipo
           </h3>
           <div className="space-y-2">
             {stats.byType.map(item => {
@@ -223,10 +242,10 @@ export default function SecurityAlerts() {
               return (
                 <div key={item.action}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">{ALERT_LABELS[item.action] || item.action} <span className="text-gray-400">({item.count})</span></span>
-                    <span className="text-gray-500 text-xs">{pct.toFixed(1)}%</span>
+                    <span className="text-gray-700 dark:text-gray-300">{ALERT_LABELS[item.action] || item.action} <span className="text-gray-400 dark:text-gray-500">({item.count})</span></span>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs">{pct.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: getSeverityBarColor(item.action) }} />
                   </div>
                 </div>
@@ -239,40 +258,40 @@ export default function SecurityAlerts() {
       {/* Lista de Alertas */}
       <div className="bg-white dark:!bg-[#243040] border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-blue-600" /> Alertas Recentes
+          <Bell className="w-4 h-4 text-blue-600" aria-hidden="true" /> Alertas Recentes
         </h3>
         {alerts.length === 0 ? (
-          <p className="text-center py-8 text-gray-400">Nenhum alerta encontrado no período selecionado</p>
+          <p className="text-center py-8 text-gray-400 dark:text-gray-500">Nenhum alerta encontrado no período selecionado</p>
         ) : (
           <>
             <div className="space-y-3">
               {alerts.map(alert => {
                 const sev = getSeverity(alert.action);
                 return (
-                  <div key={alert.id} className="border border-gray-100 rounded-lg p-3">
+                  <div key={alert.id} className="border border-gray-100 dark:border-gray-700 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-800 text-sm">{ALERT_LABELS[alert.action] || alert.action}</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">{ALERT_LABELS[alert.action] || alert.action}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${sev.bg} ${sev.text}`}>{sev.label}</span>
                     </div>
-                    <div className="text-xs text-gray-600 flex items-center gap-1 mb-1">
-                      <User className="w-3 h-3" /> {alert.username}
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-1">
+                      <User className="w-3 h-3" aria-hidden="true" /> {alert.username}
                     </div>
                     {alert.details && typeof alert.details === 'object' && (
-                      <div className="text-xs text-gray-500 space-y-0.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
                         {alert.details.message && <div>{alert.details.message}</div>}
-                        {alert.details.attempts && <div>Tentativas: {alert.details.attempts}</div>}
+                        {alert.details.attempts != null && <div>Tentativas: {alert.details.attempts}</div>}
                         {alert.details.country && <div>País: {alert.details.country}</div>}
                         {alert.details.payload && (
-                          <div className="font-mono bg-gray-50 rounded px-2 py-1 text-xs">
+                          <div className="font-mono bg-gray-50 dark:bg-gray-800 rounded px-2 py-1 text-xs">
                             Payload: {JSON.stringify(alert.details.payload).substring(0, 100)}...
                           </div>
                         )}
                       </div>
                     )}
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {getTimeAgo(alert.created_at)}</span>
-                      <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {alert.ip_address}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(alert.created_at).toLocaleString('pt-BR')}</span>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 dark:text-gray-500">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" aria-hidden="true" /> {getTimeAgo(alert.created_at)}</span>
+                      <span className="flex items-center gap-1"><Globe className="w-3 h-3" aria-hidden="true" /> {alert.ip_address}</span>
+                      <span className="flex items-center gap-1 font-mono">{formatDate(alert.created_at)}</span>
                     </div>
                   </div>
                 );
@@ -284,15 +303,15 @@ export default function SecurityAlerts() {
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 ← Anterior
               </button>
-              <span className="text-sm text-gray-500">Página {page + 1}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Página {page + 1}</span>
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={alerts.length < LIMIT}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 Próxima →
               </button>

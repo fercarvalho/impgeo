@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle, GripVertical } from 'lucide-react';
 import {
@@ -53,7 +53,7 @@ interface SortableCardProps {
   onAdminBlock: () => void;
 }
 
-const SortableModuleCard: React.FC<SortableCardProps> = ({
+const SortableModuleCard = ({
   module,
   isSuperAdmin,
   protectedModules,
@@ -62,7 +62,7 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
   onEdit,
   onDelete,
   onAdminBlock,
-}) => {
+}: SortableCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: module.moduleKey });
 
@@ -89,28 +89,31 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
         {...listeners}
         className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0 p-1 rounded"
         title="Arrastar para reordenar"
+        aria-label="Arrastar para reordenar"
       >
-        <GripVertical className="h-5 w-5" />
+        <GripVertical className="h-5 w-5" aria-hidden="true" />
       </button>
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          {module.isSystem && <Shield className="h-4 w-4 text-blue-600 flex-shrink-0" />}
-          <h3 className="text-base font-semibold text-gray-900 truncate">{module.moduleName}</h3>
+          {module.isSystem && <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />}
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{module.moduleName}</h3>
           <span className={`px-2 py-0.5 text-xs rounded flex-shrink-0 ${
-            module.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            module.isActive !== false
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
           }`}>
             {module.isActive !== false ? 'Ativo' : 'Inativo'}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{module.moduleKey}</span>
+        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{module.moduleKey}</span>
           {module.iconName && <span>{module.iconName}</span>}
           <span>{module.isSystem ? 'Sistema' : 'Customizado'}</span>
         </div>
         {module.description && (
-          <p className="text-xs text-gray-500 mt-1 truncate">{module.description}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{module.description}</p>
         )}
       </div>
 
@@ -126,25 +129,27 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
             onToggleActive(module.moduleKey, module.isActive !== false);
           }}
           disabled={isLocked}
-          className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
         >
           {module.isActive !== false ? 'Desativar' : 'Ativar'}
         </button>
         <button
           onClick={() => { if (!isLocked) onEdit(module); }}
           disabled={isLocked}
-          className="p-1.5 text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
           title="Editar"
+          aria-label="Editar módulo"
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-4 w-4" aria-hidden="true" />
         </button>
         {!module.isSystem && (
           <button
             onClick={() => onDelete(module.moduleKey)}
-            className="p-1.5 text-red-600 hover:text-red-800"
+            className="p-1.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
             title="Deletar"
+            aria-label="Deletar módulo"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -153,7 +158,7 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
 };
 
 /* ─── Componente principal ─── */
-const ModuleManagement: React.FC = () => {
+const ModuleManagement = () => {
   const apiBase = useMemo(() => getAdminApiBaseUrl(), []);
   const { user: currentUser } = useAuth();
   const [orderedModules, setOrderedModules] = useState<ModuleItem[]>([]);
@@ -182,9 +187,10 @@ const ModuleManagement: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showAdminBlockModal, showModuleModal]);
 
-  const loadModules = async () => {
+  const loadModules = useCallback(async () => {
     try {
       const response = await fetch(`${apiBase}/admin/modules`, { headers: getAuthHeaders() });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setOrderedModules(result.data || []);
@@ -192,9 +198,9 @@ const ModuleManagement: React.FC = () => {
     } catch (err) {
       console.error('Erro ao carregar módulos:', err);
     }
-  };
+  }, [apiBase]);
 
-  useEffect(() => { loadModules(); }, []);
+  useEffect(() => { loadModules(); }, [loadModules]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -207,11 +213,12 @@ const ModuleManagement: React.FC = () => {
     setOrderedModules(newOrder); // otimista
 
     try {
-      await fetch(`${apiBase}/admin/modules/reorder`, {
+      const res = await fetch(`${apiBase}/admin/modules/reorder`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ keys: newOrder.map(m => m.moduleKey) })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       console.error('Erro ao salvar ordem:', err);
       loadModules(); // reverter em caso de erro
@@ -245,6 +252,7 @@ const ModuleManagement: React.FC = () => {
           isActive: form.isActive
         })
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setShowModuleModal(false);
@@ -266,6 +274,7 @@ const ModuleManagement: React.FC = () => {
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         loadModules();
@@ -285,6 +294,7 @@ const ModuleManagement: React.FC = () => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         loadModules();
@@ -318,13 +328,13 @@ const ModuleManagement: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gerenciar Módulos</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
         </div>
         <button
           onClick={() => { setEditingModule(null); setForm(defaultForm); setShowModuleModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
         >
-          <Plus className="h-5 w-5 mr-2" />
+          <Plus className="h-5 w-5 mr-2" aria-hidden="true" />
           Novo Módulo
         </button>
       </div>
@@ -355,7 +365,7 @@ const ModuleManagement: React.FC = () => {
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-white" />
+                <AlertTriangle className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white">Ação bloqueada</h3>
@@ -385,7 +395,9 @@ const ModuleManagement: React.FC = () => {
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <h3 className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
-              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200" aria-label="Fechar modal">
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
               <div>
@@ -395,7 +407,7 @@ const ModuleManagement: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Key (única)</label>
                 <input type="text" placeholder="key-do-modulo" value={form.moduleKey} onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 transition-all duration-200" disabled={!!editingModule} />
-                {editingModule && <p className="text-xs text-gray-500 mt-1">A key não pode ser alterada</p>}
+                {editingModule && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">A key não pode ser alterada</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ícone (Lucide)</label>
@@ -418,7 +430,7 @@ const ModuleManagement: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={editingModule ? handleSaveEdit : handleCreateModule} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 font-semibold">
-                  <Save className="inline h-4 w-4 mr-1" />
+                  <Save className="inline h-4 w-4 mr-1" aria-hidden="true" />
                   {editingModule ? 'Salvar' : 'Criar'}
                 </button>
               </div>

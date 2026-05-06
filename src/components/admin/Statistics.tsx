@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Download, Users, Activity, Package, BarChart3
 } from 'lucide-react';
@@ -10,9 +10,9 @@ import {
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+    : ((import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || '/api');
 
-interface Statistics {
+interface StatisticsData {
   users: {
     total: number;
     active: number;
@@ -44,34 +44,22 @@ interface Statistics {
   };
 }
 
-const Statistics: React.FC = () => {
+interface TimelineEntry {
+  date: string;
+  count: number;
+}
+
+const Statistics = () => {
   const { token } = useAuth();
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
-  const [timeline, setTimeline] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState<StatisticsData | null>(null);
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<'7' | '30' | '90' | 'custom'>('30');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    loadStatistics();
-  }, []);
-
-  useEffect(() => {
-    if (period === 'custom') {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      const start = customStartDate;
-      const end = customEndDate;
-      debounceRef.current = setTimeout(() => {
-        if (start) loadTimeline(start, end);
-      }, 600);
-      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }
-    loadTimeline();
-  }, [period, customStartDate, customEndDate]);
-
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/admin/statistics`, {
@@ -80,6 +68,7 @@ const Statistics: React.FC = () => {
           'Content-Type': 'application/json'
         }
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setStatistics(result.data);
@@ -89,9 +78,9 @@ const Statistics: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
-  const loadTimeline = async (overrideStart?: string, overrideEnd?: string) => {
+  const loadTimeline = useCallback(async (overrideStart?: string, overrideEnd?: string) => {
     try {
       let startDate = '';
       let endDate = new Date().toISOString().split('T')[0];
@@ -124,6 +113,7 @@ const Statistics: React.FC = () => {
           }
         }
       );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setTimeline(result.data);
@@ -131,7 +121,24 @@ const Statistics: React.FC = () => {
     } catch (error) {
       console.error('Erro ao carregar timeline:', error);
     }
-  };
+  }, [token, period, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    loadStatistics();
+  }, [loadStatistics]);
+
+  useEffect(() => {
+    if (period === 'custom') {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const start = customStartDate;
+      const end = customEndDate;
+      debounceRef.current = setTimeout(() => {
+        if (start) loadTimeline(start, end);
+      }, 600);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }
+    loadTimeline();
+  }, [period, customStartDate, customEndDate, loadTimeline]);
 
   const handleExport = () => {
     if (!statistics) return;
@@ -158,7 +165,7 @@ const Statistics: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" role="status" aria-label="Carregando estatísticas" />
       </div>
     );
   }
@@ -166,9 +173,9 @@ const Statistics: React.FC = () => {
   if (!statistics) {
     return (
       <div className="flex flex-col items-center gap-3 py-16">
-        <BarChart3 className="w-12 h-12 text-red-300" />
-        <p className="text-red-600 font-medium">Erro ao carregar estatísticas</p>
-        <p className="text-gray-400 text-sm">Tente recarregar a página</p>
+        <BarChart3 className="w-12 h-12 text-red-300" aria-hidden="true" />
+        <p className="text-red-600 dark:text-red-400 font-medium">Erro ao carregar estatísticas</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm">Tente recarregar a página</p>
       </div>
     );
   }
@@ -193,7 +200,7 @@ const Statistics: React.FC = () => {
           onClick={handleExport}
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
         >
-          <Download className="h-5 w-5" />
+          <Download className="h-5 w-5" aria-hidden="true" />
           Exportar Relatório
         </button>
       </div>
@@ -208,7 +215,7 @@ const Statistics: React.FC = () => {
               <p className="text-xs text-white/70 mt-1">{statistics.users.active} ativos</p>
             </div>
             <div className="bg-white/20 rounded-xl p-3">
-              <Users className="h-8 w-8 text-white" />
+              <Users className="h-8 w-8 text-white" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -221,7 +228,7 @@ const Statistics: React.FC = () => {
               <p className="text-xs text-white/70 mt-1">{statistics.activity.totalActions} total</p>
             </div>
             <div className="bg-white/20 rounded-xl p-3">
-              <Activity className="h-8 w-8 text-white" />
+              <Activity className="h-8 w-8 text-white" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -234,7 +241,7 @@ const Statistics: React.FC = () => {
               <p className="text-xs text-white/70 mt-1">{statistics.modules.active} ativos</p>
             </div>
             <div className="bg-white/20 rounded-xl p-3">
-              <Package className="h-8 w-8 text-white" />
+              <Package className="h-8 w-8 text-white" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -249,14 +256,14 @@ const Statistics: React.FC = () => {
               <p className="text-xs text-white/70 mt-1">Transações, Produtos, Clientes</p>
             </div>
             <div className="bg-white/20 rounded-xl p-3">
-              <BarChart3 className="h-8 w-8 text-white" />
+              <BarChart3 className="h-8 w-8 text-white" aria-hidden="true" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Filtros de Período */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:!bg-[#1e2d42] rounded-2xl border border-blue-200 dark:border-blue-900/60 shadow-lg p-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-[#1e2d42] dark:to-[#1e2d42] rounded-2xl border border-blue-200 dark:border-blue-900/60 shadow-lg p-4">
         <div className="flex items-center gap-4 flex-wrap">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</label>
           <div className="flex gap-2 flex-wrap">
@@ -342,8 +349,7 @@ const Statistics: React.FC = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={(props: any) => {
-                  const { name, percent } = props;
+                label={({ name, percent }: { name: string; percent?: number }) => {
                   return `${name}: ${((percent || 0) * 100).toFixed(0)}%`;
                 }}
                 outerRadius={80}

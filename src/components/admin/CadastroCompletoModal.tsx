@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -37,20 +37,28 @@ const defaultForm = {
   isActive: true
 };
 
-const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
+const CadastroCompletoModal = ({
   isOpen, onClose, onSuccess, apiBaseUrl, authHeaders, availableModules, superadminModules
-}) => {
+}: CadastroCompletoModalProps) => {
   const { user: currentUser } = useAuth();
   const [form, setForm] = useState(defaultForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCep, setIsSearchingCep] = useState(false);
 
+  // Refs para evitar stale closures no handler de teclado
+  const isSubmittingRef = useRef(isSubmitting);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { isSubmittingRef.current = isSubmitting; }, [isSubmitting]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
     setForm(defaultForm);
     setErrors({});
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape' && !isSubmitting) onClose(); };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmittingRef.current) onCloseRef.current();
+    };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
@@ -101,7 +109,7 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
     if (!form.firstName.trim() || form.firstName.trim().length < 2) e.firstName = 'Mínimo 2 caracteres';
     if (!form.lastName.trim() || form.lastName.trim().length < 2) e.lastName = 'Mínimo 2 caracteres';
     if (!form.username.trim() || form.username.trim().length < 3) e.username = 'Mínimo 3 caracteres';
-    if (!/^[a-zA-Z0-9_-]+$/.test(form.username.trim())) e.username = 'Sem espaços ou acentos';
+    else if (!/^[a-zA-Z0-9_-]+$/.test(form.username.trim())) e.username = 'Sem espaços ou acentos';
     if (!form.email.trim()) { e.email = 'Obrigatório'; } else { const v = validateEmail(form.email); if (!v.isValid) e.email = v.error || 'Inválido'; }
     if (!form.phone.trim()) { e.phone = 'Obrigatório'; } else { const v = validatePhoneFormat(form.phone); if (!v.isValid) e.phone = v.error || 'Inválido'; }
     if (form.cpf.trim()) { const v = validateCpfFormat(form.cpf); if (!v.isValid) e.cpf = v.error || 'CPF inválido'; }
@@ -154,7 +162,7 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
   if (!isOpen) return null;
 
   const inp = (hasErr: boolean) =>
-    `w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${hasErr ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'}`;
+    `w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 ${hasErr ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`;
 
   const visibleModules = availableModules.filter(m =>
     !(superadminModules.includes(m.moduleKey) && currentUser?.role !== 'superadmin')
@@ -165,86 +173,87 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
       onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
     >
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-white" />
+            <UserPlus className="w-6 h-6 text-white" aria-hidden="true" />
             Cadastro Completo
           </h2>
-          <button onClick={onClose} disabled={isSubmitting} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} disabled={isSubmitting} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errors.general && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{errors.general}</div>}
+          {errors.general && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-800 dark:text-red-300">{errors.general}</div>}
 
           {/* Nome e Sobrenome */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Nome <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Nome <span className="text-red-500">*</span></label>
               <input type="text" value={form.firstName} onChange={e => setField('firstName', e.target.value)}
                 className={inp(!!errors.firstName)} placeholder="Nome" disabled={isSubmitting} />
-              {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
+              {errors.firstName && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.firstName}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Sobrenome <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Sobrenome <span className="text-red-500">*</span></label>
               <input type="text" value={form.lastName} onChange={e => setField('lastName', e.target.value)}
                 className={inp(!!errors.lastName)} placeholder="Sobrenome" disabled={isSubmitting} />
-              {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
+              {errors.lastName && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.lastName}</p>}
             </div>
           </div>
 
           {/* Username */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Username <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Username <span className="text-red-500">*</span></label>
             <input type="text" value={form.username} onChange={e => setField('username', e.target.value)}
               className={inp(!!errors.username)} placeholder="username" disabled={isSubmitting} />
-            {errors.username && <p className="mt-1 text-xs text-red-600">{errors.username}</p>}
+            {errors.username && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.username}</p>}
           </div>
 
           {/* Email e Telefone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">E-mail <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">E-mail <span className="text-red-500">*</span></label>
               <input type="email" value={form.email} onChange={e => setField('email', e.target.value)}
                 onBlur={() => { if (form.email) { const v = validateEmail(form.email); if (!v.isValid) setErrors(p => ({ ...p, email: v.error || 'Inválido' })); } }}
                 className={inp(!!errors.email)} placeholder="email@exemplo.com" disabled={isSubmitting} />
-              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Telefone <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Telefone <span className="text-red-500">*</span></label>
               <input type="text" value={form.phone} onChange={e => setField('phone', e.target.value)}
                 onBlur={() => { if (form.phone) { const v = validatePhoneFormat(form.phone); if (!v.isValid) setErrors(p => ({ ...p, phone: v.error || 'Inválido' })); } }}
                 className={inp(!!errors.phone)} placeholder="(00) 00000-0000" disabled={isSubmitting} />
-              {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+              {errors.phone && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.phone}</p>}
             </div>
           </div>
 
           {/* CPF e Data de Nascimento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">CPF</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">CPF</label>
               <input type="text" value={form.cpf} onChange={e => setField('cpf', e.target.value)}
                 onBlur={() => { if (form.cpf) { const v = validateCpfFormat(form.cpf); if (!v.isValid) setErrors(p => ({ ...p, cpf: v.error || 'Inválido' })); } }}
                 className={inp(!!errors.cpf)} placeholder="000.000.000-00" maxLength={14} disabled={isSubmitting} />
-              {errors.cpf && <p className="mt-1 text-xs text-red-600">{errors.cpf}</p>}
+              {errors.cpf && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.cpf}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Data de Nascimento <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Data de Nascimento <span className="text-red-500">*</span></label>
               <input type="date" value={form.birthDate} onChange={e => setField('birthDate', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" disabled={isSubmitting} />
-              {errors.birthDate && <p className="mt-1 text-xs text-red-600">{errors.birthDate}</p>}
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" disabled={isSubmitting} />
+              {errors.birthDate && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.birthDate}</p>}
             </div>
           </div>
 
           {/* Gênero e Cargo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Gênero <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Gênero <span className="text-red-500">*</span></label>
               <select value={form.gender} onChange={e => setField('gender', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" disabled={isSubmitting}>
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" disabled={isSubmitting}>
                 <option value="">Selecione...</option>
                 <option value="masculino">Masculino</option>
                 <option value="feminino">Feminino</option>
@@ -252,90 +261,90 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
                 <option value="outros">Outros</option>
                 <option value="prefiro-nao-informar">Prefiro não informar</option>
               </select>
-              {errors.gender && <p className="mt-1 text-xs text-red-600">{errors.gender}</p>}
+              {errors.gender && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.gender}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Cargo <span className="text-red-500">*</span></label>
               <input type="text" value={form.position} onChange={e => setField('position', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="Ex: Analista, Gestor..." disabled={isSubmitting} />
-              {errors.position && <p className="mt-1 text-xs text-red-600">{errors.position}</p>}
+              {errors.position && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.position}</p>}
             </div>
           </div>
 
           {/* CEP */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">CEP <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">CEP <span className="text-red-500">*</span></label>
             <div className="flex gap-2">
               <input type="text" value={form.address.cep} onChange={e => setField('address.cep', e.target.value)}
                 onBlur={handleCepBlur}
-                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'}`}
+                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 ${errors['address.cep'] ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
                 placeholder="00000-000" maxLength={9} disabled={isSubmitting || isSearchingCep} />
-              {isSearchingCep && <div className="flex items-center px-3"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div></div>}
+              {isSearchingCep && <div className="flex items-center px-3" role="status" aria-label="Buscando endereço"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" aria-hidden="true"></div></div>}
             </div>
-            {errors['address.cep'] && <p className="mt-1 text-xs text-red-600">{errors['address.cep']}</p>}
+            {errors['address.cep'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.cep']}</p>}
           </div>
 
           {/* Rua e Número */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Rua/Logradouro <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Rua/Logradouro <span className="text-red-500">*</span></label>
               <input type="text" value={form.address.street} onChange={e => setField('address.street', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="Rua, Avenida..." disabled={isSubmitting} />
-              {errors['address.street'] && <p className="mt-1 text-xs text-red-600">{errors['address.street']}</p>}
+              {errors['address.street'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.street']}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Número <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Número <span className="text-red-500">*</span></label>
               <input type="text" value={form.address.number} onChange={e => setField('address.number', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="123" disabled={isSubmitting} />
-              {errors['address.number'] && <p className="mt-1 text-xs text-red-600">{errors['address.number']}</p>}
+              {errors['address.number'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.number']}</p>}
             </div>
           </div>
 
           {/* Complemento e Bairro */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Complemento</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Complemento</label>
               <input type="text" value={form.address.complement} onChange={e => setField('address.complement', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="Apto, Bloco..." disabled={isSubmitting} />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Bairro <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bairro <span className="text-red-500">*</span></label>
               <input type="text" value={form.address.neighborhood} onChange={e => setField('address.neighborhood', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="Bairro" disabled={isSubmitting} />
-              {errors['address.neighborhood'] && <p className="mt-1 text-xs text-red-600">{errors['address.neighborhood']}</p>}
+              {errors['address.neighborhood'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.neighborhood']}</p>}
             </div>
           </div>
 
           {/* Cidade e Estado */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Cidade <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Cidade <span className="text-red-500">*</span></label>
               <input type="text" value={form.address.city} onChange={e => setField('address.city', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="Cidade" disabled={isSubmitting} />
-              {errors['address.city'] && <p className="mt-1 text-xs text-red-600">{errors['address.city']}</p>}
+              {errors['address.city'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.city']}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Estado (UF) <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Estado (UF) <span className="text-red-500">*</span></label>
               <input type="text" value={form.address.state} onChange={e => setField('address.state', e.target.value.toUpperCase())}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="SP" maxLength={2} disabled={isSubmitting} />
-              {errors['address.state'] && <p className="mt-1 text-xs text-red-600">{errors['address.state']}</p>}
+              {errors['address.state'] && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors['address.state']}</p>}
             </div>
           </div>
 
           {/* Função e Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Função <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Função <span className="text-red-500">*</span></label>
               <select value={form.role}
                 onChange={e => setForm(prev => ({ ...prev, role: e.target.value as RoleType, modules: getDefaultModules(e.target.value as RoleType) }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" disabled={isSubmitting}>
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" disabled={isSubmitting}>
                 {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                 <option value="admin">Administrador</option>
                 <option value="user">Usuário</option>
@@ -343,10 +352,10 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Status</label>
               <select value={form.isActive ? 'active' : 'inactive'}
                 onChange={e => setForm(prev => ({ ...prev, isActive: e.target.value === 'active' }))}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" disabled={isSubmitting}>
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" disabled={isSubmitting}>
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </select>
@@ -356,10 +365,10 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
           {/* Módulos */}
           {visibleModules.length > 0 && (
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Módulos de Acesso</label>
-              <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Módulos de Acesso</label>
+              <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 {visibleModules.map(m => (
-                  <label key={m.moduleKey} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${form.modules.includes(m.moduleKey) ? 'bg-blue-100 text-blue-900' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
+                  <label key={m.moduleKey} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${form.modules.includes(m.moduleKey) ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
                     <input type="checkbox" checked={form.modules.includes(m.moduleKey)}
                       onChange={() => setForm(prev => ({
                         ...prev,
@@ -376,17 +385,17 @@ const CadastroCompletoModal: React.FC<CadastroCompletoModalProps> = ({
           )}
 
           {/* Footer */}
-          <div className="flex gap-3 justify-end pt-4 border-t">
+          <div className="flex gap-3 justify-end pt-4 border-t dark:border-gray-700">
             <button type="button" onClick={onClose} disabled={isSubmitting}
-              className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting}
               className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:transform-none flex items-center gap-2">
               {isSubmitting ? (
-                <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>Criando...</>
+                <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true"></div>Criando...</>
               ) : (
-                <><UserPlus className="w-4 h-4" />Criar Usuário</>
+                <><UserPlus className="w-4 h-4" aria-hidden="true" />Criar Usuário</>
               )}
             </button>
           </div>
