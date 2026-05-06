@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, User, Key, Copy, Check, UserPlus, Mail } from 'lucide-react';
 
 interface UserCreatedModalProps {
@@ -36,9 +36,12 @@ const UserCreatedModal: React.FC<UserCreatedModalProps> = ({ isOpen, onClose, on
   if (!isOpen) return null;
 
   const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    }).catch(() => {
+      // fallback silencioso — clipboard indisponível (HTTP ou permissão negada)
+    });
   };
 
   const isTemp = userData.email?.includes('@temp.local');

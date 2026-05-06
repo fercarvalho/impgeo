@@ -1,10 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Bell, Shield, BarChart3, Clock, Globe, User, XCircle, RefreshCw, Filter } from 'lucide-react';
-
-const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+import { useState, useEffect, useCallback } from 'react';
+import { Bell, Shield, BarChart3, Clock, Calendar, Globe, User, XCircle, RefreshCw, Filter } from 'lucide-react';
+import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 
 interface Alert {
   id: string;
@@ -27,10 +23,7 @@ interface AlertStats {
   }>;
 }
 
-const authHeaders = () => ({
-  'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-  'Content-Type': 'application/json',
-});
+const API_BASE_URL = getAdminApiBaseUrl();
 
 const ALERT_LABELS: Record<string, string> = {
   login_failed_suspicious: 'Login Suspeito',
@@ -83,15 +76,13 @@ export default function SecurityAlerts() {
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
 
-  useEffect(() => { fetchData(); }, [days, typeFilter, page]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const [alertsRes, statsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/security-alerts?limit=${LIMIT}&offset=${page * LIMIT}${typeFilter ? `&type=${typeFilter}` : ''}`, { headers: authHeaders() }),
-        fetch(`${API_BASE_URL}/security-alerts?days=${days}&stats=1`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/security-alerts?limit=${LIMIT}&offset=${page * LIMIT}${typeFilter ? `&type=${typeFilter}` : ''}`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/security-alerts?days=${days}&stats=1`, { headers: getAuthHeaders() }),
       ]);
       const alertsData = await alertsRes.json();
       const statsData = await statsRes.json();
@@ -102,7 +93,9 @@ export default function SecurityAlerts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days, typeFilter, page]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading && alerts.length === 0) {
     return (
@@ -163,7 +156,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por período"
                 value={days}
                 onChange={(e) => { setDays(Number(e.target.value)); setPage(0); }}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
               >
                 <option value={1}>Últimas 24 horas</option>
                 <option value={7}>Últimos 7 dias</option>
@@ -179,7 +172,7 @@ export default function SecurityAlerts() {
                 aria-label="Filtrar por tipo de alerta"
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white w-full"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
               >
                 <option value="">Todos</option>
                 {Object.entries(ALERT_LABELS).map(([k, v]) => (
@@ -272,7 +265,7 @@ export default function SecurityAlerts() {
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {getTimeAgo(alert.created_at)}</span>
                       <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {alert.ip_address}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(alert.created_at).toLocaleString('pt-BR')}</span>
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(alert.created_at).toLocaleString('pt-BR')}</span>
                     </div>
                   </div>
                 );

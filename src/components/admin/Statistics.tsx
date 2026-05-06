@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Download, Users, Activity, Package, BarChart3
 } from 'lucide-react';
@@ -7,10 +7,9 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+import { getAdminApiBaseUrl } from './api';
+
+const API_BASE_URL = getAdminApiBaseUrl();
 
 interface Statistics {
   users: {
@@ -54,24 +53,7 @@ const Statistics: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    loadStatistics();
-  }, []);
-
-  useEffect(() => {
-    if (period === 'custom') {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      const start = customStartDate;
-      const end = customEndDate;
-      debounceRef.current = setTimeout(() => {
-        if (start) loadTimeline(start, end);
-      }, 600);
-      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }
-    loadTimeline();
-  }, [period, customStartDate, customEndDate]);
-
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/admin/statistics`, {
@@ -89,9 +71,9 @@ const Statistics: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
-  const loadTimeline = async (overrideStart?: string, overrideEnd?: string) => {
+  const loadTimeline = useCallback(async (overrideStart?: string, overrideEnd?: string) => {
     try {
       let startDate = '';
       let endDate = new Date().toISOString().split('T')[0];
@@ -131,7 +113,24 @@ const Statistics: React.FC = () => {
     } catch (error) {
       console.error('Erro ao carregar timeline:', error);
     }
-  };
+  }, [period, customStartDate, customEndDate, token]);
+
+  useEffect(() => {
+    loadStatistics();
+  }, [loadStatistics]);
+
+  useEffect(() => {
+    if (period === 'custom') {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const start = customStartDate;
+      const end = customEndDate;
+      debounceRef.current = setTimeout(() => {
+        if (start) loadTimeline(start, end);
+      }, 600);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }
+    loadTimeline();
+  }, [period, customStartDate, customEndDate, loadTimeline]);
 
   const handleExport = () => {
     if (!statistics) return;
