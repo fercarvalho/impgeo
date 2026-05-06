@@ -46,26 +46,30 @@ const FeedbackManagement = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
 
-  const carregarFeedbacks = useCallback(async () => {
+  const carregarFeedbacks = useCallback(async (signal?: AbortSignal) => {
+    setIsLoading(true);
+    setError('');
     try {
-      setIsLoading(true);
-      setError('');
-      const res = await fetch(`${apiBase}/admin/feedbacks`, { headers: getAuthHeaders() });
+      const res = await fetch(`${apiBase}/admin/feedbacks`, { headers: getAuthHeaders(), signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) {
-        setFeedbacks(data.data);
+        setFeedbacks(Array.isArray(data.data) ? data.data : []);
       } else {
         setError(data.error || 'Erro ao carregar feedbacks.');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return;
       setError('Erro de conexão ao carregar feedbacks.');
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, [apiBase]);
 
-  useEffect(() => { carregarFeedbacks(); }, [carregarFeedbacks]);
+  useEffect(() => {
+    const controller = new AbortController();
+    carregarFeedbacks(controller.signal);
+    return () => controller.abort();
+  }, [carregarFeedbacks]);
 
   const feedbacksFiltrados = feedbacks.filter(f => {
     if (filtroCategoria && f.categoria !== filtroCategoria) return false;
@@ -103,7 +107,7 @@ const FeedbackManagement = () => {
           </div>
         </div>
         <button
-          onClick={carregarFeedbacks}
+          onClick={() => carregarFeedbacks()}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 transition-colors disabled:opacity-50"
         >
@@ -215,9 +219,9 @@ const FeedbackManagement = () => {
                       <span className="font-medium text-gray-500 dark:text-gray-400">{feedback.usuarioNome}</span>
                       <span>·</span>
                       <span>{formatarData(feedback.createdAt)}</span>
-                      {feedback.pagina && <><span>·</span><span className="truncate max-w-[160px]">{feedback.pagina}</span></>}
-                      {feedback.imagemBase64 && <><span>·</span><span className="text-blue-600 dark:text-blue-400">📎 Imagem</span></>}
-                      {feedback.linkVideo && <><span>·</span><span className="text-blue-600 dark:text-blue-400">🎥 Vídeo</span></>}
+                      {feedback.pagina && <><span>·</span><span className="truncate max-w-[160px]" title={feedback.pagina}>{feedback.pagina}</span></>}
+                      {feedback.imagemBase64 && <><span>·</span><span className="text-blue-600 dark:text-blue-400"><span role="img" aria-label="Imagem anexada">📎</span> Imagem</span></>}
+                      {feedback.linkVideo && <><span>·</span><span className="text-blue-600 dark:text-blue-400"><span role="img" aria-label="Vídeo anexado">🎥</span> Vídeo</span></>}
                     </div>
                   </div>
 
