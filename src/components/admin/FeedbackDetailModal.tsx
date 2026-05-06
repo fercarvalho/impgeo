@@ -94,9 +94,9 @@ const FeedbackDetailModal = ({ feedback, onClose, onAtualizar }: FeedbackDetailM
     }
   };
 
-  const cat = CATEGORIA_CONFIG[feedback.categoria];
+  const cat = CATEGORIA_CONFIG[feedback.categoria as keyof typeof CATEGORIA_CONFIG] ?? CATEGORIA_CONFIG['duvida'];
   const CatIcon = cat.icon;
-  const st = STATUS_CONFIG[feedback.status];
+  const st = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['pendente'];
   const StIcon = st.icon;
   const podeAgir = isSuperAdmin && feedback.status === 'pendente';
 

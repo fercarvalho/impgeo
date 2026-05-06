@@ -1,4 +1,4 @@
-import { useState, useEffect, type ComponentType } from 'react';
+import { useState, useEffect, useMemo, type ComponentType } from 'react';
 import { Users, Settings, Activity, BarChart3, Shield, MessageSquare, HelpCircle, FileText, BookOpen, Layout } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LegacyUserManagement from '../AdminPanel';
@@ -32,7 +32,7 @@ const AdminTabs = () => {
       !Array.isArray(permissoesLegais) &&
       Object.values(permissoesLegais).some(v => v === true));
 
-  const tabs: Array<{ id: AdminTab; name: string; icon: ComponentType<{ className?: string }> }> = [
+  const tabs: Array<{ id: AdminTab; name: string; icon: ComponentType<{ className?: string }> }> = useMemo(() => [
     { id: 'users',      name: 'Usuários',    icon: Users },
     { id: 'modules',    name: 'Módulos',     icon: Settings },
     { id: 'activity',   name: 'Atividades',  icon: Activity },
@@ -42,7 +42,8 @@ const AdminTabs = () => {
     { id: 'documentacao',  name: 'Documentação',  icon: BookOpen },
     ...(hasLegalAccess ? [{ id: 'legal' as AdminTab, name: 'Legal', icon: FileText }] : []),
     ...(typedUser?.role === 'superadmin' ? [{ id: 'rodape' as AdminTab, name: 'Rodapé', icon: Layout }] : []),
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [hasLegalAccess, typedUser?.role]);
 
   // Resetar para aba padrão se a aba ativa não existir mais nos tabs disponíveis
   useEffect(() => {
@@ -83,8 +84,10 @@ const AdminTabs = () => {
             return (
               <button
                 key={tab.id}
+                id={`admin-tab-${tab.id}`}
                 role="tab"
                 aria-selected={activeTab === tab.id}
+                aria-controls="admin-tabpanel"
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-3 border-b-2 flex-shrink-0 transition-colors whitespace-nowrap text-sm font-medium ${
                   activeTab === tab.id
@@ -101,7 +104,12 @@ const AdminTabs = () => {
         <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white dark:from-[#0f172a] to-transparent" />
       </div>
 
-      <div className="mt-6" role="tabpanel">
+      <div
+        id="admin-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`admin-tab-${activeTab}`}
+        className="mt-6"
+      >
       {activeTab === 'users'      && <LegacyUserManagement embedded />}
       {activeTab === 'modules'    && <ModuleManagement />}
       {activeTab === 'activity'   && <ActivityLog />}
