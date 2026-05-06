@@ -25,19 +25,19 @@ export interface Feedback {
 }
 
 const CATEGORIA_CONFIG = {
-  duvida:   { label: 'Dúvida',    icon: HelpCircle,  bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-200' },
-  melhoria: { label: 'Melhoria',  icon: TrendingUp,  bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-200' },
-  sugestao: { label: 'Sugestão',  icon: Lightbulb,   bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' },
-  critica:  { label: 'Crítica',   icon: ThumbsDown,  bg: 'bg-red-100',    text: 'text-red-700',    border: 'border-red-200' },
+  duvida:   { label: 'Dúvida',    icon: HelpCircle,  bg: 'bg-blue-100 dark:bg-blue-900/30',   text: 'text-blue-700 dark:text-blue-300',   border: 'border-blue-200 dark:border-blue-800' },
+  melhoria: { label: 'Melhoria',  icon: TrendingUp,  bg: 'bg-green-100 dark:bg-green-900/30',  text: 'text-green-700 dark:text-green-300',  border: 'border-green-200 dark:border-green-800' },
+  sugestao: { label: 'Sugestão',  icon: Lightbulb,   bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
+  critica:  { label: 'Crítica',   icon: ThumbsDown,  bg: 'bg-red-100 dark:bg-red-900/30',    text: 'text-red-700 dark:text-red-300',    border: 'border-red-200 dark:border-red-800' },
 };
 
 const STATUS_CONFIG = {
-  pendente:   { label: 'Pendente',    icon: Clock,          bg: 'bg-gray-100',  text: 'text-gray-600' },
-  respondido: { label: 'Respondido',  icon: MessageCircle,  bg: 'bg-blue-100',  text: 'text-blue-700' },
-  aceito:     { label: 'Aceito',      icon: CheckCircle,    bg: 'bg-green-100', text: 'text-green-700' },
+  pendente:   { label: 'Pendente',    icon: Clock,          bg: 'bg-gray-100 dark:bg-gray-700',  text: 'text-gray-600 dark:text-gray-300' },
+  respondido: { label: 'Respondido',  icon: MessageCircle,  bg: 'bg-blue-100 dark:bg-blue-900/30',  text: 'text-blue-700 dark:text-blue-300' },
+  aceito:     { label: 'Aceito',      icon: CheckCircle,    bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300' },
 };
 
-const FeedbackManagement: React.FC = () => {
+const FeedbackManagement = () => {
   const apiBase = getAdminApiBaseUrl();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,25 +46,30 @@ const FeedbackManagement: React.FC = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
 
-  const carregarFeedbacks = useCallback(async () => {
+  const carregarFeedbacks = useCallback(async (signal?: AbortSignal) => {
+    setIsLoading(true);
+    setError('');
     try {
-      setIsLoading(true);
-      setError('');
-      const res = await fetch(`${apiBase}/admin/feedbacks`, { headers: getAuthHeaders() });
+      const res = await fetch(`${apiBase}/admin/feedbacks`, { headers: getAuthHeaders(), signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) {
-        setFeedbacks(data.data);
+        setFeedbacks(Array.isArray(data.data) ? data.data : []);
       } else {
         setError(data.error || 'Erro ao carregar feedbacks.');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return;
       setError('Erro de conexão ao carregar feedbacks.');
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, [apiBase]);
 
-  useEffect(() => { carregarFeedbacks(); }, [carregarFeedbacks]);
+  useEffect(() => {
+    const controller = new AbortController();
+    carregarFeedbacks(controller.signal);
+    return () => controller.abort();
+  }, [carregarFeedbacks]);
 
   const feedbacksFiltrados = feedbacks.filter(f => {
     if (filtroCategoria && f.categoria !== filtroCategoria) return false;
@@ -72,8 +77,12 @@ const FeedbackManagement: React.FC = () => {
     return true;
   });
 
-  const formatarData = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatarData = (dateStr: string): string => {
+    if (!dateStr) return 'Data desconhecida';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Data inválida';
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   const contadores = {
     total:      feedbacks.length,
@@ -88,7 +97,7 @@ const FeedbackManagement: React.FC = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
-            <MessageSquare className="h-5 w-5 text-white" />
+            <MessageSquare className="h-5 w-5 text-white" aria-hidden="true" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Gerenciar Feedbacks</h2>
@@ -98,11 +107,11 @@ const FeedbackManagement: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={carregarFeedbacks}
+          onClick={() => carregarFeedbacks()}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Atualizar
         </button>
       </div>
@@ -126,7 +135,7 @@ const FeedbackManagement: React.FC = () => {
       <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <Filter className="w-4 h-4" />
+            <Filter className="w-4 h-4" aria-hidden="true" />
             <span className="text-sm font-medium">Filtros:</span>
           </div>
 
@@ -157,20 +166,20 @@ const FeedbackManagement: React.FC = () => {
       {/* Conteúdo */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" role="status" aria-label="Carregando feedbacks" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <p className="text-red-700 text-sm">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 shrink-0" aria-hidden="true" />
+          <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
         </div>
       ) : feedbacksFiltrados.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="bg-gray-100 rounded-full p-5 mb-4">
-            <MessageSquare className="w-10 h-10 text-gray-400" />
+          <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-5 mb-4">
+            <MessageSquare className="w-10 h-10 text-gray-400 dark:text-gray-500" aria-hidden="true" />
           </div>
-          <p className="text-gray-600 font-semibold">Nenhum feedback encontrado</p>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-600 dark:text-gray-400 font-semibold">Nenhum feedback encontrado</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
             {filtroCategoria || filtroStatus ? 'Tente ajustar os filtros.' : 'Os feedbacks dos usuários aparecerão aqui.'}
           </p>
         </div>
@@ -186,11 +195,11 @@ const FeedbackManagement: React.FC = () => {
               <button
                 key={feedback.id}
                 onClick={() => setSelectedFeedback(feedback)}
-                className="w-full text-left bg-white border border-gray-200 hover:border-blue-300 rounded-xl p-5 shadow-sm hover:shadow transition-all duration-150 group"
+                className="w-full text-left bg-white dark:bg-[#243040] border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl p-5 shadow-sm hover:shadow transition-all duration-150 group"
               >
                 <div className="flex items-start gap-4">
                   <div className={`${cat.bg} ${cat.border} border rounded-xl p-2.5 shrink-0 mt-0.5`}>
-                    <CatIcon className={`w-5 h-5 ${cat.text}`} />
+                    <CatIcon className={`w-5 h-5 ${cat.text}`} aria-hidden="true" />
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -199,24 +208,24 @@ const FeedbackManagement: React.FC = () => {
                         {cat.label}
                       </span>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold ${st.bg} ${st.text}`}>
-                        <StIcon className="w-3 h-3" />
+                        <StIcon className="w-3 h-3" aria-hidden="true" />
                         {st.label}
                       </span>
                     </div>
 
-                    <p className="text-sm text-gray-700 line-clamp-2 mb-2">{feedback.descricao}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 mb-2">{feedback.descricao}</p>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                      <span className="font-medium text-gray-500">{feedback.usuarioNome}</span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                      <span className="font-medium text-gray-500 dark:text-gray-400">{feedback.usuarioNome}</span>
                       <span>·</span>
                       <span>{formatarData(feedback.createdAt)}</span>
-                      {feedback.pagina && <><span>·</span><span className="truncate max-w-[160px]">{feedback.pagina}</span></>}
-                      {feedback.imagemBase64 && <><span>·</span><span className="text-blue-600">📎 Imagem</span></>}
-                      {feedback.linkVideo && <><span>·</span><span className="text-blue-600">🎥 Vídeo</span></>}
+                      {feedback.pagina && <><span>·</span><span className="truncate max-w-[160px]" title={feedback.pagina}>{feedback.pagina}</span></>}
+                      {feedback.imagemBase64 && <><span>·</span><span className="text-blue-600 dark:text-blue-400"><span role="img" aria-label="Imagem anexada">📎</span> Imagem</span></>}
+                      {feedback.linkVideo && <><span>·</span><span className="text-blue-600 dark:text-blue-400"><span role="img" aria-label="Vídeo anexado">🎥</span> Vídeo</span></>}
                     </div>
                   </div>
 
-                  <div className="text-gray-300 group-hover:text-blue-400 transition-colors text-lg shrink-0">›</div>
+                  <div className="text-gray-300 dark:text-gray-600 group-hover:text-blue-400 dark:group-hover:text-blue-400 transition-colors text-lg shrink-0">›</div>
                 </div>
               </button>
             );

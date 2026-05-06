@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, X, Shield, AlertTriangle, GripVertical } from 'lucide-react';
 import {
@@ -41,6 +41,13 @@ const defaultForm = {
   isActive: true
 };
 
+// Bug 5 fix: constantes extraídas do componente para evitar recriação a cada render
+const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
+const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
+
+// Bug 7 fix: array extraído do componente
+const COMMON_ICONS = ['Home', 'DollarSign', 'Package', 'Users', 'BarChart3', 'Target', 'Shield', 'Settings', 'Activity', 'TrendingUp'];
+
 /* ─── Card arrastável ─── */
 interface SortableCardProps {
   module: ModuleItem;
@@ -53,7 +60,7 @@ interface SortableCardProps {
   onAdminBlock: () => void;
 }
 
-const SortableModuleCard: React.FC<SortableCardProps> = ({
+const SortableModuleCard = ({
   module,
   isSuperAdmin,
   protectedModules,
@@ -62,7 +69,7 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
   onEdit,
   onDelete,
   onAdminBlock,
-}) => {
+}: SortableCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: module.moduleKey });
 
@@ -89,28 +96,31 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
         {...listeners}
         className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0 p-1 rounded"
         title="Arrastar para reordenar"
+        aria-label="Arrastar para reordenar"
       >
-        <GripVertical className="h-5 w-5" />
+        <GripVertical className="h-5 w-5" aria-hidden="true" />
       </button>
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          {module.isSystem && <Shield className="h-4 w-4 text-blue-600 flex-shrink-0" />}
-          <h3 className="text-base font-semibold text-gray-900 truncate">{module.moduleName}</h3>
+          {module.isSystem && <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />}
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{module.moduleName}</h3>
           <span className={`px-2 py-0.5 text-xs rounded flex-shrink-0 ${
-            module.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            module.isActive !== false
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
           }`}>
             {module.isActive !== false ? 'Ativo' : 'Inativo'}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{module.moduleKey}</span>
+        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{module.moduleKey}</span>
           {module.iconName && <span>{module.iconName}</span>}
           <span>{module.isSystem ? 'Sistema' : 'Customizado'}</span>
         </div>
         {module.description && (
-          <p className="text-xs text-gray-500 mt-1 truncate">{module.description}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{module.description}</p>
         )}
       </div>
 
@@ -126,25 +136,29 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
             onToggleActive(module.moduleKey, module.isActive !== false);
           }}
           disabled={isLocked}
-          className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
         >
           {module.isActive !== false ? 'Desativar' : 'Ativar'}
         </button>
         <button
           onClick={() => { if (!isLocked) onEdit(module); }}
           disabled={isLocked}
-          className="p-1.5 text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
           title="Editar"
+          aria-label="Editar módulo"
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-4 w-4" aria-hidden="true" />
         </button>
+        {/* Bug 4 fix: botão deletar também verifica isLocked */}
         {!module.isSystem && (
           <button
-            onClick={() => onDelete(module.moduleKey)}
-            className="p-1.5 text-red-600 hover:text-red-800"
+            onClick={() => { if (!isLocked) onDelete(module.moduleKey); }}
+            disabled={isLocked}
+            className="p-1.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Deletar"
+            aria-label="Deletar módulo"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -153,7 +167,7 @@ const SortableModuleCard: React.FC<SortableCardProps> = ({
 };
 
 /* ─── Componente principal ─── */
-const ModuleManagement: React.FC = () => {
+const ModuleManagement = () => {
   const apiBase = useMemo(() => getAdminApiBaseUrl(), []);
   const { user: currentUser } = useAuth();
   const [orderedModules, setOrderedModules] = useState<ModuleItem[]>([]);
@@ -161,9 +175,9 @@ const ModuleManagement: React.FC = () => {
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [showAdminBlockModal, setShowAdminBlockModal] = useState(false);
+  // Bug 9 fix: estado de loading
+  const [isLoading, setIsLoading] = useState(false);
 
-  const PROTECTED_MODULES = ['admin', 'sessions', 'anomalies', 'security_alerts'];
-  const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
   const isSuperAdmin = currentUser?.role === 'superadmin';
 
   const sensors = useSensors(
@@ -182,41 +196,51 @@ const ModuleManagement: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showAdminBlockModal, showModuleModal]);
 
-  const loadModules = async () => {
+  const loadModules = useCallback(async () => {
+    setIsLoading(true);
     try {
       const response = await fetch(`${apiBase}/admin/modules`, { headers: getAuthHeaders() });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setOrderedModules(result.data || []);
       }
     } catch (err) {
       console.error('Erro ao carregar módulos:', err);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [apiBase]);
 
-  useEffect(() => { loadModules(); }, []);
+  useEffect(() => { loadModules(); }, [loadModules]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // Bug 5 (handleDragEnd) fix: useCallback + validação de índices -1
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const oldIndex = orderedModules.findIndex(m => m.moduleKey === active.id);
     const newIndex = orderedModules.findIndex(m => m.moduleKey === over.id);
+
+    // Bug 1 fix: validar que ambos os índices foram encontrados
+    if (oldIndex === -1 || newIndex === -1) return;
+
     const newOrder = arrayMove(orderedModules, oldIndex, newIndex);
 
     setOrderedModules(newOrder); // otimista
 
     try {
-      await fetch(`${apiBase}/admin/modules/reorder`, {
+      const res = await fetch(`${apiBase}/admin/modules/reorder`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ keys: newOrder.map(m => m.moduleKey) })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       console.error('Erro ao salvar ordem:', err);
       loadModules(); // reverter em caso de erro
     }
-  };
+  }, [apiBase, orderedModules, loadModules]);
 
   const openEditModal = (module: ModuleItem) => {
     setEditingModule(module);
@@ -231,20 +255,30 @@ const ModuleManagement: React.FC = () => {
     setShowModuleModal(true);
   };
 
+  // Bug 2 fix: validação de campos obrigatórios antes de enviar
   const handleCreateModule = async () => {
+    if (!form.moduleName.trim()) {
+      alert('O nome do módulo é obrigatório');
+      return;
+    }
+    if (!form.moduleKey.trim()) {
+      alert('A key do módulo é obrigatória');
+      return;
+    }
     try {
       const response = await fetch(`${apiBase}/admin/modules`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          moduleName: form.moduleName,
-          moduleKey: form.moduleKey,
+          moduleName: form.moduleName.trim(),
+          moduleKey: form.moduleKey.trim(),
           iconName: form.iconName,
           description: form.description,
           routePath: form.routePath || null,
           isActive: form.isActive
         })
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setShowModuleModal(false);
@@ -259,22 +293,26 @@ const ModuleManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateModule = async (moduleKey: string, updates: Partial<ModuleItem>) => {
+  const handleUpdateModule = async (moduleKey: string, updates: Partial<ModuleItem>): Promise<boolean> => {
     try {
       const response = await fetch(`${apiBase}/admin/modules/${moduleKey}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         loadModules();
+        return true;
       } else {
         alert(result.error || 'Erro ao atualizar módulo');
+        return false;
       }
     } catch (err) {
       console.error('Erro ao atualizar módulo:', err);
       alert('Erro ao atualizar módulo');
+      return false;
     }
   };
 
@@ -285,6 +323,7 @@ const ModuleManagement: React.FC = () => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.success) {
         loadModules();
@@ -297,34 +336,36 @@ const ModuleManagement: React.FC = () => {
     }
   };
 
+  // Bug 3 fix: só fecha o modal se o update foi bem-sucedido
   const handleSaveEdit = async () => {
     if (!editingModule) return;
-    await handleUpdateModule(editingModule.moduleKey, {
+    const success = await handleUpdateModule(editingModule.moduleKey, {
       moduleName: form.moduleName,
       iconName: form.iconName,
       description: form.description,
       routePath: form.routePath || null,
       isActive: form.isActive
     });
-    setShowModuleModal(false);
-    setEditingModule(null);
-    setForm(defaultForm);
+    if (success) {
+      setShowModuleModal(false);
+      setEditingModule(null);
+      setForm(defaultForm);
+    }
   };
-
-  const commonIcons = ['Home', 'DollarSign', 'Package', 'Users', 'BarChart3', 'Target', 'Shield', 'Settings', 'Activity', 'TrendingUp'];
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gerenciar Módulos</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Arraste os cards para definir a ordem das abas na navegação</p>
         </div>
+        {/* Bug 10 fix: removido mr-2 duplicado (container já tem gap-2) */}
         <button
           onClick={() => { setEditingModule(null); setForm(defaultForm); setShowModuleModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
         >
-          <Plus className="h-5 w-5 mr-2" />
+          <Plus className="h-5 w-5" aria-hidden="true" />
           Novo Módulo
         </button>
       </div>
@@ -332,33 +373,52 @@ const ModuleManagement: React.FC = () => {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedModules.map(m => m.moduleKey)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
-            {orderedModules.map((module) => (
-              <SortableModuleCard
-                key={module.moduleKey}
-                module={module}
-                isSuperAdmin={isSuperAdmin}
-                protectedModules={PROTECTED_MODULES}
-                superAdminModules={SUPERADMIN_MODULES}
-                onToggleActive={(key, active) => handleUpdateModule(key, { isActive: !active })}
-                onEdit={openEditModal}
-                onDelete={handleDeleteModule}
-                onAdminBlock={() => setShowAdminBlockModal(true)}
-              />
-            ))}
+            {/* Bug 8 fix: empty state e loading state */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                <span className="text-sm">Carregando módulos...</span>
+              </div>
+            ) : orderedModules.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                <p className="text-sm font-medium">Nenhum módulo cadastrado</p>
+                <p className="text-xs mt-1">Clique em "Novo Módulo" para começar</p>
+              </div>
+            ) : (
+              orderedModules.map((module) => (
+                <SortableModuleCard
+                  key={module.moduleKey}
+                  module={module}
+                  isSuperAdmin={isSuperAdmin}
+                  protectedModules={PROTECTED_MODULES}
+                  superAdminModules={SUPERADMIN_MODULES}
+                  onToggleActive={(key, active) => handleUpdateModule(key, { isActive: !active })}
+                  onEdit={openEditModal}
+                  onDelete={handleDeleteModule}
+                  onAdminBlock={() => setShowAdminBlockModal(true)}
+                />
+              ))
+            )}
           </div>
         </SortableContext>
       </DndContext>
 
       {/* Modal: bloqueio admin */}
+      {/* Bug 11 fix: role="dialog" e aria-modal="true" */}
       {showAdminBlockModal && createPortal(
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4" onClick={() => setShowAdminBlockModal(false)}>
+        <div
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] px-4"
+          onClick={() => setShowAdminBlockModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-block-modal-title"
+        >
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-white" />
+                <AlertTriangle className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Ação bloqueada</h3>
+                <h3 id="admin-block-modal-title" className="text-lg font-bold text-white">Ação bloqueada</h3>
                 <p className="text-sm text-white/80">Módulo protegido pelo sistema</p>
               </div>
             </div>
@@ -381,11 +441,19 @@ const ModuleManagement: React.FC = () => {
 
       {/* Modal: criar/editar módulo */}
       {showModuleModal && createPortal(
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]" onClick={() => { setShowModuleModal(false); setEditingModule(null); }}>
+        <div
+          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+          onClick={() => { setShowModuleModal(false); setEditingModule(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="module-modal-title"
+        >
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
-              <h3 className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
-              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="h-5 w-5" /></button>
+              <h3 id="module-modal-title" className="text-lg font-bold text-white">{editingModule ? 'Editar Módulo' : 'Novo Módulo'}</h3>
+              <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200" aria-label="Fechar modal">
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
               <div>
@@ -395,12 +463,12 @@ const ModuleManagement: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Key (única)</label>
                 <input type="text" placeholder="key-do-modulo" value={form.moduleKey} onChange={(e) => setForm({ ...form, moduleKey: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 transition-all duration-200" disabled={!!editingModule} />
-                {editingModule && <p className="text-xs text-gray-500 mt-1">A key não pode ser alterada</p>}
+                {editingModule && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">A key não pode ser alterada</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ícone (Lucide)</label>
                 <select value={form.iconName} onChange={(e) => setForm({ ...form, iconName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200">
-                  {commonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
+                  {COMMON_ICONS.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
                 </select>
               </div>
               <div>
@@ -418,7 +486,7 @@ const ModuleManagement: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => { setShowModuleModal(false); setEditingModule(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={editingModule ? handleSaveEdit : handleCreateModule} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 font-semibold">
-                  <Save className="inline h-4 w-4 mr-1" />
+                  <Save className="inline h-4 w-4 mr-1" aria-hidden="true" />
                   {editingModule ? 'Salvar' : 'Criar'}
                 </button>
               </div>

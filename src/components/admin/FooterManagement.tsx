@@ -29,7 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+    : ((import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || '/api');
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -74,14 +74,14 @@ type FooterTab = 'colunas' | 'empresa' | 'info' | 'inferior' | 'base' | 'versao'
 
 // ─── Editor Rich Text (TipTap) ────────────────────────────────────────────────
 
-const TipTapEditor: React.FC<{ content: string; onChange: (html: string) => void }> = ({ content, onChange }) => {
+const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html: string) => void }) => {
   const editor = useEditor({
     extensions: [StarterKit],
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: 'min-h-[280px] px-4 py-3 text-sm text-gray-800 focus:outline-none leading-relaxed',
+        class: 'min-h-[280px] px-4 py-3 text-sm text-gray-800 dark:text-gray-100 focus:outline-none leading-relaxed',
       },
     },
   });
@@ -90,20 +90,19 @@ const TipTapEditor: React.FC<{ content: string; onChange: (html: string) => void
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content || '', { emitUpdate: false });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [content, editor]);
 
   if (!editor) return null;
 
-  const ToolBtn: React.FC<{ onClick: () => void; active?: boolean; title: string; children: React.ReactNode }> = ({ onClick, active, title, children }) => (
+  const ToolBtn = ({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) => (
     <button
       type="button"
       onMouseDown={e => { e.preventDefault(); onClick(); }}
       title={title}
       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
         active
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-500 hover:bg-gray-100'
+          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
       }`}
     >
       {children}
@@ -142,7 +141,7 @@ interface SortableLinkItemProps {
   onDelete: (id: string) => void;
 }
 
-const SortableLinkItem: React.FC<SortableLinkItemProps> = ({ link, onEdit, onDelete }) => {
+const SortableLinkItem = ({ link, onEdit, onDelete }: SortableLinkItemProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -152,31 +151,33 @@ const SortableLinkItem: React.FC<SortableLinkItemProps> = ({ link, onEdit, onDel
       style={style}
       className="flex items-center gap-2 bg-[#ffffff] dark:bg-[#243040] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 group"
     >
-      <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0">
-        <GripVertical className="h-4 w-4" />
+      <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0" aria-label="Reordenar">
+        <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{link.texto}</p>
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{link.texto}</p>
         {link.ehLink && link.link && (
-          <p className="text-xs text-gray-400 truncate">{link.link}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{link.link}</p>
         )}
       </div>
       {link.ehLink ? (
-        <Link2 className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+        <Link2 className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" aria-hidden="true" />
       ) : (
-        <Link2Off className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+        <Link2Off className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" aria-hidden="true" />
       )}
       <button
         onClick={() => onEdit(link)}
         className="text-gray-400 hover:text-blue-600 flex-shrink-0 transition-colors"
+        aria-label="Editar link"
       >
-        <Edit2 className="h-3.5 w-3.5" />
+        <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       <button
         onClick={() => onDelete(link.id)}
         className="text-gray-400 hover:text-red-500 flex-shrink-0 transition-colors"
+        aria-label="Excluir link"
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </div>
   );
@@ -194,13 +195,17 @@ interface SortableColunaProps {
   onReorderLinks: (colunaId: string, newLinks: RodapeLink[]) => void;
 }
 
-const SortableColuna: React.FC<SortableColunaProps> = ({
+const SortableColuna = ({
   coluna, onRenameColuna, onDeleteColuna, onAddLink, onEditLink, onDeleteLink, onReorderLinks
-}) => {
+}: SortableColunaProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: coluna.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const [titulo, setTitulo] = useState(coluna.titulo);
   const [editandoTitulo, setEditandoTitulo] = useState(false);
+
+  useEffect(() => {
+    if (!editandoTitulo) setTitulo(coluna.titulo);
+  }, [coluna.titulo, editandoTitulo]);
 
   const linkSensors = useSensors(
     useSensor(PointerSensor),
@@ -230,12 +235,12 @@ const SortableColuna: React.FC<SortableColunaProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-[#1e2d42] border border-gray-700 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
+      className="bg-[#ffffff] dark:bg-[#1e2d42] border border-gray-200 dark:border-gray-700 rounded-xl p-4 min-w-[220px] max-w-[280px] flex-shrink-0"
     >
       {/* Header da coluna */}
       <div className="flex items-center gap-2 mb-3">
-        <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600">
-          <GripVertical className="h-4 w-4" />
+        <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0" aria-label="Reordenar coluna">
+          <GripVertical className="h-4 w-4" aria-hidden="true" />
         </button>
         {editandoTitulo ? (
           <div className="flex items-center gap-1 flex-1">
@@ -246,12 +251,12 @@ const SortableColuna: React.FC<SortableColunaProps> = ({
               onBlur={confirmarRename}
               onKeyDown={e => { if (e.key === 'Enter') confirmarRename(); if (e.key === 'Escape') { setTitulo(coluna.titulo); setEditandoTitulo(false); } }}
               autoFocus
-              className="flex-1 text-sm font-semibold border-b border-blue-400 bg-transparent outline-none text-gray-800 py-0.5"
+              className="flex-1 text-sm font-semibold border-b border-blue-400 bg-transparent outline-none text-gray-800 dark:text-gray-200 py-0.5"
             />
           </div>
         ) : (
           <span
-            className="flex-1 text-sm font-semibold text-gray-800 cursor-pointer hover:text-blue-600 truncate"
+            className="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-200 cursor-pointer hover:text-blue-600 truncate"
             onClick={() => setEditandoTitulo(true)}
             title="Clique para renomear"
           >
@@ -262,8 +267,9 @@ const SortableColuna: React.FC<SortableColunaProps> = ({
           onClick={() => onDeleteColuna(coluna.id)}
           className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
           title="Excluir coluna"
+          aria-label="Excluir coluna"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
 
@@ -291,7 +297,7 @@ const SortableColuna: React.FC<SortableColunaProps> = ({
         onClick={() => onAddLink(coluna.id)}
         className="mt-2 w-full flex items-center justify-center gap-1 text-xs text-blue-600 border border-dashed border-blue-300 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
         Adicionar link
       </button>
     </div>
@@ -307,7 +313,7 @@ interface SortableBottomLinkItemProps {
   onToggleAtivo: (link: BottomLink) => void;
 }
 
-const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, onEdit, onDelete, onToggleAtivo }) => {
+const SortableBottomLinkItem = ({ link, onEdit, onDelete, onToggleAtivo }: SortableBottomLinkItemProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -321,14 +327,14 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
           : 'bg-gray-50 dark:bg-[#1a2535] border-gray-200 dark:border-gray-700 opacity-60'
       }`}
     >
-      <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0">
-        <GripVertical className="h-4 w-4" />
+      <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0" aria-label="Reordenar">
+        <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
 
       {/* Status badge */}
       <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
         link.ativo
-          ? 'bg-green-100 text-green-700'
+          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
           : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
       }`}>
         {link.ativo ? 'Ativo' : 'Inativo'}
@@ -336,9 +342,9 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
 
       {/* Texto e link */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{link.texto}</p>
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{link.texto}</p>
         {link.link && (
-          <p className="text-xs text-gray-400 truncate">{link.link}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{link.link}</p>
         )}
       </div>
 
@@ -346,15 +352,16 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
       <button
         onClick={() => onToggleAtivo(link)}
         title={link.ativo ? 'Desativar' : 'Ativar'}
+        aria-label={link.ativo ? 'Desativar link' : 'Ativar link'}
         className={`flex-shrink-0 transition-colors ${link.ativo ? 'text-green-500 hover:text-gray-400' : 'text-gray-400 hover:text-green-500'}`}
       >
-        {link.ativo ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+        {link.ativo ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
       </button>
-      <button onClick={() => onEdit(link)} className="flex-shrink-0 text-gray-400 hover:text-blue-600 transition-colors">
-        <Edit2 className="h-4 w-4" />
+      <button onClick={() => onEdit(link)} className="flex-shrink-0 text-gray-400 hover:text-blue-600 transition-colors" aria-label="Editar link">
+        <Edit2 className="h-4 w-4" aria-hidden="true" />
       </button>
-      <button onClick={() => onDelete(link)} className="flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors">
-        <Trash2 className="h-4 w-4" />
+      <button onClick={() => onDelete(link)} className="flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors" aria-label="Excluir link">
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );
@@ -362,7 +369,7 @@ const SortableBottomLinkItem: React.FC<SortableBottomLinkItemProps> = ({ link, o
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-const FooterManagement: React.FC = () => {
+const FooterManagement = () => {
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<FooterTab>('colunas');
   const [isLoading, setIsLoading] = useState(true);
@@ -420,10 +427,10 @@ const FooterManagement: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ tipo: 'link' | 'coluna'; id: string; label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const authHeaders = {
+  const authHeaders = React.useMemo(() => ({
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
-  };
+  }), [token]);
 
   const colunaSensors = useSensors(
     useSensor(PointerSensor),
@@ -436,6 +443,7 @@ const FooterManagement: React.FC = () => {
     try {
       setIsLoading(true);
       const res = await fetch(`${API_BASE_URL}/admin/rodape`, { headers: authHeaders });
+      if (!res.ok) return;
       const result = await res.json();
       if (!result.success) return;
 
@@ -459,14 +467,16 @@ const FooterManagement: React.FC = () => {
 
       // Bottom links
       const bRes = await fetch(`${API_BASE_URL}/admin/rodape/bottom-links`, { headers: authHeaders });
-      const bResult = await bRes.json();
-      if (bResult.success) setBottomLinks(bResult.data || []);
+      if (bRes.ok) {
+        const bResult = await bRes.json();
+        if (bResult.success) setBottomLinks(bResult.data || []);
+      }
     } catch {
       // silencioso
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [authHeaders]);
 
   useEffect(() => {
     loadData();
@@ -477,11 +487,13 @@ const FooterManagement: React.FC = () => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (deleteConfirm) { setDeleteConfirm(null); return; }
-      if (showModalLink && !isSavingLink) { fecharModalLink(); }
+      if (deleteBottomConfirm) { setDeleteBottomConfirm(null); return; }
+      if (showModalLink && !isSavingLink) { fecharModalLink(); return; }
+      if (showModalBottom && !isSavingBottom) { fecharModalBottom(); }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [showModalLink, isSavingLink, deleteConfirm]);
+  }, [showModalLink, isSavingLink, deleteConfirm, showModalBottom, isSavingBottom, deleteBottomConfirm]);
 
   // ─── Colunas ────────────────────────────────────────────────────────────────
 
@@ -521,17 +533,20 @@ const FooterManagement: React.FC = () => {
   };
 
   const handleRenameColuna = async (id: string, novoTitulo: string) => {
-    const prev = colunas;
-    setColunas(colunas.map(c => c.id === id ? { ...c, titulo: novoTitulo } : c));
+    let prevColunas: RodapeColuna[] | null = null;
+    setColunas(current => {
+      prevColunas = current;
+      return current.map(c => c.id === id ? { ...c, titulo: novoTitulo } : c);
+    });
     try {
       const res = await fetch(`${API_BASE_URL}/admin/rodape/colunas/${id}`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify({ titulo: novoTitulo }),
       });
-      if (!res.ok) setColunas(prev);
+      if (!res.ok && prevColunas) setColunas(prevColunas);
       else dispatchUpdate();
-    } catch { setColunas(prev); }
+    } catch { if (prevColunas) setColunas(prevColunas); }
   };
 
   const handleDeleteColuna = (id: string) => {
@@ -695,7 +710,7 @@ const FooterManagement: React.FC = () => {
   const handleSalvarInfo = async () => {
     setIsSavingConfig('info_texto');
     try {
-      await Promise.all([
+      const [resTexto, resAlinhamento] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/rodape/config/info_texto`, {
           method: 'PUT', headers: authHeaders,
           body: JSON.stringify({ valor: config.info_texto }),
@@ -705,8 +720,10 @@ const FooterManagement: React.FC = () => {
           body: JSON.stringify({ valor: config.info_alinhamento }),
         }),
       ]);
-      setConfigOriginal(prev => ({ ...prev, info_texto: config.info_texto, info_alinhamento: config.info_alinhamento }));
-      dispatchUpdate();
+      if (resTexto.ok && resAlinhamento.ok) {
+        setConfigOriginal(prev => ({ ...prev, info_texto: config.info_texto, info_alinhamento: config.info_alinhamento }));
+        dispatchUpdate();
+      }
     } finally {
       setIsSavingConfig(null);
     }
@@ -738,17 +755,21 @@ const FooterManagement: React.FC = () => {
     setIsSavingConfig('empresa_nome');
     const chaves: (keyof RodapeConfig)[] = ['empresa_nome', 'empresa_tagline', 'empresa_descricao', 'empresa_autor', 'empresa_logo'];
     try {
+      let allOk = true;
       for (const chave of chaves) {
         if (config[chave] !== configOriginal[chave]) {
-          await fetch(`${API_BASE_URL}/admin/rodape/config/${chave}`, {
+          const res = await fetch(`${API_BASE_URL}/admin/rodape/config/${chave}`, {
             method: 'PUT',
             headers: authHeaders,
             body: JSON.stringify({ valor: config[chave] }),
           });
+          if (!res.ok) { allOk = false; break; }
         }
       }
-      setConfigOriginal(prev => ({ ...prev, ...Object.fromEntries(chaves.map(k => [k, config[k]])) }));
-      dispatchUpdate();
+      if (allOk) {
+        setConfigOriginal(prev => ({ ...prev, ...Object.fromEntries(chaves.map(k => [k, config[k]])) }));
+        dispatchUpdate();
+      }
     } finally {
       setIsSavingConfig(null);
     }
@@ -885,7 +906,7 @@ const FooterManagement: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" role="status" aria-label="Carregando" />
       </div>
     );
   }
@@ -896,7 +917,7 @@ const FooterManagement: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/25 p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="bg-white/20 rounded-xl p-3">
-            <Layout className="h-7 w-7 text-white" />
+            <Layout className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">Rodapé</h2>
@@ -907,12 +928,14 @@ const FooterManagement: React.FC = () => {
 
       {/* Abas */}
       <div className="relative mb-6">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div role="tablist" className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex-shrink-0 ${
                   activeTab === tab.id
@@ -920,7 +943,7 @@ const FooterManagement: React.FC = () => {
                     : 'bg-[#ffffff] dark:!bg-[#2d3f52] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-blue-300 hover:text-blue-600'
                 }`}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                 <span className="whitespace-nowrap">{tab.label}</span>
               </button>
             );
@@ -934,21 +957,21 @@ const FooterManagement: React.FC = () => {
       {activeTab === 'colunas' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Arraste as colunas para reordenar. Clique no título para renomear.
             </p>
             <button
               onClick={handleAddColuna}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all text-sm"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Nova Coluna
             </button>
           </div>
 
           {colunas.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
-              <Layout className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <Layout className="h-12 w-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
               <p className="font-medium">Nenhuma coluna criada</p>
               <p className="text-sm mt-1">Clique em "Nova Coluna" para começar.</p>
             </div>
@@ -981,7 +1004,7 @@ const FooterManagement: React.FC = () => {
           {/* Formulário */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Nome da Empresa</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Nome da Empresa</label>
               <input
                 type="text"
                 value={config.empresa_nome}
@@ -990,7 +1013,7 @@ const FooterManagement: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Tagline / Subtítulo</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Tagline / Subtítulo</label>
               <input
                 type="text"
                 value={config.empresa_tagline}
@@ -999,7 +1022,7 @@ const FooterManagement: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Descrição</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Descrição</label>
               <textarea
                 value={config.empresa_descricao}
                 onChange={e => setConfig(prev => ({ ...prev, empresa_descricao: e.target.value }))}
@@ -1008,7 +1031,7 @@ const FooterManagement: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Texto do Autor / Registro</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Texto do Autor / Registro</label>
               <input
                 type="text"
                 value={config.empresa_autor}
@@ -1017,7 +1040,7 @@ const FooterManagement: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Caminho do Logo
                 <span className="ml-2 text-xs font-normal text-gray-400">(ex: /logo_rodape.PNG)</span>
               </label>
@@ -1044,7 +1067,7 @@ const FooterManagement: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4" aria-hidden="true" />
                   Salvar Informações da Empresa
                 </>
               )}
@@ -1053,7 +1076,7 @@ const FooterManagement: React.FC = () => {
 
           {/* Preview */}
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Preview</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview</p>
             <div className="bg-gray-800 rounded-xl p-5 text-white">
               <div className="flex items-start gap-3">
                 {config.empresa_logo && (
@@ -1092,7 +1115,7 @@ const FooterManagement: React.FC = () => {
 
             {/* Alinhamento */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Alinhamento</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Alinhamento</label>
               <div className="flex gap-2">
                 {([
                   { valor: 'left',   icone: AlignLeft,   label: 'Esquerda' },
@@ -1109,7 +1132,7 @@ const FooterManagement: React.FC = () => {
                         : 'bg-[#ffffff] dark:!bg-[#2d3f52] border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400'
                     }`}
                   >
-                    <Icone className="h-4 w-4" />
+                    <Icone className="h-4 w-4" aria-hidden="true" />
                     {label}
                   </button>
                 ))}
@@ -1123,7 +1146,7 @@ const FooterManagement: React.FC = () => {
                 title="Negrito (selecione o texto e clique)"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffffff] dark:!bg-[#2d3f52] border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 transition-all font-semibold"
               >
-                <Bold className="h-3.5 w-3.5" />
+                <Bold className="h-3.5 w-3.5" aria-hidden="true" />
                 Negrito
               </button>
               <span className="text-xs text-gray-400 self-center ml-1">
@@ -1154,14 +1177,14 @@ const FooterManagement: React.FC = () => {
               {isSavingConfig === 'info_texto' ? (
                 <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Salvando...</>
               ) : (
-                <><Save className="h-4 w-4" />Salvar Informações</>
+                <><Save className="h-4 w-4" aria-hidden="true" />Salvar Informações</>
               )}
             </button>
           </div>
 
           {/* Preview */}
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Preview</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview</p>
             <div className="bg-gray-800 rounded-xl p-5">
               {config.info_texto.trim() ? (
                 <div className="border-t border-b border-gray-700 py-4">
@@ -1200,7 +1223,7 @@ const FooterManagement: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Texto de Copyright
                 <span className="ml-2 text-xs font-normal text-gray-400">(sem o © e o ano — são adicionados automaticamente)</span>
               </label>
@@ -1227,7 +1250,7 @@ const FooterManagement: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4" aria-hidden="true" />
                   Salvar Copyright
                 </>
               )}
@@ -1236,7 +1259,7 @@ const FooterManagement: React.FC = () => {
 
           {/* Preview */}
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Preview</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview</p>
             <div className="bg-gray-800 rounded-xl p-5">
               <div className="border-t border-gray-700 pt-4 text-center text-gray-400 text-sm">
                 © {new Date().getFullYear()} {config.copyright || '—'}
@@ -1261,7 +1284,7 @@ const FooterManagement: React.FC = () => {
                   {bottomLinks.filter(l => l.ativo).map((item, idx, arr) => (
                     <span key={item.id} className="flex items-center">
                       <span className="px-1 font-medium">{item.texto}</span>
-                      {idx < arr.length - 1 && <span className="text-gray-400 select-none">|</span>}
+                      {idx < arr.length - 1 && <span className="text-gray-400 select-none" aria-hidden="true">|</span>}
                     </span>
                   ))}
                 </div>
@@ -1271,14 +1294,14 @@ const FooterManagement: React.FC = () => {
               onClick={abrirModalNovoBottom}
               className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all text-sm"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Novo Link
             </button>
           </div>
 
           {bottomLinks.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
-              <Rows className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <Rows className="h-12 w-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
               <p className="font-medium">Nenhum link criado</p>
               <p className="text-sm mt-1">Clique em "Novo Link" para começar.</p>
             </div>
@@ -1309,7 +1332,7 @@ const FooterManagement: React.FC = () => {
           {/* Número da versão */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 Versão do Sistema
               </label>
               <p className="text-xs text-gray-400 mb-3">
@@ -1337,14 +1360,14 @@ const FooterManagement: React.FC = () => {
                 {isSavingConfig === 'versao_sistema' ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Salvando...</>
                 ) : (
-                  <><Save className="h-4 w-4" />Salvar Versão</>
+                  <><Save className="h-4 w-4" aria-hidden="true" />Salvar Versão</>
                 )}
               </button>
             </div>
 
             {/* Preview da barra */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Preview da barra</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview da barra</p>
               <div className="bg-gray-800 rounded-xl p-5">
                 <div className="flex items-center text-xs text-gray-500">
                   <div className="flex-1" />
@@ -1378,7 +1401,7 @@ const FooterManagement: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Notas da Versão
                 </label>
                 <p className="text-xs text-gray-400 mt-0.5">
@@ -1397,7 +1420,7 @@ const FooterManagement: React.FC = () => {
                 {isSavingConfig === 'notas_versao' ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Salvando...</>
                 ) : (
-                  <><Save className="h-4 w-4" />Salvar Notas</>
+                  <><Save className="h-4 w-4" aria-hidden="true" />Salvar Notas</>
                 )}
               </button>
             </div>
@@ -1416,18 +1439,18 @@ const FooterManagement: React.FC = () => {
           <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-bold text-gray-800">
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
                 {linkEditando ? 'Editar Link' : 'Novo Link'}
               </h3>
-              <button onClick={fecharModalLink} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
+              <button onClick={fecharModalLink} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Fechar modal">
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-4">
               {/* Coluna */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Coluna <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -1443,7 +1466,7 @@ const FooterManagement: React.FC = () => {
 
               {/* Texto */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Texto <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1458,12 +1481,14 @@ const FooterManagement: React.FC = () => {
               {/* Toggle é link */}
               <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">É um link clicável?</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">É um link clicável?</p>
                   <p className="text-xs text-gray-500">
                     {linkEhLink ? 'Abre uma URL ao clicar' : 'Apenas texto informativo'}
                   </p>
                 </div>
                 <button
+                  role="switch"
+                  aria-checked={linkEhLink}
                   onClick={() => setLinkEhLink(v => !v)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${linkEhLink ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
@@ -1474,7 +1499,7 @@ const FooterManagement: React.FC = () => {
               {/* URL */}
               {linkEhLink && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     URL <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1489,8 +1514,8 @@ const FooterManagement: React.FC = () => {
 
               {/* Erro */}
               {linkError && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                   {linkError}
                 </div>
               )}
@@ -1512,7 +1537,7 @@ const FooterManagement: React.FC = () => {
                   {isSavingLink ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Salvando...</>
                   ) : (
-                    <><Save className="h-4 w-4" /> Salvar</>
+                    <><Save className="h-4 w-4" aria-hidden="true" /> Salvar</>
                   )}
                 </button>
               </div>
@@ -1530,8 +1555,8 @@ const FooterManagement: React.FC = () => {
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-800">Confirmar exclusão</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Excluir {deleteConfirm.label}?
                   {deleteConfirm.tipo === 'coluna' && ' Todos os links desta coluna também serão excluídos.'}
                 </p>
@@ -1553,7 +1578,7 @@ const FooterManagement: React.FC = () => {
                 {isDeleting ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Excluindo...</>
                 ) : (
-                  <><Trash2 className="h-4 w-4" /> Excluir</>
+                  <><Trash2 className="h-4 w-4" aria-hidden="true" /> Excluir</>
                 )}
               </button>
             </div>
@@ -1567,18 +1592,18 @@ const FooterManagement: React.FC = () => {
           <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-bold text-gray-800">
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
                 {bottomEditando ? 'Editar Link de Base' : 'Novo Link de Base'}
               </h3>
-              <button onClick={fecharModalBottom} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
+              <button onClick={fecharModalBottom} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Fechar modal">
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-4">
               {/* Texto */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Texto <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1592,7 +1617,7 @@ const FooterManagement: React.FC = () => {
 
               {/* URL */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   URL <span className="text-xs font-normal text-gray-400 ml-1">(opcional — pode adicionar depois)</span>
                 </label>
                 <input
@@ -1607,12 +1632,14 @@ const FooterManagement: React.FC = () => {
               {/* Status */}
               <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-[#1a2535] rounded-xl">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">Ativo</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ativo</p>
                   <p className="text-xs text-gray-500">
                     {bottomAtivo ? 'Aparece no rodapé' : 'Oculto no rodapé'}
                   </p>
                 </div>
                 <button
+                  role="switch"
+                  aria-checked={bottomAtivo}
                   onClick={() => setBottomAtivo(v => !v)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${bottomAtivo ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
@@ -1622,8 +1649,8 @@ const FooterManagement: React.FC = () => {
 
               {/* Erro */}
               {bottomError && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                   {bottomError}
                 </div>
               )}
@@ -1645,7 +1672,7 @@ const FooterManagement: React.FC = () => {
                   {isSavingBottom ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Salvando...</>
                   ) : (
-                    <><Save className="h-4 w-4" /> Salvar</>
+                    <><Save className="h-4 w-4" aria-hidden="true" /> Salvar</>
                   )}
                 </button>
               </div>
@@ -1659,12 +1686,12 @@ const FooterManagement: React.FC = () => {
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-800">Confirmar exclusão</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Excluir {deleteBottomConfirm.label}?
                 </p>
               </div>
@@ -1685,7 +1712,7 @@ const FooterManagement: React.FC = () => {
                 {isDeletingBottom ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Excluindo...</>
                 ) : (
-                  <><Trash2 className="h-4 w-4" /> Excluir</>
+                  <><Trash2 className="h-4 w-4" aria-hidden="true" /> Excluir</>
                 )}
               </button>
             </div>

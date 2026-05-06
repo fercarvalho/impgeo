@@ -31,25 +31,25 @@ const VISIBILITY_OPTIONS: {
     value: 'todos',
     label: 'Todos',
     desc: 'Visível para qualquer visitante, incluindo convidados',
-    icon: <Globe className="h-4 w-4" />,
+    icon: <Globe className="h-4 w-4" aria-hidden="true" />,
     badge: 'Público',
-    badgeCls: 'bg-green-100 text-green-700',
+    badgeCls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   },
   {
     value: 'usuarios',
     label: 'Usuários registrados',
     desc: 'Visível apenas para quem está logado no sistema',
-    icon: <Users className="h-4 w-4" />,
+    icon: <Users className="h-4 w-4" aria-hidden="true" />,
     badge: 'Logados',
-    badgeCls: 'bg-blue-100 text-blue-700',
+    badgeCls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   },
   {
     value: 'admins',
     label: 'Somente admins',
     desc: 'Visível apenas para administradores e superadmins',
-    icon: <ShieldCheck className="h-4 w-4" />,
+    icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
     badge: 'Admin',
-    badgeCls: 'bg-purple-100 text-purple-700',
+    badgeCls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   },
 ];
 
@@ -58,7 +58,7 @@ function VisibilityBadge({ visibility }: { visibility: Visibility }) {
   if (!opt || visibility === 'todos') return null;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${opt.badgeCls}`}>
-      {opt.icon}
+      <span aria-hidden="true">{opt.icon}</span>
       {opt.badge}
     </span>
   );
@@ -79,8 +79,8 @@ function VisibilitySelector({
           key={opt.value}
           className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
             value === opt.value
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
           }`}
         >
           <input
@@ -91,14 +91,14 @@ function VisibilitySelector({
             onChange={() => onChange(opt.value)}
             className="mt-0.5 accent-blue-600"
           />
-          <span className={`mt-0.5 flex-shrink-0 ${value === opt.value ? 'text-blue-600' : 'text-gray-400'}`}>
+          <span className={`mt-0.5 flex-shrink-0 ${value === opt.value ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} aria-hidden="true">
             {opt.icon}
           </span>
           <span className="flex-1 min-w-0">
-            <span className={`block text-sm font-semibold ${value === opt.value ? 'text-blue-800' : 'text-gray-700'}`}>
+            <span className={`block text-sm font-semibold ${value === opt.value ? 'text-blue-800 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
               {opt.label}
             </span>
-            <span className="block text-xs text-gray-500 mt-0.5">{opt.desc}</span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</span>
           </span>
         </label>
       ))}
@@ -107,7 +107,7 @@ function VisibilitySelector({
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
-const FAQManagement: React.FC = () => {
+const FAQManagement = () => {
   const [items, setItems] = useState<FAQItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -116,34 +116,36 @@ const FAQManagement: React.FC = () => {
   const [resposta, setResposta] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('todos');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadItems(); }, []);
+  const loadItems = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setIsLoading(true);
+      const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result = await res.json();
+      if (result.success) setItems(result.data || []);
+    } catch (e) {
+      console.error('Erro ao carregar FAQ:', e);
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadItems(); }, [loadItems]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key !== 'Escape') return;
-    if (deleteConfirm) { setDeleteConfirm(null); return; }
+    if (deleteConfirm && !isDeleting) { setDeleteConfirm(null); return; }
     if (showModal && !isSaving) { setShowModal(false); }
-  }, [showModal, isSaving, deleteConfirm]);
+  }, [showModal, isSaving, deleteConfirm, isDeleting]);
 
   useEffect(() => {
     if (showModal || deleteConfirm) document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showModal, deleteConfirm, handleKeyDown]);
-
-  const loadItems = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq`, { headers: getAuthHeaders() });
-      const result = await res.json();
-      if (result.success) setItems(result.data);
-    } catch (e) {
-      console.error('Erro ao carregar FAQ:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const openCreate = () => {
     setEditingItem(null);
@@ -179,6 +181,7 @@ const FAQManagement: React.FC = () => {
         headers: getAuthHeaders(),
         body: JSON.stringify({ pergunta: pergunta.trim(), resposta: resposta.trim(), visibility }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
       if (result.success) { setShowModal(false); loadItems(); }
       else setError(result.error || 'Erro ao salvar.');
@@ -196,20 +199,25 @@ const FAQManagement: React.FC = () => {
         headers: getAuthHeaders(),
         body: JSON.stringify({ ativo: !item.ativo }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
       if (result.success) loadItems();
     } catch (e) { console.error('Erro ao alterar status:', e); }
   };
 
   const handleDelete = async (id: string) => {
+    if (isDeleting) return;
+    setIsDeleting(true);
     try {
       const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
       if (result.success) { setDeleteConfirm(null); loadItems(); }
     } catch (e) { console.error('Erro ao deletar:', e); }
+    finally { setIsDeleting(false); }
   };
 
   const handleMover = async (index: number, direcao: 'cima' | 'baixo') => {
@@ -219,18 +227,19 @@ const FAQManagement: React.FC = () => {
     [novoArray[index], novoArray[troca]] = [novoArray[troca], novoArray[index]];
     setItems(novoArray);
     try {
-      await fetch(`${getAdminApiBaseUrl()}/admin/faq/ordem`, {
+      const res = await fetch(`${getAdminApiBaseUrl()}/admin/faq/ordem`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ faqIds: novoArray.map(i => i.id) }),
       });
-    } catch (e) { console.error('Erro ao reordenar:', e); loadItems(); }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (e) { console.error('Erro ao reordenar:', e); loadItems(true); }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" role="status" aria-label="Carregando" />
       </div>
     );
   }
@@ -241,7 +250,7 @@ const FAQManagement: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md shadow-blue-500/25">
-            <HelpCircle className="h-5 w-5 text-white" />
+            <HelpCircle className="h-5 w-5 text-white" aria-hidden="true" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Gerenciar FAQ</h2>
@@ -254,17 +263,17 @@ const FAQManagement: React.FC = () => {
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 transition-all duration-200"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Nova Pergunta
         </button>
       </div>
 
       {/* Lista */}
       {items.length === 0 ? (
-        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
-          <HelpCircle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Nenhuma pergunta cadastrada</p>
-          <p className="text-gray-400 text-sm mt-1">Clique em "Nova Pergunta" para começar</p>
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+          <HelpCircle className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" aria-hidden="true" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Nenhuma pergunta cadastrada</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Clique em "Nova Pergunta" para começar</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -272,7 +281,7 @@ const FAQManagement: React.FC = () => {
             <div
               key={item.id}
               className={`bg-[#ffffff] dark:bg-[#243040] rounded-2xl border-2 p-5 flex gap-4 items-start transition-all ${
-                item.ativo ? 'border-gray-200' : 'border-gray-100 opacity-60'
+                item.ativo ? 'border-gray-200 dark:border-gray-700' : 'border-gray-100 dark:border-gray-800 opacity-60'
               }`}
             >
               {/* Botões de ordem */}
@@ -280,53 +289,60 @@ const FAQManagement: React.FC = () => {
                 <button
                   onClick={() => handleMover(index, 'cima')}
                   disabled={index === 0}
-                  className="p-1 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Mover para cima"
+                  aria-label="Mover para cima"
                 >
-                  <ChevronUp className="h-4 w-4" />
+                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => handleMover(index, 'baixo')}
                   disabled={index === items.length - 1}
-                  className="p-1 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Mover para baixo"
+                  aria-label="Mover para baixo"
                 >
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
               {/* Conteúdo */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <p className="font-semibold text-gray-900 leading-snug">{item.pergunta}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 leading-snug">{item.pergunta}</p>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <VisibilityBadge visibility={item.visibility || 'todos'} />
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      item.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      item.ativo
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                     }`}>
                       {item.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
                 </div>
-                <p className="text-gray-500 text-sm line-clamp-2">{item.resposta}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2">{item.resposta}</p>
               </div>
 
               {/* Ações */}
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button onClick={() => handleToggleAtivo(item)}
-                  className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                  title={item.ativo ? 'Desativar' : 'Ativar'}>
-                  {item.ativo ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  className="p-2 rounded-xl text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  title={item.ativo ? 'Desativar' : 'Ativar'}
+                  aria-label={item.ativo ? 'Desativar pergunta' : 'Ativar pergunta'}>
+                  {item.ativo ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
                 </button>
                 <button onClick={() => openEdit(item)}
-                  className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                  title="Editar">
-                  <Edit2 className="h-4 w-4" />
+                  className="p-2 rounded-xl text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  title="Editar"
+                  aria-label="Editar pergunta">
+                  <Edit2 className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button onClick={() => setDeleteConfirm(item.id)}
-                  className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                  title="Deletar">
-                  <Trash2 className="h-4 w-4" />
+                  className="p-2 rounded-xl text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  title="Deletar"
+                  aria-label="Excluir pergunta">
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -340,26 +356,32 @@ const FAQManagement: React.FC = () => {
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={e => { if (e.target === e.currentTarget && !isSaving) setShowModal(false); }}
         >
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="faq-modal-title"
+            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-white" />
+              <h3 id="faq-modal-title" className="text-lg font-bold text-white flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-white" aria-hidden="true" />
                 {editingItem ? 'Editar Pergunta' : 'Nova Pergunta'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
                 disabled={isSaving}
                 className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors"
+                aria-label="Fechar modal"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
             {/* Campos */}
             <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Pergunta <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -368,12 +390,12 @@ const FAQManagement: React.FC = () => {
                   onChange={e => setPergunta(e.target.value)}
                   placeholder="Ex: Como funciona o sistema de projetos?"
                   disabled={isSaving}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm disabled:opacity-50"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a2535] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Resposta <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -382,32 +404,32 @@ const FAQManagement: React.FC = () => {
                   placeholder="Descreva a resposta de forma clara e objetiva..."
                   rows={4}
                   disabled={isSaving}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none disabled:opacity-50"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a2535] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none disabled:opacity-50"
                 />
               </div>
 
               {/* Visibilidade */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                   Quem pode ver esta pergunta?
                 </label>
                 <VisibilitySelector value={visibility} onChange={setVisibility} />
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
               )}
             </div>
 
             {/* Botões */}
-            <div className="flex gap-3 justify-end px-6 pb-6 pt-2 border-t border-gray-100">
+            <div className="flex gap-3 justify-end px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
                 disabled={isSaving}
-                className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm font-medium"
+                className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 Cancelar
               </button>
@@ -418,9 +440,9 @@ const FAQManagement: React.FC = () => {
                 className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2 text-sm font-medium shadow-sm"
               >
                 {isSaving ? (
-                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Salvando...</>
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Salvando...</>
                 ) : (
-                  <><Save className="h-4 w-4" />Salvar</>
+                  <><Save className="h-4 w-4" aria-hidden="true" />Salvar</>
                 )}
               </button>
             </div>
@@ -432,28 +454,37 @@ const FAQManagement: React.FC = () => {
       {deleteConfirm && (
         <div
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+          onClick={e => { if (e.target === e.currentTarget && !isDeleting) setDeleteConfirm(null); }}
         >
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center"
+          >
             <div className="flex justify-center mb-4">
-              <div className="bg-red-100 rounded-full p-4">
-                <AlertTriangle className="h-8 w-8 text-red-500" />
+              <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-4">
+                <AlertTriangle className="h-8 w-8 text-red-500 dark:text-red-400" aria-hidden="true" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirmar Exclusão</h3>
-            <p className="text-gray-500 text-sm mb-6">Esta ação não pode ser desfeita.</p>
+            <h3 id="delete-modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Confirmar Exclusão</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Esta ação não pode ser desfeita.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium"
+                onClick={() => handleDelete(deleteConfirm!)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Excluir
+                {isDeleting ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Excluindo...</>
+                ) : 'Excluir'}
               </button>
             </div>
           </div>
