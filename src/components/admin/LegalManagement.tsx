@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   FileText, ShieldCheck, Cookie, Save, RefreshCw, Plus, Trash2, Edit2,
   Check, X, AlertTriangle, Lock, ChevronDown, ChevronUp
@@ -64,8 +64,7 @@ const TipTapEditor = ({ content, onChange }: { content: string; onChange: (html:
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content || '', { emitUpdate: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [editor, content]);
 
   if (!editor) return null;
 
@@ -113,6 +112,7 @@ const LegalManagement = () => {
   const [activeTab, setActiveTab] = useState<LegalTab>('termos');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const saveMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [termos, setTermos] = useState<LegalDoc | null>(null);
   const [termosContent, setTermosContent] = useState('');
@@ -147,10 +147,17 @@ const LegalManagement = () => {
     'Authorization': `Bearer ${token}`,
   }), [token]);
 
-  const showFeedback = (type: 'success' | 'error', text: string) => {
+  const showFeedback = useCallback((type: 'success' | 'error', text: string) => {
+    if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current);
     setSaveMsg({ type, text });
-    setTimeout(() => setSaveMsg(null), 4000);
-  };
+    saveMsgTimerRef.current = setTimeout(() => setSaveMsg(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current);
+    };
+  }, []);
 
   const formatarData = (dateStr: string | null): string => {
     if (!dateStr) return '';
@@ -181,7 +188,7 @@ const LegalManagement = () => {
           fetch(`${API_BASE_URL}/admin/cookie-categorias`, { headers: authHeaders() }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
         ]);
         if (cfgRes.success && cfgRes.data) setBannerConfig(cfgRes.data);
-        if (catRes.success) setCategorias(catRes.data);
+        if (catRes.success && Array.isArray(catRes.data)) setCategorias(catRes.data);
       }
     } catch (err) {
       loadedRef.current.delete(tab);
@@ -197,7 +204,7 @@ const LegalManagement = () => {
       const res = await fetch(`${API_BASE_URL}/admin/termos-uso`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ conteudo: termosContent }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.success) { setTermos(prev => prev ? { ...prev, versao: data.data.versao } : null); showFeedback('success', `Termos salvos! (Versão ${data.data.versao})`); loadedRef.current.delete('termos'); }
+      if (data.success) { setTermos(prev => prev ? { ...prev, versao: data.data.versao, updatedAt: data.data.updatedAt ?? prev.updatedAt } : null); showFeedback('success', `Termos salvos! (Versão ${data.data.versao})`); loadedRef.current.delete('termos'); }
       else showFeedback('error', data.error || 'Erro ao salvar termos.');
     } catch (err) { showFeedback('error', err instanceof Error ? err.message : 'Erro de conexão.'); }
     finally { setIsSaving(false); }
@@ -209,7 +216,7 @@ const LegalManagement = () => {
       const res = await fetch(`${API_BASE_URL}/admin/politica-privacidade`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ conteudo: politicaContent }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.success) { setPolitica(prev => prev ? { ...prev, versao: data.data.versao } : null); showFeedback('success', `Política salva! (Versão ${data.data.versao})`); loadedRef.current.delete('politica'); }
+      if (data.success) { setPolitica(prev => prev ? { ...prev, versao: data.data.versao, updatedAt: data.data.updatedAt ?? prev.updatedAt } : null); showFeedback('success', `Política salva! (Versão ${data.data.versao})`); loadedRef.current.delete('politica'); }
       else showFeedback('error', data.error || 'Erro ao salvar política.');
     } catch (err) { showFeedback('error', err instanceof Error ? err.message : 'Erro de conexão.'); }
     finally { setIsSaving(false); }
@@ -239,7 +246,7 @@ const LegalManagement = () => {
       const res = await fetch(`${API_BASE_URL}/admin/cookie-categorias`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.success) setCategorias(data.data);
+      if (data.success && Array.isArray(data.data)) setCategorias(data.data);
     } catch (err) { console.error('Erro ao recarregar categorias:', err); }
   };
 
@@ -281,18 +288,17 @@ const LegalManagement = () => {
     } catch (err) { showFeedback('error', err instanceof Error ? err.message : 'Erro de conexão.'); }
   };
 
-  const availableTabs = [
+  const availableTabs = useMemo(() => [
     ...(canTermos ? [{ id: 'termos' as LegalTab, label: 'Termos de Uso', icon: FileText }] : []),
     ...(canPolitica ? [{ id: 'politica' as LegalTab, label: 'Política de Privacidade', icon: ShieldCheck }] : []),
     ...(canCookies ? [{ id: 'cookies' as LegalTab, label: 'Cookies', icon: Cookie }] : []),
-  ];
+  ], [canTermos, canPolitica, canCookies]);
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
       setActiveTab(availableTabs[0].id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [availableTabs, activeTab]);
 
   if (availableTabs.length === 0) {
     return (
@@ -341,7 +347,7 @@ const LegalManagement = () => {
 
       {/* Feedback */}
       {saveMsg && (
-        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border ${
+        <div role="alert" aria-live="polite" className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border ${
           saveMsg.type === 'success'
             ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
             : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'
@@ -419,14 +425,14 @@ const LegalManagement = () => {
               ))}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Texto do Banner</label>
-                <textarea rows={2} value={bannerConfig.texto || ''}
+                <textarea rows={2} value={bannerConfig.texto || ''} placeholder="Descreva como utilizamos cookies..."
                   onChange={e => setBannerConfig(prev => ({ ...prev, texto: e.target.value }))}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 transition-colors resize-none"
                 />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descrição no Modal de Gerenciamento</label>
-                <textarea rows={2} value={bannerConfig.textoDescricaoGerenciamento || ''}
+                <textarea rows={2} value={bannerConfig.textoDescricaoGerenciamento || ''} placeholder="Gerencie suas preferências de cookies..."
                   onChange={e => setBannerConfig(prev => ({ ...prev, textoDescricaoGerenciamento: e.target.value }))}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-[#ffffff] dark:bg-[#1e2d3e] text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 transition-colors resize-none"
                 />
@@ -446,10 +452,13 @@ const LegalManagement = () => {
             </div>
 
             <div className="space-y-2">
+              {categorias.length === 0 && (
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Nenhuma categoria cadastrada.</p>
+              )}
               {categorias.map(cat => (
                 <div key={cat.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 bg-gray-50/50 dark:bg-[#1a2535]">
-                    <button onClick={() => setExpandedCat(expandedCat === cat.id ? null : cat.id)} className="flex items-center gap-2 flex-1 text-left">
+                    <button onClick={() => setExpandedCat(expandedCat === cat.id ? null : cat.id)} aria-expanded={expandedCat === cat.id} className="flex items-center gap-2 flex-1 text-left">
                       {expandedCat === cat.id
                         ? <ChevronUp className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                         : <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />}
