@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   BookOpen, Plus, Trash2, Edit2, ChevronRight, ChevronDown,
   FileText, Save, X, Eye, Code2, GripVertical, AlertTriangle,
@@ -147,9 +147,10 @@ function loadMermaid(): Promise<void> {
     if (window.mermaid) { resolve(); return; }
     const existing = document.querySelector<HTMLScriptElement>('script[data-mermaid]');
     if (existing) {
-      // Se o script já terminou de carregar, resolve imediatamente
-      if (existing.readyState === 'complete' || window.mermaid) { resolve(); return; }
-      existing.addEventListener('load', () => resolve());
+      // Se window.mermaid já está disponível, resolve imediatamente
+      if (window.mermaid) { resolve(); return; }
+      const handler = () => resolve();
+      existing.addEventListener('load', handler, { once: true });
       return;
     }
     const script = document.createElement('script');
@@ -210,10 +211,11 @@ const DocumentationManagement: React.FC = () => {
     [token]
   );
 
-  const loadSections = useCallback(async () => {
+  const loadSections = useCallback(async (signal: AbortSignal) => {
     try {
       const res = await fetch(`${API_BASE_URL}/documentation`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
@@ -223,32 +225,41 @@ const DocumentationManagement: React.FC = () => {
           setExpandedSections(new Set([result.data[0].id]));
         }
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       // silencioso — componente mostra estrutura vazia
     } finally {
       setIsLoading(false);
     }
   }, [token]);
 
-  useEffect(() => { loadSections(); }, [loadSections]);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadSections(controller.signal);
+    return () => controller.abort();
+  }, [loadSections]);
 
   // Sanitização básica para prevenir XSS: remove tags script e event handlers inline
-  const sanitize = (html: string): string =>
+  const sanitize = useCallback((html: string): string =>
     html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/\s+on\w+="[^"]*"/gi, '')
-      .replace(/\s+on\w+='[^']*'/gi, '');
+      .replace(/\s+on\w+='[^']*'/gi, ''),
+  []);
 
   // Inclui o tema no HTML para forçar React a resetar o DOM quando o tema muda
   // marked.parse() garante retorno síncrono de string (ao contrário de marked())
-  const renderedHtml = editContent
-    ? sanitize(`<!--${isDark ? 'dark' : 'light'}-->${marked.parse(editContent) as string}`)
-    : '';
+  const renderedHtml = useMemo(
+    () => editContent
+      ? sanitize(`<!--${isDark ? 'dark' : 'light'}-->${marked.parse(editContent) as string}`)
+      : '',
+    [editContent, isDark, sanitize]
+  );
   useEffect(() => {
     if (previewRef.current && renderedHtml) {
       runMermaidIn(previewRef.current, isDark);
     }
-  }, [renderedHtml]);
+  }, [renderedHtml, isDark]);
 
   const selectPage = (page: DocPage) => {
     if (isDirty && selectedPage) {
@@ -272,7 +283,7 @@ const DocumentationManagement: React.FC = () => {
   };
 
   const savePage = async () => {
-    if (!selectedPage) return;
+    if (!selectedPage || isSaving) return;
     setIsSaving(true);
     try {
       const res = await fetch(`${API_BASE_URL}/admin/documentation/pages/${selectedPage.id}`, {
@@ -317,15 +328,15 @@ const DocumentationManagement: React.FC = () => {
       if (result.success) {
         setSections(prev => [...prev, { ...result.data, pages: [] }]);
         setExpandedSections(prev => new Set([...prev, result.data.id]));
+        setNewSectionTitle('');
+        setNewSectionVisibility('todos');
+        setShowNewSection(false);
       } else {
         alert(result.error || 'Erro ao criar seção');
       }
     } catch {
       alert('Erro ao conectar com o servidor');
     }
-    setNewSectionTitle('');
-    setNewSectionVisibility('todos');
-    setShowNewSection(false);
   };
 
   // Atualizar seção (título + visibilidade)
@@ -396,15 +407,20 @@ const DocumentationManagement: React.FC = () => {
         setSections(prev =>
           prev.map(s => s.id === sectionId ? { ...s, pages: [...s.pages, newPage] } : s)
         );
-        selectPage(newPage);
+        // Navega diretamente sem acionar o confirm de "alterações não salvas"
+        setSelectedPage(newPage);
+        setEditContent(newPage.content);
+        setEditTitle(newPage.title);
+        setIsDirty(false);
+        setSidebarOpen(false);
+        setNewPageTitle('');
+        setShowNewPage(null);
       } else {
         alert(result.error || 'Erro ao criar página');
       }
     } catch {
       alert('Erro ao conectar com o servidor');
     }
-    setNewPageTitle('');
-    setShowNewPage(null);
   };
 
   // Deletar página
@@ -538,9 +554,11 @@ const DocumentationManagement: React.FC = () => {
       <div className="lg:hidden sticky top-[185px] z-30 pointer-events-none flex-shrink-0">
         <button
           onClick={() => setSidebarOpen(v => !v)}
+          aria-expanded={sidebarOpen}
+          aria-controls="mobile-doc-sidebar"
           className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all duration-200 text-sm font-semibold"
         >
-          {sidebarOpen ? <X className="h-4 w-4" /> : <GripVertical className="h-4 w-4" />}
+          {sidebarOpen ? <X className="h-4 w-4" aria-hidden="true" /> : <GripVertical className="h-4 w-4" aria-hidden="true" />}
           <span>{sidebarOpen ? 'Fechar' : 'Estrutura'}</span>
         </button>
       </div>
@@ -549,9 +567,13 @@ const DocumentationManagement: React.FC = () => {
       <>
         <div
           onClick={() => setSidebarOpen(false)}
+          role="button"
+          tabIndex={sidebarOpen ? 0 : -1}
+          aria-label="Fechar menu de estrutura"
+          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSidebarOpen(false)}
           className={`lg:hidden fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         />
-        <div className={`lg:hidden fixed top-0 left-0 h-full w-[280px] z-30 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}>
+        <div id="mobile-doc-sidebar" className={`lg:hidden fixed top-0 left-0 h-full w-[280px] z-30 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}>
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
             <span className="text-white font-semibold text-sm">Estrutura</span>
             <button onClick={() => setSidebarOpen(false)} aria-label="Fechar menu" className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition-colors">
@@ -660,7 +682,7 @@ const DocumentationManagement: React.FC = () => {
             <div className="text-center px-6">
               <div className="flex justify-center mb-3">
                 <div className="bg-blue-50 dark:bg-blue-900/30 rounded-full p-4">
-                  <BookOpen className="h-10 w-10 text-blue-300" />
+                  <BookOpen className="h-10 w-10 text-blue-300" aria-hidden="true" />
                 </div>
               </div>
               <p className="text-gray-400 text-sm">Selecione uma página para editar</p>
@@ -882,6 +904,8 @@ const DocumentationManagement: React.FC = () => {
         .doc-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0; }
         .doc-content li { color: #374151; line-height: 1.75; margin: 0.25rem 0; font-size: 0.875rem; }
         .doc-content a { color: #3b82f6; text-decoration: underline; }
+        .doc-content a:hover { color: #2563eb; }
+        .doc-content a:focus { outline: 2px solid #3b82f6; outline-offset: 2px; border-radius: 2px; }
         .doc-content strong { font-weight: 700; color: #1f2937; }
         .doc-content em { font-style: italic; }
         .doc-content blockquote { border-left: 3px solid #3b82f6; padding: 0.5rem 1rem; background: #eff6ff; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; color: #1e40af; }
@@ -908,6 +932,9 @@ const DocumentationManagement: React.FC = () => {
         .dark .doc-content td { border-color: #374151; color: #d1d5db; }
         .dark .doc-content tr:nth-child(even) td { background: #1f2937; }
         .dark .doc-content hr { border-top-color: #374151; }
+        .dark .doc-content a { color: #60a5fa; }
+        .dark .doc-content a:hover { color: #93c5fd; }
+        .dark .doc-content a:focus { outline-color: #60a5fa; }
       `}</style>
     </div>
   );
