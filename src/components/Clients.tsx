@@ -201,6 +201,7 @@ const Clients: React.FC = () => {
     try {
       const ids = Array.from(selectedClients)
       const r = await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
       if (j.success) {
         setClients(prev => prev.filter(c => !ids.includes(c.id)))
@@ -239,6 +240,7 @@ const Clients: React.FC = () => {
   const handleExport = async () => {
     try {
       const r = await fetch(`${API_BASE_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'clients', data: clients }) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const blob = await r.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
