@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface VersaoItem {
@@ -18,12 +18,20 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
   const [index, setIndex] = useState(0);
   const [pendentes, setPendentes] = useState<VersaoItem[]>(versoes);
   const [confirming, setConfirming] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Sincroniza pendentes quando a prop versoes mudar
   useEffect(() => {
     setPendentes(versoes);
     setIndex(0);
   }, [versoes]);
+
+  // Move o foco para o modal ao montar
+  useEffect(() => {
+    if (dialogRef.current) {
+      dialogRef.current.focus();
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,19 +61,23 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
   const handleEntendido = async () => {
     if (confirming) return;
     setConfirming(true);
+    let mounted = true;
     try {
       await onConfirm(atual.versao);
       const novas = pendentes.filter((_, i) => i !== safeIndex);
       if (novas.length === 0) {
+        mounted = false;
         onClose();
         return;
       }
-      setPendentes(novas);
-      setIndex(i => Math.min(i, novas.length - 1));
+      if (mounted) {
+        setPendentes(novas);
+        setIndex(i => Math.min(i, novas.length - 1));
+      }
     } catch (err: unknown) {
       console.error('Erro ao confirmar versão:', err);
     } finally {
-      setConfirming(false);
+      if (mounted) setConfirming(false);
     }
   };
 
@@ -79,7 +91,12 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
       onClick={() => { if (!confirming) onClose(); }}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="versao-modal-title"
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md outline-none"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -95,13 +112,13 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
                 <p className="text-white/80 text-xs font-medium uppercase tracking-wide">
                   {total > 1 ? `Novidades disponíveis (${safeIndex + 1} de ${total})` : 'Novidade disponível'}
                 </p>
-                <h2 className="text-white text-xl font-bold leading-tight">
+                <h2 id="versao-modal-title" className="text-white text-xl font-bold leading-tight">
                   {headerTitle()}
                 </h2>
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => { if (!confirming) onClose(); }}
               className="p-1.5 rounded-lg hover:bg-white/20 text-white/70 hover:text-white transition-colors"
               aria-label="Fechar modal"
               disabled={confirming}
@@ -114,7 +131,11 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
         {/* Body */}
         <div className="px-6 py-5">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">O que há de novo:</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 min-h-[80px]">
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 min-h-[80px]"
+          >
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line">{atual.texto}</p>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
@@ -123,9 +144,9 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
 
           {total > 1 && (
             <div className="flex items-center justify-center gap-2 mt-4">
-              {pendentes.map((_, i) => (
+              {pendentes.map((v, i) => (
                 <span
-                  key={i}
+                  key={`${v.versao}-${i}`}
                   className={`h-1.5 rounded-full transition-all ${i === safeIndex ? 'w-6 bg-blue-600' : 'w-1.5 bg-gray-300 dark:bg-gray-600'}`}
                 />
               ))}
