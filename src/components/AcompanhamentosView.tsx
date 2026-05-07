@@ -69,7 +69,7 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
   } else if (raw?.matriculas && typeof raw?.matriculas === 'string') {
     // legacy string support
     matriculas_dados = raw.matriculas.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      id: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
       numero: m.trim(),
       url: ''
     })).filter((m: MatriculaItem) => m.numero.length > 0)
@@ -87,7 +87,7 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
   } else if (raw?.itr && typeof raw?.itr === 'string') {
     // legacy string support
     itr_dados = raw.itr.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      id: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
       numero: m.trim(),
       url: '',
       declaracaoUrl: '',
@@ -114,7 +114,7 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     // legacy string support
     const legacyVal = raw?.nIncraCcir || raw?.n_incra_ccir
     ccir_dados = legacyVal.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      id: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
       numero: m.trim(),
       url: ''
     })).filter((m: any) => m.numero.length > 0)
@@ -132,24 +132,24 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     ccirDados: ccir_dados,
     car: raw?.car ?? '',
     carUrl: raw?.carUrl ?? raw?.car_url ?? '',
-  statusCar: raw?.statusCar ?? raw?.status_car ?? '',
-  itr: raw?.itr ?? '',
-  itrDados: itr_dados,
-  geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
-  geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
-  areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
-  reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
-  cultura1: raw?.cultura1 ?? '',
-  areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
-  cultura2: raw?.cultura2 ?? '',
-  areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
-  outros: raw?.outros ?? '',
-  areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
-  appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
-  appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
-  appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
-  remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
-}
+    statusCar: raw?.statusCar ?? raw?.status_car ?? '',
+    itr: raw?.itr ?? '',
+    itrDados: itr_dados,
+    geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
+    geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
+    areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
+    reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
+    cultura1: raw?.cultura1 ?? '',
+    areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
+    cultura2: raw?.cultura2 ?? '',
+    areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
+    outros: raw?.outros ?? '',
+    areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
+    appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
+    appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
+    appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
+    remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
+  }
 }
 
 const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
@@ -217,14 +217,17 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null)
   const [isDownloadingRecordZip, setIsDownloadingRecordZip] = useState<string | null>(null)
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const loadAcompanhamentos = async () => {
       try {
         // Tentar carregar sem senha primeiro
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`)
+        const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, { signal: controller.signal })
         const result = await response.json()
-        
+
         if (result.success) {
           setAcompanhamentos(normalizeAcompanhamentos(result.data))
           setShareLinkName(result.shareLinkName)
@@ -237,7 +240,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             setLoading(false)
             return
           }
-          
+
           // Verificar se é erro de expiração (status 410)
           if (response.status === 410) {
             setError('Este link compartilhável expirou e não está mais disponível.')
@@ -246,6 +249,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           }
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
         console.error('Erro ao carregar acompanhamentos:', error)
         setError('Erro ao carregar dados')
       } finally {
@@ -253,21 +257,28 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       }
     }
     loadAcompanhamentos()
+
+    return () => { controller.abort() }
   }, [token])
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPasswordError('')
-    
+
     if (!password.trim()) {
       setPasswordError('Por favor, informe a senha')
       return
     }
 
+    setIsSubmittingPassword(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}?password=${encodeURIComponent(password)}`)
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
       const result = await response.json()
-      
+
       if (result.success) {
         setAcompanhamentos(normalizeAcompanhamentos(result.data))
         setShareLinkName(result.shareLinkName)
@@ -284,6 +295,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     } catch (error) {
       console.error('Erro ao validar senha:', error)
       setPasswordError('Erro ao validar senha. Tente novamente.')
+    } finally {
+      setIsSubmittingPassword(false)
     }
   }
 
@@ -409,10 +422,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(acompanhamentoId + 'ccir')
     try {
       const zip = new JSZip()
-      
+
       const downloadPromises = ccirsComUrl.map(async (mat) => {
         try {
           const response = await fetch(mat.url!)
@@ -425,7 +438,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       })
 
       await Promise.all(downloadPromises)
-      
+
       const content = await zip.generateAsync({ type: 'blob' })
       const safeImovel = getSafeImovelName(imovelName)
       saveAs(content, `CCIRs_${safeImovel}.zip`)
@@ -488,7 +501,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         const itrPromises = itrsComDados.flatMap((item) => {
           const itemPromises: Promise<void>[] = []
           const safeName = item.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-          
+
           const declUrl = item.declaracaoUrl || item.url
           if (declUrl) {
             itemPromises.push((async () => {
@@ -509,10 +522,24 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               } catch (e) { console.error(`Erro ao baixar recibo ${item.numero}:`, e) }
             })())
           }
-          
+
           return itemPromises
         })
         promises.push(...itrPromises)
+      }
+
+      if (ccirComUrl.length > 0) {
+        const ccirPromises = ccirComUrl.map(async (mat) => {
+          try {
+            const response = await fetch(mat.url!)
+            const blob = await response.blob()
+            const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+            zip.folder('CCIR')?.file(`Ccir_${safeName}.pdf`, blob)
+          } catch (e) {
+            console.error(`Erro ao baixar CCIR ${mat.numero}:`, e)
+          }
+        })
+        promises.push(...ccirPromises)
       }
 
       await Promise.all(promises)
@@ -550,7 +577,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     if (field === 'saldoReservaLegal') {
       return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
     }
-    return acomp[field]
+    return acomp[field as keyof Acompanhamento] as string | number
   }
 
   const sortedAcompanhamentos = useMemo(() => {
@@ -810,10 +837,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
     
     return () => {
+      const savedScrollY = document.body.style.top
       document.body.style.overflow = ''
       document.body.style.position = ''
       document.body.style.top = ''
       document.body.style.width = ''
+      if (savedScrollY) {
+        window.scrollTo(0, parseInt(savedScrollY || '0') * -1)
+      }
     }
   }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
@@ -826,6 +857,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         return
       }
 
+      if (chartModalOpen) {
+        setChartModalOpen(false)
+        return
+      }
+
       if (isMapModalOpen) {
         setIsMapModalOpen(false)
         setSelectedMapUrl('')
@@ -835,7 +871,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isMapModalOpen, itrDownloadModal])
+  }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
   if (loading) {
     return (
@@ -898,9 +934,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
+              disabled={isSubmittingPassword}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
             >
-              Acessar
+              {isSubmittingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmittingPassword ? 'Verificando...' : 'Acessar'}
             </button>
           </form>
         </div>
@@ -928,7 +966,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -1104,8 +1142,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
           >
-            <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
-            <p className="text-2xl font-bold text-green-700">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Remanescente Florestal</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
             </p>
           </div>
@@ -1782,7 +1820,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.remanescenteFlorestal)}</td>
                     <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`}>
                       {(() => {
-                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
+                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url) || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url) || (acomp.ccirDados || []).some(m => m.url);
                         return (
                           <button
                             onClick={() => handleDownloadRegistroZip(acomp)}
@@ -1829,7 +1867,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 </div>
               </div>
               <p className="text-gray-400 text-sm">
-                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreeendedores.
+                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecossistema completo de gestão e educação para Empreendedores.
                 <br /><br />
                 Autor: Fernando Carvalho Gomes dos Santos 39063242816.
               </p>
@@ -1910,14 +1948,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             setSelectedImovel('')
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
+          <div
+            className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Mapa do Imóvel</h2>
-                <p className="text-gray-600 mt-1">{selectedImovel}</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mapa do Imóvel</h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{selectedImovel}</p>
               </div>
               <button
                 onClick={() => {
@@ -1925,7 +1963,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   setSelectedMapUrl('')
                   setSelectedImovel('')
                 }}
-                className="text-gray-400 hover:text-gray-600 text-2xl transition-colors"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl transition-colors"
               >
                 ✕
               </button>
@@ -1978,18 +2016,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           style={{ margin: 0, padding: 0 }}
           onClick={() => setItrDownloadModal(null)}
         >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
+          <div
+            className="bg-white dark:bg-[#1e2a3a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Downloads ITR: <span className="text-blue-600">{itrDownloadModal.item.numero}</span>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Downloads ITR: <span className="text-blue-600 dark:text-blue-400">{itrDownloadModal.item.numero}</span>
                 </h3>
-                <button 
+                <button
                   onClick={() => setItrDownloadModal(null)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6 text-gray-400" />
                 </button>
@@ -2001,18 +2039,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     href={itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all group"
+                    className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-200">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/60">
                         <FileText className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <div className="font-semibold text-blue-900">Ver Declaração</div>
-                        <div className="text-xs text-blue-600">Visualizar ou baixar PDF</div>
+                        <div className="font-semibold text-blue-900 dark:text-blue-200">Ver Declaração</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">Visualizar ou baixar PDF</div>
                       </div>
                     </div>
-                    <Download className="w-5 h-5 text-blue-400 group-hover:text-blue-600" />
+                    <Download className="w-5 h-5 text-blue-400 group-hover:text-blue-600 dark:group-hover:text-blue-300" />
                   </a>
                 )}
 
@@ -2021,28 +2059,28 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     href={itrDownloadModal.item.reciboUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-all group"
+                    className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-xl transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 text-green-600 rounded-lg group-hover:bg-green-200">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/60">
                         <ClipboardCheck className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <div className="font-semibold text-green-900">Ver Recibo</div>
-                        <div className="text-xs text-green-600">Visualizar ou baixar PDF</div>
+                        <div className="font-semibold text-green-900 dark:text-green-200">Ver Recibo</div>
+                        <div className="text-xs text-green-600 dark:text-green-400">Visualizar ou baixar PDF</div>
                       </div>
                     </div>
-                    <Download className="w-5 h-5 text-green-400 group-hover:text-green-600" />
+                    <Download className="w-5 h-5 text-green-400 group-hover:text-green-600 dark:group-hover:text-green-300" />
                   </a>
                 )}
 
                 <button
                   onClick={() => handleDownloadSingleItrZipped(itrDownloadModal.item, itrDownloadModal.imovel)}
                   disabled={isDownloadingSingleZip === itrDownloadModal.item.id}
-                  className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg group-hover:bg-indigo-200">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60">
                       {isDownloadingSingleZip === itrDownloadModal.item.id ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
@@ -2050,18 +2088,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                       )}
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-indigo-900">Baixar Ambos (ZIP)</div>
-                      <div className="text-xs text-indigo-600">Pacote completo do ITR</div>
+                      <div className="font-semibold text-indigo-900 dark:text-indigo-200">Baixar Ambos (ZIP)</div>
+                      <div className="text-xs text-indigo-600 dark:text-indigo-400">Pacote completo do ITR</div>
                     </div>
                   </div>
-                  <Download className="w-5 h-5 text-indigo-400 group-hover:text-indigo-600" />
+                  <Download className="w-5 h-5 text-indigo-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
                 </button>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-gray-100">
+              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
                 <button
                   onClick={() => setItrDownloadModal(null)}
-                  className="w-full py-3 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
                   Fechar
                 </button>
