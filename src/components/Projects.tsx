@@ -26,6 +26,7 @@ interface Service {
 }
 
 const API_BASE_URL = '/api'
+const IMPORT_TYPE = 'projects' as const
 
 interface Client {
   id: string
@@ -62,7 +63,6 @@ const Projects: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false)
-  const importType = 'projects' as const
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Estados para filtros e ordenação
@@ -80,9 +80,10 @@ const Projects: React.FC = () => {
     const load = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/projects`)
+        if (!r.ok) { console.error('Erro ao carregar projetos:', r.status); return }
         const j = await r.json()
         if (j.success) setProjects(j.data)
-      } catch {}
+      } catch (err) { console.error('Erro ao carregar projetos:', err) }
     }
     load()
   }, [])
@@ -91,9 +92,10 @@ const Projects: React.FC = () => {
     const loadClients = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/clients`)
+        if (!r.ok) { console.error('Erro ao carregar clientes:', r.status); return }
         const j = await r.json()
         if (j.success) setClients(j.data)
-      } catch {}
+      } catch (err) { console.error('Erro ao carregar clientes:', err) }
     }
     loadClients()
   }, [])
@@ -102,9 +104,10 @@ const Projects: React.FC = () => {
     const loadServices = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/services`)
+        if (!r.ok) { console.error('Erro ao carregar serviços:', r.status); return }
         const j = await r.json()
         if (j.success) setServices(j.data)
-      } catch {}
+      } catch (err) { console.error('Erro ao carregar serviços:', err) }
     }
     loadServices()
   }, [])
@@ -135,6 +138,7 @@ const Projects: React.FC = () => {
       if (isModalOpen) {
         setIsModalOpen(false)
         setEditing(null)
+        setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] })
         setFormErrors({})
       }
     }
@@ -232,16 +236,18 @@ const Projects: React.FC = () => {
       endDate: form.endDate || null,
       status: form.status,
       value: parseFloat(form.value),
-      progress: parseInt(form.progress),
+      progress: parseInt(form.progress, 10),
       services: form.selectedServices
     }
     
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/projects/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        if (!r.ok) { console.error('Erro ao atualizar projeto:', r.status); return }
         const j = await r.json(); if (j.success) setProjects(prev => prev.map(p => p.id === editing.id ? j.data : p))
       } else {
         const r = await fetch(`${API_BASE_URL}/projects`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        if (!r.ok) { console.error('Erro ao criar projeto:', r.status); return }
         const j = await r.json(); if (j.success) setProjects(prev => [j.data, ...prev])
       }
       setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
@@ -254,6 +260,7 @@ const Projects: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir este projeto?')) return
     try {
       const r = await fetch(`${API_BASE_URL}/projects/${id}`, { method: 'DELETE' })
+      if (!r.ok) { console.error('Erro ao excluir projeto:', r.status); return }
       const j = await r.json()
       if (j.success) setProjects(prev => prev.filter(p => p.id !== id))
     } catch (error) {
@@ -266,6 +273,7 @@ const Projects: React.FC = () => {
     if (!confirm(`Tem certeza que deseja excluir ${selectedProjects.size} projeto(s)?`)) return
     try {
       const r = await fetch(`${API_BASE_URL}/projects`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: Array.from(selectedProjects) }) })
+      if (!r.ok) { console.error('Erro ao excluir projetos:', r.status); return }
       const j = await r.json()
       if (j.success) { setProjects(prev => prev.filter(p => !selectedProjects.has(p.id))); setSelectedProjects(new Set()) }
     } catch (error) {
@@ -277,23 +285,33 @@ const Projects: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
+    let mounted = true
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('type', importType)
-    
+    formData.append('type', IMPORT_TYPE)
+
     fetch(`${API_BASE_URL}/import`, { method: 'POST', body: formData })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then(data => {
+        if (!mounted) return
         if (data.success && Array.isArray(data.data)) {
-          setProjects(prev => [...data.data, ...prev])
+          setProjects(prev => {
+            const existingIds = new Set(prev.map(p => p.id))
+            const novos = data.data.filter((p: { id: string }) => !existingIds.has(p.id))
+            return [...novos, ...prev]
+          })
           alert(`${data.data.length} projetos importados com sucesso!`)
         } else {
           alert('Erro ao importar: ' + data.error)
         }
       })
-      .catch(() => alert('Erro ao importar arquivo'))
+      .catch(() => { if (mounted) alert('Erro ao importar arquivo') })
       .finally(() => {
+        mounted = false
         if (fileInputRef.current) fileInputRef.current.value = ''
         setIsImportExportOpen(false)
       })
@@ -313,7 +331,8 @@ const Projects: React.FC = () => {
       'Data Fim': p.endDate || '',
       Status: p.status,
       Valor: p.value,
-      Progresso: p.progress
+      Progresso: p.progress,
+      Serviços: (p.services || []).join('; ')
     }))
 
     const escapeCSV = (v: string | number) => {
@@ -322,18 +341,22 @@ const Projects: React.FC = () => {
       return `"${str.replace(/"/g, '""')}"`
     }
 
-    const headers = Object.keys(data[0]).join(',')
+    // Headers também escapados para consistência
+    const headers = Object.keys(data[0]).map(escapeCSV).join(',')
     const rows = data.map(row => Object.values(row).map(escapeCSV).join(','))
     // BOM UTF-8 (﻿) para compatibilidade com Excel no Windows
     const csv = '﻿' + [headers, ...rows].join('\n')
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `projetos-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    try {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `projetos-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+    } finally {
+      URL.revokeObjectURL(url)
+    }
     setIsImportExportOpen(false)
   }
 
@@ -460,6 +483,7 @@ const Projects: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={filteredProjects.length > 0 && selectedProjects.size === filteredProjects.length}
+                      ref={(el) => { if (el) el.indeterminate = selectedProjects.size > 0 && selectedProjects.size < filteredProjects.length }}
                       onChange={handleSelectAll}
                       aria-label="Selecionar todos os projetos"
                       className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-300 focus:ring-2"
@@ -531,7 +555,7 @@ const Projects: React.FC = () => {
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{project.name}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{project.description}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{project.description ?? ''}</p>
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -560,7 +584,7 @@ const Projects: React.FC = () => {
                           style={{ width: `${Math.min(100, Math.max(0, project.progress))}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-900 dark:text-gray-100">{project.progress}%</span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{project.progress ?? 0}%</span>
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -598,7 +622,7 @@ const Projects: React.FC = () => {
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
+                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" aria-hidden="true" /></div>
                 <h2 className="text-lg font-bold text-white">Importar/Exportar Projetos</h2>
               </div>
               <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
@@ -628,7 +652,7 @@ const Projects: React.FC = () => {
                       <Upload className="w-4 h-4" />
                       <div className="text-center">
                         <div className="font-bold">Selecionar Arquivo</div>
-                        <div className="text-xs opacity-90 font-normal">Carregar arquivo .xlsx</div>
+                        <div className="text-xs opacity-90 font-normal">Carregar arquivo .xlsx, .csv</div>
                       </div>
                     </button>
                   </div>
@@ -654,11 +678,11 @@ const Projects: React.FC = () => {
 
       {/* Modal Novo/Editar Projeto */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) } }}>
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">{editing ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">{editing ? <Edit className="w-5 h-5" aria-hidden="true" /> : <Plus className="w-5 h-5" aria-hidden="true" />}{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
             <div className="overflow-y-auto">
             <div className="p-6 space-y-4">
@@ -670,8 +694,8 @@ const Projects: React.FC = () => {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.name ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.name ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                   }`}
                 />
                 {formErrors.name && (
@@ -690,8 +714,8 @@ const Projects: React.FC = () => {
                   value={form.description}
                   onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.description ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.description ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                   }`}
                 />
                 {formErrors.description && (
@@ -709,8 +733,8 @@ const Projects: React.FC = () => {
                 <select
                   value={form.client}
                   onChange={(e) => setForm(prev => ({ ...prev, client: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.client ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.client ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                   }`}
                 >
                   <option value="">Selecione um cliente</option>
@@ -737,8 +761,8 @@ const Projects: React.FC = () => {
                     type="date"
                     value={form.startDate}
                     onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                      formErrors.startDate ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                      formErrors.startDate ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                     }`}
                   />
                   {formErrors.startDate && (
@@ -781,8 +805,8 @@ const Projects: React.FC = () => {
                     step="0.01"
                     value={form.value}
                     onChange={(e) => setForm(prev => ({ ...prev, value: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                      formErrors.value ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                      formErrors.value ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                     }`}
                   />
                   {formErrors.value && (
@@ -804,8 +828,8 @@ const Projects: React.FC = () => {
                   max="100"
                   value={form.progress}
                   onChange={(e) => setForm(prev => ({ ...prev, progress: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.progress ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''
+                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                    formErrors.progress ? 'border-red-500 bg-red-50 dark:!bg-red-900/20' : 'bg-white dark:bg-gray-700'
                   }`}
                 />
                 {formErrors.progress && (
@@ -859,10 +883,10 @@ const Projects: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
-              <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+              </div>
             </div>
             </div>
             </div>
@@ -879,6 +903,9 @@ const Projects: React.FC = () => {
             </div>
             <div className="p-6">
             <div className="max-h-96 overflow-y-auto space-y-3 mb-4">
+              {services.filter(s => s.status === 'ativo').length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum serviço ativo disponível.</p>
+              )}
               {services.filter(s => s.status === 'ativo').map((service) => (
                 <label key={service.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600 transition-all duration-200">
                   <input
