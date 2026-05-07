@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, User, Shield, CheckCircle, XCircle, Calendar, Clock, Edit, Mail, Phone, MapPin, Briefcase, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
 import LazyAvatar from './LazyAvatar';
 import EditarPerfilModal from './EditarPerfilModal';
 import { applyPhoneMask } from '../utils/phoneMask';
 import { applyCpfMask } from '../utils/cpfMask';
 import { applyCepMask } from '../utils/cepMask';
+
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -50,27 +51,27 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   const { token } = useAuth();
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
-    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadProfileData();
-    }
-  }, [isOpen]); // Removida dep showEditProfileModal para evitar double fetch
-
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(false);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -86,19 +87,41 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         }
         if (result.success && mountedRef.current) {
           setProfileData(result.data ?? null);
+        } else if (result.success === false && mountedRef.current) {
+          setLoadError(true);
         }
+      } else {
+        if (mountedRef.current) setLoadError(true);
       }
-    } catch (error) {
-      console.error('Erro ao carregar perfil:', error);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Requisição de perfil cancelada (timeout)');
+      } else {
+        console.error('Erro ao carregar perfil:', error);
+      }
+      if (mountedRef.current) setLoadError(true);
     } finally {
+      clearTimeout(timeoutId);
       if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadProfileData();
+    }
+  }, [isOpen, loadProfileData]);
+
+  const handleClose = useCallback(() => {
+    setShowEditProfileModal(false);
+    onClose();
+  }, [onClose]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Nunca';
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Data inválida';
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -158,25 +181,27 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
 
   const modalContent = (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-profile-modal-title"
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 py-8"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
+        if (e.target === e.currentTarget && !showEditProfileModal) {
+          handleClose();
         }
       }}
     >
-      <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 id="user-profile-modal-title" className="text-xl font-bold text-white flex items-center gap-2">
               <User className="w-6 h-6 text-white" aria-hidden="true" />
               Meu Perfil
             </h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
-              disabled={loading}
               aria-label="Fechar modal"
             >
               <X className="w-5 h-5" aria-hidden="true" />
@@ -191,7 +216,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         ) : profileData ? (
           <div className="space-y-6">
             {/* Avatar e Nome */}
-            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-center">
+            <div className="bg-[#ffffff] dark:bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-center">
               <div className="flex flex-col items-center gap-4">
                 <LazyAvatar
                   photoUrl={profileData.photoUrl}
@@ -202,8 +227,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 />
                 <div>
                   <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    {profileData.firstName && profileData.lastName
-                      ? `${profileData.firstName} ${profileData.lastName}`
+                    {profileData.firstName
+                      ? `${profileData.firstName}${profileData.lastName ? ` ${profileData.lastName}` : ''}`
                       : profileData.username}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">@{profileData.username}</p>
@@ -219,7 +244,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
 
             {/* Informações Básicas */}
-            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-[#ffffff] dark:bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-500" aria-hidden="true" />
                 Informações Básicas
@@ -330,7 +355,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                   <div className="mt-1">
-                    {profileData.isActive !== false ? (
+                    {profileData.isActive === true ? (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
                         <CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" />
                         Ativo
@@ -347,7 +372,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
 
             {/* Acesso */}
-            <div className="bg-[#ffffff] dark:!bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-[#ffffff] dark:bg-[#1e2d3e] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-500" aria-hidden="true" />
                 Acesso
@@ -390,8 +415,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            Erro ao carregar dados do perfil
+          <div role={loadError ? 'alert' : undefined} className="text-center py-12 text-gray-500 dark:text-gray-400">
+            {loadError ? 'Erro ao carregar dados do perfil' : 'Nenhum dado disponível'}
           </div>
         )}
       </div>
@@ -400,14 +425,21 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
 
   return (
     <>
-      {typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null}
-      <EditarPerfilModal
-        isOpen={showEditProfileModal}
-        onClose={() => {
-          setShowEditProfileModal(false);
-          loadProfileData(); // Recarregar dados após fechar edição
-        }}
-      />
+      {typeof document !== 'undefined'
+        ? createPortal(
+            <>
+              {modalContent}
+              <EditarPerfilModal
+                isOpen={showEditProfileModal}
+                onClose={() => {
+                  setShowEditProfileModal(false);
+                  loadProfileData(); // Recarregar dados após fechar edição
+                }}
+              />
+            </>,
+            document.body
+          )
+        : null}
     </>
   );
 };
