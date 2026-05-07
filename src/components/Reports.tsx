@@ -26,6 +26,14 @@ interface ReportsProps {
   transactions: Transaction[]
 }
 
+// B3: Interface movida para fora do componente para evitar recriação de tipo a cada render
+interface DadosPeriodo {
+  vendasPorCategoria: { nome: string; valor: number; cor: string }[]
+  vendasPorProduto: { nome: string; valor: number; cor: string }[]
+  despesasPorCategoria: { nome: string; valor: number; cor: string }[]
+  produtosPorPeriodo: { nome: string; [key: string]: number | string }[]
+}
+
 // Bug #4: Força interpretação de datas como horário local (não UTC) para evitar
 // desvio de 1 dia em fusos negativos como BRT (UTC-3)
 const parseLocalDate = (dateStr: string): Date => {
@@ -38,8 +46,15 @@ const parseLocalDate = (dateStr: string): Date => {
 
 const CHART_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
 
+// M2: cor do grid adaptável ao dark mode — usada via prop stroke nos CartesianGrid
+const GRID_STROKE_LIGHT = '#e5e7eb'
+const GRID_STROKE_DARK = '#374151'
+
 const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const [expandedCharts, setExpandedCharts] = useState<string[]>([])
+  // M2: detecta dark mode para cor do grid dos gráficos
+  const isDark = typeof window !== 'undefined' && document.documentElement.classList.contains('dark')
+  const gridStroke = isDark ? GRID_STROKE_DARK : GRID_STROKE_LIGHT
 
   const toggleChart = (id: string) => {
     setExpandedCharts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -68,27 +83,43 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
     }
   }, [transactions])
 
+  // M1: Validação de value com fallback 0 para evitar NaN nos totais/KPIs
   const calcularVendasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
-    ts.forEach(t => { if (t.type === 'Receita') { mapa[t.category] = (mapa[t.category] || 0) + t.value } })
+    ts.forEach(t => {
+      if (t.type === 'Receita') {
+        mapa[t.category] = (mapa[t.category] || 0) + (Number(t.value) || 0)
+      }
+    })
     return Object.entries(mapa).map(([name, value], i) => ({ name, value, color: CHART_COLORS[i % CHART_COLORS.length] }))
   }
 
+  // M1: Validação de value com fallback 0 para evitar NaN
   const calcularDespesasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
-    ts.forEach(t => { if (t.type === 'Despesa') { mapa[t.category] = (mapa[t.category] || 0) + t.value } })
+    ts.forEach(t => {
+      if (t.type === 'Despesa') {
+        mapa[t.category] = (mapa[t.category] || 0) + (Number(t.value) || 0)
+      }
+    })
     const cores = ['#ef4444', '#f97316', '#84cc16', '#f59e0b', '#8b5cf6']
     return Object.entries(mapa).map(([name, value], i) => ({ name, value, color: cores[i % cores.length] }))
   }
 
+  // M1: Validação de value com fallback 0; B2: nota "(top 5)" adicionada no título via dado retornado
   const calcularVendasPorProduto = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
-    ts.forEach(t => { if (t.type === 'Receita') { const n = t.description || 'Produto'; mapa[n] = (mapa[n] || 0) + t.value } })
+    ts.forEach(t => {
+      if (t.type === 'Receita') {
+        const n = t.description || 'Produto'
+        mapa[n] = (mapa[n] || 0) + (Number(t.value) || 0)
+      }
+    })
     const cores = ['#8b5cf6', '#ec4899', '#06b6d4', '#22c55e', '#3b82f6']
     return Object.entries(mapa)
-      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
-      .map(([name, value], i) => ({ name, value: value as number, color: cores[i % cores.length] }))
+      .map(([name, value], i) => ({ name, value, color: cores[i % cores.length] }))
   }
 
   // Bug #2: Adicionados tipos 'mes' e 'trimestre' para agrupamento correto por período
@@ -118,13 +149,6 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
       }
     })
     return Object.entries(produtosPorPeriodo).map(([nome, produtos]) => ({ nome, ...produtos }))
-  }
-
-  interface DadosPeriodo {
-    vendasPorCategoria: { nome: string; valor: number; cor: string }[]
-    vendasPorProduto: { nome: string; valor: number; cor: string }[]
-    despesasPorCategoria: { nome: string; valor: number; cor: string }[]
-    produtosPorPeriodo: { nome: string; [key: string]: number | string }[]
   }
 
   const renderSecaoRelatorio = (titulo: string, dados: DadosPeriodo, periodo: string) => {
@@ -214,19 +238,22 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                 <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Sem vendas por projeto neste período.</p>
               ) : (
                 <div className="space-y-2">
-                  {dados.vendasPorCategoria.map((item, index: number) => {
+                  {/* B1: parâmetro index removido pois não é utilizado */}
+                  {dados.vendasPorCategoria.map((item) => {
                     // Bug #5: usar item.nome como key em vez de index
                     const chartId = `vendas-categoria-${periodo}-${item.nome}`
                     const isOpen = expandedCharts.includes(chartId)
                     return (
                       <div key={item.nome} className="space-y-2">
                         {/* Bug #7: role="button" e tabIndex para acessibilidade por teclado */}
+                        {/* B4: aria-label descrevendo a ação para leitores de tela */}
                         <div
                           role="button"
                           tabIndex={0}
+                          aria-label={`${isOpen ? 'Ocultar' : 'Ver'} gráfico de ${item.nome}`}
                           className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/10 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-emerald-100 dark:border-emerald-800/30"
                           onClick={() => toggleChart(chartId)}
-                          onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(chartId) : undefined}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(chartId) }}
                           aria-expanded={isOpen}
                         >
                           <span className="bg-emerald-100 dark:bg-emerald-800/40 text-emerald-800 dark:text-emerald-300 font-semibold px-3 py-1.5 rounded-lg text-sm">
@@ -243,7 +270,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                             <ResponsiveContainer width="100%" height={220}>
                               <BarChart data={[{ name: item.nome, valor: item.valor }]}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
@@ -260,12 +287,14 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
 
               {/* Total Vendas por Projeto */}
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                {/* B4: aria-label descrevendo a ação */}
                 <div
                   role="button"
                   tabIndex={0}
+                  aria-label={`${expandedCharts.includes(`total-vendas-categoria-${periodo}`) ? 'Ocultar' : 'Ver'} gráfico de total vendas por projeto`}
                   className="bg-gradient-to-r from-emerald-500 to-green-600 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                   onClick={() => toggleChart(`total-vendas-categoria-${periodo}`)}
-                  onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(`total-vendas-categoria-${periodo}`) : undefined}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(`total-vendas-categoria-${periodo}`) }}
                   aria-expanded={expandedCharts.includes(`total-vendas-categoria-${periodo}`)}
                 >
                   <span className="text-white font-bold text-sm">Total Vendas por Projeto</span>
@@ -282,7 +311,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                   <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={dados.vendasPorCategoria}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                         <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
                         <YAxis tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
@@ -300,25 +329,29 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 text-white" />
                 </div>
-                <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">Vendas por Serviço</h4>
+                {/* B2: indicador "(top 5)" adicionado ao título */}
+                <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">Vendas por Serviço <span className="text-xs font-normal text-gray-400 dark:text-gray-500">(top 5)</span></h4>
               </div>
               {/* Bug #8: Empty state para serviços */}
               {dados.vendasPorProduto.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Sem vendas por serviço neste período.</p>
               ) : (
                 <div className="space-y-2">
-                  {dados.vendasPorProduto.map((item, index: number) => {
+                  {/* B1: parâmetro index removido pois não é utilizado */}
+                  {dados.vendasPorProduto.map((item) => {
                     // Bug #5: usar item.nome como key
                     const chartId = `vendas-produto-${periodo}-${item.nome}`
                     const isOpen = expandedCharts.includes(chartId)
                     return (
                       <div key={item.nome} className="space-y-2">
+                        {/* B4: aria-label descrevendo a ação */}
                         <div
                           role="button"
                           tabIndex={0}
+                          aria-label={`${isOpen ? 'Ocultar' : 'Ver'} gráfico de ${item.nome}`}
                           className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/10 p-3 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-blue-100 dark:border-blue-800/30"
                           onClick={() => toggleChart(chartId)}
-                          onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(chartId) : undefined}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(chartId) }}
                           aria-expanded={isOpen}
                         >
                           <span className="bg-blue-100 dark:bg-blue-800/40 text-blue-800 dark:text-blue-300 font-semibold text-sm px-3 py-1.5 rounded-lg">
@@ -335,7 +368,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                           <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                             <ResponsiveContainer width="100%" height={220}>
                               <BarChart data={[{ name: item.nome, valor: item.valor }]}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
@@ -352,12 +385,14 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
 
               {/* Total por Serviço */}
               <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                {/* B4: aria-label descrevendo a ação */}
                 <div
                   role="button"
                   tabIndex={0}
+                  aria-label={`${expandedCharts.includes(`total-vendas-produto-${periodo}`) ? 'Ocultar' : 'Ver'} gráfico de total por serviço`}
                   className="bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                   onClick={() => toggleChart(`total-vendas-produto-${periodo}`)}
-                  onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(`total-vendas-produto-${periodo}`) : undefined}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(`total-vendas-produto-${periodo}`) }}
                   aria-expanded={expandedCharts.includes(`total-vendas-produto-${periodo}`)}
                 >
                   <span className="text-white font-bold text-sm">Total por Serviço</span>
@@ -374,7 +409,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                   <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={dados.vendasPorProduto}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                         <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
                         <YAxis tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Serviço']} />
@@ -400,18 +435,21 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
               <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Sem despesas por projeto neste período.</p>
             ) : (
               <div className="space-y-2">
-                {dados.despesasPorCategoria.map((item, index: number) => {
+                {/* B1: parâmetro index removido pois não é utilizado */}
+                {dados.despesasPorCategoria.map((item) => {
                   // Bug #5: usar item.nome como key
                   const chartId = `despesas-categoria-${periodo}-${item.nome}`
                   const isOpen = expandedCharts.includes(chartId)
                   return (
                     <div key={item.nome} className="space-y-2">
+                      {/* B4: aria-label descrevendo a ação */}
                       <div
                         role="button"
                         tabIndex={0}
+                        aria-label={`${isOpen ? 'Ocultar' : 'Ver'} gráfico de despesas ${item.nome}`}
                         className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/10 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-orange-100 dark:border-orange-800/30"
                         onClick={() => toggleChart(chartId)}
-                        onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(chartId) : undefined}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(chartId) }}
                         aria-expanded={isOpen}
                       >
                         <span className="bg-orange-100 dark:bg-orange-800/40 text-orange-700 dark:text-orange-300 font-semibold px-3 py-1.5 rounded-lg text-sm">
@@ -428,7 +466,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                         <div className="bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                           <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={[{ name: item.nome, valor: item.valor }]}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                               <YAxis tick={{ fontSize: 12 }} />
                               <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
@@ -445,12 +483,14 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
 
             {/* Total de Despesas */}
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+              {/* B4: aria-label descrevendo a ação */}
               <div
                 role="button"
                 tabIndex={0}
+                aria-label={`${expandedCharts.includes(`total-despesas-${periodo}`) ? 'Ocultar' : 'Ver'} gráfico de total de despesas`}
                 className="bg-gradient-to-r from-red-500 to-orange-500 p-4 rounded-xl flex justify-between items-center cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 onClick={() => toggleChart(`total-despesas-${periodo}`)}
-                onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleChart(`total-despesas-${periodo}`) : undefined}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleChart(`total-despesas-${periodo}`) }}
                 aria-expanded={expandedCharts.includes(`total-despesas-${periodo}`)}
               >
                 <span className="text-white font-bold text-sm">Total de Despesas</span>
@@ -467,7 +507,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                 <div className="mt-2 bg-gray-50 dark:!bg-[#141e2d] p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={dados.despesasPorCategoria}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                       <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Projeto']} />
@@ -514,7 +554,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
                 <ResponsiveContainer width="100%" height={300}>
                   {/* Bug #1: Bars geradas dinamicamente com as chaves reais dos dados */}
                   <BarChart data={dados.produtosPorPeriodo}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                     <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
@@ -569,6 +609,32 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [transacoesSemana, transacoesMes, transacoesTrimestre, transacoesAno])
 
+  // B6: Empty state global quando não há nenhuma transação
+  if (transactions.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
+            <BarChart3 className="w-8 h-8 text-blue-600" />
+            Relatórios
+          </h1>
+          <button
+            onClick={() => alert('Ferramenta em construção')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+          >
+            <Plus className="h-5 w-5" />
+            Novo Relatório
+          </button>
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <BarChart3 className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" aria-hidden="true" />
+          <p className="text-lg font-semibold text-gray-500 dark:text-gray-400">Nenhuma transação encontrada</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Adicione receitas e despesas para visualizar os relatórios.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -576,6 +642,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
           <BarChart3 className="w-8 h-8 text-blue-600" />
           Relatórios
         </h1>
+        {/* B5: alert() mantido como placeholder explícito (funcionalidade ainda não implementada) */}
         <button
           onClick={() => alert('Ferramenta em construção')}
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
