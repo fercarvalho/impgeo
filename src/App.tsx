@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import {
   Home,
   DollarSign,
@@ -12,7 +12,6 @@ import {
   ArrowUpCircle,
   Building,
   FileText,
-  Map,
   Map as MapIcon,
   Calculator,
   Download,
@@ -30,7 +29,6 @@ import {
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
-import { lazy, Suspense } from 'react'
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts'
 import Login from './components/Login'
 import ResetarSenhaModal from './components/ResetarSenhaModal'
@@ -131,18 +129,18 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash.substring(1);
-    const token = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
-    const isPasswordResetToken = token && /^[0-9a-f]{64}$/i.test(token);
+    const urlToken = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
+    const isPasswordResetToken = urlToken && /^[0-9a-f]{64}$/i.test(urlToken);
     const isViewRoute = window.location.pathname.includes('/acompanhamentos-view');
-    
+
     // Se o token existe e não é de reset de senha, ou se estamos na rota de visualização
-    if (token && (!isPasswordResetToken || isViewRoute || token.startsWith('view_'))) {
-      setViewToken(token);
+    if (urlToken && (!isPasswordResetToken || isViewRoute || urlToken.startsWith('view_'))) {
+      setViewToken(urlToken);
       return;
     }
 
-    if (token) {
-      setPasswordResetToken(token);
+    if (urlToken) {
+      setPasswordResetToken(urlToken);
       setShowPasswordResetModal(true);
       const newUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, '', newUrl);
@@ -159,7 +157,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-          <p className="text-gray-600">Carregando...</p>
+          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
     );
@@ -310,10 +308,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   useEffect(() => {
     const loadModulesCatalog = async () => {
       try {
-        if (!localStorage.getItem('authToken')) return;
+        if (!token) return;
         const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
+            Authorization: `Bearer ${token}`
           }
         });
         const result = await response.json();
@@ -342,7 +340,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
       setActiveTab(fallbackTab);
     }
-  }, [activeTab, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user, catalogModules]);
 
   // Resetar para dashboard quando impersonation iniciar ou encerrar
   useEffect(() => {
@@ -508,14 +507,6 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       })
     }
   }
-
-  // Sincronizar com mudanças na projeção
-  useEffect(() => {
-    if (projectionData) {
-      console.log('🔄 Dados da projeção atualizados, recalculando metas...')
-      // Forçar re-render dos componentes que dependem dos dados da projeção
-    }
-  }, [projectionData])
 
   // Função para recarregar dados da projeção
   const recarregarDadosProjecao = async () => {
@@ -774,8 +765,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     loadData()
   }, [])
 
-  // Salvar metas no localStorage
+  // Salvar metas no localStorage — só persiste após o carregamento inicial (evita sobrescrever com [])
   useEffect(() => {
+    if (metas.length === 0) return
     localStorage.setItem('impgeo-metas', JSON.stringify(metas))
   }, [metas])
 
@@ -820,16 +812,16 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       getFaturamentoValue('Plan', monthIndex),
       getFaturamentoValue('Reg', monthIndex),
       getFaturamentoValue('Nn', monthIndex)
-    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
-    
+    ] : [0, 0, 0, 0, 0]
+
     // Meta total do mês (soma de todos os faturamentos)
     const metaFaturamento = metasDoMes.reduce((sum, meta) => sum + meta, 0)
-    
+
     const data = [
       { name: 'Alcançado', value: totalReceitas, color: '#10b981' },
       { name: 'Meta Restante', value: Math.max(0, metaFaturamento - totalReceitas), color: '#e5e7eb' }
     ]
-    
+
     openChart(`Faturamento - ${monthName}`, data, `Alcançado vs Meta de R$ ${metaFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
@@ -892,8 +884,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       getFaturamentoValue('Plan', monthIndex),
       getFaturamentoValue('Reg', monthIndex),
       getFaturamentoValue('Nn', monthIndex)
-    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
-    
+    ] : [0, 0, 0, 0, 0]
+
     console.log('🔍 Debug metas para', monthName, ':', {
       projectionData: !!projectionData,
       faturamentoNn: projectionData?.faturamentoNn?.[monthIndex],
@@ -930,7 +922,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Restante', value: Math.max(0, metaFaturamentoAnual - totalReceitasAno), color: '#e5e7eb' }
     ]
     
-    openChart('Faturamento Anual ${new Date().getFullYear()}', data, `Alcançado vs Meta Anual de R$ ${metaFaturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart(`Faturamento Anual ${new Date().getFullYear()}`, data, `Alcançado vs Meta Anual de R$ ${metaFaturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openDespesasAnualChart = () => {
@@ -949,7 +941,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Limite Restante', value: Math.max(0, metaDespesasAnual - totalDespesasAno), color: '#e5e7eb' }
     ]
     
-    openChart('Despesas Anuais ${new Date().getFullYear()}', data, `Alcançado vs Limite Anual de R$ ${metaDespesasAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart(`Despesas Anuais ${new Date().getFullYear()}`, data, `Alcançado vs Limite Anual de R$ ${metaDespesasAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openInvestimentosAnualChart = () => {
@@ -979,7 +971,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Restante MKT', value: Math.max(0, metaInvestimentosMktAnual - investimentosMktAnual), color: '#f3f4f6' }
     ]
     
-    openChart('Investimentos Anuais ${new Date().getFullYear()}', data, `Alcançado vs Metas Anuais: Gerais R$ ${metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    openChart(`Investimentos Anuais ${new Date().getFullYear()}`, data, `Alcançado vs Metas Anuais: Gerais R$ ${metaInvestimentosGeraisAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | MKT R$ ${metaInvestimentosMktAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   }
 
   const openProgressoAnualChart = () => {
@@ -997,11 +989,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       { name: 'Meta Anual Restante', value: Math.max(0, metaTotalAno - totalReceitasAno), color: '#f3f4f6' }
     ]
     
-    openChart('Progresso da Meta Anual ${new Date().getFullYear()}', data, 'Progresso em relação à meta anual')
+    openChart(`Progresso da Meta Anual ${new Date().getFullYear()}`, data, 'Progresso em relação à meta anual')
   }
 
-  // NavigationBar
-  const NavigationBar = () => (
+  // NavigationBar — memoizada para evitar remount a cada render do componente pai
+  const NavigationBar = useMemo(() => () => (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Primeira linha: Logo, nome, subtítulo, usuário e botão sair */}
@@ -1033,7 +1025,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           {(() => {
             const iconMap: Record<string, React.ElementType> = {
               dashboard: Home,
-              projects: Map,
+              projects: MapIcon,
               services: Target,
               reports: BarChart3,
               metas: TrendingUp,
@@ -1076,7 +1068,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
       </div>
     </nav>
-  )
+  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab])
 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
@@ -1178,8 +1170,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       getFaturamentoValue('Plan', monthIndex),
       getFaturamentoValue('Reg', monthIndex),
       getFaturamentoValue('Nn', monthIndex)
-    ] : [18500, 19200, 20100, 19800, 20500, 21000, 21500, 22000, 21889.17, 23000, 25000, 28000]
-    
+    ] : [0, 0, 0, 0, 0]
+
     console.log('🔍 Debug renderMonthContent para mês', monthIndex, ':', {
       projectionData: !!projectionData,
       faturamentoNn: projectionData?.faturamentoNn?.[monthIndex],
@@ -1644,7 +1636,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 {renderBar(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1))}
               </div>
               <div className="text-xs text-white/70 font-medium flex justify-between">
-                <span>Realizado: <span className="font-bold text-white">R$ {(totalDespesas * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span>Previsto: <span className="font-bold text-white">R$ {getFixedExpensesValue(monthIndex).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
                 <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesas * 0.25, Math.max(getFixedExpensesValue(monthIndex), 1), 0)}%</span>
               </div>
             </div>
@@ -2205,7 +2197,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 {renderBar(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1))}
               </div>
               <div className="text-xs text-white/70 font-medium flex justify-between">
-                <span>Realizado: <span className="font-bold text-white">R$ {(totalDespesasAno * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
+                <span>Previsto: <span className="font-bold text-white">R$ {getFixedExpensesValueAnual().toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span></span>
                 <span className="font-bold text-white/90">{calcularPercentualSeguro(totalDespesasAno * 0.25, Math.max(getFixedExpensesValueAnual(), 1), 0)}%</span>
               </div>
             </div>
@@ -2320,7 +2312,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div className="space-y-6">
                 <div className="text-center">
                   <div className="text-4xl font-bold text-white mb-1">
-                    {metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(1) : 0}%
+                    {metaTotalAno > 0 ? ((totalReceitasAno / metaTotalAno) * 100).toFixed(1) : '0.0'}%
                   </div>
                   <div className="text-xs text-white/70 font-medium">Meta Anual Alcançada</div>
                 </div>
@@ -2389,9 +2381,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const totalDespesas = transacoesDoMes.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
       
       // Meta/Limite de despesas = soma das despesas da projeção (limite total)
-      const metaDespesas = projectionData ? 
-        (projectionData.despesasVariaveis[monthIndex] || 0) + 
-        (projectionData.despesasFixas[monthIndex] || 0) : 0
+      const metaDespesas = projectionData ?
+        (Array.isArray(projectionData.despesasVariaveis) ? (projectionData.despesasVariaveis[monthIndex] || 0) : 0) +
+        (Array.isArray(projectionData.despesasFixas) ? (projectionData.despesasFixas[monthIndex] || 0) : 0) : 0
       
       const resultadoFinanceiro = totalReceitas - metaDespesas
       
@@ -2479,10 +2471,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
                 <span style="font-weight: bold; color: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'};">${totalReceitas >= metaFaturamento ? '✅ Meta Atingida' : '❌ Meta Não Atingida'}</span>
               </div>
               <div style="background: #e2e8f0; height: 20px; border-radius: 10px; overflow: hidden;">
-                <div style="background: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'}; height: 100%; width: ${Math.min((totalReceitas / metaFaturamento) * 100, 100)}%; transition: width 0.3s ease;"></div>
+                <div style="background: ${totalReceitas >= metaFaturamento ? '#10b981' : '#ef4444'}; height: 100%; width: ${metaFaturamento > 0 ? Math.min((totalReceitas / metaFaturamento) * 100, 100) : 0}%; transition: width 0.3s ease;"></div>
               </div>
               <div style="text-align: center; margin-top: 5px; font-size: 14px; color: #6b7280;">
-                ${((totalReceitas / metaFaturamento) * 100).toFixed(1)}% da meta
+                ${metaFaturamento > 0 ? ((totalReceitas / metaFaturamento) * 100).toFixed(1) : '0.0'}% da meta
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
@@ -2559,14 +2551,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const pageHeight = 295
       const imgHeight = (canvas.height * imgWidth) / canvas.width
       let heightLeft = imgHeight
-      
+
       let position = 0
-      
+
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
-      
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
+
+      while (heightLeft > 0) {
+        position -= pageHeight
         pdf.addPage()
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
         heightLeft -= pageHeight
@@ -2838,8 +2830,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const lucroLiquidoAno = totalReceitasAno - totalDespesasAno
 
-    // Transações recentes (últimas 5)
+    // Transações recentes (últimas 5) — usa slice() antes de sort() para não mutar o array de estado
     const transacoesRecentes = transactions
+      .slice()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5)
 
@@ -3349,7 +3342,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                 {transacoesRecentes.map((transacao, index) => (
                   <div
-                    key={index}
+                    key={transacao.id}
                     className={`px-5 py-3.5 border-b last:border-b-0 border-gray-100 dark:border-gray-700/60 transition-colors duration-150 ${
                       index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'
                     }`}
@@ -3408,7 +3401,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando dados...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Carregando dados...</p>
         </div>
       </div>
     )
@@ -3455,13 +3448,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <Services />
           </Suspense>
         )}
-        {/* removido placeholder duplicado de Relatórios */}
-        {activeTab === 'metas' && hasModuleAccess('metas') && (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Metas</h1>
-            <p className="text-gray-600">Funcionalidade em desenvolvimento...</p>
-            </div>
-        )}
+        {/* placeholder duplicado de metas removido */}
         {activeTab === 'projecao' && hasModuleAccess('projecao') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Projection />
@@ -3488,9 +3475,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </Suspense>
         )}
         {activeTab === 'documentacao' && hasModuleAccess('documentacao') && (
-          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
-            <Documentation />
-          </Suspense>
+          <Documentation />
         )}
         {activeTab === 'admin' && hasModuleAccess('admin') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
