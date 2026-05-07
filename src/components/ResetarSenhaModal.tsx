@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, KeyRound, X } from 'lucide-react';
 
 interface ResetarSenhaModalProps {
@@ -24,9 +24,30 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (closeTimeoutRef.current !== null) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !token) return;
+    // Reseta estados ao reabrir o modal com um novo token
+    setIsTokenValid(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setError('');
+    setSuccess('');
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     let mounted = true;
     const validateToken = async () => {
       try {
@@ -67,15 +88,18 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
     setError('');
     setSuccess('');
 
-    if (!newPassword.trim() || !confirmPassword.trim()) {
+    const trimmedPassword = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
+
+    if (!trimmedPassword || !trimmedConfirm) {
       setError('Preencha os dois campos de senha.');
       return;
     }
-    if (newPassword.trim().length < 6) {
+    if (trimmedPassword.length < 6) {
       setError('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (trimmedPassword !== trimmedConfirm) {
       setError('As senhas não coincidem.');
       return;
     }
@@ -87,7 +111,7 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
-          novaSenha: newPassword
+          novaSenha: trimmedPassword
         })
       });
 
@@ -101,16 +125,21 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Não foi possível redefinir a senha.');
       }
+      if (!isMountedRef.current) return;
       setSuccess(result.message || 'Senha redefinida com sucesso.');
       setNewPassword('');
       setConfirmPassword('');
-      // Delay maior para o usuário ver a mensagem de sucesso
-      setTimeout(() => onClose(), 1500);
+      // Delay para o usuário ver a mensagem de sucesso; timeout cancelável via ref
+      closeTimeoutRef.current = setTimeout(() => {
+        closeTimeoutRef.current = null;
+        onClose();
+      }, 1500);
     } catch (submitError: unknown) {
+      if (!isMountedRef.current) return;
       const message = submitError instanceof Error ? submitError.message : 'Erro ao redefinir senha.';
       setError(message);
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -218,7 +247,7 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { if (!isSubmitting) onClose(); }}
               className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               disabled={isSubmitting}
             >
