@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Key, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +28,35 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
     confirmarSenha?: string;
     general?: string;
   }>({});
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bug 1: Cleanup do setTimeout ao desmontar para evitar memory leak
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Bug 2: Resetar estado quando o modal fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmarSenha('');
+      setShowSenhaAtual(false);
+      setShowNovaSenha(false);
+      setShowConfirmarSenha(false);
+      setLoading(false);
+      setSuccessMessage('');
+      setErrors({});
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    }
+  }, [isOpen]);
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
@@ -99,7 +128,8 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
         setSuccessMessage('Senha alterada com sucesso!');
 
         // Fechar modal após breve delay para o usuário ver a mensagem
-        setTimeout(() => {
+        closeTimerRef.current = setTimeout(() => {
+          closeTimerRef.current = null;
           setSuccessMessage('');
           onClose();
         }, 1500);
@@ -120,16 +150,16 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
     <div
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 py-8"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && !loading) {
           onClose();
         }
       }}
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700 max-h-[calc(100vh-4rem)] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 id="alterar-senha-titulo" className="text-xl font-bold text-white flex items-center gap-2">
               <Key className="w-6 h-6 text-white" aria-hidden="true" />
               Alterar Senha
             </h2>
@@ -145,7 +175,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
         </div>
 
         {/* Formulário */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-labelledby="alterar-senha-titulo">
           {errors.general && (
             <div
               className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg text-sm"
@@ -177,7 +207,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                 className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.senhaAtual
                     ? 'bg-red-50 border-red-300 focus:ring-red-500 dark:bg-red-900/20 dark:border-red-700'
-                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600'
                 }`}
                 placeholder="Digite sua senha atual"
                 disabled={loading}
@@ -223,7 +253,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                 className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.novaSenha
                     ? 'bg-red-50 border-red-300 focus:ring-red-500 dark:bg-red-900/20 dark:border-red-700'
-                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600'
                 }`}
                 placeholder="Digite a nova senha (mínimo 6 caracteres)"
                 disabled={loading}
@@ -271,7 +301,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
                 className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:text-gray-100 dark:placeholder-gray-400 ${
                   errors.confirmarSenha
                     ? 'bg-red-50 border-red-300 focus:ring-red-500 dark:bg-red-900/20 dark:border-red-700'
-                    : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600'
                 }`}
                 placeholder="Confirme a nova senha"
                 disabled={loading}
