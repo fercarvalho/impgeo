@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import axios from 'axios';
 import {
@@ -38,24 +38,11 @@ interface Coluna {
 type StatusKey = RoadmapItem['status'];
 type PrioridadeKey = RoadmapItem['prioridade'];
 
-// STATUS_CONFIG disponível para uso futuro em renderização de badges por status
-const STATUS_CONFIG: Record<StatusKey, { label: string; Icon: React.ElementType; color: string; bg: string; darkColor: string; darkBg: string }> = {
-  backlog:   { label: 'Backlog',    Icon: Code2,        color: '#6b7280', bg: '#f3f4f6', darkColor: '#9ca3af', darkBg: '#374151' },
-  doing:     { label: 'Doing',      Icon: Clock,        color: '#d97706', bg: '#fef3c7', darkColor: '#fbbf24', darkBg: '#451a03' },
-  em_testes: { label: 'Em Testes',  Icon: FlaskConical, color: '#0891b2', bg: '#cffafe', darkColor: '#22d3ee', darkBg: '#083344' },
-  em_beta:   { label: 'Em Beta',    Icon: Rocket,       color: '#2563eb', bg: '#dbeafe', darkColor: '#60a5fa', darkBg: '#1e3a5f' },
-  lancado:   { label: 'Lançado',    Icon: CheckCircle2, color: '#16a34a', bg: '#dcfce7', darkColor: '#4ade80', darkBg: '#052e16' },
-  done:      { label: 'Done',       Icon: Archive,      color: '#9ca3af', bg: '#f9fafb', darkColor: '#6b7280', darkBg: '#1f2937' },
-};
-
 const PRIORIDADE_CONFIG: Record<PrioridadeKey, { label: string; color: string; bg: string; darkColor: string; darkBg: string }> = {
   baixa: { label: 'Baixa', color: '#16a34a', bg: '#dcfce7', darkColor: '#4ade80', darkBg: '#052e16' },
   media: { label: 'Média', color: '#d97706', bg: '#fef3c7', darkColor: '#fbbf24', darkBg: '#451a03' },
   alta:  { label: 'Alta',  color: '#dc2626', bg: '#fee2e2', darkColor: '#f87171', darkBg: '#450a0a' },
 };
-
-
-void (STATUS_CONFIG as unknown); // mantém o config disponível sem triggerar noUnusedLocals
 
 // ============================================================
 // Calendário personalizado (padrão do sistema)
@@ -371,14 +358,12 @@ const RoadmapCard = ({
       onDragStart={isSuperAdmin ? e => onDragStart(e, item) : undefined}
       onDragEnd={isSuperAdmin ? onDragEnd : undefined}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        {isSuperAdmin && (
+      {/* Header — apenas visível para superadmin */}
+      {isSuperAdmin && (
+        <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1 text-gray-300 flex-shrink-0">
-            <GripVertical size={14} />
+            <GripVertical size={14} aria-hidden="true" />
           </div>
-        )}
-        {isSuperAdmin && (
           <div className="flex items-center gap-1 ml-auto">
             <button onClick={() => onEdit(item)} aria-label="Editar item"
               className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors">
@@ -389,8 +374,8 @@ const RoadmapCard = ({
               <Trash2 size={13} aria-hidden="true" />
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Título e descrição */}
       <div>
@@ -490,11 +475,15 @@ interface ModalProps {
 }
 
 const InlineModal = ({ title, onClose, children }: ModalProps) => {
+  // Usa ref para onClose para evitar re-registro do listener a cada render
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, []);
 
   return (
     <div
@@ -822,20 +811,30 @@ const Roadmap = () => {
     return result;
   }, [colunas]);
 
-  const calcularPrioridade = (item: RoadmapItem) => {
-    const col = getItensPorStatus(item.status);
-    const idx = col.findIndex(i => i.id === item.id);
-    return idx >= 0 ? idx + 1 : col.length + 1;
-  };
+  // Mapa pré-computado de prioridades para evitar recalcular em cada render de card
+  const prioridadesMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    colunas.forEach(col => {
+      const colItens = itens.filter(i => i.status === col.key).sort((a, b) => a.ordem - b.ordem);
+      colItens.forEach((item, idx) => { map[item.id] = idx + 1; });
+    });
+    // Itens órfãos
+    const statusKeys = new Set(colunas.map(c => c.key));
+    const orfaos = itens.filter(i => !statusKeys.has(i.status)).sort((a, b) => a.ordem - b.ordem);
+    orfaos.forEach((item, idx) => { map[item.id] = idx + 1; });
+    return map;
+  }, [itens, colunas]);
 
-  const formatarTempo = (s: number) => {
+  const calcularPrioridade = (item: RoadmapItem) => prioridadesMap[item.id] ?? 1;
+
+  const formatarTempo = useCallback((s: number) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
     if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`;
     if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`;
     return `${sec}s`;
-  };
+  }, []);
 
   // --- Salvar item ---
   const handleSalvar = async (dados: {
@@ -906,11 +905,12 @@ const Roadmap = () => {
     try {
       if (timersRef.current[id]) { clearInterval(timersRef.current[id]); delete timersRef.current[id]; }
       const item = itens.find(i => i.id === id);
+      // Prioriza ultimoInicio para cálculo preciso; usa temposAtuais como fallback apenas se ultimoInicio realmente ausente
       const elapsed = item?.ultimoInicio
         ? Math.floor((Date.now() - new Date(item.ultimoInicio).getTime()) / 1000)
-        : (temposAtuais[id] || 0);
+        : Math.max(temposAtuais[id] ?? 0, 0);
       setTemposAtuais(prev => ({ ...prev, [id]: elapsed }));
-      await axios.post(`/api/admin/roadmap/${id}/pausar-tempo`);
+      await axios.post(`/api/admin/roadmap/${id}/pausar-tempo`, { tempoDecorrido: elapsed });
       setItens(prev => prev.map(i => i.id === id ? { ...i, emAndamento: false } : i));
     } catch (e) {
       console.error('Erro ao pausar tempo:', e);
@@ -943,6 +943,8 @@ const Roadmap = () => {
     try {
       await axios.put(`/api/admin/roadmap/${id}/status`, { status: novoStatus });
     } catch (e) {
+      console.error('Erro ao mudar status:', e);
+      alert('Erro ao atualizar status da tarefa');
       await carregarRoadmap();
     }
   };
@@ -993,7 +995,7 @@ const Roadmap = () => {
         return novos;
       });
       await axios.put('/api/admin/roadmap/ordem', { itens: atualizados });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Erro ao atualizar prioridade:', e);
       await carregarRoadmap();
     }
@@ -1020,7 +1022,12 @@ const Roadmap = () => {
     try {
       const col = getItensPorStatus(novoStatus);
       if (draggedItem.status !== novoStatus) {
-        setItens(prev => prev.map(i => i.id === draggedItem.id ? { ...i, status: novoStatus as StatusKey } : i));
+        // Ao mover para outra coluna, adiciona o item ao final e recalcula a ordem
+        const destCol = getItensPorStatus(novoStatus);
+        const novaOrdem = destCol.length; // índice 0-based no final
+        setItens(prev => prev.map(i => i.id === draggedItem.id
+          ? { ...i, status: novoStatus as StatusKey, ordem: novaOrdem }
+          : i));
         try {
           await axios.put(`/api/admin/roadmap/${draggedItem.id}/status`, { status: novoStatus });
         } catch { await carregarRoadmap(); }
@@ -1044,9 +1051,10 @@ const Roadmap = () => {
           await axios.put('/api/admin/roadmap/ordem', { itens: atualizados });
         } catch { await carregarRoadmap(); }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Erro ao mover item:', e);
-      alert(`Erro ao mover item: ${e?.response?.data?.error || e?.message || 'Erro desconhecido'}`);
+      const err = e as { response?: { data?: { error?: string } }; message?: string };
+      alert(`Erro ao mover item: ${err?.response?.data?.error || err?.message || 'Erro desconhecido'}`);
     } finally {
       setDraggedItem(null);
     }
@@ -1212,9 +1220,9 @@ const Roadmap = () => {
                     onDragStart={isSuperAdmin ? e => handleColumnDragStart(e, coluna.key) : undefined}
                     onDragEnd={isSuperAdmin ? () => { setDraggedColumn(null); setDragOverColHeader(null); } : undefined}
                   >
-                    {isSuperAdmin && <GripVertical size={12} style={{ color: cfg.color, opacity: 0.6 }} className="flex-shrink-0" />}
+                    {isSuperAdmin && <GripVertical size={12} aria-hidden="true" style={{ color: cfg.color, opacity: 0.6 }} className="flex-shrink-0" />}
                     <div className={`p-1.5 rounded-lg shadow-sm ${isDark ? 'bg-gray-700/70' : 'bg-white/70'}`}>
-                      <Icon size={14} style={{ color: cfg.color }} />
+                      <Icon size={14} aria-hidden="true" style={{ color: cfg.color }} />
                     </div>
                     <span className="text-sm font-bold" style={{ color: cfg.color }}>{cfg.label}</span>
                     <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full shadow-sm ${isDark ? 'bg-gray-700/80' : 'bg-white/80'}`}
