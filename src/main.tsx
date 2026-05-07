@@ -5,7 +5,9 @@ import './index.css'
 
 // Bug 5 corrigido: verificar se window.fetch existe antes de fazer o monkey-patch
 if (window.fetch) {
-  const originalFetch = window.fetch;
+  // Bug 7 corrigido: bind(window) garante que originalFetch seja sempre chamado com o contexto correto
+  // Sem bind, alguns browsers (Safari/Firefox) lançam TypeError: Illegal invocation
+  const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     let [resource, config] = args;
 
@@ -21,9 +23,18 @@ if (window.fetch) {
     }
 
     // Bug 4 corrigido: verificar se a URL é do mesmo domínio antes de injetar o token
-    const isSameOrigin =
-      url.startsWith('/') ||
-      url.startsWith(window.location.origin);
+    // Bug 8 corrigido: startsWith(origin) tem falso positivo — "https://app.com.evil.com" passaria
+    // se origin fosse "https://app.com". Usar new URL().origin para comparação exata.
+    let isSameOrigin = false;
+    if (url.startsWith('/')) {
+      isSameOrigin = true;
+    } else {
+      try {
+        isSameOrigin = new URL(url).origin === window.location.origin;
+      } catch {
+        // URL inválida — não injeta token
+      }
+    }
 
     if (isSameOrigin && url.includes('/api/')) {
       // Bug 3 corrigido: try/catch para localStorage que pode lançar SecurityError
