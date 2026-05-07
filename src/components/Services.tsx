@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
@@ -37,6 +37,8 @@ const Services: React.FC = () => {
   }>(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const mountedRef = useRef(true)
+  const firstFieldRef = useRef<HTMLInputElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     mountedRef.current = true
@@ -69,22 +71,53 @@ const Services: React.FC = () => {
     return () => { body.classList.remove('modal-open') }
   }, [isModalOpen])
 
-  const closeModal = () => {
+  // Move o foco para o primeiro campo do formulário ao abrir o modal
+  useEffect(() => {
+    if (isModalOpen) {
+      setTimeout(() => { firstFieldRef.current?.focus() }, 50)
+    }
+  }, [isModalOpen])
+
+  const closeModal = useCallback(() => {
     setIsModalOpen(false)
     setEditing(null)
     setForm(EMPTY_FORM)
     setFormErrors({})
-  }
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !isModalOpen) return
-      closeModal()
+      if (!isModalOpen) return
+
+      if (event.key === 'Escape') {
+        closeModal()
+        return
+      }
+
+      // Focus trap: manter foco dentro do modal com Tab
+      if (event.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey) {
+          if (document.activeElement === first) {
+            event.preventDefault()
+            last?.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            event.preventDefault()
+            first?.focus()
+          }
+        }
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isModalOpen])
+  }, [isModalOpen, closeModal])
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {}
@@ -129,10 +162,12 @@ const Services: React.FC = () => {
 
     try {
       if (editing) {
-        const r = await fetch(`${API_BASE_URL}/services/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        // Capturar editingId antes do await para evitar stale closure
+        const editingId = editing.id
+        const r = await fetch(`${API_BASE_URL}/services/${editingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json()
-        if (j.success && mountedRef.current) setServices(prev => prev.map(s => s.id === editing.id ? j.data : s))
+        if (j.success && mountedRef.current) setServices(prev => prev.map(s => s.id === editingId ? j.data : s))
       } else {
         const r = await fetch(`${API_BASE_URL}/services`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -203,7 +238,7 @@ const Services: React.FC = () => {
         </div>
         {permissions.canCreate && (
           <button
-            onClick={() => { setEditing(null); setForm(EMPTY_FORM); setFormErrors({}); setIsModalOpen(true) }}
+            onClick={() => { setEditing(null); setForm(EMPTY_FORM); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
             className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -214,7 +249,7 @@ const Services: React.FC = () => {
 
       {/* Mensagem de erro global */}
       {errorMsg && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
+        <div role="alert" className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
           <span>{errorMsg}</span>
           <button onClick={() => setErrorMsg(null)} className="text-red-500 hover:text-red-700 dark:hover:text-red-300 transition-colors" aria-label="Fechar mensagem de erro">
             <X className="w-4 h-4" aria-hidden="true" />
@@ -238,7 +273,7 @@ const Services: React.FC = () => {
           {services.map((service) => (
             <div key={service.id} className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200 flex flex-col">
               <div className="flex items-start justify-between mb-3">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug flex-1 mr-2">{service.name}</h3>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug flex-1 mr-2">{service.name}</h2>
                 <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 ${getStatusColor(service.status)}`}>
                   {getStatusLabel(service.status)}
                 </span>
@@ -265,7 +300,7 @@ const Services: React.FC = () => {
                 <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                   {permissions.canEdit && (
                     <button
-                      onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price ?? ''), duration: String(service.duration ?? ''), status: service.status }); setIsModalOpen(true) }}
+                      onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
                       className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Edit className="w-3.5 h-3.5" aria-hidden="true" />
@@ -290,16 +325,16 @@ const Services: React.FC = () => {
       )}
 
       {/* Mensagem quando não há serviços */}
-      {!loading && services.length === 0 && (
+      {!loading && services.length === 0 && !errorMsg && (
         <div className="text-center py-16 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Target className="w-8 h-8 text-blue-400" aria-hidden="true" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Nenhum serviço cadastrado</h3>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Nenhum serviço cadastrado</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">Comece adicionando seu primeiro serviço</p>
           {permissions.canCreate && (
             <button
-              onClick={() => { setEditing(null); setForm(EMPTY_FORM); setFormErrors({}); setIsModalOpen(true) }}
+              onClick={() => { setEditing(null); setForm(EMPTY_FORM); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -318,7 +353,7 @@ const Services: React.FC = () => {
           aria-modal="true"
           aria-labelledby="modal-title"
         >
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div ref={modalRef} className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 id="modal-title" className="text-lg font-bold text-white flex items-center gap-2">
                 <Target className="w-5 h-5" aria-hidden="true" />
@@ -334,6 +369,7 @@ const Services: React.FC = () => {
                   Nome <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={firstFieldRef}
                   id="svc-name"
                   type="text"
                   value={form.name}
