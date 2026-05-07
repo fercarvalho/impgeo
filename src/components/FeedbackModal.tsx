@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Trash2, CheckCircle, ImageIcon, Link, MessageSquarePlus, MapPin, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 const API_BASE_URL =
@@ -61,23 +61,8 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     if (isOpen) setPaginaSelecionada(paginaAtual ?? '');
   }, [isOpen, paginaAtual]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSubmitting) handleClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, isSubmitting]);
-
-  useEffect(() => {
-    if (sucesso) {
-      const t = setTimeout(() => handleClose(), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [sucesso]);
-
-  const handleClose = () => {
+  // handleClose memoizado para evitar stale closures nos effects
+  const handleClose = useCallback(() => {
     if (isSubmitting) return;
     setCategoria(null);
     setDescricao('');
@@ -88,7 +73,23 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     setErrors({});
     setSucesso(false);
     onClose();
-  };
+  }, [isSubmitting, paginaAtual, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, handleClose]);
+
+  useEffect(() => {
+    if (sucesso) {
+      const t = setTimeout(() => handleClose(), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [sucesso, handleClose]);
 
   const handleImagem = (file: File) => {
     if (!TIPOS_ACEITOS.includes(file.type)) {
@@ -102,7 +103,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     setErrors(e => { const c = { ...e }; delete c.imagem; return c; });
     setImagemFile(file);
     const reader = new FileReader();
-    reader.onload = ev => setImagemPreview(ev.target?.result as string);
+    reader.onload = ev => {
+      const result = ev.target?.result;
+      if (typeof result === 'string') setImagemPreview(result);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -139,14 +143,26 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     e.preventDefault();
     if (!validar()) return;
 
+    if (!token) {
+      setErrors({ geral: 'Sessão expirada. Faça login novamente.' });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let imagemBase64: string | null = null;
       if (imagemFile) {
         imagemBase64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = ev => resolve(ev.target?.result as string);
-          reader.onerror = reject;
+          reader.onload = ev => {
+            const result = ev.target?.result;
+            if (typeof result === 'string') {
+              resolve(result);
+            } else {
+              reject(new Error('Falha ao ler a imagem.'));
+            }
+          };
+          reader.onerror = () => reject(new Error('Erro ao processar a imagem.'));
           reader.readAsDataURL(imagemFile);
         });
       }
@@ -183,23 +199,24 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
 
   return (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8"
       onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <MessageSquarePlus className="w-6 h-6 text-white" />
+              <MessageSquarePlus className="w-6 h-6 text-white" aria-hidden="true" />
               Enviar Feedback
             </h2>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
               className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 disabled:opacity-50"
+              aria-label="Fechar modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
           <p className="text-sm text-white/70 mt-0.5">Sua opinião nos ajuda a melhorar o sistema</p>
@@ -207,20 +224,20 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
 
         {sucesso ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="bg-green-100 rounded-full p-4 mb-4">
-              <CheckCircle className="w-10 h-10 text-green-500" />
+            <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-4 mb-4">
+              <CheckCircle className="w-10 h-10 text-green-500 dark:text-green-400" aria-hidden="true" />
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">Feedback enviado!</h3>
-            <p className="text-sm text-gray-500">Obrigado pela sua contribuição. Analisaremos em breve.</p>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Feedback enviado!</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Obrigado pela sua contribuição. Analisaremos em breve.</p>
           </div>
         ) : (
           <form id="feedback-form" onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Categoria */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="feedback-categoria" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                 Categoria <span className="text-red-500">*</span>
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div id="feedback-categoria" className="flex flex-wrap gap-2" role="group" aria-label="Categoria do feedback">
                 {CATEGORIAS.map(cat => (
                   <button
                     key={cat.id}
@@ -229,6 +246,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                       setCategoria(cat.id);
                       setErrors(e => { const c = { ...e }; delete c.categoria; return c; });
                     }}
+                    aria-pressed={categoria === cat.id}
                     className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all duration-150 ${
                       categoria === cat.id ? cat.activeColor : cat.color
                     }`}
@@ -237,15 +255,20 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   </button>
                 ))}
               </div>
-              {errors.categoria && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md border border-red-100 mt-1.5">{errors.categoria}</p>}
+              {errors.categoria && (
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-md border border-red-100 dark:border-red-800 mt-1.5" role="alert">
+                  {errors.categoria}
+                </p>
+              )}
             </div>
 
             {/* Descrição */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="feedback-descricao" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                 Descrição <span className="text-red-500">*</span>
               </label>
               <textarea
+                id="feedback-descricao"
                 value={descricao}
                 onChange={e => {
                   setDescricao(e.target.value);
@@ -259,10 +282,14 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
               />
               <div className="flex items-center justify-between mt-1">
                 {errors.descricao
-                  ? <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md border border-red-100 flex-1 mr-2">{errors.descricao}</p>
+                  ? (
+                    <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-md border border-red-100 dark:border-red-800 flex-1 mr-2" role="alert">
+                      {errors.descricao}
+                    </p>
+                  )
                   : <span />
                 }
-                <span className={`text-xs ${descricao.length > 950 ? 'text-red-400' : 'text-gray-400'}`}>
+                <span className={`text-xs ${descricao.length > 950 ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   {descricao.length}/1000
                 </span>
               </div>
@@ -270,18 +297,19 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
 
             {/* Imagem */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Imagem <span className="text-gray-400 font-normal text-xs">(opcional)</span>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Imagem <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(opcional)</span>
               </label>
               {imagemPreview ? (
-                <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                  <img src={imagemPreview} alt="Preview" className="w-full max-h-48 object-contain bg-gray-50" />
+                <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <img src={imagemPreview} alt="Preview da imagem selecionada" className="w-full max-h-48 object-contain bg-gray-50 dark:bg-gray-700" />
                   <button
                     type="button"
                     onClick={removerImagem}
                     className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-lg p-1.5 shadow transition-colors"
+                    aria-label="Remover imagem selecionada"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               ) : (
@@ -290,14 +318,18 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   onDragOver={e => e.preventDefault()}
                   onClick={() => fileInputRef.current?.click()}
                   className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-amber-400 dark:hover:border-amber-600 rounded-xl p-6 cursor-pointer transition-colors group bg-gray-50 dark:bg-gray-700/50 hover:bg-amber-50/30 dark:hover:bg-amber-900/20"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Clique ou arraste uma imagem para fazer upload"
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
                 >
                   <div className="bg-white dark:bg-gray-700 group-hover:bg-amber-50 dark:group-hover:bg-amber-900/30 rounded-xl p-3 shadow-sm transition-colors">
-                    <ImageIcon className="w-6 h-6 text-gray-400 group-hover:text-amber-500 transition-colors" />
+                    <ImageIcon className="w-6 h-6 text-gray-400 group-hover:text-amber-500 transition-colors" aria-hidden="true" />
                   </div>
-                  <p className="text-sm text-gray-500 text-center">
-                    <span className="font-semibold text-amber-600">Clique</span> ou arraste uma imagem
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                    <span className="font-semibold text-amber-600 dark:text-amber-400">Clique</span> ou arraste uma imagem
                   </p>
-                  <p className="text-xs text-gray-400">JPG, PNG, WebP — máx. 5MB</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">JPG, PNG, WebP — máx. 5MB</p>
                 </div>
               )}
               <input
@@ -306,18 +338,24 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                 accept=".jpg,.jpeg,.png,.webp"
                 className="hidden"
                 onChange={e => { if (e.target.files?.[0]) handleImagem(e.target.files[0]); }}
+                aria-hidden="true"
               />
-              {errors.imagem && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md border border-red-100 mt-1.5">{errors.imagem}</p>}
+              {errors.imagem && (
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-md border border-red-100 dark:border-red-800 mt-1.5" role="alert">
+                  {errors.imagem}
+                </p>
+              )}
             </div>
 
             {/* Link de vídeo */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Link de vídeo <span className="text-gray-400 font-normal text-xs">(opcional — Google Drive)</span>
+              <label htmlFor="feedback-link-video" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Link de vídeo <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(opcional — Google Drive)</span>
               </label>
               <div className="relative">
-                <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
                 <input
+                  id="feedback-link-video"
                   type="url"
                   value={linkVideo}
                   onChange={e => {
@@ -329,17 +367,22 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   className="w-full pl-9 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-400"
                 />
               </div>
-              {errors.linkVideo && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md border border-red-100 mt-1.5">{errors.linkVideo}</p>}
+              {errors.linkVideo && (
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-md border border-red-100 dark:border-red-800 mt-1.5" role="alert">
+                  {errors.linkVideo}
+                </p>
+              )}
             </div>
 
             {/* Página de referência */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Página de referência <span className="text-gray-400 font-normal text-xs">(opcional)</span>
+              <label htmlFor="feedback-pagina" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Página de referência <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(opcional)</span>
               </label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" aria-hidden="true" />
                 <select
+                  id="feedback-pagina"
                   value={paginaSelecionada}
                   onChange={e => setPaginaSelecionada(e.target.value)}
                   disabled={isSubmitting}
@@ -350,12 +393,15 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                     <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" aria-hidden="true" />
               </div>
             </div>
 
             {errors.geral && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              <div
+                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg text-sm"
+                role="alert"
+              >
                 {errors.geral}
               </div>
             )}
@@ -373,11 +419,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
               <button
                 type="submit"
                 disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:transform-none transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />
                     Enviando...
                   </>
                 ) : (

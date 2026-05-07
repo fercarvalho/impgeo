@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Mail, User, X } from 'lucide-react';
 
 interface EsqueciSenhaModalProps {
@@ -20,21 +20,25 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleClose = () => {
+  // handleClose definido antes do useEffect para evitar stale closure
+  const handleClose = useCallback(() => {
     if (isSubmitting) return;
     setError('');
     setSuccess('');
     onClose();
-  };
+  }, [isSubmitting, onClose]);
+
+  // Recria o listener sempre que isSubmitting ou handleClose mudam
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleClose]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -72,7 +76,13 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
         body: JSON.stringify(body)
       });
 
-      const result = await response.json();
+      let result: { error?: string; message?: string } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // body não é JSON (ex: 502/504 sem body)
+      }
+
       if (!response.ok) {
         if (result.error === 'MULTIPLE_USERS') {
           setShowUsernameAuxiliar(true);
@@ -89,8 +99,9 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
       setUsernameAuxiliar('');
       setShowUsernameAuxiliar(false);
       setEmailOuUsername('');
-    } catch (requestError: any) {
-      setError(requestError.message || 'Erro ao solicitar recuperação de senha.');
+    } catch (requestError: unknown) {
+      const message = requestError instanceof Error ? requestError.message : 'Erro ao solicitar recuperação de senha.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -103,52 +114,67 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
         if (event.target === event.currentTarget) handleClose();
       }}
     >
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Mail className="w-5 h-5 text-white" />
+            <Mail className="w-5 h-5 text-white" aria-hidden="true" />
             Recuperar senha
           </h2>
-          <button onClick={handleClose} className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200">
-            <X className="w-5 h-5" />
+          <button
+            onClick={handleClose}
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200"
+            disabled={isSubmitting}
+            aria-label="Fechar modal"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             Digite seu email ou nome de usuário. Você receberá um link para redefinir sua senha.
           </p>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+          {error ? (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+          ) : null}
+          {success ? (
+            <p className="text-sm text-green-600 dark:text-green-400" role="status">{success}</p>
+          ) : null}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="esqueciSenhaEmailOuUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
               {showUsernameAuxiliar ? 'Email' : 'Email ou nome de usuário'}
             </label>
             <input
+              id="esqueciSenhaEmailOuUsername"
               type="text"
               value={emailOuUsername}
               onChange={(event) => setEmailOuUsername(event.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               placeholder="Digite seu email ou usuário"
               disabled={isSubmitting || showUsernameAuxiliar}
+              autoComplete="email"
             />
           </div>
 
           {showUsernameAuxiliar ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome de usuário</label>
+              <label htmlFor="esqueciSenhaUsernameAuxiliar" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                Nome de usuário
+              </label>
               <div className="relative">
                 <input
+                  id="esqueciSenhaUsernameAuxiliar"
                   type="text"
                   value={usernameAuxiliar}
                   onChange={(event) => setUsernameAuxiliar(event.target.value)}
-                  className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                   placeholder="Digite o nome de usuário"
                   disabled={isSubmitting}
+                  autoComplete="username"
                 />
-                <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
               </div>
             </div>
           ) : null}
@@ -157,15 +183,16 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
               disabled={isSubmitting}
+              aria-busy={isSubmitting}
             >
               {isSubmitting ? 'Enviando...' : 'Enviar link'}
             </button>

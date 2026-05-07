@@ -37,18 +37,36 @@ const DEFAULT_CONTENT = `
 <p>Para dúvidas sobre estes Termos, entre em contato com a equipe de suporte.</p>
 `;
 
+const HEADING_ID = 'termos-uso-heading';
+
 const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
   const [data, setData] = useState<TermosData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    let mounted = true;
     setIsLoading(true);
-    fetch(`${API_BASE_URL}/termos-uso`)
-      .then(r => r.json())
-      .then(res => { if (res.success) setData(res.data); })
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+    const load = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/termos-uso`);
+        let res: { success?: boolean; data?: TermosData } = {};
+        try {
+          res = await r.json();
+        } catch {
+          // body não é JSON (ex: 502 com HTML)
+        }
+        if (mounted && r.ok && res.success && res.data) {
+          setData(res.data);
+        }
+      } catch {
+        // falha de rede — conteúdo padrão será exibido
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, [isOpen]);
 
   useEffect(() => {
@@ -62,21 +80,31 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
 
   const conteudo = data?.conteudo || DEFAULT_CONTENT;
   const versao = data?.versao ?? 1;
-  const updatedAt = data?.updatedAt ? new Date(data.updatedAt).toLocaleDateString('pt-BR') : null;
+
+  let updatedAt: string | null = null;
+  if (data?.updatedAt) {
+    const parsed = new Date(data.updatedAt);
+    if (!isNaN(parsed.getTime())) {
+      updatedAt = parsed.toLocaleDateString('pt-BR');
+    }
+  }
 
   return (
     <div
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={HEADING_ID}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="bg-white/20 rounded-lg p-1.5">
-              <FileText className="h-5 w-5 text-white" />
+              <FileText className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-base leading-tight">Termos de Uso</h2>
+              <h2 id={HEADING_ID} className="font-bold text-white text-base leading-tight">Termos de Uso</h2>
               <p className="text-xs text-white/70 mt-0.5">
                 Versão {versao}{updatedAt ? ` • Atualizado em ${updatedAt}` : ''}
               </p>
@@ -85,26 +113,26 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200 rounded-lg p-1.5"
-            aria-label="Fechar"
+            aria-label="Fechar termos de uso"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4">
+        <div className="overflow-y-auto flex-1 px-5 py-4" tabIndex={0}>
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
+            <div className="flex items-center justify-center py-16" role="status" aria-label="Carregando termos de uso">
+              <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" aria-hidden="true" />
             </div>
           ) : (
             <div
-              className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
+              className="prose prose-sm max-w-none text-gray-700 dark:text-gray-200 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(conteudo) }}
             />
           )}
         </div>
 
-        <div className="flex justify-end px-5 py-4 border-t border-gray-100 flex-shrink-0">
+        <div className="flex justify-end px-5 py-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
           <button
             onClick={onClose}
             className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all"

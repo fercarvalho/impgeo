@@ -193,22 +193,31 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
   };
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
+    if (!token) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
     try {
       setIsUploadingPhoto(true);
-      const formData = new FormData();
-      formData.append('photo', file);
+      const uploadFormData = new FormData();
+      uploadFormData.append('photo', file);
 
       const response = await fetch(`${API_BASE_URL}/user/upload-photo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: uploadFormData
       });
 
-      const result = await response.json();
+      let result: { success?: boolean; error?: string; data?: { photoUrl?: string } } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // body não é JSON
+      }
+
       if (result.success) {
-        return result.data.photoUrl;
+        return result.data?.photoUrl ?? null;
       } else {
         throw new Error(result.error || 'Erro ao fazer upload da foto');
       }
@@ -311,18 +320,43 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
       return;
     }
 
+    if (!token) {
+      setErrors({ general: 'Sessão expirada. Faça login novamente.' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Se há foto nova, fazer upload primeiro
+      // Se há foto nova para enviar (photoFile presente), fazer upload independente de photoUrl
       let finalPhotoUrl = photoUrl;
-      if (photoFile && !photoUrl) {
+      if (photoFile) {
         finalPhotoUrl = await uploadPhoto(photoFile);
         setPhotoUrl(finalPhotoUrl);
       }
 
       // Preparar dados para envio - todos os campos são obrigatórios
-      const updateData: any = {
+      const updateData: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+        cpf: string;
+        birthDate: string;
+        gender: string;
+        position: string;
+        address: {
+          cep: string;
+          street: string;
+          number: string;
+          complement: string;
+          neighborhood: string;
+          city: string;
+          state: string;
+        };
+        password: string;
+        photoUrl?: string | null;
+      } = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
@@ -356,9 +390,14 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
         body: JSON.stringify(updateData)
       });
 
-      const result = await response.json();
+      let result: { success?: boolean; error?: string } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // body não é JSON
+      }
 
-      if (result.success) {
+      if (response.ok && result.success) {
         // Atualizar contexto
         await refreshUser();
         setPassword('');
@@ -368,8 +407,9 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
       } else {
         setErrors({ general: result.error || 'Erro ao atualizar perfil' });
       }
-    } catch (error: any) {
-      setErrors({ general: error.message || 'Erro ao atualizar perfil' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar perfil';
+      setErrors({ general: message });
     } finally {
       setIsSubmitting(false);
     }
@@ -379,27 +419,28 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[90] px-4 pb-4 pt-[180px]"
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[90] px-4 py-8"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+      <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <User className="w-6 h-6 text-white" />
+              <User className="w-6 h-6 text-white" aria-hidden="true" />
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
               className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
               disabled={isSubmitting}
+              aria-label="Fechar modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -407,17 +448,21 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {errors.general && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            <div
+              className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg text-sm"
+              role="alert"
+            >
               {errors.general}
             </div>
           )}
 
           {/* Senha Atual */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="editarPerfilPassword" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Senha Atual <span className="text-red-500">*</span>
             </label>
             <input
+              id="editarPerfilPassword"
               type="password"
               value={password}
               onChange={(e) => {
@@ -430,15 +475,18 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                   });
                 }
               }}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.password ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.password
+                ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                 }`}
               placeholder="Digite sua senha atual"
               disabled={isSubmitting}
+              autoComplete="current-password"
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.password}</p>
             )}
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Necessária para confirmar sua identidade
             </p>
           </div>
@@ -446,38 +494,46 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Nome e Sobrenome */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilFirstName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Nome <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilFirstName"
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.firstName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.firstName
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="Nome"
                 disabled={isSubmitting}
+                autoComplete="given-name"
               />
               {errors.firstName && (
-                <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.firstName}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilLastName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Sobrenome <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilLastName"
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.lastName ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.lastName
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="Sobrenome"
                 disabled={isSubmitting}
+                autoComplete="family-name"
               />
               {errors.lastName && (
-                <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.lastName}</p>
               )}
             </div>
           </div>
@@ -485,40 +541,48 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* Email e Telefone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilEmail" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Email <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilEmail"
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 onBlur={handleEmailBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.email ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.email
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="email@exemplo.com"
                 disabled={isSubmitting}
+                autoComplete="email"
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.email}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilPhone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Telefone <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilPhone"
                 type="text"
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 onBlur={handlePhoneBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.phone ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.phone
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="(00) 00000-0000"
                 disabled={isSubmitting}
+                autoComplete="tel"
               />
               {errors.phone && (
-                <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.phone}</p>
               )}
             </div>
           </div>
@@ -526,49 +590,63 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           {/* CPF e Data de Nascimento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilCpf" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 CPF <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilCpf"
                 type="text"
                 value={formData.cpf}
                 onChange={(e) => handleInputChange('cpf', e.target.value)}
                 onBlur={handleCpfBlur}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.cpf ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.cpf
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="000.000.000-00"
                 maxLength={14}
                 disabled={isSubmitting}
               />
               {errors.cpf && (
-                <p className="mt-1 text-sm text-red-600">{errors.cpf}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.cpf}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilBirthDate" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Data de Nascimento <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilBirthDate"
                 type="date"
                 value={formData.birthDate}
                 onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 ${errors.birthDate
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 disabled={isSubmitting}
               />
+              {errors.birthDate && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.birthDate}</p>
+              )}
             </div>
           </div>
 
           {/* Gênero e Cargo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilGender" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Gênero <span className="text-red-500">*</span>
               </label>
               <select
+                id="editarPerfilGender"
                 value={formData.gender}
                 onChange={(e) => handleInputChange('gender', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 ${errors.gender
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 disabled={isSubmitting}
               >
                 <option value="">Selecione...</option>
@@ -578,35 +656,48 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 <option value="outros">Outros</option>
                 <option value="prefiro-nao-informar">Prefiro não informar</option>
               </select>
+              {errors.gender && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.gender}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilPosition" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Cargo <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilPosition"
                 type="text"
                 value={formData.position}
                 onChange={(e) => handleInputChange('position', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors.position
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="Ex: Desenvolvedor, Analista..."
                 disabled={isSubmitting}
               />
+              {errors.position && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors.position}</p>
+              )}
             </div>
           </div>
 
           {/* Endereço - CEP */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="editarPerfilCep" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               CEP <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
               <input
+                id="editarPerfilCep"
                 type="text"
                 value={formData.address.cep}
                 onChange={(e) => handleInputChange('address.cep', e.target.value)}
                 onBlur={handleCepBlur}
-                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.cep'] ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.cep']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                   }`}
                 placeholder="00000-000"
                 maxLength={9}
@@ -619,98 +710,134 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               )}
             </div>
             {errors['address.cep'] && (
-              <p className="mt-1 text-sm text-red-600">{errors['address.cep']}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.cep']}</p>
             )}
           </div>
 
           {/* Endereço - Rua e Número */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilStreet" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Rua/Logradouro <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilStreet"
                 type="text"
                 value={formData.address.street}
                 onChange={(e) => handleInputChange('address.street', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.street']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="Rua, Avenida, etc."
                 disabled={isSubmitting}
               />
+              {errors['address.street'] && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.street']}</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilNumber" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Número <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilNumber"
                 type="text"
                 value={formData.address.number}
                 onChange={(e) => handleInputChange('address.number', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.number']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="123"
                 disabled={isSubmitting}
               />
+              {errors['address.number'] && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.number']}</p>
+              )}
             </div>
           </div>
 
           {/* Endereço - Complemento e Bairro */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilComplement" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Complemento
               </label>
               <input
+                id="editarPerfilComplement"
                 type="text"
                 value={formData.address.complement}
                 onChange={(e) => handleInputChange('address.complement', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
                 placeholder="Apto, Bloco, etc."
                 disabled={isSubmitting}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilNeighborhood" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Bairro <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilNeighborhood"
                 type="text"
                 value={formData.address.neighborhood}
                 onChange={(e) => handleInputChange('address.neighborhood', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.neighborhood']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="Bairro"
                 disabled={isSubmitting}
               />
+              {errors['address.neighborhood'] && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.neighborhood']}</p>
+              )}
             </div>
           </div>
 
           {/* Endereço - Cidade e Estado */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilCity" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Cidade <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilCity"
                 type="text"
                 value={formData.address.city}
                 onChange={(e) => handleInputChange('address.city', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.city']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="Cidade"
                 disabled={isSubmitting}
               />
+              {errors['address.city'] && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.city']}</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="editarPerfilState" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Estado <span className="text-red-500">*</span>
               </label>
               <input
+                id="editarPerfilState"
                 type="text"
                 value={formData.address.state}
                 onChange={(e) => handleInputChange('address.state', e.target.value.toUpperCase())}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:!bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-gray-100 dark:placeholder-gray-400 ${errors['address.state']
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
+                  }`}
                 placeholder="UF"
                 maxLength={2}
                 disabled={isSubmitting}
               />
+              {errors['address.state'] && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{errors['address.state']}</p>
+              )}
             </div>
           </div>
 
@@ -740,6 +867,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || isUploadingPhoto}
+              aria-busy={isSubmitting || isUploadingPhoto}
               className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:transform-none flex items-center gap-2"
             >
               {isSubmitting || isUploadingPhoto ? (
@@ -749,7 +877,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
+                  <Save className="w-4 h-4" aria-hidden="true" />
                   Salvar Alterações
                 </>
               )}

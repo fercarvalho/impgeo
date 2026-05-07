@@ -33,17 +33,23 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
         setIsValidating(true);
         setError('');
         const response = await fetch(`${API_BASE_URL}/auth/validar-token/${encodeURIComponent(token)}`);
-        const result = await response.json();
+        let result: { valid?: boolean; error?: string; username?: string } = {};
+        try {
+          result = await response.json();
+        } catch {
+          // body não é JSON (ex: 502/504 sem body)
+        }
         if (!response.ok || !result.valid) {
           throw new Error(result.error || 'Token inválido ou expirado.');
         }
         if (!mounted) return;
         setIsTokenValid(true);
         setUsername(result.username || '');
-      } catch (validationError: any) {
+      } catch (validationError: unknown) {
         if (!mounted) return;
         setIsTokenValid(false);
-        setError(validationError.message || 'Token inválido ou expirado.');
+        const message = validationError instanceof Error ? validationError.message : 'Token inválido ou expirado.';
+        setError(message);
       } finally {
         if (mounted) setIsValidating(false);
       }
@@ -61,11 +67,11 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
     setError('');
     setSuccess('');
 
-    if (!newPassword || !confirmPassword) {
+    if (!newPassword.trim() || !confirmPassword.trim()) {
       setError('Preencha os dois campos de senha.');
       return;
     }
-    if (newPassword.length < 6) {
+    if (newPassword.trim().length < 6) {
       setError('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
@@ -84,16 +90,25 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
           novaSenha: newPassword
         })
       });
-      const result = await response.json();
+
+      let result: { success?: boolean; error?: string; message?: string } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // body não é JSON (ex: 502/504 sem body)
+      }
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Não foi possível redefinir a senha.');
       }
       setSuccess(result.message || 'Senha redefinida com sucesso.');
       setNewPassword('');
       setConfirmPassword('');
-      setTimeout(() => onClose(), 600);
-    } catch (submitError: any) {
-      setError(submitError.message || 'Erro ao redefinir senha.');
+      // Delay maior para o usuário ver a mensagem de sucesso
+      setTimeout(() => onClose(), 1500);
+    } catch (submitError: unknown) {
+      const message = submitError instanceof Error ? submitError.message : 'Erro ao redefinir senha.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -106,10 +121,10 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
         if (event.target === event.currentTarget && !isSubmitting) onClose();
       }}
     >
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-white" />
+            <KeyRound className="w-5 h-5 text-white" aria-hidden="true" />
             Redefinir senha
           </h2>
           <button
@@ -117,35 +132,44 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
               if (!isSubmitting) onClose();
             }}
             className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200"
+            disabled={isSubmitting}
+            aria-label="Fechar modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {isValidating ? (
-            <p className="text-sm text-gray-600">Validando token de recuperação...</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Validando token de recuperação...</p>
           ) : null}
 
           {!isValidating && isTokenValid ? (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Olá{username ? `, ${username}` : ''}. Defina sua nova senha para continuar.
             </p>
           ) : null}
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+          {error ? (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+          ) : null}
+          {success ? (
+            <p className="text-sm text-green-600 dark:text-green-400" role="status">{success}</p>
+          ) : null}
 
           {!isValidating && isTokenValid ? (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nova senha</label>
+                <label htmlFor="resetarSenhaNovaSenha" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  Nova senha
+                </label>
                 <div className="relative">
                   <input
+                    id="resetarSenhaNovaSenha"
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
-                    className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-11 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                     placeholder="Digite a nova senha"
                     autoComplete="new-password"
                     disabled={isSubmitting}
@@ -153,21 +177,26 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
                   <button
                     type="button"
                     onClick={() => setShowNewPassword((prev) => !prev)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    disabled={isSubmitting}
+                    aria-label={showNewPassword ? 'Ocultar nova senha' : 'Mostrar nova senha'}
                   >
-                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showNewPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar nova senha</label>
+                <label htmlFor="resetarSenhaConfirmarSenha" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  Confirmar nova senha
+                </label>
                 <div className="relative">
                   <input
+                    id="resetarSenhaConfirmarSenha"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
-                    className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-11 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                     placeholder="Digite novamente a nova senha"
                     autoComplete="new-password"
                     disabled={isSubmitting}
@@ -175,9 +204,11 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    disabled={isSubmitting}
+                    aria-label={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
                   >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                   </button>
                 </div>
               </div>
@@ -188,15 +219,16 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               disabled={isSubmitting}
             >
               Fechar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
               disabled={isSubmitting || isValidating || !isTokenValid}
+              aria-busy={isSubmitting}
             >
               {isSubmitting ? 'Salvando...' : 'Salvar nova senha'}
             </button>
