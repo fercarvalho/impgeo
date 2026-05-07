@@ -296,7 +296,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Gênero</p>
                     <p className="text-lg text-gray-800 dark:text-gray-200 mt-1 capitalize">
-                      {profileData.gender.replaceAll('-', ' ')}
+                      {profileData.gender.replace(/-/g, ' ')}
                     </p>
                   </div>
                 )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, HelpCircle, TrendingUp, Lightbulb, ThumbsDown,
   Clock, CheckCircle, MessageCircle, ExternalLink,
