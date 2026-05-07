@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
@@ -14,6 +14,10 @@ interface Transaction {
   subcategory?: string
 }
 
+// FIX [L52]: PreviewTx definido no escopo do módulo (não dentro do componente)
+type PreviewTx = { _id: string; date: string; description: string; value: number; type: 'Receita' | 'Despesa'; category: string }
+type PreviewTxWithSelection = PreviewTx & { _selected?: boolean }
+
 const API_BASE_URL = '/api'
 
 // SUBCATEGORIES agora será carregado do backend
@@ -22,6 +26,53 @@ interface TransactionsProps {
   showModal?: boolean
   onCloseModal?: () => void
 }
+
+// FIX [L1077]: BankBtn e DevBtn definidos fora do componente para evitar re-mount a cada render
+interface BankBtnProps { id: string; label: string; bg: string; domain: string; initials: string; disabledInFatura?: boolean; importType: 'extrato' | 'fatura' | null; selectedBank: string | null; onSelect: (id: string) => void }
+const BankBtn: React.FC<BankBtnProps> = ({ id, label, bg, domain, initials, disabledInFatura = false, importType, selectedBank, onSelect }) => {
+  const isDisabled = disabledInFatura && importType === 'fatura'
+  if (isDisabled) return (
+    <div className="relative group">
+      <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+          <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+          <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+        </div>
+        <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
+      </button>
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Sem suporte a fatura</span>
+      </div>
+    </div>
+  )
+  return (
+    <button type="button" onClick={() => onSelect(selectedBank === id ? '' : id)}
+      className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${selectedBank === id ? 'border-blue-500 bg-blue-50 shadow-md scale-[1.02]' : 'border-gray-200 bg-white hover:border-blue-300'}`}>
+      {selectedBank === id && <CheckCircle2 className="w-4 h-4 text-blue-500 absolute top-2 right-2" />}
+      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+      </div>
+      <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{label}</span>
+    </button>
+  )
+}
+
+interface DevBtnProps { label: string; bg: string; domain: string; initials: string }
+const DevBtn: React.FC<DevBtnProps> = ({ label, bg, domain, initials }) => (
+  <div className="relative group">
+    <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
+      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
+        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
+        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
+      </div>
+      <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
+    </button>
+    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+      <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Em desenvolvimento</span>
+    </div>
+  </div>
+)
 
 const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) => {
   const permissions = usePermissions();
@@ -50,8 +101,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [extratoFile, setExtratoFile] = useState<File | null>(null)
   const [extratoPassword, setExtratoPassword] = useState('')
   const [isUploadingExtrato, setIsUploadingExtrato] = useState(false)
-  type PreviewTx = { _id: string; date: string; description: string; value: number; type: 'Receita' | 'Despesa'; category: string }
-  const [extratoPreview, setExtratoPreview] = useState<PreviewTx[]>([])
+  const [extratoPreview, setExtratoPreview] = useState<PreviewTxWithSelection[]>([])
   const [isConfirmingImport, setIsConfirmingImport] = useState(false)
   // Undo system
   const [lastImportBatch, setLastImportBatch] = useState<string[]>([])
@@ -86,7 +136,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       if (data.success) {
         setSyncResult({ inserted: data.inserted ?? 0, skipped: data.skipped ?? 0 })
         if (data.inserted > 0) {
-          const r2 = await fetch(`${API_BASE_URL}/transactions`)
+          // FIX [L88]: incluir Authorization header no refetch após sync
+          const r2 = await fetch(`${API_BASE_URL}/transactions`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+          })
           const d2 = await r2.json()
           if (d2.success) setTransactions(d2.data || [])
         }
@@ -136,6 +189,16 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     loadSubcategories()
   }, [])
 
+  // FIX [L174]: usar useCallback para que closeModal seja estável e possa estar nas dependências dos hooks
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false)
+    setEditing(null)
+    setFormErrors({})
+    if (onCloseModal) {
+      onCloseModal()
+    }
+  }, [onCloseModal])
+
   // Controla overlay global (classe no body) ao abrir/fechar modais
   useEffect(() => {
     const body = document?.body
@@ -172,23 +235,19 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isRemoveSubcategoryOpen, isAddSubcategoryOpen, isImportExportOpen, isModalOpen])
+  // FIX [L174]: closeModal agora é estável via useCallback e pode estar nas dependências
+  }, [isRemoveSubcategoryOpen, isAddSubcategoryOpen, isImportExportOpen, isModalOpen, closeModal])
 
-  // Controlar modal externamente (apenas se showModal for fornecido)
+  // FIX [L177]: quando showModal muda para false, usar closeModal para garantir limpeza completa
   useEffect(() => {
     if (showModal !== undefined) {
-      setIsModalOpen(showModal)
+      if (showModal) {
+        setIsModalOpen(true)
+      } else {
+        closeModal()
+      }
     }
-  }, [showModal])
-
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setEditing(null)
-    setFormErrors({})
-    if (onCloseModal) {
-      onCloseModal()
-    }
-  }
+  }, [showModal, closeModal])
 
   const handleSort = (field: keyof Transaction) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -207,8 +266,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     if (filters.type) list = list.filter(t => t.type === filters.type)
     if (filters.category) list = list.filter(t => t.category.toLowerCase().includes(filters.category.toLowerCase()))
     if (filters.subcategory) list = list.filter(t => (t.subcategory || '').toLowerCase().includes(filters.subcategory.toLowerCase()))
-    if (filters.dateFrom) list = list.filter(t => new Date(t.date) >= new Date(filters.dateFrom))
-    if (filters.dateTo) list = list.filter(t => new Date(t.date) <= new Date(filters.dateTo))
+    // FIX [L209]: comparar strings ISO diretamente para evitar bug de timezone
+    if (filters.dateFrom) list = list.filter(t => t.date >= filters.dateFrom)
+    if (filters.dateTo) list = list.filter(t => t.date <= filters.dateTo)
 
     if (sortConfig.field) {
       list.sort((a, b) => {
@@ -270,7 +330,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
         const subcategoriesResponse = await fetch(`${API_BASE_URL}/subcategories`)
         const subcategoriesData = await subcategoriesResponse.json()
         if (subcategoriesData.success) {
-          setSubcategories(subcategoriesData.data)
+          // FIX [L267]: aplicar filtro de hiddenSubcategories ao recarregar, igual ao carregamento inicial
+          const currentHidden = JSON.parse(localStorage.getItem('hiddenSubcategories') || '[]') as string[]
+          setSubcategories((subcategoriesData.data as string[]).filter(s => !currentHidden.includes(s)))
         }
         
         setForm(prev => ({ ...prev, subcategory: trimmedSubcategory }))
@@ -308,7 +370,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     
     if (!form.date) errors.date = 'Campo obrigatório'
     if (!form.description.trim()) errors.description = 'Campo obrigatório'
-    if (!form.value || parseFloat(form.value) <= 0) errors.value = 'Campo obrigatório'
+    // FIX [L311]: verificar NaN explicitamente para rejeitar valores não-numéricos
+    const parsedValue = parseFloat(form.value)
+    if (!form.value || isNaN(parsedValue) || parsedValue <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
     if (!form.category) errors.category = 'Campo obrigatório'
     // Subcategoria é obrigatória apenas para Despesas
@@ -337,14 +401,29 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/transactions/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        const j = await r.json(); if (j.success) setTransactions(prev => prev.map(t => t.id === editing.id ? j.data : t))
+        const j = await r.json()
+        // FIX [L346]: exibir feedback quando operação falha no servidor
+        if (j.success) {
+          setTransactions(prev => prev.map(t => t.id === editing.id ? j.data : t))
+        } else {
+          alert(j.error || 'Erro ao salvar transação. Tente novamente.')
+          return
+        }
       } else {
         const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        const j = await r.json(); if (j.success) setTransactions(prev => [j.data, ...prev])
+        const j = await r.json()
+        // FIX [L346]: exibir feedback quando operação falha no servidor
+        if (j.success) {
+          setTransactions(prev => [j.data, ...prev])
+        } else {
+          alert(j.error || 'Erro ao salvar transação. Tente novamente.')
+          return
+        }
       }
       closeModal(); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' })
     } catch (error) {
       console.error('Erro ao salvar:', error)
+      alert('Erro ao salvar transação. Verifique sua conexão e tente novamente.')
     }
   }
 
@@ -357,11 +436,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   const deleteSelected = async () => {
     try {
+      // FIX [L360]: capturar ids antes do await para evitar stale closure
       const ids = Array.from(selectedTransactions)
       const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
       const j = await r.json()
       if (j.success) {
-        setTransactions(prev => prev.filter(t => !selectedTransactions.has(t.id)))
+        const idsSet = new Set(ids)
+        setTransactions(prev => prev.filter(t => !idsSet.has(t.id)))
         setSelectedTransactions(new Set())
       }
     } catch {}
@@ -384,16 +465,30 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       if (j.success) {
         setTransactions(prev => [...j.data, ...prev])
         setIsImportExportOpen(false)
+      } else {
+        // FIX [L383]: exibir feedback de erro ao usuário
+        alert(j.error || 'Erro ao importar arquivo. Verifique o formato e tente novamente.')
       }
-    } catch {}
+    } catch {
+      // FIX [L383]: catch não pode ser silencioso
+      alert('Erro ao importar arquivo. Verifique sua conexão e tente novamente.')
+    }
   }
 
   const handleExport = async () => {
     try {
       const r = await fetch(`${API_BASE_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'transactions', data: transactions }) })
+      if (!r.ok) {
+        // FIX [L394]: verificar status da resposta antes de criar blob
+        alert('Erro ao exportar dados. Tente novamente.')
+        return
+      }
       const blob = await r.blob(); const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = `transactions_${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
-    } catch {}
+    } catch {
+      // FIX [L394]: catch não pode ser silencioso
+      alert('Erro ao exportar dados. Verifique sua conexão e tente novamente.')
+    }
   }
 
   return (
@@ -454,7 +549,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-600" />
+            <Filter className="w-5 h-5 text-blue-600" aria-hidden="true" />
             <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Filtros</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
@@ -565,10 +660,15 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
       {/* Lista */}
       <div className="space-y-4">
-        {transactions.length === 0 ? (
+        {/* FIX [L568]: usar filteredAndSorted.length para cobrir o caso de filtros ativos sem resultados */}
+        {filteredAndSorted.length === 0 ? (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <p className="text-gray-600 dark:text-gray-300">Nenhuma transação encontrada.</p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+              {transactions.length === 0
+                ? 'Adicione sua primeira transação clicando no botão "Nova Transação".'
+                : 'Nenhuma transação corresponde aos filtros aplicados. Tente ajustar os critérios de busca.'}
+            </p>
           </div>
         ) : (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
@@ -681,10 +781,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
+                {/* FIX [L684]: ícone decorativo */}
+                <DollarSign className="w-5 h-5" aria-hidden="true" />
                 {editing ? 'Editar Transação' : 'Nova Transação'}
               </h2>
-              <button onClick={closeModal} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              {/* FIX [L687]: aria-label no botão de fechar */}
+              <button onClick={closeModal} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6 space-y-3">
               <div className="relative">
@@ -828,8 +930,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       }`}
                     >
                       <option value="">Selecione uma subcategoria</option>
-                      {subcategories.map((subcat, index) => (
-                        <option key={index} value={subcat}>{subcat}</option>
+                      {/* FIX [L831]: usar o valor como key em vez do índice */}
+                      {subcategories.map((subcat) => (
+                        <option key={subcat} value={subcat}>{subcat}</option>
                       ))}
                     </select>
                     <button
@@ -882,7 +985,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 <Upload className="w-5 h-5 text-white" />
                 <h2 className="text-lg font-bold text-white">Importar/Exportar Transações</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              {/* FIX [L885]: aria-label no botão de fechar */}
+              <button onClick={() => setIsImportExportOpen(false)} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
 
             {/* Body */}
@@ -943,7 +1047,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" /> Adicionar Nova Subcategoria</h2>
-              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              {/* FIX [L946]: aria-label no botão de fechar */}
+              <button onClick={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6">
             <div className="space-y-4">
@@ -987,7 +1092,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Trash2 className="w-5 h-5" /> Remover Subcategoria</h2>
-              <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              {/* FIX [L990]: aria-label no botão de fechar */}
+              <button onClick={() => setIsRemoveSubcategoryOpen(false)} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -1015,12 +1121,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
         </div>
       )}
       {/* Modal de Importar Extrato / Fatura */}
+      {/* FIX [L1020]: z-index consistente com outros modais (z-[9999]) */}
       {isImportExtratoModalOpen && (
         <div
-          className={`fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 ${extratoStep === 3 ? 'z-[70] pt-4' : 'z-50 pt-[100px]'}`}
+          className={`fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 z-[9999] ${extratoStep === 3 ? 'pt-4' : 'pt-[100px]'}`}
           onClick={(e) => { if (e.target === e.currentTarget) { setIsImportExtratoModalOpen(false); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) } }}
         >
-          <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200 overflow-hidden`}>
+          {/* FIX [L1023]: overflow-hidden removido — conflitava com overflow-y-auto */}
+          <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200`}>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1037,8 +1145,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   </p>
                 </div>
               </div>
-              <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }} className="text-white/70 hover:text-white hover:bg-white/20 p-2 rounded-full transition-all">
-                <X className="w-5 h-5" />
+              {/* FIX [L1041]: aria-label no botão de fechar */}
+              <button type="button" aria-label="Fechar modal" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }} className="text-white/70 hover:text-white hover:bg-white/20 p-2 rounded-full transition-all">
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -1073,68 +1182,25 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               )}
 
               {/* Passo 1 — Seleção do banco */}
-              {extratoStep === 1 && (() => {
-                const BankBtn = ({ id, label, bg, domain, initials, disabledInFatura = false }: { id: string; label: string; bg: string; domain: string; initials: string; disabledInFatura?: boolean }) => {
-                  const isDisabled = disabledInFatura && importType === 'fatura'
-                  if (isDisabled) return (
-                    <div className="relative group">
-                      <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
-                          <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
-                          <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
-                      </button>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Sem suporte a fatura</span>
-                      </div>
-                    </div>
-                  )
-                  return (
-                    <button type="button" onClick={() => setSelectedBank(selectedBank === id ? null : id)}
-                      className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${selectedBank === id ? 'border-blue-500 bg-blue-50 shadow-md scale-[1.02]' : 'border-gray-200 bg-white hover:border-blue-300'}`}>
-                      {selectedBank === id && <CheckCircle2 className="w-4 h-4 text-blue-500 absolute top-2 right-2" />}
-                      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
-                        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
-                        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
-                      </div>
-                      <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{label}</span>
-                    </button>
-                  )
-                }
-                const DevBtn = ({ label, bg, domain, initials }: { label: string; bg: string; domain: string; initials: string }) => (
-                  <div className="relative group">
-                    <button type="button" disabled className="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:!bg-[#1e2d3e] opacity-60 cursor-not-allowed w-full">
-                      <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden p-1 shadow-sm" style={{ backgroundColor: bg }}>
-                        <img src={`https://logo.clearbit.com/${domain}`} alt={label} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex' }} />
-                        <span className="hidden w-full h-full items-center justify-center text-white font-bold text-xs">{initials}</span>
-                      </div>
-                      <span className="text-xs font-semibold text-gray-500 text-center leading-tight">{label}</span>
-                    </button>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      <span className="bg-gray-900/80 text-white text-[10px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap">Em desenvolvimento</span>
-                    </div>
-                  </div>
-                )
-                return (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    {/* ── Ativos (ordem alfabética) ── */}
-                    <BankBtn id="bb"          label="Banco do Brasil" bg="#003882" domain="bb.com.br"          initials="BB" />
-                    <BankBtn id="c6"          label="C6 Bank"         bg="#242424" domain="c6bank.com.br"      initials="C6" />
-                    <BankBtn id="infinitypay" label="InfinityPay"     bg="#00C853" domain="infinitepay.io"     initials="IP" disabledInFatura />
-                    <BankBtn id="mercadopago" label="Mercado Pago"    bg="#009EE3" domain="mercadopago.com.br" initials="MP" disabledInFatura />
-                    <BankBtn id="sicoob"      label="Sicoob"          bg="#007A4B" domain="sicoob.com.br"      initials="SC" disabledInFatura />
-                    {/* ── Em desenvolvimento (ordem alfabética, ignorando "Banco") ── */}
-                    <DevBtn label="Bradesco"    bg="#CC092F" domain="bradesco.com.br"  initials="BD" />
-                    <DevBtn label="BTG Pactual" bg="#003366" domain="btgpactual.com"   initials="BTG" />
-                    <DevBtn label="Banco Inter" bg="#FF8700" domain="bancointer.com"   initials="IN" />
-                    <DevBtn label="Nubank"      bg="#9C44DC" domain="nubank.com.br"    initials="NU" />
-                    <DevBtn label="Banco Safra" bg="#1B3F7A" domain="safra.com.br"     initials="SF" />
-                    <DevBtn label="Santander"   bg="#EA1D25" domain="santander.com.br" initials="SN" />
-                    <DevBtn label="XP"          bg="#1A1A1A" domain="xpi.com.br"       initials="XP" />
-                  </div>
-                )
-              })()}
+              {/* FIX [L1077]: BankBtn e DevBtn agora são componentes externos, sem re-mount a cada render */}
+              {extratoStep === 1 && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {/* ── Ativos (ordem alfabética) ── */}
+                  <BankBtn id="bb"          label="Banco do Brasil" bg="#003882" domain="bb.com.br"          initials="BB"  importType={importType} selectedBank={selectedBank} onSelect={(id) => setSelectedBank(id || null)} />
+                  <BankBtn id="c6"          label="C6 Bank"         bg="#242424" domain="c6bank.com.br"      initials="C6"  importType={importType} selectedBank={selectedBank} onSelect={(id) => setSelectedBank(id || null)} />
+                  <BankBtn id="infinitypay" label="InfinityPay"     bg="#00C853" domain="infinitepay.io"     initials="IP"  importType={importType} selectedBank={selectedBank} onSelect={(id) => setSelectedBank(id || null)} disabledInFatura />
+                  <BankBtn id="mercadopago" label="Mercado Pago"    bg="#009EE3" domain="mercadopago.com.br" initials="MP"  importType={importType} selectedBank={selectedBank} onSelect={(id) => setSelectedBank(id || null)} disabledInFatura />
+                  <BankBtn id="sicoob"      label="Sicoob"          bg="#007A4B" domain="sicoob.com.br"      initials="SC"  importType={importType} selectedBank={selectedBank} onSelect={(id) => setSelectedBank(id || null)} disabledInFatura />
+                  {/* ── Em desenvolvimento (ordem alfabética, ignorando "Banco") ── */}
+                  <DevBtn label="Bradesco"    bg="#CC092F" domain="bradesco.com.br"  initials="BD" />
+                  <DevBtn label="BTG Pactual" bg="#003366" domain="btgpactual.com"   initials="BTG" />
+                  <DevBtn label="Banco Inter" bg="#FF8700" domain="bancointer.com"   initials="IN" />
+                  <DevBtn label="Nubank"      bg="#9C44DC" domain="nubank.com.br"    initials="NU" />
+                  <DevBtn label="Banco Safra" bg="#1B3F7A" domain="safra.com.br"     initials="SF" />
+                  <DevBtn label="Santander"   bg="#EA1D25" domain="santander.com.br" initials="SN" />
+                  <DevBtn label="XP"          bg="#1A1A1A" domain="xpi.com.br"       initials="XP" />
+                </div>
+              )}
 
               {/* Rodapé passo 1 */}
               {extratoStep === 1 && (
@@ -1161,8 +1227,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       <button type="button" onClick={() => { setExtratoStep(1); setExtratoFile(null) }} className="ml-auto text-blue-400 hover:text-blue-600 text-xs underline">Alterar</button>
                     </div>
                   </div>
+                  {/* FIX [L1165]: remover input do DOM tanto no onchange quanto no focus da window (cancelamento) */}
                   {!extratoFile ? (
-                    <button type="button" onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.pdf,.xlsx'; i.onchange=(e) => { const f=(e.target as HTMLInputElement).files?.[0]; if(f) setExtratoFile(f); document.body.removeChild(i) }; document.body.appendChild(i); i.click() }}
+                    <button type="button" onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.pdf,.xlsx'; i.style.display='none'; const cleanup = () => { if (document.body.contains(i)) document.body.removeChild(i); window.removeEventListener('focus', cleanup) }; i.onchange=(e) => { const f=(e.target as HTMLInputElement).files?.[0]; if(f) setExtratoFile(f); cleanup() }; window.addEventListener('focus', cleanup, { once: true }); document.body.appendChild(i); i.click() }}
                       className="w-full border-2 border-dashed border-blue-300 rounded-xl p-6 flex flex-col items-center gap-2 hover:border-blue-500 hover:bg-blue-50 transition-all">
                       <Upload className="w-8 h-8 text-blue-400" />
                       <span className="text-sm font-semibold text-gray-700">Clique para selecionar o arquivo</span>
@@ -1222,13 +1289,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               )}
 
               {/* Passo 3 — Sandbox / Revisão */}
+              {/* FIX [L1226]: usar PreviewTxWithSelection para eliminar casts (t as any)._selected */}
               {extratoStep === 3 && (() => {
-                const selectedIds = extratoPreview.filter(t => (t as any)._selected).map(t => t._id)
+                const selectedIds = extratoPreview.filter(t => t._selected).map(t => t._id)
                 const allSelected = extratoPreview.length > 0 && selectedIds.length === extratoPreview.length
                 const someSelected = selectedIds.length > 0 && !allSelected
                 const toggleAll = () => setExtratoPreview(prev => prev.map(t => ({ ...t, _selected: !allSelected })))
-                const toggleOne = (id: string) => setExtratoPreview(prev => prev.map(t => t._id === id ? { ...t, _selected: !(t as any)._selected } : t))
-                const deleteSelected = () => setExtratoPreview(prev => prev.filter(t => !(t as any)._selected))
+                const toggleOne = (id: string) => setExtratoPreview(prev => prev.map(t => t._id === id ? { ...t, _selected: !t._selected } : t))
+                const deleteSelected = () => setExtratoPreview(prev => prev.filter(t => !t._selected))
                 const totalReceita = extratoPreview.filter(t => t.type === 'Receita').reduce((s, t) => s + t.value, 0)
                 const totalDespesa = extratoPreview.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.value, 0)
                 const saldo = totalReceita - totalDespesa
@@ -1265,7 +1333,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {extratoPreview.map((tx) => {
-                            const isSelected = !!(tx as any)._selected
+                            const isSelected = !!tx._selected
                             return (
                               <tr key={tx._id} className={`transition-colors ${isSelected ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                                 <td className="px-3 py-1 text-center"><input type="checkbox" checked={isSelected} onChange={() => toggleOne(tx._id)} className="w-3.5 h-3.5 rounded accent-blue-500 cursor-pointer" /></td>
@@ -1301,7 +1369,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                             const response = await fetch(`${API_BASE_URL}/import/extrato/confirm`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-                              body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, ...t }) => { const { _selected: _s, ...rest } = t as any; return rest }) })
+                              // FIX [L1226]: remover campos internos (_id, _selected) usando tipos corretos
+                              body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, _selected: _s, ...rest }) => rest) })
                             })
                             if (response.ok) {
                               const result = await response.json()
