@@ -35,6 +35,7 @@ const Clients: React.FC = () => {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -100,9 +101,12 @@ const Clients: React.FC = () => {
 
     if (sortConfig.field) {
       list.sort((a, b) => {
-        let av: any = a[sortConfig.field!]
-        let bv: any = b[sortConfig.field!]
-        if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv).toLowerCase() }
+        let av: any = a[sortConfig.field!] ?? ''
+        let bv: any = b[sortConfig.field!] ?? ''
+        if (typeof av === 'string' || typeof bv === 'string') {
+          av = String(av).toLowerCase()
+          bv = String(bv).toLowerCase()
+        }
         if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1
         if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
@@ -112,8 +116,8 @@ const Clients: React.FC = () => {
   }, [clients, filters, sortConfig])
 
   const handleSelectAll = () => {
-    if (selectedClients.size === clients.length) setSelectedClients(new Set())
-    else setSelectedClients(new Set(clients.map(c => c.id)))
+    if (selectedClients.size === filteredAndSorted.length) setSelectedClients(new Set())
+    else setSelectedClients(new Set(filteredAndSorted.map(c => c.id)))
   }
 
   const handleSelect = (id: string) => {
@@ -148,9 +152,10 @@ const Clients: React.FC = () => {
 
   const saveClient = async () => {
     if (!validateForm()) return
-    
-    const payload = {
-      id: editing?.id,
+    if (isSaving) return
+    setIsSaving(true)
+
+    const basePayload = {
       name: form.name,
       email: form.email,
       phone: form.phone,
@@ -160,15 +165,17 @@ const Clients: React.FC = () => {
     }
     try {
       if (editing) {
-        const r = await fetch(`${API_BASE_URL}/clients/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        const r = await fetch(`${API_BASE_URL}/clients/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
         const j = await r.json(); if (j.success) setClients(prev => prev.map(c => c.id === editing.id ? j.data : c))
       } else {
-        const r = await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        const r = await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
         const j = await r.json(); if (j.success) setClients(prev => [j.data, ...prev])
       }
       setIsModalOpen(false); setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({})
     } catch (error) {
       console.error('Erro ao salvar:', error)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -182,10 +189,15 @@ const Clients: React.FC = () => {
   const deleteSelected = async () => {
     try {
       const ids = Array.from(selectedClients)
-      await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
-      setClients(prev => prev.filter(c => !selectedClients.has(c.id)))
-      setSelectedClients(new Set())
-    } catch {}
+      const r = await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
+      const j = await r.json()
+      if (j.success) {
+        setClients(prev => prev.filter(c => !selectedClients.has(c.id)))
+        setSelectedClients(new Set())
+      }
+    } catch (error) {
+      console.error('Erro ao excluir clientes:', error)
+    }
   }
 
   // Import/Export
@@ -205,16 +217,28 @@ const Clients: React.FC = () => {
       if (j.success) {
         setClients(prev => [...j.data, ...prev])
         setIsImportExportOpen(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
       }
-    } catch {}
+    } catch (error) {
+      console.error('Erro ao importar:', error)
+    }
   }
 
   const handleExport = async () => {
     try {
       const r = await fetch(`${API_BASE_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'clients', data: clients }) })
-      const blob = await r.blob(); const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = `clients_${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
-    } catch {}
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clients_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erro ao exportar:', error)
+    }
   }
 
   return (
@@ -305,9 +329,14 @@ const Clients: React.FC = () => {
       {/* Lista */}
       <div className="space-y-4">
         {clients.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-600">Nenhum cliente encontrado.</p>
-            <p className="text-gray-500 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">Nenhum cliente encontrado.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
+          </div>
+        ) : filteredAndSorted.length === 0 ? (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">Nenhum cliente corresponde aos filtros aplicados.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Tente ajustar ou limpar os filtros.</p>
           </div>
         ) : (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
@@ -317,7 +346,8 @@ const Clients: React.FC = () => {
                   <div className="flex justify-center">
                     <input
                       type="checkbox"
-                      checked={clients.length > 0 && selectedClients.size === clients.length}
+                      aria-label="Selecionar todos os clientes"
+                      checked={filteredAndSorted.length > 0 && selectedClients.size === filteredAndSorted.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-300 focus:ring-2"
                     />
@@ -346,12 +376,13 @@ const Clients: React.FC = () => {
             </div>
 
             {filteredAndSorted.map((c, index) => (
-              <div key={c.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={c.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === filteredAndSorted.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
                       <input
                         type="checkbox"
+                        aria-label={`Selecionar cliente ${c.name}`}
                         checked={selectedClients.has(c.id)}
                         onChange={() => handleSelect(c.id)}
                         className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
@@ -359,19 +390,19 @@ const Clients: React.FC = () => {
                     </div>
                   )}
                   <div className="flex-shrink-0 w-52 sm:w-60 text-left">
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{c.name}</h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{c.name}</h3>
                     {(c.cpf || c.cnpj) && (
-                      <p className="text-xs text-gray-500 truncate">{c.cpf || c.cnpj}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cpf || c.cnpj}</p>
                     )}
                   </div>
                   <div className="flex-shrink-0 w-36 sm:w-44 text-center">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.email}</p>
                   </div>
                   <div className="flex-shrink-0 w-28 sm:w-32 text-center">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.phone}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.phone}</p>
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.address}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.address}</p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
                     {permissions.canEdit && (
@@ -412,10 +443,11 @@ const Clients: React.FC = () => {
             </div>
             <div className="p-6 space-y-3">
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-name" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Nome <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
@@ -431,10 +463,11 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Email <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-email"
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
@@ -450,10 +483,11 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-phone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Telefone <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-phone"
                   type="text"
                   value={form.phone}
                   onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -469,10 +503,11 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-address" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Endereço <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-address"
                   type="text"
                   value={form.address}
                   onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
@@ -488,10 +523,11 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-documentType" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Tipo de Documento <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="form-documentType"
                   value={form.documentType}
                   onChange={(e) => setForm(prev => ({
                     ...prev,
@@ -506,10 +542,11 @@ const Clients: React.FC = () => {
                 </select>
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-document" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   {form.documentType === 'cpf' ? 'CPF' : 'CNPJ'} <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-document"
                   type="text"
                   value={form.documentType === 'cpf' ? form.cpf : form.cnpj}
                   onChange={(e) => setForm(prev => ({
@@ -530,7 +567,7 @@ const Clients: React.FC = () => {
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
-                <button onClick={saveClient} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+                <button onClick={saveClient} disabled={isSaving} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0">{isSaving ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </div>
           </div>
@@ -574,7 +611,7 @@ const Clients: React.FC = () => {
                         <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
                       </div>
                     </div>
-                    <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+                    <input ref={fileInputRef} type="file" accept=".xlsx" aria-label="Selecionar arquivo .xlsx para importar" className="hidden" onChange={handleImport} />
                   </label>
                 )}
 
