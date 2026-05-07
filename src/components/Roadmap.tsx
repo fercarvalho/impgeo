@@ -90,7 +90,11 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
   };
 
   const handleSelect = (date: Date) => {
-    onChange(date.toISOString().split('T')[0]);
+    // Formata a data usando componentes locais para evitar deslocamento de fuso horário
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`);
     setOpen(false);
   };
 
@@ -145,7 +149,8 @@ const CalendarPicker = ({ value, onChange }: CalendarPickerProps) => {
             {days.map((date, i) => {
               const inMonth = date.getMonth() === calDate.getMonth();
               const isToday = date.toDateString() === today.toDateString();
-              const isSelected = value === date.toISOString().split('T')[0];
+              const y2 = date.getFullYear(), m2 = String(date.getMonth() + 1).padStart(2, '0'), d2 = String(date.getDate()).padStart(2, '0');
+              const isSelected = value === `${y2}-${m2}-${d2}`;
               return (
                 <button
                   type="button"
@@ -213,9 +218,17 @@ const FormItemRoadmap = ({ item, todasTarefas, colunas, onSave, onCancel }: Form
 
   useEffect(() => {
     if (item) {
+      setTitulo(item.titulo || '');
+      setDescricao(item.descricao || '');
+      setStatus(item.status || 'backlog');
+      setPrioridade(item.prioridade || 'media');
       setDataInicio(formatarDataParaInput(item.dataInicio));
       setDependeDe(item.dependeDe || null);
     } else {
+      setTitulo('');
+      setDescricao('');
+      setStatus('backlog');
+      setPrioridade('media');
       setDataInicio('');
       setDependeDe(null);
     }
@@ -273,7 +286,7 @@ const FormItemRoadmap = ({ item, todasTarefas, colunas, onSave, onCancel }: Form
         <CalendarPicker value={dataInicio} onChange={setDataInicio} />
       </div>
       <div>
-        <label className={labelCls}>Depende de <span className="text-red-500">*</span></label>
+        <label className={labelCls}>Depende de <span className="text-gray-400 font-normal text-xs">(opcional)</span></label>
         <select value={dependeDe || ''} onChange={e => setDependeDe(e.target.value || null)} className={inputCls}>
           <option value="">Nenhuma (tarefa independente)</option>
           {tarefasDisponiveis.map(t => (
@@ -317,13 +330,14 @@ interface CardProps {
   onAvancar: (id: string) => void;
   onConcluir: (id: string) => void;
   isUltimaColuna: boolean;
+  colunaConcluir: string;
 }
 
 const RoadmapCard = ({
   item, isSuperAdmin, isDragging, prioridade, totalColuna, tempoAtual,
   formatarTempo, onEdit, onDelete, onDragStart, onDragEnd,
   onIniciarTempo, onPausarTempo, onPararTempo,
-  onAtualizarPrioridade, onAvancar, onConcluir, isUltimaColuna,
+  onAtualizarPrioridade, onAvancar, onConcluir, isUltimaColuna, colunaConcluir,
 }: CardProps) => {
   const [prioridadeEditando, setPrioridadeEditando] = useState(prioridade.toString());
   useEffect(() => setPrioridadeEditando(prioridade.toString()), [prioridade]);
@@ -359,18 +373,20 @@ const RoadmapCard = ({
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1 text-gray-300 flex-shrink-0">
-          {isSuperAdmin && <GripVertical size={14} />}
-        </div>
+        {isSuperAdmin && (
+          <div className="flex items-center gap-1 text-gray-300 flex-shrink-0">
+            <GripVertical size={14} />
+          </div>
+        )}
         {isSuperAdmin && (
           <div className="flex items-center gap-1 ml-auto">
-            <button onClick={() => onEdit(item)}
+            <button onClick={() => onEdit(item)} aria-label="Editar item"
               className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors">
-              <Edit2 size={13} />
+              <Edit2 size={13} aria-hidden="true" />
             </button>
-            <button onClick={() => onDelete(item.id)}
+            <button onClick={() => onDelete(item.id)} aria-label="Deletar item"
               className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-              <Trash2 size={13} />
+              <Trash2 size={13} aria-hidden="true" />
             </button>
           </div>
         )}
@@ -410,7 +426,7 @@ const RoadmapCard = ({
       {/* Data e tempo */}
       <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
         {item.dataInicio && (
-          <span><strong>Início:</strong> {new Date(item.dataInicio).toLocaleDateString('pt-BR')}</span>
+          <span><strong>Início:</strong> {new Date(item.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
         )}
         <span><strong>Tempo:</strong> {formatarTempo(tempoTotal)}</span>
       </div>
@@ -439,7 +455,7 @@ const RoadmapCard = ({
             className="flex-1 text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
             ➡ Avançar
           </button>
-          <button onClick={() => onConcluir(item.id)} disabled={isUltimaColuna && !item.emAndamento}
+          <button onClick={() => onConcluir(item.id)} disabled={item.status === colunaConcluir && !item.emAndamento}
             className="flex-1 text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
             ✓ Concluir
           </button>
@@ -498,9 +514,10 @@ const InlineModal = ({ title, onClose, children }: ModalProps) => {
           </h2>
           <button
             onClick={onClose}
+            aria-label="Fechar"
             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 rounded-full transition-all"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
         {/* Conteúdo com scroll */}
@@ -692,10 +709,12 @@ const Roadmap = () => {
   const itensRef = useRef<RoadmapItem[]>([]);
 
   useEffect(() => {
-    carregarRoadmap();
-    carregarColunas();
-    carregarConfig();
+    const controller = new AbortController();
+    carregarRoadmap(controller.signal);
+    carregarColunas(controller.signal);
+    carregarConfig(controller.signal);
     return () => {
+      controller.abort();
       Object.values(timersRef.current).forEach(t => clearInterval(t));
       timersRef.current = {};
     };
@@ -734,28 +753,30 @@ const Roadmap = () => {
     });
   }, [itens]);
 
-  const carregarConfig = async () => {
+  const carregarConfig = async (signal?: AbortSignal) => {
     try {
-      const { data } = await axios.get('/api/admin/roadmap/config');
+      const { data } = await axios.get('/api/admin/roadmap/config', { signal });
       setColunaConcluir(data.colunaConcluir || 'lancado');
-    } catch (e) {
+    } catch (e: unknown) {
+      if (axios.isCancel(e) || (e instanceof Error && e.name === 'AbortError')) return;
       console.error('Erro ao carregar config:', e);
     }
   };
 
-  const carregarColunas = async () => {
+  const carregarColunas = async (signal?: AbortSignal) => {
     try {
-      const { data } = await axios.get('/api/admin/roadmap/colunas');
+      const { data } = await axios.get('/api/admin/roadmap/colunas', { signal });
       setColunas(data);
-    } catch (e) {
+    } catch (e: unknown) {
+      if (axios.isCancel(e) || (e instanceof Error && e.name === 'AbortError')) return;
       console.error('Erro ao carregar colunas:', e);
     }
   };
 
-  const carregarRoadmap = async () => {
+  const carregarRoadmap = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const { data } = await axios.get('/api/admin/roadmap');
+      const { data } = await axios.get('/api/admin/roadmap', { signal });
       setItens(prev => {
         if (prev.length !== data.length) return data;
         const prevMap = new Map(prev.map((i: RoadmapItem) => [i.id, i]));
@@ -765,12 +786,16 @@ const Roadmap = () => {
           if (
             p.titulo !== item.titulo || p.status !== item.status ||
             p.ordem !== item.ordem || p.emAndamento !== item.emAndamento ||
-            p.tempoAcumulado !== item.tempoAcumulado || p.ultimoInicio !== item.ultimoInicio
+            p.tempoAcumulado !== item.tempoAcumulado || p.ultimoInicio !== item.ultimoInicio ||
+            p.descricao !== item.descricao || p.prioridade !== item.prioridade ||
+            p.dataInicio !== item.dataInicio || p.dependeDe !== item.dependeDe ||
+            p.createdByUsername !== item.createdByUsername
           ) return data;
         }
         return prev;
       });
-    } catch (e) {
+    } catch (e: unknown) {
+      if (axios.isCancel(e) || (e instanceof Error && e.name === 'AbortError')) return;
       console.error('Erro ao carregar roadmap:', e);
     } finally {
       setLoading(false);
@@ -850,12 +875,13 @@ const Roadmap = () => {
     try {
       const item = itens.find(i => i.id === id);
       if (!item) return;
-      const wasStop = !item.ultimoInicio;
       const { data } = await axios.post(`/api/admin/roadmap/${id}/iniciar-tempo`);
-      const ultimoInicio = data?.ultimoInicio || item.ultimoInicio || new Date().toISOString();
+      // Usa ultimoInicio retornado pelo servidor; fallback apenas se ausente (não null explícito)
+      const ultimoInicio = data?.ultimoInicio !== undefined && data.ultimoInicio !== null
+        ? data.ultimoInicio
+        : (item.ultimoInicio || new Date().toISOString());
       setItens(prev => prev.map(i => i.id === id ? {
         ...i, emAndamento: true, ultimoInicio,
-        ...(wasStop ? { tempoAcumulado: 0 } : {}),
       } : i));
       const decorrido = Math.floor((Date.now() - new Date(ultimoInicio).getTime()) / 1000);
       setTemposAtuais(prev => ({ ...prev, [id]: decorrido }));
@@ -1121,6 +1147,9 @@ const Roadmap = () => {
             const statusKeys = new Set(colunas.map(c => c.key));
             const itensOrfaos = itens.filter(i => !statusKeys.has(i.status));
             const totalCols = colunas.length + (itensOrfaos.length > 0 ? 1 : 0);
+            if (totalCols === 0) return (
+              <div className="flex items-center justify-center flex-1 text-gray-400 text-sm italic">Nenhuma coluna configurada</div>
+            );
             return (
           <div
             className="flex gap-4 h-full overflow-x-auto snap-x snap-mandatory pb-2 md:grid md:overflow-visible"
@@ -1217,6 +1246,7 @@ const Roadmap = () => {
                           tempoAtual={temposAtuais[item.id]}
                           formatarTempo={formatarTempo}
                           isUltimaColuna={coluna.key === colunas[colunas.length - 1]?.key}
+                          colunaConcluir={colunaConcluir}
                           onEdit={i => { setItemEditando(i); setShowModal(true); }}
                           onDelete={handleDeletar}
                           onDragStart={handleDragStart}
@@ -1261,6 +1291,7 @@ const Roadmap = () => {
                         tempoAtual={temposAtuais[item.id]}
                         formatarTempo={formatarTempo}
                         isUltimaColuna={false}
+                        colunaConcluir={colunaConcluir}
                         onEdit={i => { setItemEditando(i); setShowModal(true); }}
                         onDelete={handleDeletar}
                         onDragStart={handleDragStart}
