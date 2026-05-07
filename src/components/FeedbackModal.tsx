@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { X, Trash2, CheckCircle, ImageIcon, Link, MessageSquarePlus, MapPin, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 const API_BASE_URL =
@@ -45,6 +45,14 @@ const MAX_TAMANHO_MB = 5;
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAtual }) => {
   const { token } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [descricao, setDescricao] = useState('');
@@ -91,6 +99,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     }
   }, [sucesso, handleClose]);
 
+  // Gerenciamento de foco: move foco para o modal ao abrir
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isOpen]);
+
   const handleImagem = (file: File) => {
     if (!TIPOS_ACEITOS.includes(file.type)) {
       setErrors(e => ({ ...e, imagem: 'Formato inválido. Use JPG, PNG ou WebP.' }));
@@ -104,6 +119,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     setImagemFile(file);
     const reader = new FileReader();
     reader.onload = ev => {
+      if (!isMountedRef.current) return;
       const result = ev.target?.result;
       if (typeof result === 'string') setImagemPreview(result);
     };
@@ -182,16 +198,17 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
         }),
       });
 
+      if (!isMountedRef.current) return;
       if (res.ok) {
         setSucesso(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setErrors({ geral: data.error || data.message || 'Erro ao enviar feedback. Tente novamente.' });
+        if (isMountedRef.current) setErrors({ geral: data.error || data.message || 'Erro ao enviar feedback. Tente novamente.' });
       }
     } catch {
-      setErrors({ geral: 'Erro de conexão. Verifique sua internet e tente novamente.' });
+      if (isMountedRef.current) setErrors({ geral: 'Erro de conexão. Verifique sua internet e tente novamente.' });
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -199,14 +216,19 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
 
   return (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8"
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8 outline-none"
       onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20 rounded-t-2xl">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 id={titleId} className="text-xl font-bold text-white flex items-center gap-2">
               <MessageSquarePlus className="w-6 h-6 text-white" aria-hidden="true" />
               Enviar Feedback
             </h2>
@@ -234,10 +256,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
           <form id="feedback-form" onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Categoria */}
             <div>
-              <label htmlFor="feedback-categoria" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2" aria-hidden="true">
                 Categoria <span className="text-red-500">*</span>
-              </label>
-              <div id="feedback-categoria" className="flex flex-wrap gap-2" role="group" aria-label="Categoria do feedback">
+              </span>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Categoria do feedback (obrigatório)">
                 {CATEGORIAS.map(cat => (
                   <button
                     key={cat.id}
