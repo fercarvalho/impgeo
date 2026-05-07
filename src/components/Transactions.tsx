@@ -84,7 +84,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       })
       const data = await r.json()
       if (data.success) {
-        setSyncResult({ inserted: data.inserted, skipped: data.skipped })
+        setSyncResult({ inserted: data.inserted ?? 0, skipped: data.skipped ?? 0 })
         if (data.inserted > 0) {
           const r2 = await fetch(`${API_BASE_URL}/transactions`)
           const d2 = await r2.json()
@@ -110,7 +110,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       try {
         const r = await fetch(`${API_BASE_URL}/transactions`)
         const j = await r.json()
-        if (j.success) setTransactions(j.data)
+        if (j.success) setTransactions(j.data || [])
       } catch {}
     }
     load()
@@ -197,8 +197,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   }
 
   const getSortIcon = (field: keyof Transaction) => {
-    if (sortConfig.field !== field) return <span className="text-gray-400">↕</span>
-    return sortConfig.direction === 'asc' ? <span className="text-blue-600">↑</span> : <span className="text-blue-600">↓</span>
+    if (sortConfig.field !== field) return <span className="text-gray-400" aria-hidden="true">↕</span>
+    return sortConfig.direction === 'asc' ? <span className="text-blue-600" aria-hidden="true">↑</span> : <span className="text-blue-600" aria-hidden="true">↓</span>
   }
 
   const filteredAndSorted = useMemo(() => {
@@ -228,8 +228,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   }, [transactions, filters, sortConfig])
 
   const handleSelectAll = () => {
-    if (selectedTransactions.size === transactions.length) setSelectedTransactions(new Set())
-    else setSelectedTransactions(new Set(transactions.map(t => t.id)))
+    if (selectedTransactions.size === filteredAndSorted.length) setSelectedTransactions(new Set())
+    else setSelectedTransactions(new Set(filteredAndSorted.map(t => t.id)))
   }
 
   const handleSelect = (id: string) => {
@@ -321,9 +321,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   }
 
   const saveTransaction = async () => {
-    console.log('saveTransaction chamado', form)
     if (!validateForm()) {
-      console.log('Validação falhou', formErrors)
       return
     }
     
@@ -360,9 +358,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const deleteSelected = async () => {
     try {
       const ids = Array.from(selectedTransactions)
-      await fetch(`${API_BASE_URL}/transactions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
-      setTransactions(prev => prev.filter(t => !selectedTransactions.has(t.id)))
-      setSelectedTransactions(new Set())
+      const r = await fetch(`${API_BASE_URL}/transactions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
+      const j = await r.json()
+      if (j.success) {
+        setTransactions(prev => prev.filter(t => !selectedTransactions.has(t.id)))
+        setSelectedTransactions(new Set())
+      }
     } catch {}
   }
 
@@ -399,7 +400,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <DollarSign className="w-8 h-8 text-blue-600" />
+          <DollarSign className="w-8 h-8 text-blue-600" aria-hidden="true" />
           Transações
         </h1>
         <div className="flex gap-3">
@@ -565,9 +566,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       {/* Lista */}
       <div className="space-y-4">
         {transactions.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-600">Nenhuma transação encontrada.</p>
-            <p className="text-gray-500 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">Nenhuma transação encontrada.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Adicione sua primeira transação clicando no botão "Nova Transação".</p>
           </div>
         ) : (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
@@ -577,7 +578,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <div className="flex justify-center">
                     <input
                       type="checkbox"
-                      checked={transactions.length > 0 && selectedTransactions.size === transactions.length}
+                      checked={filteredAndSorted.length > 0 && selectedTransactions.size === filteredAndSorted.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-500 focus:ring-2"
                     />
@@ -613,7 +614,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             </div>
 
             {filteredAndSorted.map((t, index) => (
-              <div key={t.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === transactions.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={t.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === filteredAndSorted.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
@@ -961,7 +962,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     newSubcategoryError ? 'border-red-500 bg-red-50' : ''
                   }`}
-                  onKeyPress={(e) => e.key === 'Enter' && addNewSubcategory()}
+                  onKeyDown={(e) => e.key === 'Enter' && addNewSubcategory()}
                 />
                 {newSubcategoryError && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -1234,11 +1235,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 return (
                   <div className="mt-2 space-y-4">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-green-50 rounded-xl p-3 text-center"><p className="text-xs text-green-600 font-medium">Receitas</p><p className="text-sm font-bold text-green-700">R$ {totalReceita.toFixed(2).replace('.', ',')}</p></div>
-                      <div className="bg-red-50 rounded-xl p-3 text-center"><p className="text-xs text-red-600 font-medium">Despesas</p><p className="text-sm font-bold text-red-700">R$ {totalDespesa.toFixed(2).replace('.', ',')}</p></div>
+                      <div className="bg-green-50 rounded-xl p-3 text-center"><p className="text-xs text-green-600 font-medium">Receitas</p><p className="text-sm font-bold text-green-700">R$ {totalReceita.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
+                      <div className="bg-red-50 rounded-xl p-3 text-center"><p className="text-xs text-red-600 font-medium">Despesas</p><p className="text-sm font-bold text-red-700">R$ {totalDespesa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
                       <div className={`rounded-xl p-3 text-center ${saldo >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
                         <p className={`text-xs font-medium ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo</p>
-                        <p className={`text-sm font-bold ${saldo >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{saldo < 0 ? '-' : ''}R$ {Math.abs(saldo).toFixed(2).replace('.', ',')}</p>
+                        <p className={`text-sm font-bold ${saldo >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{saldo < 0 ? '-' : ''}R$ {Math.abs(saldo).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                     </div>
                     {selectedIds.length > 0 && (
