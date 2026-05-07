@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mail, User, X } from 'lucide-react';
 
 interface EsqueciSenhaModalProps {
@@ -20,19 +20,60 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // handleClose definido antes do useEffect para evitar stale closure
+  const firstFocusableRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const headingId = 'esqueci-senha-modal-title';
+
+  // Reset completo do estado ao fechar
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
     setError('');
     setSuccess('');
+    setEmailOuUsername('');
+    setUsernameAuxiliar('');
+    setShowUsernameAuxiliar(false);
     onClose();
   }, [isSubmitting, onClose]);
+
+  // Move foco para o botão de fechar ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      // Pequeno defer para garantir que o DOM já renderizou
+      const id = setTimeout(() => {
+        firstFocusableRef.current?.focus();
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
 
   // Recria o listener sempre que isSubmitting ou handleClose mudam
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Escape') {
+        handleClose();
+        return;
+      }
+      // Focus trap: mantém o foco dentro do modal
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -42,6 +83,10 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Guard contra double-submit
+    if (isSubmitting) return;
+
     setError('');
     setSuccess('');
 
@@ -55,9 +100,10 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
       return;
     }
 
-    try {
-      setIsSubmitting(true);
+    // setIsSubmitting antes do try para cobrir toda a operação assíncrona
+    setIsSubmitting(true);
 
+    try {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const body: { email?: string; username?: string } = {};
 
@@ -114,13 +160,20 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
         if (event.target === event.currentTarget) handleClose();
       }}
     >
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+      >
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h2 id={headingId} className="text-lg font-bold text-white flex items-center gap-2">
             <Mail className="w-5 h-5 text-white" aria-hidden="true" />
             Recuperar senha
           </h2>
           <button
+            ref={firstFocusableRef}
             onClick={handleClose}
             className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200"
             disabled={isSubmitting}
@@ -151,10 +204,10 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
               type="text"
               value={emailOuUsername}
               onChange={(event) => setEmailOuUsername(event.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-              placeholder="Digite seu email ou usuário"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder={showUsernameAuxiliar ? 'Digite seu email' : 'Digite seu email ou usuário'}
               disabled={isSubmitting || showUsernameAuxiliar}
-              autoComplete="email"
+              autoComplete="off"
             />
           </div>
 
