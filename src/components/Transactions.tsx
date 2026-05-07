@@ -1177,7 +1177,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       </div>
                     </button>
                   </div>
-                  <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setExtratoStep(0); setExtratoFile(null) }} className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors">Cancelar</button>
+                  {/* FIX: resetar todos os estados do extrato ao cancelar no passo 0 */}
+                  <button type="button" onClick={() => { setIsImportExtratoModalOpen(false); setImportType(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }} className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:!bg-[#2d3f52] transition-colors">Cancelar</button>
                 </div>
               )}
 
