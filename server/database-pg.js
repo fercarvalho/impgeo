@@ -4404,24 +4404,54 @@ class Database {
       let notas = notasRes.rows.length > 0 ? (notasRes.rows[0].valor || '') : '';
 
       if (action === 'nova_versao' && novaVersao) {
-        await client.query(
-          `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
-           VALUES ('versao_sistema', $1, $2)
-           ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
-          [novaVersao, now]
-        );
+        // Detecta se a seção desta versão já existe (caso de carrossel onde
+        // o superadmin já criou a versão num commit anterior e agora processa
+        // commits subsequentes com a mesma versão "sticky")
+        const versaoAtualRes = await client.query(`SELECT valor FROM rodape_configuracoes WHERE chave = 'versao_sistema'`);
+        const versaoAtual = versaoAtualRes.rows.length > 0 ? (versaoAtualRes.rows[0].valor || '') : '';
+        const secaoJaExiste = versaoAtual === novaVersao && notas.includes(`<h2>Versão ${novaVersao}</h2>`);
 
-        const novaSecao = `<h2>Versão ${novaVersao}</h2>\n<h3>📋 Atualizações</h3>\n<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n<hr>\n`;
-        notas = notas.includes('<h2>') ? notas.replace('<h2>', novaSecao + '<h2>') : novaSecao + notas;
+        if (secaoJaExiste) {
+          // Apenas adiciona o item na seção existente (não duplica cabeçalho)
+          notas = notas.includes('<!--COMMITS-->')
+            ? notas.replace('<!--COMMITS-->', `<!--COMMITS-->\n${novoItem}`)
+            : notas.replace(
+                `<h2>Versão ${novaVersao}</h2>`,
+                `<h2>Versão ${novaVersao}</h2>\n<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>`
+              );
+        } else {
+          await client.query(
+            `INSERT INTO rodape_configuracoes (chave, valor, updated_at)
+             VALUES ('versao_sistema', $1, $2)
+             ON CONFLICT (chave) DO UPDATE SET valor = $1, updated_at = $2`,
+            [novaVersao, now]
+          );
 
-        await client.query(
-          `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em, tipo, versao_referencia)
-           VALUES ($1, $2, $3, $4, 'versao', $1)
-           ON CONFLICT (versao) DO UPDATE SET texto = $2, roles = $3, criado_em = $4, tipo = 'versao', versao_referencia = $1`,
-          [novaVersao, mensagem, JSON.stringify(rolesNotificados), now]
-        );
+          const novaSecao = `<h2>Versão ${novaVersao}</h2>\n<h3>📋 Atualizações</h3>\n<ul>\n<!--COMMITS-->\n${novoItem}\n</ul>\n<hr>\n`;
+          notas = notas.includes('<h2>') ? notas.replace('<h2>', novaSecao + '<h2>') : novaSecao + notas;
+        }
 
-        await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [novaVersao]).catch(() => {});
+        // Notificação aos usuários: UPSERT — se já existe (mesma versão sticky),
+        // adiciona o item ao texto consolidado; senão cria nova entrada
+        const existeNotifRes = await client.query(`SELECT texto FROM versao_notificacoes WHERE versao = $1`, [novaVersao]);
+        if (existeNotifRes.rows.length > 0) {
+          const textoAtual = existeNotifRes.rows[0].texto || '';
+          const textoNovo = textoAtual ? `${textoAtual}\n• ${mensagem}` : `• ${mensagem}`;
+          await client.query(
+            `UPDATE versao_notificacoes
+                SET texto = $2, roles = $3, criado_em = $4, tipo = 'versao', versao_referencia = $1
+              WHERE versao = $1`,
+            [novaVersao, textoNovo, JSON.stringify(rolesNotificados), now]
+          );
+          // Reseta vistas para que usuários revejam o card consolidado atualizado
+          await client.query(`DELETE FROM versao_notificacoes_vistas WHERE versao = $1`, [novaVersao]).catch(() => {});
+        } else {
+          await client.query(
+            `INSERT INTO versao_notificacoes (versao, texto, roles, criado_em, tipo, versao_referencia)
+             VALUES ($1, $2, $3, $4, 'versao', $1)`,
+            [novaVersao, mensagem, JSON.stringify(rolesNotificados), now]
+          );
+        }
       } else {
         // action === 'manter': adiciona o item na seção atual das notas
         notas = notas.includes('<!--COMMITS-->')

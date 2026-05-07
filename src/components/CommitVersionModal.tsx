@@ -40,6 +40,9 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
   const [loading, setLoading] = useState(false);
   const [ignoring, setIgnoring] = useState(false);
   const [error, setError] = useState('');
+  // Versão "iniciada" durante esta sessão de carrossel — fica sticky e pré-seleciona
+  // os próximos commits para a mesma versão (sem precisar redigitar)
+  const [versaoIniciada, setVersaoIniciada] = useState<string | null>(null);
 
   // Sincroniza pendentes quando a prop commits mudar (ex: novos commits detectados)
   useEffect(() => {
@@ -50,17 +53,24 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
   const atual = pendentes[index];
   const total = pendentes.length;
 
-  // Reseta o formulário quando o commit atual muda
+  // Reseta o formulário quando o commit atual muda.
+  // Se já houve uma "nova versão" iniciada nesta sessão, pré-seleciona a opção
+  // e mantém o número da versão preenchido para os commits seguintes.
   useEffect(() => {
     if (!atual) return;
-    setChoice('manter');
-    setNovaVersao('');
+    if (versaoIniciada) {
+      setChoice('nova_versao');
+      setNovaVersao(versaoIniciada);
+    } else {
+      setChoice('manter');
+      setNovaVersao('');
+    }
     setMensagem(atual.mensagem);
     setRolesNotificados(['admin', 'user', 'guest']);
     setError('');
     setLoading(false);
     setIgnoring(false);
-  }, [atual?.commitHash]);
+  }, [atual?.commitHash, versaoIniciada]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -97,14 +107,19 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
     setError('');
     setLoading(true);
     try {
+      const versaoParaEnviar = choice === 'nova_versao' ? novaVersao.trim() : undefined;
       await onProcess({
         commitHash: atual.commitHash,
         action: choice,
-        novaVersao: choice === 'nova_versao' ? novaVersao.trim() : undefined,
+        novaVersao: versaoParaEnviar,
         mensagem: mensagem.trim(),
         data: atual.data,
         rolesNotificados,
       });
+      // Sticky: a partir de agora os próximos commits assumem essa nova versão
+      if (choice === 'nova_versao' && versaoParaEnviar) {
+        setVersaoIniciada(versaoParaEnviar);
+      }
       avancarOuFechar();
     } catch (err) {
       console.error('Erro ao confirmar commit:', err);
