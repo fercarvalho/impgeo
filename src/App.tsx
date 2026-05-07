@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import {
   Home,
   DollarSign,
@@ -129,18 +129,18 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash.substring(1);
-    const token = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
-    const isPasswordResetToken = token && /^[0-9a-f]{64}$/i.test(token);
+    const urlToken = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
+    const isPasswordResetToken = urlToken && /^[0-9a-f]{64}$/i.test(urlToken);
     const isViewRoute = window.location.pathname.includes('/acompanhamentos-view');
-    
+
     // Se o token existe e não é de reset de senha, ou se estamos na rota de visualização
-    if (token && (!isPasswordResetToken || isViewRoute || token.startsWith('view_'))) {
-      setViewToken(token);
+    if (urlToken && (!isPasswordResetToken || isViewRoute || urlToken.startsWith('view_'))) {
+      setViewToken(urlToken);
       return;
     }
 
-    if (token) {
-      setPasswordResetToken(token);
+    if (urlToken) {
+      setPasswordResetToken(urlToken);
       setShowPasswordResetModal(true);
       const newUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, '', newUrl);
@@ -157,7 +157,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-          <p className="text-gray-600">Carregando...</p>
+          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
     );
@@ -308,10 +308,10 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   useEffect(() => {
     const loadModulesCatalog = async () => {
       try {
-        if (!localStorage.getItem('authToken')) return;
+        if (!token) return;
         const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
+            Authorization: `Bearer ${token}`
           }
         });
         const result = await response.json();
@@ -340,7 +340,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
       setActiveTab(fallbackTab);
     }
-  }, [activeTab, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user, catalogModules]);
 
   // Resetar para dashboard quando impersonation iniciar ou encerrar
   useEffect(() => {
@@ -764,8 +765,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     loadData()
   }, [])
 
-  // Salvar metas no localStorage
+  // Salvar metas no localStorage — só persiste após o carregamento inicial (evita sobrescrever com [])
   useEffect(() => {
+    if (metas.length === 0) return
     localStorage.setItem('impgeo-metas', JSON.stringify(metas))
   }, [metas])
 
@@ -990,8 +992,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
     openChart(`Progresso da Meta Anual ${new Date().getFullYear()}`, data, 'Progresso em relação à meta anual')
   }
 
-  // NavigationBar
-  const NavigationBar = () => (
+  // NavigationBar — memoizada para evitar remount a cada render do componente pai
+  const NavigationBar = useMemo(() => () => (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Primeira linha: Logo, nome, subtítulo, usuário e botão sair */}
@@ -1066,7 +1068,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
       </div>
     </nav>
-  )
+  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab])
 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
@@ -2549,14 +2551,14 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       const pageHeight = 295
       const imgHeight = (canvas.height * imgWidth) / canvas.width
       let heightLeft = imgHeight
-      
+
       let position = 0
-      
+
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
-      
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
+
+      while (heightLeft > 0) {
+        position -= pageHeight
         pdf.addPage()
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
         heightLeft -= pageHeight
@@ -2828,8 +2830,9 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       .reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const lucroLiquidoAno = totalReceitasAno - totalDespesasAno
 
-    // Transações recentes (últimas 5)
+    // Transações recentes (últimas 5) — usa slice() antes de sort() para não mutar o array de estado
     const transacoesRecentes = transactions
+      .slice()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5)
 
@@ -3339,7 +3342,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
               <div>
                 {transacoesRecentes.map((transacao, index) => (
                   <div
-                    key={index}
+                    key={transacao.id}
                     className={`px-5 py-3.5 border-b last:border-b-0 border-gray-100 dark:border-gray-700/60 transition-colors duration-150 ${
                       index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'
                     }`}
@@ -3398,7 +3401,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando dados...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Carregando dados...</p>
         </div>
       </div>
     )
