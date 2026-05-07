@@ -13,6 +13,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  @keyframes slideDown {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}
+
 /* Overlay global para modais: cobre 100% inclusive topo fixo */
 .modal-open::before {
   content: "";
@@ -22,6 +29,10 @@
   backdrop-filter: blur(6px);
   z-index: 9998;
   pointer-events: auto;
+}
+
+html.dark .modal-open::before {
+  background: rgba(0,0,0,0.25);
 }
 
 :root {
@@ -175,8 +186,8 @@ html.dark .text-violet-800  { color: #c4b5fd; }
 html.dark .text-violet-700  { color: #a78bfa; }
 html.dark .text-indigo-800  { color: #a5b4fc; }
 html.dark .text-indigo-700  { color: #818cf8; }
-html.dark .text-indigo-600  { color: #818cf8; }
-html.dark .text-teal-900 { color: #5eead4; }
+html.dark .text-indigo-600  { color: #6366f1; }
+html.dark .text-teal-900 { color: #99f6e4; }
 html.dark .text-teal-800 { color: #5eead4; }
 html.dark .text-cyan-700 { color: #22d3ee; }
 html.dark .text-yellow-800 { color: #fde68a; }
@@ -343,9 +354,9 @@ html.dark .border-pink-200   { border-color: #831843; }
            transition-all duration-200;
   }
 
-  /* Overlay de modal */
+  /* Overlay de modal — z-[9999] garante ficar acima do .modal-open::before (z-9998) */
   .imp-modal-overlay {
-    @apply fixed inset-0 z-50
+    @apply fixed inset-0 z-[9999]
            bg-gradient-to-br from-blue-900/50 to-indigo-900/50
            backdrop-blur-sm
            flex items-center justify-center p-4;
