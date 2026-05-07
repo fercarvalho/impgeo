@@ -316,7 +316,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
       newErrors['address.city'] = 'Cidade é obrigatória';
     }
 
-    if (!formData.address.state || !formData.address.state.trim() || formData.address.state.length !== 2) {
+    if (!formData.address.state || !formData.address.state.trim() || formData.address.state.trim().length !== 2) {
       newErrors['address.state'] = 'Estado (UF) é obrigatório e deve ter 2 caracteres';
     }
 
@@ -483,7 +483,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 : 'bg-gray-50 border-gray-200 dark:!bg-gray-700 dark:border-gray-600'
                 }`}
               placeholder="Digite sua senha atual"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingPhoto}
               autoComplete="current-password"
             />
             {errors.password && (
