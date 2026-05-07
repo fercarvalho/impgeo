@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Edit, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +29,54 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
     password?: string;
     general?: string;
   }>({});
+
+  // [Bug 2] Ref para guardar o timer de fechamento automático
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // [Bug 3] Ref para AbortController do fetch em andamento
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // [Bug 8] Ref para focar o primeiro campo ao abrir o modal
+  const newUsernameInputRef = useRef<HTMLInputElement>(null);
+
+  // [Bug 8] Focar o campo "Novo Username" quando o modal abrir
+  useEffect(() => {
+    if (isOpen) {
+      const t = setTimeout(() => {
+        newUsernameInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  // [Bug 2 + Bug 3] Cleanup ao desmontar: cancelar timer e abortar fetch pendente
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+      }
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  // [Bug 1] Reset completo do formulário
+  const resetForm = () => {
+    setNewUsername('');
+    setPassword('');
+    setShowPassword(false);
+    setErrors({});
+    setSuccessMessage('');
+    if (closeTimerRef.current !== null) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    // Abortar requisição em andamento ao fechar manualmente o modal
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const validateUsername = (username: string): string | undefined => {
     if (!username.trim()) {
@@ -78,6 +126,11 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
       return;
     }
 
+    // [Bug 3] Cancelar requisição anterior se ainda estiver em andamento
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setSuccessMessage('');
 
@@ -91,7 +144,8 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
         body: JSON.stringify({
           username: newUsername.trim(),
           password: password
-        })
+        }),
+        signal: controller.signal
       });
 
       let result: { success?: boolean; error?: string; data?: { username?: string }; token?: string } = {};
@@ -102,10 +156,10 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
       }
 
       if (response.ok && result.success) {
-        // Atualizar contexto com novos dados (com optional chaining defensivo)
+        // [Bug 4] Usar fallback seguro caso o servidor não retorne o novo username
         updateUser(
           {
-            username: result.data?.username
+            username: result.data?.username ?? currentUsername
           },
           result.token
         );
@@ -116,43 +170,54 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
         setErrors({});
         setSuccessMessage('Username alterado com sucesso!');
 
-        // Fechar modal após breve delay para o usuário ver a mensagem
-        setTimeout(() => {
+        // [Bug 2] Fechar modal após breve delay — guardar timer para poder cancelá-lo
+        closeTimerRef.current = setTimeout(() => {
+          closeTimerRef.current = null;
           setSuccessMessage('');
           onClose();
         }, 1500);
       } else {
         setErrors({ general: result.error || 'Erro ao alterar username' });
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      // [Bug 3] Ignorar erro de abort (requisição cancelada intencionalmente)
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Erro ao alterar username:', error);
       setErrors({ general: 'Erro ao alterar username. Tente novamente.' });
     } finally {
-      setLoading(false);
+      // Só limpar loading se a requisição não foi abortada
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   };
 
   if (!isOpen) return null;
 
   const modalContent = (
+    // [Bug 5] Adicionar role="dialog", aria-modal e aria-labelledby
     <div
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="alterar-username-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          handleClose();
         }
       }}
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
+        {/* Header — [Bug 7] rounded-t-2xl para herdar o border-radius do card */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            {/* [Bug 5] id para aria-labelledby */}
+            <h2 id="alterar-username-title" className="text-xl font-bold text-white flex items-center gap-2">
               <Edit className="w-6 h-6 text-white" aria-hidden="true" />
               Alterar Username
             </h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
               disabled={loading}
               aria-label="Fechar modal"
@@ -186,12 +251,13 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
             <label htmlFor="currentUsername" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
               Username Atual
             </label>
+            {/* [Bug 6] dark:bg-gray-700/50 em vez de dark:!bg-gray-800 para criar contraste com o fundo do modal */}
             <input
               id="currentUsername"
               type="text"
               value={currentUsername}
               disabled
-              className="w-full px-4 py-3 bg-gray-100 dark:!bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 cursor-not-allowed"
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 cursor-not-allowed"
             />
           </div>
 
@@ -199,7 +265,9 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
             <label htmlFor="newUsername" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
               Novo Username <span className="text-red-500">*</span>
             </label>
+            {/* [Bug 8] ref para focar automaticamente ao abrir */}
             <input
+              ref={newUsernameInputRef}
               id="newUsername"
               type="text"
               value={newUsername}
@@ -259,7 +327,7 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
               disabled={loading}
             >
