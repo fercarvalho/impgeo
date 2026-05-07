@@ -68,6 +68,11 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  // Bug 1: se commits esvaziou externamente sem passar por avancarOuFechar, avisa o pai
+  useEffect(() => {
+    if (pendentes.length === 0) onClose();
+  }, [pendentes.length, onClose]);
+
   if (!atual) return null;
 
   const toggleRole = (role: string) => {
@@ -136,6 +141,9 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
       onClick={() => { if (!loading && !ignoring) onClose(); }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="commit-modal-title"
         className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg my-4 max-h-[calc(100vh-6rem)] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
@@ -146,7 +154,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
               <GitCommit className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">
+              <h2 id="commit-modal-title" className="text-base font-semibold text-white">
                 {total > 1 ? `Commits pendentes (${index + 1} de ${total})` : 'Novo commit detectado'}
               </h2>
               <p className="text-xs text-white/70 font-mono">{atual.commitHash.slice(0, 7)} · {atual.data}</p>
@@ -198,6 +206,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
                     <input type="text" value={novaVersao}
                       onChange={e => { setNovaVersao(e.target.value); setError(''); }}
                       placeholder="ex: 2.1, 3.0, 2.1 Beta…"
+                      aria-label="Número ou nome da nova versão"
                       className="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       autoFocus />
                   </div>
@@ -217,6 +226,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
                 const ativo = rolesNotificados.includes(role.value);
                 return (
                   <button key={role.value} type="button" onClick={() => toggleRole(role.value)}
+                    aria-pressed={ativo}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
                       ativo
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
@@ -240,6 +250,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
             </div>
             <textarea value={mensagem} onChange={e => { setMensagem(e.target.value); setError(''); }} rows={3}
               placeholder="Descrição do que foi feito neste commit…"
+              aria-label="Como aparecerá nas notas"
               className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed" />
             {mensagem.trim() && (
               <p className="text-xs text-gray-400 dark:text-gray-500 pl-1">
@@ -255,9 +266,9 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
           {/* Indicador de carrossel */}
           {total > 1 && (
             <div className="flex items-center justify-center gap-2 pt-2">
-              {pendentes.map((_, i) => (
+              {pendentes.map((p, i) => (
                 <span
-                  key={i}
+                  key={p.commitHash}
                   className={`h-1.5 rounded-full transition-all ${i === index ? 'w-6 bg-blue-600' : 'w-1.5 bg-gray-300 dark:bg-gray-600'}`}
                 />
               ))}
@@ -273,7 +284,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-60"
           >
             {ignoring
-              ? <div className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" aria-label="Ignorando..." />
+              ? <div role="status" className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" aria-label="Ignorando..." />
               : <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
             }
             Ignorar alterações
@@ -306,7 +317,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60"
             >
               {loading
-                ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-label="Salvando..." />
+                ? <div role="status" className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-label="Salvando..." />
                 : <Check className="w-4 h-4" aria-hidden="true" />
               }
               Salvar nas notas
