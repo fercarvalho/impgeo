@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -94,6 +94,95 @@ type ProjectionSectionId =
 
 const API_BASE_URL = '/api'
 
+// ---------------------------------------------------------------------------
+// Sub-components defined OUTSIDE the parent to prevent re-mount on every render
+// ---------------------------------------------------------------------------
+
+interface InputCellProps {
+  value: number
+  onBlur: (value: number) => void
+  className?: string
+  category: string
+  monthIndex: number
+  isDark: boolean
+  manualEdits: Record<string, boolean>
+}
+
+const InputCell: React.FC<InputCellProps> = React.memo(({ value, onBlur, className = '', category, monthIndex, isDark, manualEdits }) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const debounceTimerRef = useRef<number | undefined>(undefined)
+  const isNegative = value < 0
+  const textColor = isNegative ? 'text-red-600' : (isDark ? 'text-slate-100' : 'text-gray-900')
+
+  const editKey = `${category}-${monthIndex}`
+  const isManuallyEdited = manualEdits[editKey]
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const numericValue = parseFloat(e.target.value) || 0
+    console.log('handleBlur chamado com valor:', numericValue)
+    onBlur(numericValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const numericValue = parseFloat((e.target as HTMLInputElement).value) || 0
+      console.log('Tecla Enter/Tab pressionada, salvando:', numericValue)
+      onBlur(numericValue)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseFloat(e.target.value) || 0
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current)
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      console.log('Autosave (debounce) com valor:', numericValue)
+      onBlur(numericValue)
+    }, 500)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        key={`${category}-${monthIndex}-${value}`}
+        type="number"
+        defaultValue={value || ''}
+        onBlur={handleBlur}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        className={`w-full px-3 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${textColor} ${isManuallyEdited ? 'bg-yellow-50 border-yellow-300' : `border-gray-300 ${className}`}`}
+        placeholder="0,00"
+      />
+      {isManuallyEdited && (
+        <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full" title="Editado manualmente - protegido de cálculos automáticos"></div>
+      )}
+    </div>
+  )
+})
+
+interface CalculatedCellProps {
+  value: number
+  className?: string
+  isDark: boolean
+}
+
+const CalculatedCell: React.FC<CalculatedCellProps> = React.memo(({ value, className = '', isDark }) => {
+  const isNegative = value < 0
+  const textColor = isNegative
+    ? 'text-red-500'
+    : isDark ? 'text-slate-200' : 'text-gray-900'
+
+  return (
+    <div className={`px-3 py-1 text-sm font-semibold text-center ${isNegative ? textColor : `${textColor} ${className}`}`}>
+      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.round(value * 100) / 100)}
+    </div>
+  )
+})
+
+// ---------------------------------------------------------------------------
+
 const Projection: React.FC = () => {
   const { token, user } = useAuth()
   const { isDark } = useTheme()
@@ -120,6 +209,28 @@ const Projection: React.FC = () => {
   // Estado para controlar visualização (tabela/gráfico)
   const [isChartView, setIsChartView] = useState(false)
 
+  // Estados dos filtros de séries dos gráficos — mantidos no pai para não resetar ao re-render
+  const [baseDespesasEnabled, setBaseDespesasEnabled] = useState({
+    despesasVariaveis: true,
+    despesasFixas: true,
+    investimentos: true,
+    despesasTotais: true
+  })
+  const [baseMktEnabled, setBaseMktEnabled] = useState({
+    trafego: true,
+    socialMedia: true,
+    producaoConteudo: true,
+    total: true
+  })
+  const [baseFaturamentoEnabled, setBaseFaturamentoEnabled] = useState({
+    reurb: true,
+    geo: true,
+    plan: true,
+    reg: true,
+    nn: true,
+    total: true
+  })
+
   const [pendingScrollSectionId, setPendingScrollSectionId] = useState<ProjectionSectionId | null>(null)
   
   // Estados para modal de limpeza seletiva
@@ -140,8 +251,12 @@ const Projection: React.FC = () => {
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
   }>(() => {
-    const saved = localStorage.getItem('manualEdits')
-    return saved ? JSON.parse(saved) : {}
+    try {
+      const saved = localStorage.getItem('manualEdits')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
   })
   const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
     previsto: new Array(12).fill(0),
@@ -238,22 +353,25 @@ const Projection: React.FC = () => {
 
   useEffect(() => {
     const loadDataAsync = async () => {
-      await loadData()
-      await loadFixedExpensesData()
-      await loadVariableExpensesData()
-      await loadMktData()
-      await loadInvestmentsData()
-      await loadFaturamentoReurbData()
-      await loadFaturamentoGeoData()
-      await loadFaturamentoPlanData()
-      await loadFaturamentoRegData()
-      await loadFaturamentoNnData()
-      await loadFaturamentoTotalData()
-      await loadBudgetData()
-      await loadResultadoData()
-      setIsLoading(false)
+      try {
+        await loadData()
+        await loadFixedExpensesData()
+        await loadVariableExpensesData()
+        await loadMktData()
+        await loadInvestmentsData()
+        await loadFaturamentoReurbData()
+        await loadFaturamentoGeoData()
+        await loadFaturamentoPlanData()
+        await loadFaturamentoRegData()
+        await loadFaturamentoNnData()
+        await loadFaturamentoTotalData()
+        await loadBudgetData()
+        await loadResultadoData()
+      } finally {
+        setIsLoading(false)
+      }
     }
-    
+
     loadDataAsync()
   }, [])
 
@@ -315,7 +433,8 @@ const Projection: React.FC = () => {
       if (token) {
         saveFixedExpensesToServer(novosDados)
       }
-  }, [data.despesasFixas])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.despesasFixas, fixedExpensesData.previsto, fixedExpensesData.media, fixedExpensesData.maximo, token])
 
   // Atualização automática das despesas variáveis quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -368,20 +487,6 @@ const Projection: React.FC = () => {
     localStorage.setItem('manualEdits', JSON.stringify(manualEdits))
   }, [manualEdits])
 
-  // Escutar evento para resetar cálculos automaticamente quando entrar na aba de metas
-  useEffect(() => {
-    const handleResetarCalculosAutomatico = () => {
-      console.log('🔄 Resetando cálculos automaticamente ao entrar na aba de metas...')
-      resetarCalculos()
-    }
-
-    window.addEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
-    
-    return () => {
-      window.removeEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
-    }
-  }, [])
-
   // Forçar cálculo inicial das despesas variáveis quando dados forem carregados
   useEffect(() => {
     console.log('useEffect despesas variáveis executado:', {
@@ -423,7 +528,7 @@ const Projection: React.FC = () => {
         saveVariableExpensesToServer(novosDados)
       }
     }
-  }, [isLoading, data.despesasVariaveis, data.growth])
+  }, [isLoading, data.despesasVariaveis, data.growth?.minimo, data.growth?.medio, data.growth?.maximo])
 
   // Atualização automática do faturamento REURB quando dados da tabela principal ou percentual mudarem
   useEffect(() => {
@@ -674,7 +779,7 @@ const Projection: React.FC = () => {
   // Atualização automática do faturamento total quando qualquer faturamento mudar
   useEffect(() => {
     console.log('useEffect faturamento total executado')
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...faturamentoTotalData.previsto]
       const novosMedio = [...faturamentoTotalData.medio]
       const novosMaximo = [...faturamentoTotalData.maximo]
@@ -706,11 +811,11 @@ const Projection: React.FC = () => {
       setFaturamentoTotalData(novosDados)
       saveFaturamentoTotalToServer(novosDados)
     }
-  }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData])
+  }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData, isLoading])
 
   // Atualização automática do orçamento quando despesas fixas, variáveis, MKT ou investimentos mudarem
   useEffect(() => {
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...budgetData.previsto]
       const novosMedio = [...budgetData.medio]
       const novosMaximo = [...budgetData.maximo]
@@ -741,12 +846,12 @@ const Projection: React.FC = () => {
       setBudgetData(novosDados)
       saveBudgetToServer(novosDados)
     }
-  }, [fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
+  }, [fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos, isLoading])
 
   // Atualização automática do resultado quando faturamento total ou orçamento mudarem
   useEffect(() => {
     console.log('useEffect resultado executado')
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...resultadoData.previsto]
       const novosMedio = [...resultadoData.medio]
       const novosMaximo = [...resultadoData.maximo]
@@ -784,7 +889,7 @@ const Projection: React.FC = () => {
         saveResultadoToServer(novosDados)
       }
     }
-  }, [data, fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
+  }, [faturamentoTotalData, budgetData, isLoading])
 
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
@@ -1061,34 +1166,13 @@ const Projection: React.FC = () => {
   }
 
   const loadResultadoData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/resultado`)
-      if (response.ok) {
-        const resultadoData = await response.json()
-        console.log('Dados de resultado carregados do servidor:', resultadoData)
-        // Não vamos sobrescrever os valores calculados com dados salvos
-        // setResultadoData(resultadoData)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados de resultado:', error)
-    }
+    // Resultado é calculado automaticamente; não há estado local para carregar
   }
 
   // Função para forçar recálculo do resultado financeiro
 
-  // Carregar dados de MKT
-  const loadMktData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/mkt`)
-      if (response.ok) {
-        // Os dados são carregados mas não armazenados em estado local
-        // pois são calculados automaticamente baseados na tabela principal
-        console.log('Dados de MKT carregados com sucesso')
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados de MKT:', error)
-    }
-  }
+  // MKT é calculado automaticamente a partir dos componentes de MKT; sem estado local para carregar
+  const loadMktData = async () => {}
 
   const loadInvestmentsData = async () => {
     try {
@@ -1277,53 +1361,69 @@ const Projection: React.FC = () => {
   }
 
   // Função para resetar cálculos (extraída do botão)
-  const resetarCalculos = async () => {
+  const resetarCalculos = useCallback(async () => {
     // Limpar edições manuais do estado local
     setManualEdits({})
-    
+
     // Limpar arrays de edições manuais do estado principal
-    const updatedData = {
-      ...data,
-      // Limpar edições manuais de despesas fixas
-      fixedPrevistoManual: undefined,
-      fixedMediaManual: undefined,
-      fixedMaximoManual: undefined,
-      // Limpar edições manuais de despesas variáveis
-      variablePrevistoManual: undefined,
-      variableMedioManual: undefined,
-      variableMaximoManual: undefined,
-      // Limpar edições manuais de investimentos
-      investimentosPrevistoManual: undefined,
-      investimentosMedioManual: undefined,
-      investimentosMaximoManual: undefined,
-      // Limpar edições manuais de faturamentos
-      faturamentoReurbPrevistoManual: undefined,
-      faturamentoReurbMedioManual: undefined,
-      faturamentoReurbMaximoManual: undefined,
-      faturamentoGeoPrevistoManual: undefined,
-      faturamentoGeoMedioManual: undefined,
-      faturamentoGeoMaximoManual: undefined,
-      faturamentoPlanPrevistoManual: undefined,
-      faturamentoPlanMedioManual: undefined,
-      faturamentoPlanMaximoManual: undefined,
-      faturamentoRegPrevistoManual: undefined,
-      faturamentoRegMedioManual: undefined,
-      faturamentoRegMaximoManual: undefined,
-      faturamentoNnPrevistoManual: undefined,
-      faturamentoNnMedioManual: undefined,
-      faturamentoNnMaximoManual: undefined
-    }
-    
-    setData(updatedData)
-    
-    // Salvar no servidor
-    if (token) {
-      saveToServer(updatedData)
-    }
-    
+    setData(prev => {
+      const updatedData = {
+        ...prev,
+        // Limpar edições manuais de despesas fixas
+        fixedPrevistoManual: undefined,
+        fixedMediaManual: undefined,
+        fixedMaximoManual: undefined,
+        // Limpar edições manuais de despesas variáveis
+        variablePrevistoManual: undefined,
+        variableMedioManual: undefined,
+        variableMaximoManual: undefined,
+        // Limpar edições manuais de investimentos
+        investimentosPrevistoManual: undefined,
+        investimentosMedioManual: undefined,
+        investimentosMaximoManual: undefined,
+        // Limpar edições manuais de faturamentos
+        faturamentoReurbPrevistoManual: undefined,
+        faturamentoReurbMedioManual: undefined,
+        faturamentoReurbMaximoManual: undefined,
+        faturamentoGeoPrevistoManual: undefined,
+        faturamentoGeoMedioManual: undefined,
+        faturamentoGeoMaximoManual: undefined,
+        faturamentoPlanPrevistoManual: undefined,
+        faturamentoPlanMedioManual: undefined,
+        faturamentoPlanMaximoManual: undefined,
+        faturamentoRegPrevistoManual: undefined,
+        faturamentoRegMedioManual: undefined,
+        faturamentoRegMaximoManual: undefined,
+        faturamentoNnPrevistoManual: undefined,
+        faturamentoNnMedioManual: undefined,
+        faturamentoNnMaximoManual: undefined
+      }
+      // Salvar no servidor com os dados mais recentes
+      if (token) {
+        saveToServer(updatedData)
+      }
+      return updatedData
+    })
+
     console.log('Edições manuais resetadas - cálculos automáticos reativados')
     alert('✅ Cálculos resetados com sucesso!\n\nTodas as edições manuais foram removidas e os valores voltaram aos cálculos automáticos.')
-  }
+  // saveToServer é definida no escopo do componente mas não precisa ser dep pois não muda
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  // Escutar evento para resetar cálculos automaticamente quando entrar na aba de metas
+  useEffect(() => {
+    const handleResetarCalculosAutomatico = () => {
+      console.log('🔄 Resetando cálculos automaticamente ao entrar na aba de metas...')
+      resetarCalculos().catch((err) => console.error('Erro ao resetar cálculos automaticamente:', err))
+    }
+
+    window.addEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
+
+    return () => {
+      window.removeEventListener('resetarCalculosAutomatico', handleResetarCalculosAutomatico)
+    }
+  }, [resetarCalculos])
 
   // Limpar todos os dados de projeção
   const clearAllProjectionData = async () => {
@@ -2240,93 +2340,9 @@ Continuar mesmo assim?`)
     return formatNumber(faturamentoTotalMaximo - orcamentoMaximo)
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(Math.round(value * 100) / 100)
-  }
-
   const formatNumber = (value: number) => {
+    if (!isFinite(value) || isNaN(value)) return 0
     return Math.round(value * 100) / 100
-  }
-
-  const InputCell: React.FC<{
-    value: number
-    onBlur: (value: number) => void
-    className?: string
-    category: string
-    monthIndex: number
-  }> = ({ value, onBlur, className = '', category, monthIndex }) => {
-    const inputRef = useRef<HTMLInputElement>(null)
-    const debounceTimerRef = useRef<number | undefined>(undefined)
-    const isNegative = value < 0
-    const textColor = isNegative ? 'text-red-600' : 'text-gray-900'
-    
-    // Verificar se foi editado manualmente
-    const editKey = `${category}-${monthIndex}`
-    const isManuallyEdited = manualEdits[editKey]
-    
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      const numericValue = parseFloat(e.target.value) || 0
-      console.log('handleBlur chamado com valor:', numericValue)
-      onBlur(numericValue)
-    }
-    
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        const numericValue = parseFloat((e.target as HTMLInputElement).value) || 0
-        console.log('Tecla Enter/Tab pressionada, salvando:', numericValue)
-        onBlur(numericValue)
-      }
-    }
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const numericValue = parseFloat(e.target.value) || 0
-      // debounce para evitar muitos PUTs enquanto digita
-      if (debounceTimerRef.current) {
-        window.clearTimeout(debounceTimerRef.current)
-      }
-      debounceTimerRef.current = window.setTimeout(() => {
-        console.log('Autosave (debounce) com valor:', numericValue)
-        onBlur(numericValue)
-      }, 500)
-    }
-    
-    return (
-      <div className="relative">
-      <input
-        ref={inputRef}
-        key={`${category}-${monthIndex}-${value}`}
-        type="number"
-        defaultValue={value || ''}
-        onBlur={handleBlur}
-          onChange={handleChange}
-        onKeyDown={handleKeyDown}
-          className={`w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${textColor} ${className} ${isManuallyEdited ? 'bg-yellow-50 border-yellow-300' : ''}`}
-        placeholder="0,00"
-      />
-        {isManuallyEdited && (
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full" title="Editado manualmente - protegido de cálculos automáticos"></div>
-        )}
-      </div>
-    )
-  }
-
-  const CalculatedCell: React.FC<{
-    value: number
-    className?: string
-  }> = ({ value, className = '' }) => {
-    const isNegative = value < 0
-    const textColor = isNegative
-      ? 'text-red-500'
-      : isDark ? 'text-slate-200' : 'text-gray-900'
-
-    return (
-      <div className={`px-3 py-1 text-sm font-semibold text-center ${textColor} ${className}`}>
-        {formatCurrency(value)}
-      </div>
-    )
   }
 
   // Função para verificar sincronização entre banco e interface
@@ -2490,7 +2506,15 @@ Continuar mesmo assim?`)
 
   const chartMonths = useMemo(() => ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], [])
 
-  const ChartsView: React.FC<{ onEditSection: (sectionId: ProjectionSectionId) => void }> = ({ onEditSection }) => {
+  const ChartsView: React.FC<{
+    onEditSection: (sectionId: ProjectionSectionId) => void
+    baseDespesasEnabled: { despesasVariaveis: boolean; despesasFixas: boolean; investimentos: boolean; despesasTotais: boolean }
+    setBaseDespesasEnabled: React.Dispatch<React.SetStateAction<{ despesasVariaveis: boolean; despesasFixas: boolean; investimentos: boolean; despesasTotais: boolean }>>
+    baseMktEnabled: { trafego: boolean; socialMedia: boolean; producaoConteudo: boolean; total: boolean }
+    setBaseMktEnabled: React.Dispatch<React.SetStateAction<{ trafego: boolean; socialMedia: boolean; producaoConteudo: boolean; total: boolean }>>
+    baseFaturamentoEnabled: { reurb: boolean; geo: boolean; plan: boolean; reg: boolean; nn: boolean; total: boolean }
+    setBaseFaturamentoEnabled: React.Dispatch<React.SetStateAction<{ reurb: boolean; geo: boolean; plan: boolean; reg: boolean; nn: boolean; total: boolean }>>
+  }> = ({ onEditSection, baseDespesasEnabled, setBaseDespesasEnabled, baseMktEnabled, setBaseMktEnabled, baseFaturamentoEnabled, setBaseFaturamentoEnabled }) => {
     // Séries (Previsto/Médio/Máximo)
     const resultadoChartData = useMemo(
       () =>
@@ -2523,27 +2547,7 @@ Continuar mesmo assim?`)
       [data.growth?.minimo, data.growth?.medio, data.growth?.maximo]
     )
 
-    // Resultado do Ano Anterior (base) — 3 blocos com seleção de séries
-    const [baseDespesasEnabled, setBaseDespesasEnabled] = useState({
-      despesasVariaveis: true,
-      despesasFixas: true,
-      investimentos: true,
-      despesasTotais: true
-    })
-    const [baseMktEnabled, setBaseMktEnabled] = useState({
-      trafego: true,
-      socialMedia: true,
-      producaoConteudo: true,
-      total: true
-    })
-    const [baseFaturamentoEnabled, setBaseFaturamentoEnabled] = useState({
-      reurb: true,
-      geo: true,
-      plan: true,
-      reg: true,
-      nn: true,
-      total: true
-    })
+    // Os estados de filtros de séries são recebidos via props do componente pai (evita reset em re-renders)
 
     const baseDespesasData = useMemo(
       () =>
@@ -2969,7 +2973,7 @@ Continuar mesmo assim?`)
         {/* Primeira linha: Título + Botões principais */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <FaCalculator className="w-8 h-8 text-blue-600" />
+            <FaCalculator className="w-8 h-8 text-blue-600" aria-hidden="true" />
             Projeção Anual
           </h1>
           <div className="flex items-center gap-4">
@@ -3042,8 +3046,8 @@ Continuar mesmo assim?`)
         <div className="flex items-center gap-2">
           <p className="text-sm text-gray-600">Preencha apenas os valores mensais - os cálculos são automáticos</p>
           {isSaving && (
-            <div className="flex items-center gap-2 text-sm text-blue-600">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <div className="flex items-center gap-2 text-sm text-blue-600" role="status" aria-live="polite">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" aria-hidden="true"></div>
               salvando
             </div>
           )}
@@ -3056,6 +3060,9 @@ Continuar mesmo assim?`)
           </span>
           <button
             onClick={() => setIsChartView(!isChartView)}
+            role="switch"
+            aria-checked={isChartView}
+            aria-label="Alternar entre visualização em tabela e gráfico"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
               isChartView ? 'bg-blue-600' : 'bg-gray-300'
             }`}
@@ -3073,7 +3080,15 @@ Continuar mesmo assim?`)
       </div>
 
       {isChartView ? (
-        <ChartsView onEditSection={handleEditSection} />
+        <ChartsView
+          onEditSection={handleEditSection}
+          baseDespesasEnabled={baseDespesasEnabled}
+          setBaseDespesasEnabled={setBaseDespesasEnabled}
+          baseMktEnabled={baseMktEnabled}
+          setBaseMktEnabled={setBaseMktEnabled}
+          baseFaturamentoEnabled={baseFaturamentoEnabled}
+          setBaseFaturamentoEnabled={setBaseFaturamentoEnabled}
+        />
       ) : (
         <>
       {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
@@ -3108,42 +3123,52 @@ Continuar mesmo assim?`)
               <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
                 <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaChartBar className="inline mr-2" /> Cenário Previsto</td>
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                 <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                  <CalculatedCell value={calcularPrevistoResultadoMes(index)} />
+                  <CalculatedCell value={calcularPrevistoResultadoMes(index)}
+                  isDark={isDark} />
                 </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)} />
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)} />
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)} />
+                    <CalculatedCell value={calcularPrevistoResultadoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoResultadoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3151,42 +3176,52 @@ Continuar mesmo assim?`)
               <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
                 <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaChartLine className="inline mr-2" /> Cenário Médio</td>
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index)} />
+                    <CalculatedCell value={calcularMedioResultadoMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 3)} />
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 6)} />
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioResultadoMes(index + 9)} />
+                    <CalculatedCell value={calcularMedioResultadoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioResultadoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3194,42 +3229,52 @@ Continuar mesmo assim?`)
               <tr className={`transition-colors ${isDark ? 'hover:bg-blue-900/20' : 'hover:bg-blue-50'}`}>
                 <td className={`px-6 py-4 font-semibold sticky left-0 z-10 ${isDark ? 'text-slate-200' : 'text-gray-800'}`} style={{backgroundColor: isDark ? '#1e2d42' : '#fbfdff'}}><FaRocket className="inline mr-2" /> Cenário Máximo</td>
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index)} />
+                    <CalculatedCell value={calcularMaximoResultadoMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 3)} />
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 6)} />
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-3" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoResultadoMes(index + 9)} />
+                    <CalculatedCell value={calcularMaximoResultadoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-3 font-semibold">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoResultadoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoResultadoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -3241,6 +3286,7 @@ Continuar mesmo assim?`)
       <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
         <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Resultado Financeiro:</h3>
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, cálculo automático</p>
             <p><span className="font-semibold">Fórmula:</span> Faturamento Total - Orçamento</p>
@@ -3253,12 +3299,12 @@ Continuar mesmo assim?`)
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex justify-center items-center py-12" role="status" aria-live="polite">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" aria-hidden="true"></div>
           <span className="ml-2 text-gray-600">Carregando dados...</span>
         </div>
       ) : (
-        <div id="projection-section-resultadoAnoAnterior" className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div id="projection-section-resultadoAnoAnterior" className={`rounded-xl shadow-lg border overflow-hidden ${isDark ? 'bg-[#1a2535] border-slate-700' : 'bg-white border-gray-200'}`}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
             {/* Cabeçalho */}
@@ -3291,42 +3337,52 @@ Continuar mesmo assim?`)
               <tr className="bg-gray-100">
                 <td className="px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10 bg-gray-100">Despesas Totais</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
-                    <CalculatedCell value={calcularDespesasTotais(index)} />
+                    <CalculatedCell value={calcularDespesasTotais(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
-                    <CalculatedCell value={calcularDespesasTotais(index + 3)} />
+                    <CalculatedCell value={calcularDespesasTotais(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
-                    <CalculatedCell value={calcularDespesasTotais(index + 6)} />
+                    <CalculatedCell value={calcularDespesasTotais(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
-                    <CalculatedCell value={calcularDespesasTotais(index + 9)} />
+                    <CalculatedCell value={calcularDespesasTotais(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral(calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularTotalGeral(calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia(calcularDespesasTotais)} />
+                  <CalculatedCell value={calcularMedia(calcularDespesasTotais)}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3334,7 +3390,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Despesas Variáveis</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3343,11 +3400,14 @@ Continuar mesmo assim?`)
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index, value)}
                       category="despesasVariaveis"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3356,11 +3416,14 @@ Continuar mesmo assim?`)
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 3, value)}
                       category="despesasVariaveis"
                       monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3369,11 +3432,14 @@ Continuar mesmo assim?`)
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 6, value)}
                       category="despesasVariaveis"
                       monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3382,14 +3448,18 @@ Continuar mesmo assim?`)
                       onBlur={(value) => updateDataAndSave('despesasVariaveis', index + 9, value)}
                       category="despesasVariaveis"
                       monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.despesasVariaveis[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.despesasVariaveis[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3397,7 +3467,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Despesas Fixas</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3407,11 +3478,14 @@ Continuar mesmo assim?`)
                     
                       category="despesasFixas"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3420,11 +3494,14 @@ Continuar mesmo assim?`)
                       onBlur={(value) => updateDataAndSave('despesasFixas', index + 3, value)}
                       category="despesasFixas"
                       monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3434,11 +3511,14 @@ Continuar mesmo assim?`)
                     
                       category="despesasFixas"
                       monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3448,14 +3528,18 @@ Continuar mesmo assim?`)
                     
                       category="despesasFixas"
                       monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.despesasFixas[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.despesasFixas[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3463,7 +3547,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Investimentos</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3473,11 +3558,14 @@ Continuar mesmo assim?`)
                     
                       category="investimentos"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3487,11 +3575,14 @@ Continuar mesmo assim?`)
                     
                       category="investimentos"
                       monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3501,11 +3592,14 @@ Continuar mesmo assim?`)
                     
                       category="investimentos"
                       monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3515,14 +3609,18 @@ Continuar mesmo assim?`)
                     
                       category="investimentos"
                       monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.investimentos[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.investimentos[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3530,7 +3628,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Mkt</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3540,11 +3639,14 @@ Continuar mesmo assim?`)
                     
                       category="mkt"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3554,11 +3656,14 @@ Continuar mesmo assim?`)
                     
                       category="mkt"
                       monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3568,11 +3673,14 @@ Continuar mesmo assim?`)
                     
                       category="mkt"
                       monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3582,14 +3690,18 @@ Continuar mesmo assim?`)
                     
                       category="mkt"
                       monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.mkt[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.mkt[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3597,42 +3709,52 @@ Continuar mesmo assim?`)
               <tr className="bg-blue-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10 bg-blue-50">Faturamento Total</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
-                    <CalculatedCell value={calcularFaturamentoTotal(index)} />
+                    <CalculatedCell value={calcularFaturamentoTotal(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
-                    <CalculatedCell value={calcularFaturamentoTotal(index + 3)} />
+                    <CalculatedCell value={calcularFaturamentoTotal(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
-                    <CalculatedCell value={calcularFaturamentoTotal(index + 6)} />
+                    <CalculatedCell value={calcularFaturamentoTotal(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
-                    <CalculatedCell value={calcularFaturamentoTotal(index + 9)} />
+                    <CalculatedCell value={calcularFaturamentoTotal(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral(calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularTotalGeral(calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia(calcularFaturamentoTotal)} />
+                  <CalculatedCell value={calcularMedia(calcularFaturamentoTotal)}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3640,7 +3762,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento REURB</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3650,11 +3773,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReurb"
                       monthIndex={index}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3664,11 +3790,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReurb"
                       monthIndex={index + 3}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3678,11 +3807,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReurb"
                       monthIndex={index + 6}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3692,14 +3824,18 @@ Continuar mesmo assim?`)
                       category="faturamentoReurb"
                       monthIndex={index + 9}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.faturamentoReurb[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.faturamentoReurb[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3707,7 +3843,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento GEO</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3717,11 +3854,14 @@ Continuar mesmo assim?`)
                       category="faturamentoGeo"
                       monthIndex={index}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3731,11 +3871,14 @@ Continuar mesmo assim?`)
                       category="faturamentoGeo"
                       monthIndex={index + 3}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3745,11 +3888,14 @@ Continuar mesmo assim?`)
                       category="faturamentoGeo"
                       monthIndex={index + 6}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3759,14 +3905,18 @@ Continuar mesmo assim?`)
                       category="faturamentoGeo"
                       monthIndex={index + 9}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.faturamentoGeo[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.faturamentoGeo[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3774,7 +3924,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento PLAN</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3784,11 +3935,14 @@ Continuar mesmo assim?`)
                       category="faturamentoPlan"
                       monthIndex={index}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3798,11 +3952,14 @@ Continuar mesmo assim?`)
                       category="faturamentoPlan"
                       monthIndex={index + 3}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3812,11 +3969,14 @@ Continuar mesmo assim?`)
                       category="faturamentoPlan"
                       monthIndex={index + 6}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3826,14 +3986,18 @@ Continuar mesmo assim?`)
                       category="faturamentoPlan"
                       monthIndex={index + 9}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.faturamentoPlan[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.faturamentoPlan[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3841,7 +4005,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento REG</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3851,11 +4016,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReg"
                       monthIndex={index}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3865,11 +4033,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReg"
                       monthIndex={index + 3}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3879,11 +4050,14 @@ Continuar mesmo assim?`)
                       category="faturamentoReg"
                       monthIndex={index + 6}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3893,14 +4067,18 @@ Continuar mesmo assim?`)
                       category="faturamentoReg"
                       monthIndex={index + 9}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.faturamentoReg[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.faturamentoReg[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3908,7 +4086,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Faturamento NN</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
@@ -3918,11 +4097,14 @@ Continuar mesmo assim?`)
                       category="faturamentoNn"
                       monthIndex={index}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
@@ -3932,11 +4114,14 @@ Continuar mesmo assim?`)
                       category="faturamentoNn"
                       monthIndex={index + 3}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
@@ -3946,11 +4131,14 @@ Continuar mesmo assim?`)
                       category="faturamentoNn"
                       monthIndex={index + 6}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
@@ -3960,14 +4148,18 @@ Continuar mesmo assim?`)
                       category="faturamentoNn"
                       monthIndex={index + 9}
                       className="bg-blue-100"
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularTotalGeral((i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => data.faturamentoNn[i])} />
+                  <CalculatedCell value={calcularMedia((i) => data.faturamentoNn[i])}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -3975,42 +4167,52 @@ Continuar mesmo assim?`)
               <tr className="bg-gray-800 text-white">
                 <td className="px-4 py-3 font-bold sticky left-0 z-10 bg-gray-800">Resultado</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularTrimestre(0, 2, calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2">
-                    <CalculatedCell value={calcularResultado(index)} className="text-white" />
+                    <CalculatedCell value={calcularResultado(index)} className="text-white"
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularTrimestre(3, 5, calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2">
-                    <CalculatedCell value={calcularResultado(index + 3)} className="text-white" />
+                    <CalculatedCell value={calcularResultado(index + 3)} className="text-white"
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularTrimestre(6, 8, calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2">
-                    <CalculatedCell value={calcularResultado(index + 6)} className="text-white" />
+                    <CalculatedCell value={calcularResultado(index + 6)} className="text-white"
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularTrimestre(9, 11, calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2">
-                    <CalculatedCell value={calcularResultado(index + 9)} className="text-white" />
+                    <CalculatedCell value={calcularResultado(index + 9)} className="text-white"
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral(calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularTotalGeral(calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia(calcularResultado)} className="text-white" />
+                  <CalculatedCell value={calcularMedia(calcularResultado)} className="text-white"
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -4022,9 +4224,9 @@ Continuar mesmo assim?`)
 
       
       {/* Legenda (abaixo da tabela inicial) */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Apenas os valores mensais</p>
             <p><span className="font-semibold">Campos calculados:</span> Trimestres, Total Geral e Média</p>
@@ -4057,6 +4259,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Mínimo</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-minimo-${data.growth?.minimo ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.minimo ?? 0}
@@ -4074,6 +4277,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-medio-${data.growth?.medio ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.medio ?? 0}
@@ -4091,6 +4295,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-maximo-${data.growth?.maximo ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.maximo ?? 0}
@@ -4111,9 +4316,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Percentual de Crescimento Anual */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Percentual de Crescimento Anual:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Percentual de Crescimento Anual:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Mínimo, Médio e Máximo</p>
             <p><span className="font-semibold">Função:</span> Define percentuais de crescimento para cálculos automáticos</p>
@@ -4163,7 +4368,8 @@ Continuar mesmo assim?`)
                   <tr key={row.key}>
                     <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">{row.label}</td>
                     <td className="px-3 py-2">
-                      <CalculatedCell value={calcularTrimestre(0, 2, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                      <CalculatedCell value={calcularTrimestre(0, 2, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)}
+                  isDark={isDark} />
                     </td>
                     {meses.slice(0, 3).map((_, index) => (
                       <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4183,11 +4389,14 @@ Continuar mesmo assim?`)
                           }}
                           category={`mkt-${row.key}`}
                           monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                         />
                       </td>
                     ))}
                     <td className="px-3 py-2">
-                      <CalculatedCell value={calcularTrimestre(3, 5, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                      <CalculatedCell value={calcularTrimestre(3, 5, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)}
+                  isDark={isDark} />
                     </td>
                     {meses.slice(3, 6).map((_, index) => (
                       <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4207,11 +4416,14 @@ Continuar mesmo assim?`)
                           }}
                           category={`mkt-${row.key}`}
                           monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                         />
                       </td>
                     ))}
                     <td className="px-3 py-2">
-                      <CalculatedCell value={calcularTrimestre(6, 8, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                      <CalculatedCell value={calcularTrimestre(6, 8, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)}
+                  isDark={isDark} />
                     </td>
                     {meses.slice(6, 9).map((_, index) => (
                       <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4231,11 +4443,14 @@ Continuar mesmo assim?`)
                           }}
                           category={`mkt-${row.key}`}
                           monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                         />
                       </td>
                     ))}
                     <td className="px-3 py-2">
-                      <CalculatedCell value={calcularTrimestre(9, 11, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)} />
+                      <CalculatedCell value={calcularTrimestre(9, 11, (i) => (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || [])[i] || 0)}
+                  isDark={isDark} />
                     </td>
                     {meses.slice(9, 12).map((_, index) => (
                       <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4255,6 +4470,8 @@ Continuar mesmo assim?`)
                           }}
                           category={`mkt-${row.key}`}
                           monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                         />
                       </td>
                     ))}
@@ -4262,14 +4479,16 @@ Continuar mesmo assim?`)
                       <CalculatedCell value={(() => {
                         const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
                         return arr.reduce((sum, v) => sum + (v || 0), 0)
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                     <td className="px-3 py-2">
                       <CalculatedCell value={(() => {
                         const arr = (data.mktComponents?.[row.key as keyof NonNullable<typeof data.mktComponents>] || []) as number[]
                         const total = arr.reduce((sum, v) => sum + (v || 0), 0)
                         return total / 12
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                   </tr>
                 ))}
@@ -4282,7 +4501,8 @@ Continuar mesmo assim?`)
                       const c = data.mktComponents
                       if (!c) return 0
                       return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                    })} />
+                    })}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4290,7 +4510,8 @@ Continuar mesmo assim?`)
                         const c = data.mktComponents
                         if (!c) return 0
                         return (c.trafego[index]||0) + (c.socialMedia[index]||0) + (c.producaoConteudo[index]||0)
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -4298,7 +4519,8 @@ Continuar mesmo assim?`)
                       const c = data.mktComponents
                       if (!c) return 0
                       return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                    })} />
+                    })}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4307,7 +4529,8 @@ Continuar mesmo assim?`)
                         const c = data.mktComponents
                         if (!c) return 0
                         return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -4315,7 +4538,8 @@ Continuar mesmo assim?`)
                       const c = data.mktComponents
                       if (!c) return 0
                       return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                    })} />
+                    })}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4324,7 +4548,8 @@ Continuar mesmo assim?`)
                         const c = data.mktComponents
                         if (!c) return 0
                         return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -4332,7 +4557,8 @@ Continuar mesmo assim?`)
                       const c = data.mktComponents
                       if (!c) return 0
                       return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                    })} />
+                    })}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4341,7 +4567,8 @@ Continuar mesmo assim?`)
                         const c = data.mktComponents
                         if (!c) return 0
                         return (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0)
-                      })()} />
+                      })()}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -4350,7 +4577,8 @@ Continuar mesmo assim?`)
                       if (!c) return 0
                       const sum = [...Array(12).keys()].reduce((acc, i) => acc + (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0), 0)
                       return sum
-                    })()} />
+                    })()}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
                     <CalculatedCell value={(() => {
@@ -4358,7 +4586,8 @@ Continuar mesmo assim?`)
                       if (!c) return 0
                       const sum = [...Array(12).keys()].reduce((acc, i) => acc + (c.trafego[i]||0) + (c.socialMedia[i]||0) + (c.producaoConteudo[i]||0), 0)
                       return sum / 12
-                    })()} />
+                    })()}
+                  isDark={isDark} />
                   </td>
                 </tr>
               </tbody>
@@ -4368,9 +4597,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda MKT (logo abaixo da Composição MKT) */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda MKT:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Produção de Conteúdo:</span> criação de campanhas com estratégia</p>
           </div>
@@ -4413,42 +4642,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoMktMes(index)} />
+                    <CalculatedCell value={calcularPrevistoMktMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoMktMes(index + 3)} />
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoMktMes(index + 6)} />
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoMktMes(index + 9)} />
+                    <CalculatedCell value={calcularPrevistoMktMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoMktMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoMktMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -4456,42 +4695,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioMktMes(index)} />
+                    <CalculatedCell value={calcularMedioMktMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioMktMes(index + 3)} />
+                    <CalculatedCell value={calcularMedioMktMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioMktMes(index + 6)} />
+                    <CalculatedCell value={calcularMedioMktMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioMktMes(index + 9)} />
+                    <CalculatedCell value={calcularMedioMktMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioMktMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioMktMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -4499,42 +4748,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoMktMes(index)} />
+                    <CalculatedCell value={calcularMaximoMktMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoMktMes(index + 3)} />
+                    <CalculatedCell value={calcularMaximoMktMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoMktMes(index + 6)} />
+                    <CalculatedCell value={calcularMaximoMktMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoMktMes(index + 9)} />
+                    <CalculatedCell value={calcularMaximoMktMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoMktMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoMktMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -4543,9 +4802,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda MKT */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda MKT:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Fonte:</span> Linha "TOTAL" da tabela Composição MKT</p>
@@ -4591,7 +4850,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4618,11 +4878,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-fixed"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4649,11 +4912,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4680,11 +4946,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4711,14 +4980,18 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-fixed"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoFixedMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -4726,7 +4999,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Média</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4741,11 +5015,14 @@ Continuar mesmo assim?`)
                         }}
                         category="media-fixed"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4760,11 +5037,14 @@ Continuar mesmo assim?`)
                         }}
                         category="media-fixed"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4779,11 +5059,14 @@ Continuar mesmo assim?`)
                         }}
                         category="media-fixed"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4798,14 +5081,18 @@ Continuar mesmo assim?`)
                         }}
                         category="media-fixed"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMediaFixedMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMediaFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -4813,7 +5100,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4828,11 +5116,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-fixed"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4847,11 +5138,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-fixed"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4866,11 +5160,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-fixed"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4885,14 +5182,18 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-fixed"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMaximoFixedMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoFixedMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
               </tbody>
@@ -4902,9 +5203,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Fixas */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Fixas:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Apenas linha "Previsto"</p>
             <p><span className="font-semibold">Campos calculados:</span> Média (+10%) e Máximo (+10%)</p>
@@ -4950,7 +5251,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4965,11 +5267,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-var"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -4984,11 +5289,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-var"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5003,11 +5311,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-var"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5022,14 +5333,18 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-var"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoVariableMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5037,7 +5352,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5052,11 +5368,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-var"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5071,11 +5390,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-var"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5090,11 +5412,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-var"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5109,14 +5434,18 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-var"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMedioVariableMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMedioVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5124,7 +5453,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5139,11 +5469,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-var"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5158,11 +5491,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-var"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5177,11 +5513,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-var"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5196,14 +5535,18 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-var"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMaximoVariableMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoVariableMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
               </tbody>
@@ -5213,9 +5556,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Variáveis */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Variáveis:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Variáveis:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> Despesas Variáveis da tabela principal + Percentual</p>
@@ -5261,42 +5604,52 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index)} />
+                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 3)} />
+                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 3)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 6)} />
+                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 6)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 9)} />
+                      <CalculatedCell value={calcularPrevistoFixoVariavelMes(index + 9)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5304,42 +5657,52 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMedioFixoVariavelMes(index)} />
+                      <CalculatedCell value={calcularMedioFixoVariavelMes(index)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 3)} />
+                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 3)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 6)} />
+                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 6)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 9)} />
+                      <CalculatedCell value={calcularMedioFixoVariavelMes(index + 9)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMedioFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMedioFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5347,42 +5710,52 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index)} />
+                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 3)} />
+                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 3)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 6)} />
+                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 6)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 9)} />
+                      <CalculatedCell value={calcularMaximoFixoVariavelMes(index + 9)}
+                  isDark={isDark} />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMaximoFixoVariavelMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoFixoVariavelMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
               </tbody>
@@ -5392,9 +5765,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Fixas + Variáveis */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas + Variáveis:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Fixas + Variáveis:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Soma automática das duas tabelas</p>
             <p><span className="font-semibold">Função:</span> Não editável, apenas visualização</p>
@@ -5440,7 +5813,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5455,11 +5829,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-inv"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5474,11 +5851,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5493,11 +5873,14 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5512,14 +5895,18 @@ Continuar mesmo assim?`)
                         }}
                         category="previsto-inv"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularPrevistoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5527,7 +5914,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5542,11 +5930,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-inv"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5561,11 +5952,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-inv"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5580,11 +5974,14 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-inv"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5599,14 +5996,18 @@ Continuar mesmo assim?`)
                         }}
                         category="medio-inv"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMedioInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMedioInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
 
@@ -5614,7 +6015,8 @@ Continuar mesmo assim?`)
                 <tr>
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(0, 3).map((_, index) => (
                     <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5629,11 +6031,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-inv"
                         monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(3, 6).map((_, index) => (
                     <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5648,11 +6053,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(6, 9).map((_, index) => (
                     <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5667,11 +6075,14 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   {meses.slice(9, 12).map((_, index) => (
                     <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -5686,14 +6097,18 @@ Continuar mesmo assim?`)
                         }}
                         category="maximo-inv"
                         monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                       />
                     </td>
                   ))}
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                   <td className="px-3 py-2">
-                    <CalculatedCell value={calcularMedia((i) => calcularMaximoInvestimentoMes(i))} />
+                    <CalculatedCell value={calcularMedia((i) => calcularMaximoInvestimentoMes(i))}
+                  isDark={isDark} />
                   </td>
                 </tr>
               </tbody>
@@ -5703,15 +6118,15 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Investimentos */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Investimentos:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Investimentos:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> Investimentos da tabela principal + Percentual</p>
           </div>
           <div>
-            <p><span className="font-semibold">Persistência:</span> Valores editados não são salvos</p>
+            <p><span className="font-semibold">Persistência:</span> Valores editados são salvos no servidor</p>
             <p><span className="font-semibold">Uso:</span> Componente do cálculo do Orçamento</p>
           </div>
         </div>
@@ -5749,42 +6164,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index)} />
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 3)} />
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 6)} />
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 9)} />
+                    <CalculatedCell value={calcularPrevistoOrcamentoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -5792,42 +6217,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioOrcamentoMes(index)} />
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 3)} />
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 6)} />
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 9)} />
+                    <CalculatedCell value={calcularMedioOrcamentoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -5835,42 +6270,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoOrcamentoMes(index)} />
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 3)} />
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 3)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 6)} />
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 6)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 9)} />
+                    <CalculatedCell value={calcularMaximoOrcamentoMes(index + 9)}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoOrcamentoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoOrcamentoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -5879,9 +6324,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Orçamento */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Orçamento:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Orçamento:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Componentes:</span> Despesas Fixas + Variáveis + MKT + Investimentos</p>
@@ -5925,14 +6370,15 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto[0] + faturamentoReurbData.previsto[1] + faturamentoReurbData.previsto[2]} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[0] + faturamentoReurbData.previsto[1] + faturamentoReurbData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoReurbData.previsto[index]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
+                        const newData = {...faturamentoReurbData, previsto: [...faturamentoReurbData.previsto]}
                         newData.previsto[index] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
@@ -5946,18 +6392,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto[3] + faturamentoReurbData.previsto[4] + faturamentoReurbData.previsto[5]} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[3] + faturamentoReurbData.previsto[4] + faturamentoReurbData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoReurbData.previsto[index + 3]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
+                        const newData = {...faturamentoReurbData, previsto: [...faturamentoReurbData.previsto]}
                         newData.previsto[index + 3] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
@@ -5971,18 +6420,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto[6] + faturamentoReurbData.previsto[7] + faturamentoReurbData.previsto[8]} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[6] + faturamentoReurbData.previsto[7] + faturamentoReurbData.previsto[8]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoReurbData.previsto[index + 6]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
+                        const newData = {...faturamentoReurbData, previsto: [...faturamentoReurbData.previsto]}
                         newData.previsto[index + 6] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
@@ -5996,18 +6448,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto[9] + faturamentoReurbData.previsto[10] + faturamentoReurbData.previsto[11]} />
+                  <CalculatedCell value={faturamentoReurbData.previsto[9] + faturamentoReurbData.previsto[10] + faturamentoReurbData.previsto[11]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoReurbData.previsto[index + 9]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoReurbData}
+                        const newData = {...faturamentoReurbData, previsto: [...faturamentoReurbData.previsto]}
                         newData.previsto[index + 9] = value
                         setFaturamentoReurbData(newData)
                         saveFaturamentoReurbToServer(newData)
@@ -6021,14 +6476,18 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={faturamentoReurbData.previsto.reduce((sum, v) => sum + v, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoReurbData.previsto.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={faturamentoReurbData.previsto.reduce((sum, v) => sum + v, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6036,7 +6495,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6051,11 +6511,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6069,12 +6532,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6088,12 +6554,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6107,15 +6576,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioReurbMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioReurbMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6123,7 +6596,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6138,11 +6612,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReurb"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6156,12 +6633,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6175,12 +6655,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6194,15 +6677,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReurb"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoReurbMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoReurbMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -6211,9 +6698,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento REURB */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REURB:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento REURB:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> REURB da tabela principal + Percentual</p>
@@ -6257,14 +6744,15 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto[0] + faturamentoGeoData.previsto[1] + faturamentoGeoData.previsto[2]} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[0] + faturamentoGeoData.previsto[1] + faturamentoGeoData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoGeoData.previsto[index]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoGeoData}
+                        const newData = {...faturamentoGeoData, previsto: [...faturamentoGeoData.previsto]}
                         newData.previsto[index] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
@@ -6278,18 +6766,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto[3] + faturamentoGeoData.previsto[4] + faturamentoGeoData.previsto[5]} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[3] + faturamentoGeoData.previsto[4] + faturamentoGeoData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoGeoData.previsto[index + 3]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoGeoData}
+                        const newData = {...faturamentoGeoData, previsto: [...faturamentoGeoData.previsto]}
                         newData.previsto[index + 3] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
@@ -6303,18 +6794,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto[6] + faturamentoGeoData.previsto[7] + faturamentoGeoData.previsto[8]} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[6] + faturamentoGeoData.previsto[7] + faturamentoGeoData.previsto[8]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoGeoData.previsto[index + 6]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoGeoData}
+                        const newData = {...faturamentoGeoData, previsto: [...faturamentoGeoData.previsto]}
                         newData.previsto[index + 6] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
@@ -6328,18 +6822,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto[9] + faturamentoGeoData.previsto[10] + faturamentoGeoData.previsto[11]} />
+                  <CalculatedCell value={faturamentoGeoData.previsto[9] + faturamentoGeoData.previsto[10] + faturamentoGeoData.previsto[11]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoGeoData.previsto[index + 9]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoGeoData}
+                        const newData = {...faturamentoGeoData, previsto: [...faturamentoGeoData.previsto]}
                         newData.previsto[index + 9] = value
                         setFaturamentoGeoData(newData)
                         saveFaturamentoGeoToServer(newData)
@@ -6353,14 +6850,18 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={faturamentoGeoData.previsto.reduce((sum, v) => sum + v, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoGeoData.previsto.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={faturamentoGeoData.previsto.reduce((sum, v) => sum + v, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6368,7 +6869,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6383,11 +6885,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6401,12 +6906,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6420,12 +6928,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6439,15 +6950,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioGeoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioGeoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6455,7 +6970,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6470,11 +6986,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoGeo"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6488,12 +7007,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6507,12 +7029,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6526,15 +7051,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoGeo"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoGeoMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoGeoMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -6543,9 +7072,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento GEO */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento GEO:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento GEO:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> GEO da tabela principal + Percentual</p>
@@ -6589,14 +7118,15 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto[0] + faturamentoPlanData.previsto[1] + faturamentoPlanData.previsto[2]} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[0] + faturamentoPlanData.previsto[1] + faturamentoPlanData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoPlanData.previsto[index]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoPlanData}
+                        const newData = {...faturamentoPlanData, previsto: [...faturamentoPlanData.previsto]}
                         newData.previsto[index] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
@@ -6610,18 +7140,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto[3] + faturamentoPlanData.previsto[4] + faturamentoPlanData.previsto[5]} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[3] + faturamentoPlanData.previsto[4] + faturamentoPlanData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoPlanData.previsto[index + 3]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoPlanData}
+                        const newData = {...faturamentoPlanData, previsto: [...faturamentoPlanData.previsto]}
                         newData.previsto[index + 3] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
@@ -6635,18 +7168,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto[6] + faturamentoPlanData.previsto[7] + faturamentoPlanData.previsto[8]} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[6] + faturamentoPlanData.previsto[7] + faturamentoPlanData.previsto[8]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoPlanData.previsto[index + 6]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoPlanData}
+                        const newData = {...faturamentoPlanData, previsto: [...faturamentoPlanData.previsto]}
                         newData.previsto[index + 6] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
@@ -6660,18 +7196,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto[9] + faturamentoPlanData.previsto[10] + faturamentoPlanData.previsto[11]} />
+                  <CalculatedCell value={faturamentoPlanData.previsto[9] + faturamentoPlanData.previsto[10] + faturamentoPlanData.previsto[11]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoPlanData.previsto[index + 9]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoPlanData}
+                        const newData = {...faturamentoPlanData, previsto: [...faturamentoPlanData.previsto]}
                         newData.previsto[index + 9] = value
                         setFaturamentoPlanData(newData)
                         saveFaturamentoPlanToServer(newData)
@@ -6685,14 +7224,18 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={faturamentoPlanData.previsto.reduce((sum, v) => sum + v, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoPlanData.previsto.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={faturamentoPlanData.previsto.reduce((sum, v) => sum + v, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6700,7 +7243,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6715,11 +7259,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6733,12 +7280,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6752,12 +7302,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6771,15 +7324,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioPlanMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioPlanMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -6787,7 +7344,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6802,11 +7360,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoPlan"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6820,12 +7381,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6839,12 +7403,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -6858,15 +7425,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoPlan"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoPlanMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoPlanMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -6875,9 +7446,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento PLAN */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento PLAN:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento PLAN:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> PLAN da tabela principal + Percentual</p>
@@ -6921,14 +7492,15 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto[0] + faturamentoRegData.previsto[1] + faturamentoRegData.previsto[2]} />
+                  <CalculatedCell value={faturamentoRegData.previsto[0] + faturamentoRegData.previsto[1] + faturamentoRegData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoRegData.previsto[index]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoRegData}
+                        const newData = {...faturamentoRegData, previsto: [...faturamentoRegData.previsto]}
                         newData.previsto[index] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
@@ -6942,18 +7514,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto[3] + faturamentoRegData.previsto[4] + faturamentoRegData.previsto[5]} />
+                  <CalculatedCell value={faturamentoRegData.previsto[3] + faturamentoRegData.previsto[4] + faturamentoRegData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoRegData.previsto[index + 3]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoRegData}
+                        const newData = {...faturamentoRegData, previsto: [...faturamentoRegData.previsto]}
                         newData.previsto[index + 3] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
@@ -6967,18 +7542,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto[6] + faturamentoRegData.previsto[7] + faturamentoRegData.previsto[8]} />
+                  <CalculatedCell value={faturamentoRegData.previsto[6] + faturamentoRegData.previsto[7] + faturamentoRegData.previsto[8]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoRegData.previsto[index + 6]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoRegData}
+                        const newData = {...faturamentoRegData, previsto: [...faturamentoRegData.previsto]}
                         newData.previsto[index + 6] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
@@ -6992,18 +7570,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto[9] + faturamentoRegData.previsto[10] + faturamentoRegData.previsto[11]} />
+                  <CalculatedCell value={faturamentoRegData.previsto[9] + faturamentoRegData.previsto[10] + faturamentoRegData.previsto[11]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoRegData.previsto[index + 9]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoRegData}
+                        const newData = {...faturamentoRegData, previsto: [...faturamentoRegData.previsto]}
                         newData.previsto[index + 9] = value
                         setFaturamentoRegData(newData)
                         saveFaturamentoRegToServer(newData)
@@ -7017,14 +7598,18 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto.reduce((sum, v) => sum + v, 0)} />
+                  <CalculatedCell value={faturamentoRegData.previsto.reduce((sum, v) => sum + v, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoRegData.previsto.reduce((sum, v) => sum + v, 0) / 12} />
+                  <CalculatedCell value={faturamentoRegData.previsto.reduce((sum, v) => sum + v, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7032,7 +7617,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7047,11 +7633,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7065,12 +7654,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7084,12 +7676,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7103,15 +7698,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioRegMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioRegMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7119,7 +7718,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7134,11 +7734,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoReg"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7152,12 +7755,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7171,12 +7777,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7190,15 +7799,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoReg"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoRegMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoRegMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -7207,9 +7820,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento REG */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REG:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento REG:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> REG da tabela principal + Percentual</p>
@@ -7253,14 +7866,15 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto[0] + faturamentoNnData.previsto[1] + faturamentoNnData.previsto[2]} />
+                  <CalculatedCell value={faturamentoNnData.previsto[0] + faturamentoNnData.previsto[1] + faturamentoNnData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoNnData.previsto[index]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoNnData}
+                        const newData = {...faturamentoNnData, previsto: [...faturamentoNnData.previsto]}
                         newData.previsto[index] = value
                         setFaturamentoNnData(newData)
                         saveFaturamentoNnToServer(newData)
@@ -7274,18 +7888,21 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoNnData.previsto[3] + faturamentoNnData.previsto[4] + faturamentoNnData.previsto[5]} />
+                  <CalculatedCell value={faturamentoNnData.previsto[3] + faturamentoNnData.previsto[4] + faturamentoNnData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <InputCell 
                       value={faturamentoNnData.previsto[index + 3]} 
                       onBlur={(value: number) => {
-                        const newData = {...faturamentoNnData}
+                        const newData = {...faturamentoNnData, previsto: [...faturamentoNnData.previsto]}
                         newData.previsto[index + 3] = value
                         setFaturamentoNnData(newData)
                         saveFaturamentoNnToServer(newData)
@@ -7299,11 +7916,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularPrevistoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7318,11 +7938,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularPrevistoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7339,7 +7962,7 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                         
                         // Salvar também no arquivo faturamentoNn.json
-                        const newData = {...faturamentoNnData}
+                        const newData = {...faturamentoNnData, previsto: [...faturamentoNnData.previsto]}
                         newData.previsto[index + 9] = value
                         setFaturamentoNnData(newData)
                         console.log(`🔵 Salvando no faturamentoNn.json...`)
@@ -7347,14 +7970,18 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularPrevistoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoNnMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularPrevistoNnMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7362,7 +7989,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7377,11 +8005,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7395,12 +8026,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7414,12 +8048,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7433,15 +8070,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMedioNnMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMedioNnMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7449,7 +8090,8 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(0, 2, (i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7464,11 +8106,14 @@ Continuar mesmo assim?`)
                       }}
                       category="faturamentoNn"
                       monthIndex={index}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(3, 5, (i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7482,12 +8127,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 3}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(6, 8, (i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7501,12 +8149,15 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 6}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularTrimestre(9, 11, (i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7520,15 +8171,19 @@ Continuar mesmo assim?`)
                         if (token) saveToServer(updated)
                       }}
                       category="faturamentoNn"
-                      monthIndex={index}
+                      monthIndex={index + 9}
+                  isDark={isDark}
+                  manualEdits={manualEdits}
                     />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoNnMes(i))} />
+                  <CalculatedCell value={calcularMedia((i) => calcularMaximoNnMes(i))}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -7537,9 +8192,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento NN */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento NN:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento NN:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> NN da tabela principal + Percentual</p>
@@ -7583,66 +8238,52 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[0] + faturamentoGeoData.previsto[0] + faturamentoPlanData.previsto[0] + faturamentoRegData.previsto[0] + faturamentoNnData.previsto[0]) +
-                      (faturamentoReurbData.previsto[1] + faturamentoGeoData.previsto[1] + faturamentoPlanData.previsto[1] + faturamentoRegData.previsto[1] + faturamentoNnData.previsto[1]) +
-                      (faturamentoReurbData.previsto[2] + faturamentoGeoData.previsto[2] + faturamentoPlanData.previsto[2] + faturamentoRegData.previsto[2] + faturamentoNnData.previsto[2])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[0] + faturamentoTotalData.previsto[1] + faturamentoTotalData.previsto[2]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={faturamentoTotalData.previsto[index]} />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[3] + faturamentoGeoData.previsto[3] + faturamentoPlanData.previsto[3] + faturamentoRegData.previsto[3] + faturamentoNnData.previsto[3]) +
-                      (faturamentoReurbData.previsto[4] + faturamentoGeoData.previsto[4] + faturamentoPlanData.previsto[4] + faturamentoRegData.previsto[4] + faturamentoNnData.previsto[4]) +
-                      (faturamentoReurbData.previsto[5] + faturamentoGeoData.previsto[5] + faturamentoPlanData.previsto[5] + faturamentoRegData.previsto[5] + faturamentoNnData.previsto[5])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[3] + faturamentoTotalData.previsto[4] + faturamentoTotalData.previsto[5]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={faturamentoTotalData.previsto[index + 3]} />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 3]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[6] + faturamentoGeoData.previsto[6] + faturamentoPlanData.previsto[6] + faturamentoRegData.previsto[6] + faturamentoNnData.previsto[6]) +
-                      (faturamentoReurbData.previsto[7] + faturamentoGeoData.previsto[7] + faturamentoPlanData.previsto[7] + faturamentoRegData.previsto[7] + faturamentoNnData.previsto[7]) +
-                      (faturamentoReurbData.previsto[8] + faturamentoGeoData.previsto[8] + faturamentoPlanData.previsto[8] + faturamentoRegData.previsto[8] + faturamentoNnData.previsto[8])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[6] + faturamentoTotalData.previsto[7] + faturamentoTotalData.previsto[8]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={faturamentoTotalData.previsto[index + 6]} />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 6]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[9] + faturamentoGeoData.previsto[9] + faturamentoPlanData.previsto[9] + faturamentoRegData.previsto[9] + faturamentoNnData.previsto[9]) +
-                      (faturamentoReurbData.previsto[10] + faturamentoGeoData.previsto[10] + faturamentoPlanData.previsto[10] + faturamentoRegData.previsto[10] + faturamentoNnData.previsto[10]) +
-                      (faturamentoReurbData.previsto[11] + faturamentoGeoData.previsto[11] + faturamentoPlanData.previsto[11] + faturamentoRegData.previsto[11] + faturamentoNnData.previsto[11])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[9] + faturamentoTotalData.previsto[10] + faturamentoTotalData.previsto[11]}
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={faturamentoTotalData.previsto[index + 9]} />
+                    <CalculatedCell value={faturamentoTotalData.previsto[index + 9]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0)} />
+                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0) / 12} />
+                  <CalculatedCell value={faturamentoTotalData.previsto.reduce((sum, value) => sum + value, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7656,11 +8297,13 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.medio[1]) +
                       (faturamentoTotalData.medio[2])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={faturamentoTotalData.medio[index]} />
+                    <CalculatedCell value={faturamentoTotalData.medio[index]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7670,13 +8313,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.medio[4]) +
                       (faturamentoTotalData.medio[5])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.medio[index + 3])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7686,13 +8331,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.medio[7]) +
                       (faturamentoTotalData.medio[8])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.medio[index + 6])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7702,13 +8349,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.medio[10]) +
                       (faturamentoTotalData.medio[11])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.medio[index + 9])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7716,14 +8365,16 @@ Continuar mesmo assim?`)
                     Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
                       faturamentoTotalData.medio[i]
                     ), 0)
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
                   <CalculatedCell value={
                     (Array.from({ length: 12 }, (_, i) => i).reduce((sum: number, i: number) => sum + (
                       faturamentoTotalData.medio[i]
                     ), 0) / 12)
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
               </tr>
 
@@ -7737,13 +8388,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.maximo[1]) +
                       (faturamentoTotalData.maximo[2])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.maximo[index])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7753,13 +8406,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.maximo[4]) +
                       (faturamentoTotalData.maximo[5])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.maximo[index + 3])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7769,13 +8424,15 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.maximo[7]) +
                       (faturamentoTotalData.maximo[8])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
                     <CalculatedCell value={
                       (faturamentoTotalData.maximo[index + 6])
-                    } />
+                    }
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
@@ -7785,18 +8442,22 @@ Continuar mesmo assim?`)
                       (faturamentoTotalData.maximo[10]) +
                       (faturamentoTotalData.maximo[11])
                     )
-                  } />
+                  }
+                  isDark={isDark} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoTotalMes(index + 9)} />
+                    <CalculatedCell value={faturamentoTotalData.maximo[index + 9]}
+                  isDark={isDark} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoTotalMes(i))} />
+                  <CalculatedCell value={faturamentoTotalData.maximo.reduce((sum, value) => sum + value, 0)}
+                  isDark={isDark} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoTotalMes(i))} />
+                  <CalculatedCell value={faturamentoTotalData.maximo.reduce((sum, value) => sum + value, 0) / 12}
+                  isDark={isDark} />
                 </td>
               </tr>
             </tbody>
@@ -7805,9 +8466,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento Total */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento Total:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento Total:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Componentes:</span> REURB + GEO + PLAN + REG + NN</p>
@@ -7828,21 +8489,25 @@ Continuar mesmo assim?`)
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
           onClick={() => setShowSelectiveClearModal(false)}
         >
-          <div 
+          <div
             className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[95vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="selective-clear-modal-title"
           >
             {/* Header do Modal */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Limpeza Seletiva - Projeção</h3>
+                <h3 id="selective-clear-modal-title" className="text-xl font-bold text-gray-900">Limpeza Seletiva - Projeção</h3>
                 <p className="text-gray-600 text-sm mt-1">Selecione quais tabelas editáveis da projeção deseja limpar</p>
               </div>
               <button
                 onClick={() => setShowSelectiveClearModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Fechar modal"
               >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-6 w-6" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -7951,7 +8616,11 @@ Continuar mesmo assim?`)
                         
                         console.log(`🗑️ Limpando tabela: ${tableId} -> /api/${route}`)
                         const response = await fetch(`/api/${route}`, {
-                          method: 'DELETE'
+                          method: 'DELETE',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                          }
                         })
                         
                         if (!response.ok) {

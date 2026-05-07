@@ -69,8 +69,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     } catch(e) { console.error('Error parsing matriculas_dados', e) }
   } else if (raw?.matriculas && typeof raw?.matriculas === 'string') {
     // legacy string support
-    matriculas_dados = raw.matriculas.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    matriculas_dados = raw.matriculas.split(',').map((m: string, idx: number) => ({
+      id: `${Date.now().toString(36)}_${idx}_${Math.random().toString(36).substr(2)}`,
       numero: m.trim(),
       url: ''
     })).filter((m: MatriculaItem) => m.numero.length > 0)
@@ -87,8 +87,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     } catch(e) { console.error('Error parsing itr_dados', e) }
   } else if (raw?.itr && typeof raw?.itr === 'string') {
     // legacy string support
-    itr_dados = raw.itr.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    itr_dados = raw.itr.split(',').map((m: string, idx: number) => ({
+      id: `${Date.now().toString(36)}_${idx}_${Math.random().toString(36).substr(2)}`,
       numero: m.trim(),
       url: '',
       declaracaoUrl: '',
@@ -114,8 +114,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
   } else if ((raw?.nIncraCcir || raw?.n_incra_ccir) && typeof (raw?.nIncraCcir || raw?.n_incra_ccir) === 'string') {
     // legacy string support
     const legacyVal = raw?.nIncraCcir || raw?.n_incra_ccir
-    ccir_dados = legacyVal.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    ccir_dados = legacyVal.split(',').map((m: string, idx: number) => ({
+      id: `${Date.now().toString(36)}_${idx}_${Math.random().toString(36).substr(2)}`,
       numero: m.trim(),
       url: ''
     })).filter((m: any) => m.numero.length > 0)
@@ -226,6 +226,7 @@ const Acompanhamentos: React.FC = () => {
   const [isUploadingCcir, setIsUploadingCcir] = useState<string | null>(null)
   const [itrDownloadModal, setItrDownloadModal] = useState<{ item: ItrItem; imovel: string } | null>(null)
   const [isDownloadingSingleZip, setIsDownloadingSingleZip] = useState<string | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   // Função para converter URL do Google Maps para formato embed
@@ -253,12 +254,14 @@ const Acompanhamentos: React.FC = () => {
 
   const getSafeImovelName = (name: string): string => {
     if (!name) return 'Sem_Nome'
-    return name
+    const safe = name
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove acentos
       .replace(/[^a-z0-9]/gi, '_') // Remove caracteres especiais
       .replace(/_+/g, '_') // Remove underscores duplicados
+      .replace(/^_+|_+$/g, '') // Remove underscores no in\u00edcio e no fim
       .trim()
+    return safe || 'Sem_Nome'
   }
   
   const [form, setForm] = useState<Partial<Acompanhamento>>({
@@ -373,10 +376,11 @@ const Acompanhamentos: React.FC = () => {
   ]
 
   useEffect(() => {
+    const controller = new AbortController()
     // Carregar dados da API
     const loadAcompanhamentos = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos`)
+        const response = await fetch(`${API_BASE_URL}/acompanhamentos`, { signal: controller.signal })
         const result = await response.json()
         if (result.success) {
           const normalized = normalizeAcompanhamentos(result.data)
@@ -387,7 +391,8 @@ const Acompanhamentos: React.FC = () => {
           setAcompanhamentos(exemploDados)
           setFilteredAcompanhamentos(exemploDados)
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return
         console.error('Erro ao carregar acompanhamentos:', error)
         // Em caso de erro, usar dados de exemplo
         setAcompanhamentos(exemploDados)
@@ -395,6 +400,7 @@ const Acompanhamentos: React.FC = () => {
       }
     }
     loadAcompanhamentos()
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {
@@ -420,20 +426,20 @@ const Acompanhamentos: React.FC = () => {
     return sortDirection === 'asc' ? '▲' : '▼'
   }
 
-  const getSortValue = (acomp: Acompanhamento, field: SortField): string | number => {
-    if (field === 'saldoReservaLegal') {
-      return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
-    }
-    return acomp[field]
-  }
-
   const sortedAcompanhamentos = useMemo(() => {
     const rows = [...filteredAcompanhamentos]
     const direction = sortDirection === 'asc' ? 1 : -1
 
+    const getValue = (acomp: Acompanhamento, field: SortField): string | number => {
+      if (field === 'saldoReservaLegal') {
+        return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+      }
+      return acomp[field]
+    }
+
     rows.sort((a, b) => {
-      const aValue = getSortValue(a, sortField)
-      const bValue = getSortValue(b, sortField)
+      const aValue = getValue(a, sortField)
+      const bValue = getValue(b, sortField)
 
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return (aValue - bValue) * direction
@@ -448,8 +454,22 @@ const Acompanhamentos: React.FC = () => {
 
   // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
-    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || isShareSelectionWarningOpen || chartModalOpen
-    
+    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || isShareSelectionWarningOpen || chartModalOpen || !!itrDownloadModal
+
+    const restoreScroll = () => {
+      const top = document.body.style.top
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      if (top) {
+        const scrollY = parseInt(top, 10)
+        if (!isNaN(scrollY)) {
+          window.scrollTo(0, scrollY * -1)
+        }
+      }
+    }
+
     if (anyModalOpen) {
       const scrollY = window.scrollY
       document.body.style.overflow = 'hidden'
@@ -457,25 +477,11 @@ const Acompanhamentos: React.FC = () => {
       document.body.style.top = `-${scrollY}px`
       document.body.style.width = '100%'
     } else {
-      const scrollY = document.body.style.top
-      document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.width = ''
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1)
-      }
+      restoreScroll()
     }
-    
+
     return () => {
-      const scrollY = document.body.style.top
-      document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.width = ''
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1)
-      }
+      restoreScroll()
     }
   }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen, itrDownloadModal])
 
@@ -948,8 +954,8 @@ const Acompanhamentos: React.FC = () => {
         if (result.success) {
           const normalizedUpdated = normalizeAcompanhamento(result.data)
           const updated = acompanhamentos.map(a => a.id === editing.id ? { ...normalizedUpdated, id: editing.id } : a)
+          // setAcompanhamentos dispara o useEffect [searchTerm, acompanhamentos] que atualiza filteredAcompanhamentos
           setAcompanhamentos(updated)
-          setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
@@ -963,17 +969,17 @@ const Acompanhamentos: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(acompanhamentoData)
         })
-        
+
         if (!response.ok) {
           const errorText = await response.text()
           throw new Error(errorText || `Erro HTTP: ${response.status}`)
         }
-        
+
         const result = await response.json()
         if (result.success) {
           const updated = [...acompanhamentos, normalizeAcompanhamento(result.data)]
+          // setAcompanhamentos dispara o useEffect [searchTerm, acompanhamentos] que atualiza filteredAcompanhamentos
           setAcompanhamentos(updated)
-          setFilteredAcompanhamentos(updated)
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
@@ -1015,7 +1021,7 @@ const Acompanhamentos: React.FC = () => {
     setIsDownloadingZip(acompanhamentoId)
     try {
       const zip = new JSZip()
-      
+
       const downloadPromises = matriculasComUrl.map(async (mat) => {
         try {
           const response = await fetch(mat.url!)
@@ -1028,7 +1034,7 @@ const Acompanhamentos: React.FC = () => {
       })
 
       await Promise.all(downloadPromises)
-      
+
       const content = await zip.generateAsync({ type: 'blob' })
       const safeImovel = getSafeImovelName(imovelName)
       saveAs(content, `Matriculas_${safeImovel}.zip`)
@@ -1036,7 +1042,7 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos:', error)
       alert('Erro ao tentar compactar as matrículas.')
     } finally {
-      setIsDownloadingZip(null)
+      setIsDownloadingZip(prev => prev === acompanhamentoId ? null : prev)
     }
   }
 
@@ -1090,7 +1096,7 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos ITR:', error)
       alert('Erro ao tentar compactar os ITRs.')
     } finally {
-      setIsDownloadingZip(null)
+      setIsDownloadingZip(prev => prev === acompanhamentoId + 'itr' ? null : prev)
     }
   }
 
@@ -1140,7 +1146,7 @@ const Acompanhamentos: React.FC = () => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(acompanhamentoId + 'ccir')
     try {
       const zip = new JSZip()
       
@@ -1164,7 +1170,7 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos CCIR:', error)
       alert('Erro ao tentar compactar os CCIRs.')
     } finally {
-      setIsDownloadingZip(null)
+      setIsDownloadingZip(prev => prev === acompanhamentoId + 'ccir' ? null : prev)
     }
   }
 
@@ -1273,7 +1279,7 @@ const Acompanhamentos: React.FC = () => {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedItems(new Set(acompanhamentos.map(a => a.id)))
+      setSelectedItems(new Set(sortedAcompanhamentos.map(a => a.id)))
     } else {
       setSelectedItems(new Set())
     }
@@ -1365,10 +1371,13 @@ const Acompanhamentos: React.FC = () => {
       return
     }
     
+    if (isImporting) return
+
     const formData = new FormData()
     formData.append('file', file)
     formData.append('type', 'acompanhamentos')
-    
+
+    setIsImporting(true)
     fetch(`${API_BASE_URL}/import`, { method: 'POST', body: formData })
       .then(async r => {
         const contentType = r.headers.get('content-type')
@@ -1395,6 +1404,7 @@ const Acompanhamentos: React.FC = () => {
         alert('Erro ao importar arquivo: ' + (error.message || 'Verifique se o arquivo está no formato correto e tente novamente'))
       })
       .finally(() => {
+        setIsImporting(false)
         if (fileInputRef.current) fileInputRef.current.value = ''
       })
   }
@@ -1504,14 +1514,24 @@ const Acompanhamentos: React.FC = () => {
     }
 
     try {
-      // Primeiro, recarregar os dados do servidor
+      // Primeiro, recarregar os dados do servidor (sem sobrescrever o filtro de busca ativo)
       const refreshResponse = await fetch(`${API_BASE_URL}/acompanhamentos`)
       if (refreshResponse.ok) {
         const refreshResult = await refreshResponse.json()
         if (refreshResult.success && refreshResult.data) {
           const normalized = normalizeAcompanhamentos(refreshResult.data)
           setAcompanhamentos(normalized)
-          setFilteredAcompanhamentos(normalized)
+          // Reaplicar o searchTerm atual ao invés de sobrescrever filteredAcompanhamentos
+          if (searchTerm) {
+            const lower = searchTerm.toLowerCase()
+            setFilteredAcompanhamentos(normalized.filter(acomp =>
+              (acomp.imovel || '').toLowerCase().includes(lower) ||
+              (acomp.municipio || '').toLowerCase().includes(lower) ||
+              String(acomp.codImovel ?? '').includes(searchTerm)
+            ))
+          } else {
+            setFilteredAcompanhamentos(normalized)
+          }
         }
       }
 
@@ -1653,7 +1673,9 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '—'
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '—'
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -1664,10 +1686,38 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareLink).then(() => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareLink).then(() => {
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
+      }).catch(() => {
+        // Fallback para navegadores sem suporte à Clipboard API
+        const el = document.createElement('textarea')
+        el.value = shareLink
+        el.setAttribute('readonly', '')
+        el.style.position = 'absolute'
+        el.style.left = '-9999px'
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand('copy')
+        document.body.removeChild(el)
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
+      })
+    } else {
+      // Fallback direto para contextos sem Clipboard API
+      const el = document.createElement('textarea')
+      el.value = shareLink
+      el.setAttribute('readonly', '')
+      el.style.position = 'absolute'
+      el.style.left = '-9999px'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
-    })
+    }
   }
 
   // Cores para os gráficos
@@ -2005,7 +2055,7 @@ const Acompanhamentos: React.FC = () => {
               className="w-full pl-9 pr-4 py-2.5 bg-[#ffffff] dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 shadow-sm transition-all"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-[#ffffff] dark:!bg-[#2d3f52] border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl hover:border-blue-300 dark:hover:border-blue-500 text-sm font-medium transition-all shadow-sm flex-shrink-0">
+          <button disabled title="Filtros avançados (em breve)" className="flex items-center gap-2 px-4 py-2.5 bg-[#ffffff] dark:!bg-[#2d3f52] border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 rounded-xl text-sm font-medium transition-all shadow-sm flex-shrink-0 cursor-not-allowed opacity-60">
             <Filter className="h-4 w-4" />
             Filtros
           </button>
@@ -2022,7 +2072,7 @@ const Acompanhamentos: React.FC = () => {
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
-                    checked={selectedItems.size === acompanhamentos.length && acompanhamentos.length > 0}
+                    checked={sortedAcompanhamentos.length > 0 && sortedAcompanhamentos.every(a => selectedItems.has(a.id))}
                     className="rounded"
                   />
                 </th>
@@ -2141,6 +2191,13 @@ const Acompanhamentos: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {sortedAcompanhamentos.length === 0 && (
+                <tr>
+                  <td colSpan={25} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {searchTerm ? `Nenhum resultado encontrado para "${searchTerm}"` : 'Nenhum acompanhamento cadastrado.'}
+                  </td>
+                </tr>
+              )}
               {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
@@ -2154,8 +2211,8 @@ const Acompanhamentos: React.FC = () => {
                       className="rounded"
                     />
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
                     {acomp.mapaUrl ? (
                       <button
                         onClick={() => {
@@ -2167,7 +2224,7 @@ const Acompanhamentos: React.FC = () => {
                         title="Ver mapa do imóvel"
                       >
                         {acomp.imovel}
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                         </svg>
                       </button>
@@ -2175,8 +2232,8 @@ const Acompanhamentos: React.FC = () => {
                       <span>{acomp.imovel}</span>
                     )}
                   </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
-                  <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
+                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
+                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '450px', minWidth: '450px' }}>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-wrap gap-1 w-full">
                         {acomp.matriculasDados && acomp.matriculasDados.length > 0 ? (
@@ -2231,7 +2288,7 @@ const Acompanhamentos: React.FC = () => {
                       })()}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '550px', minWidth: '550px' }}>
+                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '550px', minWidth: '550px' }}>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-wrap gap-1 w-full">
                         {acomp.ccirDados && acomp.ccirDados.length > 0 ? (
@@ -2286,12 +2343,12 @@ const Acompanhamentos: React.FC = () => {
                       })()}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm max-w-xs truncate">
+                  <td className="px-3 py-2 text-sm max-w-xs truncate text-gray-700 dark:text-gray-300">
                     {acomp.car ? (
                       acomp.carUrl ? (
-                        <a 
-                          href={acomp.carUrl} 
-                          target="_blank" 
+                        <a
+                          href={acomp.carUrl}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1"
                           title={`Baixar documento CAR: ${acomp.car}`}
@@ -2306,8 +2363,8 @@ const Acompanhamentos: React.FC = () => {
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.statusCar}</td>
-                  <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{acomp.statusCar}</td>
+                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '450px', minWidth: '450px' }}>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-row flex-wrap gap-x-2 gap-y-1 w-full">
                         {acomp.itrDados && acomp.itrDados.length > 0 ? (
@@ -2365,14 +2422,14 @@ const Acompanhamentos: React.FC = () => {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
                     }`}>
                       {acomp.geoCertificacao}
                     </span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
                     }`}>
                       {acomp.geoRegistro}
                     </span>
@@ -2408,7 +2465,7 @@ const Acompanhamentos: React.FC = () => {
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
                       {(() => {
-                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
+                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url) || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url) || (acomp.ccirDados || []).some(m => m.url);
                         return (
                           <button
                             onClick={() => handleDownloadRegistroZip(acomp)}
@@ -2462,13 +2519,13 @@ const Acompanhamentos: React.FC = () => {
             setFormErrors({})
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
+          <div
+            className="bg-white dark:!bg-[#243040] rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {editing ? 'Editar Acompanhamento' : 'Novo Acompanhamento'}
                 </h2>
                 <button
@@ -2478,7 +2535,7 @@ const Acompanhamentos: React.FC = () => {
                     setEditing(null)
                     setFormErrors({})
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-2xl"
                 >
                   ✕
                 </button>
@@ -2507,7 +2564,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="text"
                       value={form.imovel || ''}
-                      onChange={(e) => setForm({ ...form, imovel: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, imovel: e.target.value }))}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                         formErrors.imovel ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -2524,7 +2581,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="text"
                       value={form.municipio || ''}
-                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, municipio: e.target.value }))}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                         formErrors.municipio ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -2541,7 +2598,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="url"
                       value={form.mapaUrl || ''}
-                      onChange={(e) => setForm({ ...form, mapaUrl: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, mapaUrl: e.target.value }))}
                       placeholder="https://www.google.com/maps/d/u/0/viewer?..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -2621,10 +2678,10 @@ const Acompanhamentos: React.FC = () => {
                                 </a>
                                 <button
                                   type="button"
-                                  onClick={() => setForm({
-                                    ...form,
-                                    matriculasDados: (form.matriculasDados || []).map(m => m.id === matricula.id ? { ...m, url: undefined } : m)
-                                  })}
+                                  onClick={() => setForm(prev => ({
+                                    ...prev,
+                                    matriculasDados: (prev.matriculasDados || []).map(m => m.id === matricula.id ? { ...m, url: undefined } : m)
+                                  }))}
                                   className="ml-1 text-red-500 hover:text-red-700 transition-colors"
                                   title="Remover PDF"
                                 >
@@ -2703,10 +2760,10 @@ const Acompanhamentos: React.FC = () => {
                                 </a>
                                 <button
                                   type="button"
-                                  onClick={() => setForm({
-                                    ...form,
-                                    ccirDados: (form.ccirDados || []).map(c => c.id === ccir.id ? { ...c, url: undefined } : c)
-                                  })}
+                                  onClick={() => setForm(prev => ({
+                                    ...prev,
+                                    ccirDados: (prev.ccirDados || []).map(c => c.id === ccir.id ? { ...c, url: undefined } : c)
+                                  }))}
                                   className="ml-1 text-red-500 hover:text-red-700 transition-colors p-0.5 rounded-full hover:bg-red-50"
                                   title="Remover PDF"
                                 >
@@ -2748,7 +2805,7 @@ const Acompanhamentos: React.FC = () => {
                         <input
                           type="text"
                           value={form.car || ''}
-                          onChange={(e) => setForm({ ...form, car: e.target.value })}
+                          onChange={(e) => setForm(prev => ({ ...prev, car: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="Número do CAR"
                         />
@@ -2798,7 +2855,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.statusCar || 'ATIVO - AGUARDANDO ANÁLISE SC'}
-                        onChange={(e) => setForm({ ...form, statusCar: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, statusCar: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option>ATIVO - AGUARDANDO ANÁLISE SC</option>
@@ -2904,10 +2961,10 @@ const Acompanhamentos: React.FC = () => {
                                     </a>
                                     <button
                                       type="button"
-                                      onClick={() => setForm({
-                                        ...form,
-                                        itrDados: (form.itrDados || []).map(i => i.id === item.id ? { ...i, declaracaoUrl: undefined, url: undefined } : i)
-                                      })}
+                                      onClick={() => setForm(prev => ({
+                                        ...prev,
+                                        itrDados: (prev.itrDados || []).map(i => i.id === item.id ? { ...i, declaracaoUrl: undefined, url: undefined } : i)
+                                      }))}
                                       className="text-red-500 hover:text-red-700 ml-0.5"
                                       title="Remover PDF"
                                     >
@@ -2923,10 +2980,10 @@ const Acompanhamentos: React.FC = () => {
                                     </a>
                                     <button
                                       type="button"
-                                      onClick={() => setForm({
-                                        ...form,
-                                        itrDados: (form.itrDados || []).map(i => i.id === item.id ? { ...i, reciboUrl: undefined } : i)
-                                      })}
+                                      onClick={() => setForm(prev => ({
+                                        ...prev,
+                                        itrDados: (prev.itrDados || []).map(i => i.id === item.id ? { ...i, reciboUrl: undefined } : i)
+                                      }))}
                                       className="text-red-500 hover:text-red-700 ml-0.5"
                                       title="Remover PDF"
                                     >
@@ -2966,7 +3023,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.geoCertificacao || 'NÃO'}
-                        onChange={(e) => setForm({ ...form, geoCertificacao: e.target.value as 'SIM' | 'NÃO' })}
+                        onChange={(e) => setForm(prev => ({ ...prev, geoCertificacao: e.target.value as 'SIM' | 'NÃO' }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
@@ -2980,7 +3037,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.geoRegistro || 'NÃO'}
-                        onChange={(e) => setForm({ ...form, geoRegistro: e.target.value as 'SIM' | 'NÃO' })}
+                        onChange={(e) => setForm(prev => ({ ...prev, geoRegistro: e.target.value as 'SIM' | 'NÃO' }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
@@ -3002,7 +3059,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaTotal || ''}
-                        onChange={(e) => setForm({ ...form, areaTotal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaTotal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3015,7 +3072,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.reservaLegal || ''}
-                        onChange={(e) => setForm({ ...form, reservaLegal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, reservaLegal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3033,7 +3090,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.cultura1 || ''}
-                        onChange={(e) => setForm({ ...form, cultura1: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, cultura1: e.target.value }))}
                         placeholder="Ex: Cultura Temporária"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3047,7 +3104,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaCultura1 || ''}
-                        onChange={(e) => setForm({ ...form, areaCultura1: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaCultura1: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3059,7 +3116,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.cultura2 || ''}
-                        onChange={(e) => setForm({ ...form, cultura2: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, cultura2: e.target.value }))}
                         placeholder="Ex: Pasto"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3073,7 +3130,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaCultura2 || ''}
-                        onChange={(e) => setForm({ ...form, areaCultura2: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaCultura2: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3091,7 +3148,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.outros || ''}
-                        onChange={(e) => setForm({ ...form, outros: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, outros: e.target.value }))}
                         placeholder="Ex: Horta, Servidão"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3105,7 +3162,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaOutros || ''}
-                        onChange={(e) => setForm({ ...form, areaOutros: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaOutros: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3124,7 +3181,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appCodigoFlorestal || ''}
-                        onChange={(e) => setForm({ ...form, appCodigoFlorestal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appCodigoFlorestal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3137,7 +3194,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appVegetada || ''}
-                        onChange={(e) => setForm({ ...form, appVegetada: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appVegetada: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3150,7 +3207,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appNaoVegetada || ''}
-                        onChange={(e) => setForm({ ...form, appNaoVegetada: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appNaoVegetada: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3163,7 +3220,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.remanescenteFlorestal || ''}
-                        onChange={(e) => setForm({ ...form, remanescenteFlorestal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, remanescenteFlorestal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3242,8 +3299,14 @@ const Acompanhamentos: React.FC = () => {
                     type="file"
                     accept=".xlsx"
                     onChange={handleFileSelect}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    disabled={isImporting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
+                  {isImporting && (
+                    <p className="text-sm text-blue-600 mt-1 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Importando...
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -3396,7 +3459,7 @@ const Acompanhamentos: React.FC = () => {
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-xs text-blue-800">
-                      <strong>⚠️ Todos os campos são opcionais.</strong> Você pode preencher apenas os que desejar.
+                      <strong><span aria-hidden="true">⚠️ </span>Todos os campos são opcionais.</strong> Você pode preencher apenas os que desejar.
                     </p>
                   </div>
                   <div className="flex gap-3">
@@ -3546,7 +3609,7 @@ const Acompanhamentos: React.FC = () => {
                                     )}
                                     {link.passwordHash && (
                                       <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
-                                        🔒 Protegido por senha
+                                        <span aria-hidden="true">🔒 </span>Protegido por senha
                                       </span>
                                     )}
                                   </div>

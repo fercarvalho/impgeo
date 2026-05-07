@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, Download, FileText, Filter, BarChart3, ArrowLeftRight } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+
 const parseLocalDate = (dateString: string | null | undefined): Date => {
   if (!dateString) return new Date(NaN)
   const m = String(dateString).match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -10,9 +14,6 @@ const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
     : ((import.meta as any).env?.VITE_API_URL || '/api');
-import { useAuth } from '../contexts/AuthContext'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 interface Transaction {
   id: string
@@ -87,17 +88,21 @@ const DRE: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState<'pdf' | 'excel' | null>(null)
   const dreContentRef = useRef<HTMLDivElement>(null)
   // Guard síncrono para evitar race condition de duplo clique (state React é assíncrono)
   const isExportingRef = useRef(false)
   // Armazena ID do setTimeout de revokeObjectURL para cancelar no unmount
   const revokeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Ref para evitar setState após unmount nas exportações assíncronas
+  const isMountedRef = useRef(true)
 
   // useCallback garante referência estável: o useEffect re-executa se token ou logout mudarem
   const fetchTransactions = useCallback(async (signal?: AbortSignal) => {
     try {
       setIsLoading(true)
+      setFetchError(null)
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -114,10 +119,15 @@ const DRE: React.FC = () => {
       if (signal?.aborted) return
       if (result.success) {
         setTransactions(result.data)
+      } else {
+        setFetchError(result.message || 'Erro ao carregar transações. Tente novamente.')
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return
       console.error('Erro ao buscar transações:', error)
+      if (!signal?.aborted) {
+        setFetchError('Falha na comunicação com o servidor. Verifique sua conexão.')
+      }
     } finally {
       // Não atualiza estado se a requisição foi abortada (componente desmontado)
       if (!signal?.aborted) setIsLoading(false)
@@ -125,15 +135,20 @@ const DRE: React.FC = () => {
   }, [token, logout])
 
   useEffect(() => {
-    if (!token) return
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
     const controller = new AbortController()
     fetchTransactions(controller.signal)
     return () => controller.abort()
   }, [token, fetchTransactions])
 
-  // Cancela o setTimeout de revokeObjectURL ao desmontar o componente
+  // Cancela o setTimeout de revokeObjectURL e marca desmontagem ao desmontar o componente
   useEffect(() => {
+    isMountedRef.current = true
     return () => {
+      isMountedRef.current = false
       if (revokeTimerRef.current !== null) clearTimeout(revokeTimerRef.current)
     }
   }, [])
@@ -269,7 +284,7 @@ const DRE: React.FC = () => {
         const variation = currVal - prevVal
         const variationPercent = prevVal !== 0
           ? ((currVal - prevVal) / Math.abs(prevVal)) * 100
-          : currVal > 0 ? 100 : 0  // mudança de base 0 para negativo é indefinida → exibir 0
+          : currVal > 0 ? 100 : currVal < 0 ? -100 : 0  // base 0 → positivo=+100%, negativo=-100%
 
         return {
           ...row,
@@ -381,7 +396,7 @@ const DRE: React.FC = () => {
       alert('Erro ao exportar PDF. Tente novamente.')
     } finally {
       isExportingRef.current = false
-      setIsExporting(null)
+      if (isMountedRef.current) setIsExporting(null)
     }
   }
 
@@ -436,6 +451,7 @@ const DRE: React.FC = () => {
       const link = document.createElement('a')
       link.href = url
       link.download = `DRE_${getPeriodLabel().replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`
+      link.style.display = 'none'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -447,7 +463,7 @@ const DRE: React.FC = () => {
       alert('Erro ao exportar Excel. Tente novamente.')
     } finally {
       isExportingRef.current = false
-      setIsExporting(null)
+      if (isMountedRef.current) setIsExporting(null)
     }
   }
 
@@ -456,6 +472,22 @@ const DRE: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div role="status" aria-label="Carregando...">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" aria-hidden="true"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div role="alert" className="flex flex-col items-center gap-3 text-center px-4">
+          <p className="text-red-600 dark:text-red-400 font-medium">{fetchError}</p>
+          <button
+            onClick={() => fetchTransactions()}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+          >
+            Tentar novamente
+          </button>
         </div>
       </div>
     )
@@ -472,17 +504,17 @@ const DRE: React.FC = () => {
   const variacaoReceitas = totalReceitas - receitasAnterior
   const variacaoReceitasPercent = receitasAnterior !== 0
     ? ((totalReceitas - receitasAnterior) / Math.abs(receitasAnterior)) * 100
-    : totalReceitas > 0 ? 100 : 0  // base 0 → negativo é indefinido, não -100%
+    : totalReceitas > 0 ? 100 : totalReceitas < 0 ? -100 : 0  // base 0 → positivo=+100%, negativo=-100%
 
   const variacaoDespesas = totalDespesas - despesasAnterior
   const variacaoDespesasPercent = despesasAnterior !== 0
     ? ((totalDespesas - despesasAnterior) / Math.abs(despesasAnterior)) * 100
-    : totalDespesas > 0 ? 100 : 0  // base 0 → negativo é indefinido, não -100%
+    : totalDespesas > 0 ? 100 : totalDespesas < 0 ? -100 : 0  // base 0 → positivo=+100%, negativo=-100%
 
   const variacaoResultado = resultadoLiquido - resultadoAnterior
   const variacaoResultadoPercent = resultadoAnterior !== 0
     ? ((resultadoLiquido - resultadoAnterior) / Math.abs(resultadoAnterior)) * 100
-    : resultadoLiquido > 0 ? 100 : 0  // base 0 → negativo é indefinido, não -100%
+    : resultadoLiquido > 0 ? 100 : resultadoLiquido < 0 ? -100 : 0  // base 0 → positivo=+100%, negativo=-100%
 
   return (
     <div className="space-y-6">
@@ -599,10 +631,11 @@ const DRE: React.FC = () => {
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-gray-600 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-gray-700 dark:text-gray-100 w-full transition-all duration-200"
               >
-                {Array.from({ length: 10 }, (_, i) => {
-                  const year = new Date().getFullYear() - 7 + i
+                {Array.from({ length: 11 }, (_, i) => {
+                  const currentYear = new Date().getFullYear()
+                  const year = currentYear - 10 + i
                   return (
-                    <option key={year} value={year} disabled={year > new Date().getFullYear()}>
+                    <option key={year} value={year} disabled={year > currentYear}>
                       {year}
                     </option>
                   )

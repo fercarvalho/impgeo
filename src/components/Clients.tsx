@@ -35,6 +35,7 @@ const Clients: React.FC = () => {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // filtros / ordenação
@@ -45,9 +46,12 @@ const Clients: React.FC = () => {
     const load = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/clients`)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json()
         if (j.success) setClients(j.data)
-      } catch {}
+      } catch (error) {
+        console.error('Erro ao carregar clientes:', error)
+      }
     }
     load()
   }, [])
@@ -100,9 +104,12 @@ const Clients: React.FC = () => {
 
     if (sortConfig.field) {
       list.sort((a, b) => {
-        let av: any = a[sortConfig.field!]
-        let bv: any = b[sortConfig.field!]
-        if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv).toLowerCase() }
+        let av: any = a[sortConfig.field!] ?? ''
+        let bv: any = b[sortConfig.field!] ?? ''
+        if (typeof av === 'string' || typeof bv === 'string') {
+          av = String(av).toLowerCase()
+          bv = String(bv).toLowerCase()
+        }
         if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1
         if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
@@ -112,8 +119,8 @@ const Clients: React.FC = () => {
   }, [clients, filters, sortConfig])
 
   const handleSelectAll = () => {
-    if (selectedClients.size === clients.length) setSelectedClients(new Set())
-    else setSelectedClients(new Set(clients.map(c => c.id)))
+    if (selectedClients.size === filteredAndSorted.length) setSelectedClients(new Set())
+    else setSelectedClients(new Set(filteredAndSorted.map(c => c.id)))
   }
 
   const handleSelect = (id: string) => {
@@ -124,7 +131,10 @@ const Clients: React.FC = () => {
     })
   }
 
-  const clearFilters = () => setFilters({ name: '', email: '', phone: '' })
+  const clearFilters = () => {
+    setFilters({ name: '', email: '', phone: '' })
+    setSelectedClients(new Set())
+  }
 
   // CRUD
   const validateForm = () => {
@@ -148,9 +158,10 @@ const Clients: React.FC = () => {
 
   const saveClient = async () => {
     if (!validateForm()) return
-    
-    const payload = {
-      id: editing?.id,
+    if (isSaving) return
+    setIsSaving(true)
+
+    const basePayload = {
       name: form.name,
       email: form.email,
       phone: form.phone,
@@ -160,32 +171,45 @@ const Clients: React.FC = () => {
     }
     try {
       if (editing) {
-        const r = await fetch(`${API_BASE_URL}/clients/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        const r = await fetch(`${API_BASE_URL}/clients/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json(); if (j.success) setClients(prev => prev.map(c => c.id === editing.id ? j.data : c))
       } else {
-        const r = await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        const r = await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json(); if (j.success) setClients(prev => [j.data, ...prev])
       }
       setIsModalOpen(false); setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({})
     } catch (error) {
       console.error('Erro ao salvar:', error)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const deleteOne = async (id: string) => {
     try {
       const r = await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE' })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json(); if (j.success) setClients(prev => prev.filter(c => c.id !== id))
-    } catch {}
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error)
+    }
   }
 
   const deleteSelected = async () => {
     try {
       const ids = Array.from(selectedClients)
-      await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
-      setClients(prev => prev.filter(c => !selectedClients.has(c.id)))
-      setSelectedClients(new Set())
-    } catch {}
+      const r = await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const j = await r.json()
+      if (j.success) {
+        setClients(prev => prev.filter(c => !ids.includes(c.id)))
+        setSelectedClients(new Set())
+      }
+    } catch (error) {
+      console.error('Erro ao excluir clientes:', error)
+    }
   }
 
   // Import/Export
@@ -201,27 +225,41 @@ const Clients: React.FC = () => {
     formData.append('type', 'clients')
     try {
       const r = await fetch(`${API_BASE_URL}/import`, { method: 'POST', body: formData })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
       if (j.success) {
         setClients(prev => [...j.data, ...prev])
         setIsImportExportOpen(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
       }
-    } catch {}
+    } catch (error) {
+      console.error('Erro ao importar:', error)
+    }
   }
 
   const handleExport = async () => {
     try {
       const r = await fetch(`${API_BASE_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'clients', data: clients }) })
-      const blob = await r.blob(); const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = `clients_${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
-    } catch {}
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clientes_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erro ao exportar:', error)
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Users className="w-8 h-8 text-blue-600" />
+          <Users className="w-8 h-8 text-blue-600" aria-hidden="true" />
           Clientes
         </h1>
         <div className="flex gap-3">
@@ -230,7 +268,7 @@ const Clients: React.FC = () => {
               onClick={() => setIsImportExportOpen(true)}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Download className="h-5 w-5" />
+              <Download className="h-5 w-5" aria-hidden="true" />
               Importar/Exportar
             </button>
           )}
@@ -239,7 +277,7 @@ const Clients: React.FC = () => {
               onClick={() => { setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({}); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-5 w-5" aria-hidden="true" />
               Novo Cliente
             </button>
           )}
@@ -250,7 +288,7 @@ const Clients: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-600" />
+            <Filter className="w-5 h-5 text-blue-600" aria-hidden="true" />
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Filtros</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
@@ -263,7 +301,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Nome..."
                 value={filters.name}
-                onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, name: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -276,7 +314,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Email..."
                 value={filters.email}
-                onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, email: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -289,7 +327,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Telefone..."
                 value={filters.phone}
-                onChange={(e) => setFilters(prev => ({ ...prev, phone: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, phone: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -305,9 +343,14 @@ const Clients: React.FC = () => {
       {/* Lista */}
       <div className="space-y-4">
         {clients.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-600">Nenhum cliente encontrado.</p>
-            <p className="text-gray-500 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">Nenhum cliente encontrado.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Adicione seu primeiro cliente clicando no botão "Novo Cliente".</p>
+          </div>
+        ) : filteredAndSorted.length === 0 ? (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">Nenhum cliente corresponde aos filtros aplicados.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Tente ajustar ou limpar os filtros.</p>
           </div>
         ) : (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
@@ -317,7 +360,8 @@ const Clients: React.FC = () => {
                   <div className="flex justify-center">
                     <input
                       type="checkbox"
-                      checked={clients.length > 0 && selectedClients.size === clients.length}
+                      aria-label="Selecionar todos os clientes"
+                      checked={filteredAndSorted.length > 0 && selectedClients.size === filteredAndSorted.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-300 focus:ring-2"
                     />
@@ -346,12 +390,13 @@ const Clients: React.FC = () => {
             </div>
 
             {filteredAndSorted.map((c, index) => (
-              <div key={c.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === clients.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={c.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === filteredAndSorted.length - 1 ? 'border-b-0' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
                       <input
                         type="checkbox"
+                        aria-label={`Selecionar cliente ${c.name}`}
                         checked={selectedClients.has(c.id)}
                         onChange={() => handleSelect(c.id)}
                         className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
@@ -359,29 +404,29 @@ const Clients: React.FC = () => {
                     </div>
                   )}
                   <div className="flex-shrink-0 w-52 sm:w-60 text-left">
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{c.name}</h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{c.name}</h3>
                     {(c.cpf || c.cnpj) && (
-                      <p className="text-xs text-gray-500 truncate">{c.cpf || c.cnpj}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cpf || c.cnpj}</p>
                     )}
                   </div>
                   <div className="flex-shrink-0 w-36 sm:w-44 text-center">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.email}</p>
                   </div>
                   <div className="flex-shrink-0 w-28 sm:w-32 text-center">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.phone}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.phone}</p>
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{c.address}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.address}</p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
                     {permissions.canEdit && (
-                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
-                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setFormErrors({}); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
+                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
                     )}
                     {permissions.canDelete && (
                       <button onClick={() => deleteOne(c.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir cliente">
-                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -393,7 +438,7 @@ const Clients: React.FC = () => {
               <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/40">
                 <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedClients.size} selecionado{selectedClients.size > 1 ? 's' : ''}</span>
                 <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Deletar Selecionado{selectedClients.size > 1 ? 's' : ''}
                 </button>
               </div>
@@ -407,20 +452,21 @@ const Clients: React.FC = () => {
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" aria-hidden="true" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6 space-y-3">
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-name" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Nome <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.name ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.name && (
@@ -431,15 +477,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Email <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-email"
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.email ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.email && (
@@ -450,15 +497,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-phone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Telefone <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-phone"
                   type="text"
                   value={form.phone}
                   onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.phone ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.phone && (
@@ -469,15 +517,16 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-address" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Endereço <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-address"
                   type="text"
                   value={form.address}
                   onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.address ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.address && (
@@ -488,10 +537,11 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-documentType" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Tipo de Documento <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="form-documentType"
                   value={form.documentType}
                   onChange={(e) => setForm(prev => ({
                     ...prev,
@@ -506,10 +556,11 @@ const Clients: React.FC = () => {
                 </select>
               </div>
               <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="form-document" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   {form.documentType === 'cpf' ? 'CPF' : 'CNPJ'} <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="form-document"
                   type="text"
                   value={form.documentType === 'cpf' ? form.cpf : form.cnpj}
                   onChange={(e) => setForm(prev => ({
@@ -518,7 +569,7 @@ const Clients: React.FC = () => {
                   }))}
                   placeholder={form.documentType === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {((form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj)) && (
@@ -530,7 +581,7 @@ const Clients: React.FC = () => {
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
-                <button onClick={saveClient} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+                <button onClick={saveClient} disabled={isSaving} aria-busy={isSaving} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0">{isSaving ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </div>
           </div>
@@ -544,22 +595,22 @@ const Clients: React.FC = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
+                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" aria-hidden="true" /></div>
                 <h2 className="text-lg font-bold text-white">Importar/Exportar Clientes</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsImportExportOpen(false)} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
 
             {/* Body */}
             <div className="px-5 py-5">
-              <p className="text-center text-sm text-gray-700 mb-5">Escolha uma das opções abaixo para gerenciar seus dados:</p>
+              <p className="text-center text-sm text-gray-700 dark:text-gray-300 mb-5">Escolha uma das opções abaixo para gerenciar seus dados:</p>
 
               {/* Dica / Info box */}
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6 text-center">
-                <p className="font-bold text-blue-800 mb-1">Primeiro baixe o modelo, depois importe!</p>
-                <p className="text-blue-700 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
+              <div className="rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-5 mb-6 text-center">
+                <p className="font-bold text-blue-800 dark:text-blue-300 mb-1">Primeiro baixe o modelo, depois importe!</p>
+                <p className="text-blue-700 dark:text-blue-400 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
                 <button onClick={downloadModel} className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow mx-auto">
-                  <Download className="w-4 h-4" /> Baixar Modelo de Clientes
+                  <Download className="w-4 h-4" aria-hidden="true" /> Baixar Modelo de Clientes
                 </button>
               </div>
 
@@ -568,20 +619,20 @@ const Clients: React.FC = () => {
                 {permissions.canImport && (
                   <label className="block w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white cursor-pointer shadow hover:shadow-md transition-shadow text-center">
                     <div className="px-3 py-3 flex items-center justify-center gap-2">
-                      <Upload className="w-4 h-4 opacity-90" />
+                      <Upload className="w-4 h-4 opacity-90" aria-hidden="true" />
                       <div className="text-center">
                         <p className="text-lg font-bold leading-tight">Selecionar Arquivo</p>
                         <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
                       </div>
                     </div>
-                    <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+                    <input ref={fileInputRef} type="file" accept=".xlsx" aria-label="Selecionar arquivo .xlsx para importar" className="hidden" onChange={handleImport} />
                   </label>
                 )}
 
                 {permissions.canExport && (
                   <button onClick={handleExport} className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-3 text-center shadow hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-center gap-2">
-                      <Download className="w-4 h-4 opacity-90" />
+                      <Download className="w-4 h-4 opacity-90" aria-hidden="true" />
                       <div className="text-center">
                         <p className="text-lg font-bold leading-tight">Exportar</p>
                         <p className="text-white/90 text-xs">Salvar dados em arquivo</p>

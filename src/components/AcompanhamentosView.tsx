@@ -68,8 +68,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     } catch(e) { console.error('Error parsing matriculas_dados', e) }
   } else if (raw?.matriculas && typeof raw?.matriculas === 'string') {
     // legacy string support
-    matriculas_dados = raw.matriculas.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    matriculas_dados = raw.matriculas.split(',').map((m: string, idx: number) => ({
+      id: `legacy-mat-${String(raw?.id ?? '')}-${idx}`,
       numero: m.trim(),
       url: ''
     })).filter((m: MatriculaItem) => m.numero.length > 0)
@@ -86,8 +86,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     } catch(e) { console.error('Error parsing itr_dados', e) }
   } else if (raw?.itr && typeof raw?.itr === 'string') {
     // legacy string support
-    itr_dados = raw.itr.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    itr_dados = raw.itr.split(',').map((m: string, idx: number) => ({
+      id: `legacy-itr-${String(raw?.id ?? '')}-${idx}`,
       numero: m.trim(),
       url: '',
       declaracaoUrl: '',
@@ -113,8 +113,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
   } else if ((raw?.nIncraCcir || raw?.n_incra_ccir) && typeof (raw?.nIncraCcir || raw?.n_incra_ccir) === 'string') {
     // legacy string support
     const legacyVal = raw?.nIncraCcir || raw?.n_incra_ccir
-    ccir_dados = legacyVal.split(',').map((m: string) => ({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    ccir_dados = legacyVal.split(',').map((m: string, idx: number) => ({
+      id: `legacy-ccir-${String(raw?.id ?? '')}-${idx}`,
       numero: m.trim(),
       url: ''
     })).filter((m: any) => m.numero.length > 0)
@@ -132,24 +132,24 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
     ccirDados: ccir_dados,
     car: raw?.car ?? '',
     carUrl: raw?.carUrl ?? raw?.car_url ?? '',
-  statusCar: raw?.statusCar ?? raw?.status_car ?? '',
-  itr: raw?.itr ?? '',
-  itrDados: itr_dados,
-  geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
-  geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
-  areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
-  reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
-  cultura1: raw?.cultura1 ?? '',
-  areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
-  cultura2: raw?.cultura2 ?? '',
-  areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
-  outros: raw?.outros ?? '',
-  areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
-  appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
-  appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
-  appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
-  remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
-}
+    statusCar: raw?.statusCar ?? raw?.status_car ?? '',
+    itr: raw?.itr ?? '',
+    itrDados: itr_dados,
+    geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
+    geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
+    areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
+    reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
+    cultura1: raw?.cultura1 ?? '',
+    areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
+    cultura2: raw?.cultura2 ?? '',
+    areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
+    outros: raw?.outros ?? '',
+    areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
+    appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
+    appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
+    appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
+    remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
+  }
 }
 
 const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
@@ -164,7 +164,8 @@ const getSafeImovelName = (name: string): string => {
     .replace(/[\u0300-\u036f]/g, '') // Remove acentos
     .replace(/[^a-z0-9]/gi, '_') // Remove caracteres especiais
     .replace(/_+/g, '_') // Remove underscores duplicados
-    .trim()
+    .replace(/^_+|_+$/g, '') // Remove underscores nas bordas
+    || 'Sem_Nome'
 }
 
 type SortField =
@@ -217,14 +218,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null)
   const [isDownloadingRecordZip, setIsDownloadingRecordZip] = useState<string | null>(null)
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const loadAcompanhamentos = async () => {
+      let aborted = false
       try {
         // Tentar carregar sem senha primeiro
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`)
+        const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, { signal: controller.signal })
         const result = await response.json()
-        
+
         if (result.success) {
           setAcompanhamentos(normalizeAcompanhamentos(result.data))
           setShareLinkName(result.shareLinkName)
@@ -237,7 +242,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             setLoading(false)
             return
           }
-          
+
           // Verificar se é erro de expiração (status 410)
           if (response.status === 410) {
             setError('Este link compartilhável expirou e não está mais disponível.')
@@ -246,28 +251,39 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           }
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          aborted = true
+          return
+        }
         console.error('Erro ao carregar acompanhamentos:', error)
         setError('Erro ao carregar dados')
       } finally {
-        setLoading(false)
+        if (!aborted) setLoading(false)
       }
     }
     loadAcompanhamentos()
+
+    return () => { controller.abort() }
   }, [token])
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPasswordError('')
-    
+
     if (!password.trim()) {
       setPasswordError('Por favor, informe a senha')
       return
     }
 
+    setIsSubmittingPassword(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}?password=${encodeURIComponent(password)}`)
+      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
       const result = await response.json()
-      
+
       if (result.success) {
         setAcompanhamentos(normalizeAcompanhamentos(result.data))
         setShareLinkName(result.shareLinkName)
@@ -284,6 +300,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     } catch (error) {
       console.error('Erro ao validar senha:', error)
       setPasswordError('Erro ao validar senha. Tente novamente.')
+    } finally {
+      setIsSubmittingPassword(false)
     }
   }
 
@@ -409,10 +427,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(acompanhamentoId + 'ccir')
     try {
       const zip = new JSZip()
-      
+
       const downloadPromises = ccirsComUrl.map(async (mat) => {
         try {
           const response = await fetch(mat.url!)
@@ -425,7 +443,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       })
 
       await Promise.all(downloadPromises)
-      
+
       const content = await zip.generateAsync({ type: 'blob' })
       const safeImovel = getSafeImovelName(imovelName)
       saveAs(content, `CCIRs_${safeImovel}.zip`)
@@ -488,7 +506,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         const itrPromises = itrsComDados.flatMap((item) => {
           const itemPromises: Promise<void>[] = []
           const safeName = item.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-          
+
           const declUrl = item.declaracaoUrl || item.url
           if (declUrl) {
             itemPromises.push((async () => {
@@ -509,10 +527,24 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               } catch (e) { console.error(`Erro ao baixar recibo ${item.numero}:`, e) }
             })())
           }
-          
+
           return itemPromises
         })
         promises.push(...itrPromises)
+      }
+
+      if (ccirComUrl.length > 0) {
+        const ccirPromises = ccirComUrl.map(async (mat) => {
+          try {
+            const response = await fetch(mat.url!)
+            const blob = await response.blob()
+            const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+            zip.folder('CCIR')?.file(`Ccir_${safeName}.pdf`, blob)
+          } catch (e) {
+            console.error(`Erro ao baixar CCIR ${mat.numero}:`, e)
+          }
+        })
+        promises.push(...ccirPromises)
       }
 
       await Promise.all(promises)
@@ -532,25 +564,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     return (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-      return
-    }
-    setSortField(field)
-    setSortDirection('asc')
-  }
-
-  const getSortIndicator = (field: SortField) => {
-    if (sortField !== field) return '↕'
-    return sortDirection === 'asc' ? '▲' : '▼'
-  }
-
   const getSortValue = (acomp: Acompanhamento, field: SortField): string | number => {
     if (field === 'saldoReservaLegal') {
       return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
     }
-    return acomp[field]
+    return acomp[field as keyof Acompanhamento] as string | number
   }
 
   const sortedAcompanhamentos = useMemo(() => {
@@ -791,7 +809,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   // Bloquear scroll do body quando o modal de mapa estiver aberto
   useEffect(() => {
     const isAnyModalOpen = isMapModalOpen || !!itrDownloadModal || chartModalOpen
-    
+
     if (isAnyModalOpen) {
       const scrollY = window.scrollY
       document.body.style.overflow = 'hidden'
@@ -808,12 +826,17 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         window.scrollTo(0, parseInt(scrollY || '0') * -1)
       }
     }
-    
+
     return () => {
+      // Capturar o valor ANTES de resetar os estilos
+      const savedScrollY = document.body.style.top
       document.body.style.overflow = ''
       document.body.style.position = ''
       document.body.style.top = ''
       document.body.style.width = ''
+      if (savedScrollY) {
+        window.scrollTo(0, parseInt(savedScrollY || '0') * -1)
+      }
     }
   }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
@@ -826,6 +849,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         return
       }
 
+      if (chartModalOpen) {
+        setChartModalOpen(false)
+        return
+      }
+
       if (isMapModalOpen) {
         setIsMapModalOpen(false)
         setSelectedMapUrl('')
@@ -835,7 +863,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isMapModalOpen, itrDownloadModal])
+  }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
   if (loading) {
     return (
@@ -854,7 +882,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-8 text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
@@ -889,6 +917,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   passwordError ? 'border-red-400 bg-red-50' : 'border-gray-200'
                 }`}
                 placeholder="Digite a senha"
+                autoComplete="current-password"
                 autoFocus
               />
               {passwordError && (
@@ -898,9 +927,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200"
+              disabled={isSubmittingPassword}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
             >
-              Acessar
+              {isSubmittingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmittingPassword ? 'Verificando...' : 'Acessar'}
             </button>
           </form>
         </div>
@@ -928,7 +959,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -1104,8 +1135,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
           >
-            <p className="text-sm text-gray-600">Remanescente Florestal (saldo)</p>
-            <p className="text-2xl font-bold text-green-700">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Remanescente Florestal</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
             </p>
           </div>
@@ -1113,8 +1144,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
         {/* Ordenação */}
         <div className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-          <span className="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">Ordenar por</span>
+          <label htmlFor="sort-select" className="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">Ordenar por</label>
           <select
+            id="sort-select"
             value={sortField}
             onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
             className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer"
@@ -1132,6 +1164,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </select>
           <button
             onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+            aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
             className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
           >
             {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
@@ -1179,20 +1212,22 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                       <button
                         onClick={() => { setSelectedMapUrl(acomp.mapaUrl || ''); setSelectedImovel(acomp.imovel); setIsMapModalOpen(true) }}
                         title="Ver mapa do imóvel"
+                        aria-label={`Ver mapa do imóvel ${acomp.imovel}`}
                         className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
                       >
-                        <MapIcon className="w-4 h-4 text-white" />
+                        <MapIcon className="w-4 h-4 text-white" aria-hidden="true" />
                       </button>
                     )}
                     <button
                       onClick={() => handleDownloadRegistroZip(acomp)}
                       disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
                       title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
+                      aria-label={hasDocs ? `Baixar todos os documentos de ${acomp.imovel} em ZIP` : 'Nenhum documento disponível'}
                       className={`p-1.5 rounded-lg transition-colors ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
                     >
                       {isDownloadingRecordZip === acomp.id
-                        ? <Loader2 className="w-4 h-4 text-white animate-spin" />
-                        : <Archive className="w-4 h-4 text-white" />
+                        ? <Loader2 className="w-4 h-4 text-white animate-spin" aria-hidden="true" />
+                        : <Archive className="w-4 h-4 text-white" aria-hidden="true" />
                       }
                     </button>
                   </div>
@@ -1403,413 +1438,6 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           })}
         </div>
 
-        {/* --- TABELA ORIGINAL (mantida mas oculta — para referência futura) --- */}
-        {false && <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[2000px]">
-              <thead>
-                <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-600" style={{ width: '100px', minWidth: '100px' }}>
-                    <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      COD. IMP <span>{getSortIndicator('codImovel')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[100px] z-20 bg-blue-600" style={{ width: '250px', minWidth: '250px' }}>
-                    <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      IMÓVEL <span>{getSortIndicator('imovel')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[350px] z-20 bg-blue-600" style={{ width: '150px', minWidth: '150px' }}>
-                    <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ minWidth: '350px' }}>MATRÍCULAS</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('nIncraCcir')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      N INCRA / CCIR <span>{getSortIndicator('nIncraCcir')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('car')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      CAR <span>{getSortIndicator('car')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('statusCar')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      STATUS CAR <span>{getSortIndicator('statusCar')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('itr')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      ITR <span>{getSortIndicator('itr')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('geoCertificacao')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      GEO CERTIFICAÇÃO <span>{getSortIndicator('geoCertificacao')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('geoRegistro')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      GEO REGISTRO <span>{getSortIndicator('geoRegistro')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('areaTotal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      ÁREA TOTAL (ha) <span>{getSortIndicator('areaTotal')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('reservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      20% RESERVA LEGAL (ha) <span>{getSortIndicator('reservaLegal')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('saldoReservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      SALDO RESERVA LEGAL (ha) <span>{getSortIndicator('saldoReservaLegal')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('cultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      CULTURAS <span>{getSortIndicator('cultura1')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('areaCultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      ÁREA (ha) <span>{getSortIndicator('areaCultura1')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('cultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      CULTURAS <span>{getSortIndicator('cultura2')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('areaCultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      ÁREA (ha) <span>{getSortIndicator('areaCultura2')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('outros')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      OUTROS <span>{getSortIndicator('outros')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('areaOutros')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      ÁREA (ha) <span>{getSortIndicator('areaOutros')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('appCodigoFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      APP (CÓDIGO FLORESTAL) <span>{getSortIndicator('appCodigoFlorestal')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('appVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      APP (VEGETADA) <span>{getSortIndicator('appVegetada')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('appNaoVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      APP (NÃO VEGETADA) <span>{getSortIndicator('appNaoVegetada')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                    <button type="button" onClick={() => handleSort('remanescenteFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                      REMANESCENTE FLORESTAL (ha) <span>{getSortIndicator('remanescenteFlorestal')}</span>
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider sticky right-0 z-20 bg-blue-900 shadow-[-1px_0_0_rgba(229,231,235,1)]">
-                    AÇÕES
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedAcompanhamentos.map((acomp, index) => (
-                  <tr
-                    key={acomp.id}
-                    className={`group ${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'}`}
-                  >
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[100px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
-                      {acomp.mapaUrl ? (
-                        <button
-                          onClick={() => {
-                            setSelectedMapUrl(acomp.mapaUrl || '')
-                            setSelectedImovel(acomp.imovel)
-                            setIsMapModalOpen(true)
-                          }}
-                          className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
-                          title="Ver mapa do imóvel"
-                        >
-                          {acomp.imovel}
-                          <MapIcon className="w-4 h-4" />
-                        </button>
-                      ) : (
-                        <span>{acomp.imovel}</span>
-                      )}
-                    </td>
-                    <td className={`px-3 py-2 whitespace-nowrap font-semibold sticky left-[350px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex flex-wrap gap-1 w-full">
-                          {acomp.matriculasDados && acomp.matriculasDados.length > 0 ? (
-                            acomp.matriculasDados.map((mat, i) => (
-                               <React.Fragment key={mat.id}>
-                                 {mat.url ? (
-                                    <a 
-                                      href={mat.url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1 whitespace-nowrap"
-                                      title={`Baixar documento matrícula: ${mat.numero}`}
-                                    >
-                                      {mat.numero}
-                                    </a>
-                                 ) : (
-                                    <span className="whitespace-nowrap">{mat.numero}</span>
-                                 )}
-                                 {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-400">,</span>}
-                               </React.Fragment>
-                            ))
-                          ) : (
-                            <span className="whitespace-nowrap">{acomp.matriculas}</span>
-                          )}
-                        </div>
-                        
-                        {(() => {
-                          const hasPdfs = (acomp.matriculasDados || []).some(m => m.url);
-                          return (
-                            <button
-                              type="button"
-                              disabled={!hasPdfs || isDownloadingZip === acomp.id}
-                              title={hasPdfs ? "Baixar todos os PDFs de matrícula (em ZIP)" : "Nenhum PDF disponível"}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleDownloadAllZipped(acomp.id, acomp.matriculasDados || [], acomp.imovel)
-                              }}
-                              className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                                hasPdfs 
-                                  ? (isDownloadingZip === acomp.id ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                  : 'text-gray-300 cursor-not-allowed'
-                              }`}
-                            >
-                              {isDownloadingZip === acomp.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                              ) : (
-                                <Download className={`w-4 h-4 ${!hasPdfs ? 'opacity-50' : ''}`} />
-                              )}
-                            </button>
-                          )
-                        })()}
-                      </div>
-                    </td>
-                  <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '550px', minWidth: '550px' }}>
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex flex-wrap gap-1 w-full">
-                        {acomp.ccirDados && acomp.ccirDados.length > 0 ? (
-                          acomp.ccirDados.map((item, i) => (
-                             <React.Fragment key={item.id}>
-                               {item.url ? (
-                                  <a 
-                                    href={item.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1 whitespace-nowrap"
-                                    title={`Baixar documento CCIR: ${item.numero}`}
-                                  >
-                                    {item.numero}
-                                  </a>
-                               ) : (
-                                  <span className="whitespace-nowrap">{item.numero}</span>
-                               )}
-                               {i < acomp.ccirDados!.length - 1 && <span className="text-gray-400">,</span>}
-                             </React.Fragment>
-                          ))
-                        ) : (
-                          <span className="whitespace-nowrap">{acomp.nIncraCcir}</span>
-                        )}
-                      </div>
-                      
-                      {(() => {
-                        const hasCcirPdfs = (acomp.ccirDados || []).some(m => m.url);
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
-                            title={hasCcirPdfs ? "Baixar todos os PDFs de CCIR (em ZIP)" : "Nenhum PDF disponível"}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDownloadAllCcirZipped(acomp.id, acomp.ccirDados || [], acomp.imovel)
-                            }}
-                            className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                              hasCcirPdfs 
-                                ? (isDownloadingZip === acomp.id + 'ccir' ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                          >
-                            {isDownloadingZip === acomp.id + 'ccir' ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`w-4 h-4 ${!hasCcirPdfs ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                    </div>
-                  </td>
-                    <td className="px-3 py-2 text-sm max-w-xs truncate">
-                      {acomp.car ? (
-                        acomp.carUrl ? (
-                          <a 
-                            href={acomp.carUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1"
-                            title={`Baixar documento CAR: ${acomp.car}`}
-                          >
-                            {acomp.car}
-                            <Download className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span title={acomp.car} className="text-gray-700">{acomp.car}</span>
-                        )
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.statusCar}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700" style={{ width: '450px', minWidth: '450px' }}>
-                      <div className="flex justify-between items-start gap-2">
-                         <div className="flex flex-row flex-wrap gap-x-2 gap-y-1 w-full">
-                          {acomp.itrDados && acomp.itrDados.length > 0 ? (
-                            acomp.itrDados.map((item, i) => (
-                               <div key={item.id} className="flex items-center group">
-                                 <div className="flex items-center overflow-hidden">
-                                   {item.declaracaoUrl || item.reciboUrl || item.url ? (
-                                     <button
-                                       type="button"
-                                       onClick={() => setItrDownloadModal({ item, imovel: acomp.imovel })}
-                                       className="whitespace-nowrap font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
-                                       title={`Opções de download para ITR ${item.numero}`}
-                                     >
-                                       {item.numero}
-                                     </button>
-                                   ) : (
-                                     <span className="whitespace-nowrap font-medium text-gray-700">{item.numero}</span>
-                                   )}
-                                   {i < acomp.itrDados!.length - 1 && <span className="text-gray-400 ml-1">,</span>}
-                                 </div>
-                               </div>
-                            ))
-                          ) : (
-                            <span className="whitespace-nowrap">{acomp.itr || '-'}</span>
-                          )}
-                        </div>
-                        
-                        {(() => {
-                          const hasAnyItrPdf = (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url);
-                          return (
-                            <button
-                              type="button"
-                              disabled={!hasAnyItrPdf || isDownloadingZip === acomp.id + 'itr'}
-                              title={hasAnyItrPdf ? "Baixar todos os PDFs de ITR (em ZIP)" : "Nenhum PDF disponível"}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleDownloadAllItrZipped(acomp.id, acomp.itrDados || [], acomp.imovel)
-                              }}
-                              className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                                hasAnyItrPdf 
-                                  ? (isDownloadingZip === acomp.id + 'itr' ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                  : 'text-gray-300 cursor-not-allowed'
-                              }`}
-                            >
-                              {isDownloadingZip === acomp.id + 'itr' ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                              ) : (
-                                <Download className={`w-4 h-4 ${!hasAnyItrPdf ? 'opacity-50' : ''}`} />
-                              )}
-                            </button>
-                          )
-                        })()}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {acomp.geoCertificacao}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {acomp.geoRegistro}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 font-semibold">{formatNumber(acomp.areaTotal)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.reservaLegal)}</td>
-                    <td
-                      className="px-3 py-2 whitespace-nowrap text-sm font-semibold"
-                      title="Saldo = Reserva Legal (ha) - 20% da Área Total (ha)"
-                    >
-                      {(() => {
-                        const required = (acomp.areaTotal || 0) * 0.2
-                        const saldo = (acomp.reservaLegal || 0) - required
-                        const isOk = saldo >= 0
-                        return (
-                          <span className={isOk ? 'text-green-700' : 'text-red-600'}>
-                            {isOk ? '+' : '-'}
-                            {formatNumber(Math.abs(saldo))} ha
-                          </span>
-                        )
-                      })()}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura1}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaCultura1)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura2}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaCultura2)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.outros}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaOutros)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appCodigoFlorestal)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appVegetada)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appNaoVegetada)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.remanescenteFlorestal)}</td>
-                    <td className={`px-3 py-2 whitespace-nowrap text-center text-sm font-medium sticky right-0 shadow-[-1px_0_0_rgba(229,231,235,1)] ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`}>
-                      {(() => {
-                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
-                        return (
-                          <button
-                            onClick={() => handleDownloadRegistroZip(acomp)}
-                            disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
-                            className={`inline-flex items-center justify-center p-2 rounded-full transition-colors ${
-                              hasDocs 
-                                ? (isDownloadingRecordZip === acomp.id ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 flex-shrink-0')
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                            title={hasDocs ? "Baixar todos os documentos do registro (ZIP)" : "Nenhum documento disponível"}
-                          >
-                            {isDownloadingRecordZip === acomp.id ? (
-                              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`w-5 h-5 ${!hasDocs ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>}
-
       </main>
 
       {/* Footer */}
@@ -1829,7 +1457,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 </div>
               </div>
               <p className="text-gray-400 text-sm">
-                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecosistema completo de gestão e educação para Empreeendedores.
+                Sistema de Gestão Inteligente por Viver de PJ. A Viver de PJ é um ecossistema completo de gestão e educação para Empreendedores.
                 <br /><br />
                 Autor: Fernando Carvalho Gomes dos Santos 39063242816.
               </p>
@@ -1894,7 +1522,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2026 Viver de PJ. TODOS OS DIREITOS RESERVADOS</p>
+            <p>&copy; {new Date().getFullYear()} Viver de PJ. TODOS OS DIREITOS RESERVADOS</p>
           </div>
         </div>
       </footer>
@@ -1910,14 +1538,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             setSelectedImovel('')
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
+          <div
+            className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Mapa do Imóvel</h2>
-                <p className="text-gray-600 mt-1">{selectedImovel}</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mapa do Imóvel</h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{selectedImovel}</p>
               </div>
               <button
                 onClick={() => {
@@ -1925,7 +1553,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   setSelectedMapUrl('')
                   setSelectedImovel('')
                 }}
-                className="text-gray-400 hover:text-gray-600 text-2xl transition-colors"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl transition-colors"
               >
                 ✕
               </button>
@@ -1978,18 +1606,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           style={{ margin: 0, padding: 0 }}
           onClick={() => setItrDownloadModal(null)}
         >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
+          <div
+            className="bg-white dark:bg-[#1e2a3a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Downloads ITR: <span className="text-blue-600">{itrDownloadModal.item.numero}</span>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Downloads ITR: <span className="text-blue-600 dark:text-blue-400">{itrDownloadModal.item.numero}</span>
                 </h3>
-                <button 
+                <button
                   onClick={() => setItrDownloadModal(null)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6 text-gray-400" />
                 </button>
@@ -2001,18 +1629,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     href={itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all group"
+                    className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-200">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/60">
                         <FileText className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <div className="font-semibold text-blue-900">Ver Declaração</div>
-                        <div className="text-xs text-blue-600">Visualizar ou baixar PDF</div>
+                        <div className="font-semibold text-blue-900 dark:text-blue-200">Ver Declaração</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">Visualizar ou baixar PDF</div>
                       </div>
                     </div>
-                    <Download className="w-5 h-5 text-blue-400 group-hover:text-blue-600" />
+                    <Download className="w-5 h-5 text-blue-400 group-hover:text-blue-600 dark:group-hover:text-blue-300" />
                   </a>
                 )}
 
@@ -2021,28 +1649,28 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                     href={itrDownloadModal.item.reciboUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-all group"
+                    className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-xl transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 text-green-600 rounded-lg group-hover:bg-green-200">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/60">
                         <ClipboardCheck className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <div className="font-semibold text-green-900">Ver Recibo</div>
-                        <div className="text-xs text-green-600">Visualizar ou baixar PDF</div>
+                        <div className="font-semibold text-green-900 dark:text-green-200">Ver Recibo</div>
+                        <div className="text-xs text-green-600 dark:text-green-400">Visualizar ou baixar PDF</div>
                       </div>
                     </div>
-                    <Download className="w-5 h-5 text-green-400 group-hover:text-green-600" />
+                    <Download className="w-5 h-5 text-green-400 group-hover:text-green-600 dark:group-hover:text-green-300" />
                   </a>
                 )}
 
                 <button
                   onClick={() => handleDownloadSingleItrZipped(itrDownloadModal.item, itrDownloadModal.imovel)}
                   disabled={isDownloadingSingleZip === itrDownloadModal.item.id}
-                  className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg group-hover:bg-indigo-200">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60">
                       {isDownloadingSingleZip === itrDownloadModal.item.id ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
@@ -2050,18 +1678,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                       )}
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-indigo-900">Baixar Ambos (ZIP)</div>
-                      <div className="text-xs text-indigo-600">Pacote completo do ITR</div>
+                      <div className="font-semibold text-indigo-900 dark:text-indigo-200">Baixar Ambos (ZIP)</div>
+                      <div className="text-xs text-indigo-600 dark:text-indigo-400">Pacote completo do ITR</div>
                     </div>
                   </div>
-                  <Download className="w-5 h-5 text-indigo-400 group-hover:text-indigo-600" />
+                  <Download className="w-5 h-5 text-indigo-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
                 </button>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-gray-100">
+              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
                 <button
                   onClick={() => setItrDownloadModal(null)}
-                  className="w-full py-3 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
                   Fechar
                 </button>
