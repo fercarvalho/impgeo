@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, User, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-const API_BASE_URL =
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
 import PhotoUpload from './PhotoUpload';
 import { validateEmail } from '../utils/validation';
 import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '../utils/phoneMask';
 import { applyCpfMask, removeCpfMask, validateCpfFormat } from '../utils/cpfMask';
 import { applyCepMask, removeCepMask, validateCepFormat, fetchAddressByCep } from '../utils/cepMask';
+
+const API_BASE_URL =
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001/api'
+    : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 interface EditarPerfilModalProps {
   isOpen: boolean;
@@ -130,8 +131,10 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
     const cep = formData.address.cep;
     if (cep && removeCepMask(cep).length === 8) {
       setIsSearchingCep(true);
+      let mounted = true;
       try {
         const addressData = await fetchAddressByCep(cep);
+        if (!mounted) return;
         if (addressData) {
           setFormData(prev => ({
             ...prev,
@@ -148,10 +151,12 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           setErrors(prev => ({ ...prev, 'address.cep': 'CEP não encontrado' }));
         }
       } catch (error) {
+        if (!mounted) return;
         console.error('Erro ao buscar CEP:', error);
         setErrors(prev => ({ ...prev, 'address.cep': 'Erro ao buscar endereço' }));
       } finally {
-        setIsSearchingCep(false);
+        if (mounted) setIsSearchingCep(false);
+        mounted = false;
       }
     }
   };
@@ -377,9 +382,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
         password // Senha atual para validação
       };
 
-      if (finalPhotoUrl !== undefined) {
-        updateData.photoUrl = finalPhotoUrl || null;
-      }
+      updateData.photoUrl = finalPhotoUrl || null;
 
       const response = await fetch(`${API_BASE_URL}/user/profile`, {
         method: 'PUT',
@@ -421,7 +424,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
     <div
       className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[90] px-4 py-8"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && !isSubmitting && !isUploadingPhoto) {
           onClose();
         }
       }}
@@ -430,14 +433,14 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 id="editarPerfilModalTitle" className="text-xl font-bold text-white flex items-center gap-2">
               <User className="w-6 h-6 text-white" aria-hidden="true" />
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
               className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingPhoto}
               aria-label="Fechar modal"
             >
               <X className="w-5 h-5" aria-hidden="true" />
@@ -446,7 +449,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-labelledby="editarPerfilModalTitle">
           {errors.general && (
             <div
               className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg text-sm"
@@ -704,8 +707,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
                 disabled={isSubmitting || isSearchingCep}
               />
               {isSearchingCep && (
-                <div className="flex items-center px-4 text-blue-500">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <div className="flex items-center px-4 text-blue-500" aria-label="Buscando endereço...">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" aria-hidden="true"></div>
                 </div>
               )}
             </div>
@@ -859,7 +862,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingPhoto}
               className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               Cancelar
@@ -872,7 +875,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
             >
               {isSubmitting || isUploadingPhoto ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true"></div>
                   {isUploadingPhoto ? 'Enviando foto...' : 'Salvando...'}
                 </>
               ) : (
