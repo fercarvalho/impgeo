@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, FileText, RefreshCw } from 'lucide-react';
 import DOMPurify from 'dompurify';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
-    : ((import.meta as any).env?.VITE_API_URL || '/api');
+    : (import.meta.env.VITE_API_URL || '/api');
 
 interface TermosData {
   conteudo: string;
@@ -19,21 +19,21 @@ interface TermosUsoModalProps {
 }
 
 const DEFAULT_CONTENT = `
-<h2>Termos de Uso</h2>
+<h3>Termos de Uso</h3>
 <p>Bem-vindo ao <strong>IMPGEO</strong>. Ao utilizar este sistema, você concorda com os presentes Termos de Uso.</p>
-<h3>1. Aceitação dos Termos</h3>
+<h4>1. Aceitação dos Termos</h4>
 <p>O uso deste sistema implica a aceitação integral destes Termos de Uso e da Política de Privacidade.</p>
-<h3>2. Uso do Sistema</h3>
+<h4>2. Uso do Sistema</h4>
 <p>O sistema é destinado exclusivamente ao uso por usuários autorizados. É proibido o compartilhamento de credenciais de acesso.</p>
-<h3>3. Responsabilidades</h3>
+<h4>3. Responsabilidades</h4>
 <p>O usuário é responsável por manter a confidencialidade de suas credenciais e por todas as atividades realizadas em sua conta.</p>
-<h3>4. Propriedade Intelectual</h3>
+<h4>4. Propriedade Intelectual</h4>
 <p>Todo o conteúdo, design e funcionalidades do sistema são protegidos por direitos autorais e não podem ser reproduzidos sem autorização.</p>
-<h3>5. Privacidade e LGPD</h3>
+<h4>5. Privacidade e LGPD</h4>
 <p>O tratamento de dados pessoais é realizado em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018).</p>
-<h3>6. Alterações</h3>
+<h4>6. Alterações</h4>
 <p>Estes Termos podem ser atualizados a qualquer momento. A continuidade do uso do sistema após alterações implica aceitação dos novos Termos.</p>
-<h3>7. Contato</h3>
+<h4>7. Contato</h4>
 <p>Para dúvidas sobre estes Termos, entre em contato com a equipe de suporte.</p>
 `;
 
@@ -44,10 +44,14 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setData(null);
+      setIsLoading(false);
+      return;
+    }
     let mounted = true;
-    setIsLoading(true);
     const load = async () => {
+      setIsLoading(true);
       try {
         const r = await fetch(`${API_BASE_URL}/termos-uso`);
         let res: { success?: boolean; data?: TermosData } = {};
@@ -56,8 +60,11 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
         } catch {
           // body não é JSON (ex: 502 com HTML)
         }
-        if (mounted && r.ok && res.success && res.data) {
-          setData(res.data);
+        if (mounted) {
+          if (r.ok && res.success && res.data) {
+            setData(res.data);
+          }
+          // em caso de falha (rede ou success=false), conteúdo padrão será exibido
         }
       } catch {
         // falha de rede — conteúdo padrão será exibido
@@ -69,12 +76,15 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
     return () => { mounted = false; };
   }, [isOpen]);
 
+  const handleKey = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleKey]);
 
   if (!isOpen) return null;
 
@@ -119,14 +129,19 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4" tabIndex={0}>
+        <div
+          className="overflow-y-auto flex-1 px-5 py-4"
+          tabIndex={0}
+          aria-label="Conteúdo dos termos de uso"
+          aria-live="polite"
+        >
           {isLoading ? (
             <div className="flex items-center justify-center py-16" role="status" aria-label="Carregando termos de uso">
               <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" aria-hidden="true" />
             </div>
           ) : (
             <div
-              className="prose prose-sm max-w-none text-gray-700 dark:text-gray-200 leading-relaxed"
+              className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-200 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(conteudo) }}
             />
           )}
