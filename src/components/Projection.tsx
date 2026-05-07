@@ -120,6 +120,28 @@ const Projection: React.FC = () => {
   // Estado para controlar visualização (tabela/gráfico)
   const [isChartView, setIsChartView] = useState(false)
 
+  // Estados dos filtros de séries dos gráficos — mantidos no pai para não resetar ao re-render
+  const [baseDespesasEnabled, setBaseDespesasEnabled] = useState({
+    despesasVariaveis: true,
+    despesasFixas: true,
+    investimentos: true,
+    despesasTotais: true
+  })
+  const [baseMktEnabled, setBaseMktEnabled] = useState({
+    trafego: true,
+    socialMedia: true,
+    producaoConteudo: true,
+    total: true
+  })
+  const [baseFaturamentoEnabled, setBaseFaturamentoEnabled] = useState({
+    reurb: true,
+    geo: true,
+    plan: true,
+    reg: true,
+    nn: true,
+    total: true
+  })
+
   const [pendingScrollSectionId, setPendingScrollSectionId] = useState<ProjectionSectionId | null>(null)
   
   // Estados para modal de limpeza seletiva
@@ -140,8 +162,12 @@ const Projection: React.FC = () => {
   const [manualEdits, setManualEdits] = useState<{
     [key: string]: boolean
   }>(() => {
-    const saved = localStorage.getItem('manualEdits')
-    return saved ? JSON.parse(saved) : {}
+    try {
+      const saved = localStorage.getItem('manualEdits')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
   })
   const [fixedExpensesData, setFixedExpensesData] = useState<FixedExpensesData>({
     previsto: new Array(12).fill(0),
@@ -674,7 +700,7 @@ const Projection: React.FC = () => {
   // Atualização automática do faturamento total quando qualquer faturamento mudar
   useEffect(() => {
     console.log('useEffect faturamento total executado')
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...faturamentoTotalData.previsto]
       const novosMedio = [...faturamentoTotalData.medio]
       const novosMaximo = [...faturamentoTotalData.maximo]
@@ -706,11 +732,11 @@ const Projection: React.FC = () => {
       setFaturamentoTotalData(novosDados)
       saveFaturamentoTotalToServer(novosDados)
     }
-  }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData])
+  }, [faturamentoReurbData, faturamentoGeoData, faturamentoPlanData, faturamentoRegData, faturamentoNnData, isLoading])
 
   // Atualização automática do orçamento quando despesas fixas, variáveis, MKT ou investimentos mudarem
   useEffect(() => {
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...budgetData.previsto]
       const novosMedio = [...budgetData.medio]
       const novosMaximo = [...budgetData.maximo]
@@ -741,12 +767,12 @@ const Projection: React.FC = () => {
       setBudgetData(novosDados)
       saveBudgetToServer(novosDados)
     }
-  }, [fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
+  }, [fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos, isLoading])
 
   // Atualização automática do resultado quando faturamento total ou orçamento mudarem
   useEffect(() => {
     console.log('useEffect resultado executado')
-    if (token) {
+    if (token && !isLoading) {
       const novosPrevisto = [...resultadoData.previsto]
       const novosMedio = [...resultadoData.medio]
       const novosMaximo = [...resultadoData.maximo]
@@ -784,7 +810,7 @@ const Projection: React.FC = () => {
         saveResultadoToServer(novosDados)
       }
     }
-  }, [data, fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos])
+  }, [data, fixedExpensesData, variableExpensesData, data.mktComponents, data.investimentos, isLoading])
 
   // Atualização automática dos dados de MKT quando componentes de MKT ou percentual mudarem
   useEffect(() => {
@@ -1061,34 +1087,13 @@ const Projection: React.FC = () => {
   }
 
   const loadResultadoData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/resultado`)
-      if (response.ok) {
-        const resultadoData = await response.json()
-        console.log('Dados de resultado carregados do servidor:', resultadoData)
-        // Não vamos sobrescrever os valores calculados com dados salvos
-        // setResultadoData(resultadoData)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados de resultado:', error)
-    }
+    // Resultado é calculado automaticamente; não há estado local para carregar
   }
 
   // Função para forçar recálculo do resultado financeiro
 
-  // Carregar dados de MKT
-  const loadMktData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/mkt`)
-      if (response.ok) {
-        // Os dados são carregados mas não armazenados em estado local
-        // pois são calculados automaticamente baseados na tabela principal
-        console.log('Dados de MKT carregados com sucesso')
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados de MKT:', error)
-    }
-  }
+  // MKT é calculado automaticamente a partir dos componentes de MKT; sem estado local para carregar
+  const loadMktData = async () => {}
 
   const loadInvestmentsData = async () => {
     try {
@@ -2248,6 +2253,7 @@ Continuar mesmo assim?`)
   }
 
   const formatNumber = (value: number) => {
+    if (!isFinite(value) || isNaN(value)) return 0
     return Math.round(value * 100) / 100
   }
 
@@ -2261,7 +2267,7 @@ Continuar mesmo assim?`)
     const inputRef = useRef<HTMLInputElement>(null)
     const debounceTimerRef = useRef<number | undefined>(undefined)
     const isNegative = value < 0
-    const textColor = isNegative ? 'text-red-600' : 'text-gray-900'
+    const textColor = isNegative ? 'text-red-600' : (isDark ? 'text-slate-100' : 'text-gray-900')
     
     // Verificar se foi editado manualmente
     const editKey = `${category}-${monthIndex}`
@@ -2490,7 +2496,15 @@ Continuar mesmo assim?`)
 
   const chartMonths = useMemo(() => ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], [])
 
-  const ChartsView: React.FC<{ onEditSection: (sectionId: ProjectionSectionId) => void }> = ({ onEditSection }) => {
+  const ChartsView: React.FC<{
+    onEditSection: (sectionId: ProjectionSectionId) => void
+    baseDespesasEnabled: { despesasVariaveis: boolean; despesasFixas: boolean; investimentos: boolean; despesasTotais: boolean }
+    setBaseDespesasEnabled: React.Dispatch<React.SetStateAction<{ despesasVariaveis: boolean; despesasFixas: boolean; investimentos: boolean; despesasTotais: boolean }>>
+    baseMktEnabled: { trafego: boolean; socialMedia: boolean; producaoConteudo: boolean; total: boolean }
+    setBaseMktEnabled: React.Dispatch<React.SetStateAction<{ trafego: boolean; socialMedia: boolean; producaoConteudo: boolean; total: boolean }>>
+    baseFaturamentoEnabled: { reurb: boolean; geo: boolean; plan: boolean; reg: boolean; nn: boolean; total: boolean }
+    setBaseFaturamentoEnabled: React.Dispatch<React.SetStateAction<{ reurb: boolean; geo: boolean; plan: boolean; reg: boolean; nn: boolean; total: boolean }>>
+  }> = ({ onEditSection, baseDespesasEnabled, setBaseDespesasEnabled, baseMktEnabled, setBaseMktEnabled, baseFaturamentoEnabled, setBaseFaturamentoEnabled }) => {
     // Séries (Previsto/Médio/Máximo)
     const resultadoChartData = useMemo(
       () =>
@@ -2523,27 +2537,7 @@ Continuar mesmo assim?`)
       [data.growth?.minimo, data.growth?.medio, data.growth?.maximo]
     )
 
-    // Resultado do Ano Anterior (base) — 3 blocos com seleção de séries
-    const [baseDespesasEnabled, setBaseDespesasEnabled] = useState({
-      despesasVariaveis: true,
-      despesasFixas: true,
-      investimentos: true,
-      despesasTotais: true
-    })
-    const [baseMktEnabled, setBaseMktEnabled] = useState({
-      trafego: true,
-      socialMedia: true,
-      producaoConteudo: true,
-      total: true
-    })
-    const [baseFaturamentoEnabled, setBaseFaturamentoEnabled] = useState({
-      reurb: true,
-      geo: true,
-      plan: true,
-      reg: true,
-      nn: true,
-      total: true
-    })
+    // Os estados de filtros de séries são recebidos via props do componente pai (evita reset em re-renders)
 
     const baseDespesasData = useMemo(
       () =>
@@ -2969,7 +2963,7 @@ Continuar mesmo assim?`)
         {/* Primeira linha: Título + Botões principais */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <FaCalculator className="w-8 h-8 text-blue-600" />
+            <FaCalculator className="w-8 h-8 text-blue-600" aria-hidden="true" />
             Projeção Anual
           </h1>
           <div className="flex items-center gap-4">
@@ -3042,8 +3036,8 @@ Continuar mesmo assim?`)
         <div className="flex items-center gap-2">
           <p className="text-sm text-gray-600">Preencha apenas os valores mensais - os cálculos são automáticos</p>
           {isSaving && (
-            <div className="flex items-center gap-2 text-sm text-blue-600">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <div className="flex items-center gap-2 text-sm text-blue-600" role="status" aria-live="polite">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" aria-hidden="true"></div>
               salvando
             </div>
           )}
@@ -3056,6 +3050,9 @@ Continuar mesmo assim?`)
           </span>
           <button
             onClick={() => setIsChartView(!isChartView)}
+            role="switch"
+            aria-checked={isChartView}
+            aria-label="Alternar entre visualização em tabela e gráfico"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
               isChartView ? 'bg-blue-600' : 'bg-gray-300'
             }`}
@@ -3073,7 +3070,15 @@ Continuar mesmo assim?`)
       </div>
 
       {isChartView ? (
-        <ChartsView onEditSection={handleEditSection} />
+        <ChartsView
+          onEditSection={handleEditSection}
+          baseDespesasEnabled={baseDespesasEnabled}
+          setBaseDespesasEnabled={setBaseDespesasEnabled}
+          baseMktEnabled={baseMktEnabled}
+          setBaseMktEnabled={setBaseMktEnabled}
+          baseFaturamentoEnabled={baseFaturamentoEnabled}
+          setBaseFaturamentoEnabled={setBaseFaturamentoEnabled}
+        />
       ) : (
         <>
       {/* Tabela/Gráfico RESULTADO - A mais importante - MOVIDA PARA O TOPO */}
@@ -3241,6 +3246,7 @@ Continuar mesmo assim?`)
       <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
         <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Resultado Financeiro:</h3>
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, cálculo automático</p>
             <p><span className="font-semibold">Fórmula:</span> Faturamento Total - Orçamento</p>
@@ -4022,9 +4028,9 @@ Continuar mesmo assim?`)
 
       
       {/* Legenda (abaixo da tabela inicial) */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Apenas os valores mensais</p>
             <p><span className="font-semibold">Campos calculados:</span> Trimestres, Total Geral e Média</p>
@@ -4057,6 +4063,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Mínimo</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-minimo-${data.growth?.minimo ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.minimo ?? 0}
@@ -4074,6 +4081,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Médio</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-medio-${data.growth?.medio ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.medio ?? 0}
@@ -4091,6 +4099,7 @@ Continuar mesmo assim?`)
                   <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Máximo</td>
                   <td className="px-4 py-2">
                     <input
+                      key={`growth-maximo-${data.growth?.maximo ?? 0}`}
                       type="number"
                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
                       defaultValue={data.growth?.maximo ?? 0}
@@ -4111,9 +4120,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Percentual de Crescimento Anual */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Percentual de Crescimento Anual:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Percentual de Crescimento Anual:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Mínimo, Médio e Máximo</p>
             <p><span className="font-semibold">Função:</span> Define percentuais de crescimento para cálculos automáticos</p>
@@ -4368,9 +4377,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda MKT (logo abaixo da Composição MKT) */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda MKT:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Produção de Conteúdo:</span> criação de campanhas com estratégia</p>
           </div>
@@ -4543,9 +4552,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda MKT */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda MKT:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda MKT:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Fonte:</span> Linha "TOTAL" da tabela Composição MKT</p>
@@ -4902,9 +4911,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Fixas */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Fixas:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Apenas linha "Previsto"</p>
             <p><span className="font-semibold">Campos calculados:</span> Média (+10%) e Máximo (+10%)</p>
@@ -5213,9 +5222,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Variáveis */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Variáveis:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Variáveis:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> Despesas Variáveis da tabela principal + Percentual</p>
@@ -5392,9 +5401,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Despesas Fixas + Variáveis */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Despesas Fixas + Variáveis:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Despesas Fixas + Variáveis:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Soma automática das duas tabelas</p>
             <p><span className="font-semibold">Função:</span> Não editável, apenas visualização</p>
@@ -5703,9 +5712,9 @@ Continuar mesmo assim?`)
       )}
 
       {/* Legenda Investimentos */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Investimentos:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Investimentos:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> Investimentos da tabela principal + Percentual</p>
@@ -5879,9 +5888,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Orçamento */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Orçamento:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Orçamento:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Componentes:</span> Despesas Fixas + Variáveis + MKT + Investimentos</p>
@@ -6211,9 +6220,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento REURB */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REURB:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento REURB:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> REURB da tabela principal + Percentual</p>
@@ -6543,9 +6552,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento GEO */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento GEO:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento GEO:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> GEO da tabela principal + Percentual</p>
@@ -6875,9 +6884,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento PLAN */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento PLAN:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento PLAN:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> PLAN da tabela principal + Percentual</p>
@@ -7207,9 +7216,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento REG */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento REG:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento REG:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> REG da tabela principal + Percentual</p>
@@ -7537,9 +7546,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento NN */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento NN:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento NN:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos editáveis:</span> Todas as linhas (Previsto, Médio, Máximo)</p>
             <p><span className="font-semibold">Cálculo base:</span> NN da tabela principal + Percentual</p>
@@ -7583,13 +7592,7 @@ Continuar mesmo assim?`)
               <tr>
                 <td className="px-4 py-3 text-gray-700 sticky left-0 z-10 bg-white">Previsto</td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[0] + faturamentoGeoData.previsto[0] + faturamentoPlanData.previsto[0] + faturamentoRegData.previsto[0] + faturamentoNnData.previsto[0]) +
-                      (faturamentoReurbData.previsto[1] + faturamentoGeoData.previsto[1] + faturamentoPlanData.previsto[1] + faturamentoRegData.previsto[1] + faturamentoNnData.previsto[1]) +
-                      (faturamentoReurbData.previsto[2] + faturamentoGeoData.previsto[2] + faturamentoPlanData.previsto[2] + faturamentoRegData.previsto[2] + faturamentoNnData.previsto[2])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[0] + faturamentoTotalData.previsto[1] + faturamentoTotalData.previsto[2]} />
                 </td>
                 {meses.slice(0, 3).map((_, index) => (
                   <td key={index} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7597,13 +7600,7 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[3] + faturamentoGeoData.previsto[3] + faturamentoPlanData.previsto[3] + faturamentoRegData.previsto[3] + faturamentoNnData.previsto[3]) +
-                      (faturamentoReurbData.previsto[4] + faturamentoGeoData.previsto[4] + faturamentoPlanData.previsto[4] + faturamentoRegData.previsto[4] + faturamentoNnData.previsto[4]) +
-                      (faturamentoReurbData.previsto[5] + faturamentoGeoData.previsto[5] + faturamentoPlanData.previsto[5] + faturamentoRegData.previsto[5] + faturamentoNnData.previsto[5])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[3] + faturamentoTotalData.previsto[4] + faturamentoTotalData.previsto[5]} />
                 </td>
                 {meses.slice(3, 6).map((_, index) => (
                   <td key={index + 3} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7611,13 +7608,7 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[6] + faturamentoGeoData.previsto[6] + faturamentoPlanData.previsto[6] + faturamentoRegData.previsto[6] + faturamentoNnData.previsto[6]) +
-                      (faturamentoReurbData.previsto[7] + faturamentoGeoData.previsto[7] + faturamentoPlanData.previsto[7] + faturamentoRegData.previsto[7] + faturamentoNnData.previsto[7]) +
-                      (faturamentoReurbData.previsto[8] + faturamentoGeoData.previsto[8] + faturamentoPlanData.previsto[8] + faturamentoRegData.previsto[8] + faturamentoNnData.previsto[8])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[6] + faturamentoTotalData.previsto[7] + faturamentoTotalData.previsto[8]} />
                 </td>
                 {meses.slice(6, 9).map((_, index) => (
                   <td key={index + 6} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7625,13 +7616,7 @@ Continuar mesmo assim?`)
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={
-                    (
-                      (faturamentoReurbData.previsto[9] + faturamentoGeoData.previsto[9] + faturamentoPlanData.previsto[9] + faturamentoRegData.previsto[9] + faturamentoNnData.previsto[9]) +
-                      (faturamentoReurbData.previsto[10] + faturamentoGeoData.previsto[10] + faturamentoPlanData.previsto[10] + faturamentoRegData.previsto[10] + faturamentoNnData.previsto[10]) +
-                      (faturamentoReurbData.previsto[11] + faturamentoGeoData.previsto[11] + faturamentoPlanData.previsto[11] + faturamentoRegData.previsto[11] + faturamentoNnData.previsto[11])
-                    )
-                  } />
+                  <CalculatedCell value={faturamentoTotalData.previsto[9] + faturamentoTotalData.previsto[10] + faturamentoTotalData.previsto[11]} />
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
@@ -7789,14 +7774,14 @@ Continuar mesmo assim?`)
                 </td>
                 {meses.slice(9, 12).map((_, index) => (
                   <td key={index + 9} className="px-3 py-2" style={{width: '100px', minWidth: '100px'}}>
-                    <CalculatedCell value={calcularMaximoTotalMes(index + 9)} />
+                    <CalculatedCell value={faturamentoTotalData.maximo[index + 9]} />
                   </td>
                 ))}
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularTotalGeral((i) => calcularMaximoTotalMes(i))} />
+                  <CalculatedCell value={faturamentoTotalData.maximo.reduce((sum, value) => sum + value, 0)} />
                 </td>
                 <td className="px-3 py-2">
-                  <CalculatedCell value={calcularMedia((i) => calcularMaximoTotalMes(i))} />
+                  <CalculatedCell value={faturamentoTotalData.maximo.reduce((sum, value) => sum + value, 0) / 12} />
                 </td>
               </tr>
             </tbody>
@@ -7805,9 +7790,9 @@ Continuar mesmo assim?`)
       </div>
 
       {/* Legenda Faturamento Total */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">Legenda Faturamento Total:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+      <div className={`border rounded-lg p-4 ${isDark ? 'bg-blue-950/40 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>Legenda Faturamento Total:</h3>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           <div>
             <p><span className="font-semibold">Campos calculados:</span> Não editável, soma automática</p>
             <p><span className="font-semibold">Componentes:</span> REURB + GEO + PLAN + REG + NN</p>
@@ -7828,14 +7813,17 @@ Continuar mesmo assim?`)
           className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
           onClick={() => setShowSelectiveClearModal(false)}
         >
-          <div 
+          <div
             className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[95vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="selective-clear-modal-title"
           >
             {/* Header do Modal */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Limpeza Seletiva - Projeção</h3>
+                <h3 id="selective-clear-modal-title" className="text-xl font-bold text-gray-900">Limpeza Seletiva - Projeção</h3>
                 <p className="text-gray-600 text-sm mt-1">Selecione quais tabelas editáveis da projeção deseja limpar</p>
               </div>
               <button
@@ -7951,7 +7939,11 @@ Continuar mesmo assim?`)
                         
                         console.log(`🗑️ Limpando tabela: ${tableId} -> /api/${route}`)
                         const response = await fetch(`/api/${route}`, {
-                          method: 'DELETE'
+                          method: 'DELETE',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                          }
                         })
                         
                         if (!response.ok) {
