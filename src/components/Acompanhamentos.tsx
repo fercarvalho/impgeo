@@ -373,10 +373,11 @@ const Acompanhamentos: React.FC = () => {
   ]
 
   useEffect(() => {
+    const controller = new AbortController()
     // Carregar dados da API
     const loadAcompanhamentos = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos`)
+        const response = await fetch(`${API_BASE_URL}/acompanhamentos`, { signal: controller.signal })
         const result = await response.json()
         if (result.success) {
           const normalized = normalizeAcompanhamentos(result.data)
@@ -387,7 +388,8 @@ const Acompanhamentos: React.FC = () => {
           setAcompanhamentos(exemploDados)
           setFilteredAcompanhamentos(exemploDados)
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return
         console.error('Erro ao carregar acompanhamentos:', error)
         // Em caso de erro, usar dados de exemplo
         setAcompanhamentos(exemploDados)
@@ -395,6 +397,7 @@ const Acompanhamentos: React.FC = () => {
       }
     }
     loadAcompanhamentos()
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {
@@ -431,9 +434,16 @@ const Acompanhamentos: React.FC = () => {
     const rows = [...filteredAcompanhamentos]
     const direction = sortDirection === 'asc' ? 1 : -1
 
+    const getValue = (acomp: Acompanhamento, field: SortField): string | number => {
+      if (field === 'saldoReservaLegal') {
+        return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+      }
+      return acomp[field]
+    }
+
     rows.sort((a, b) => {
-      const aValue = getSortValue(a, sortField)
-      const bValue = getSortValue(b, sortField)
+      const aValue = getValue(a, sortField)
+      const bValue = getValue(b, sortField)
 
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return (aValue - bValue) * direction
@@ -448,7 +458,7 @@ const Acompanhamentos: React.FC = () => {
 
   // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
-    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || isShareSelectionWarningOpen || chartModalOpen
+    const anyModalOpen = isModalOpen || isMapModalOpen || isImportModalOpen || isShareModalOpen || isShareSelectionWarningOpen || chartModalOpen || !!itrDownloadModal
     
     if (anyModalOpen) {
       const scrollY = window.scrollY
@@ -949,7 +959,17 @@ const Acompanhamentos: React.FC = () => {
           const normalizedUpdated = normalizeAcompanhamento(result.data)
           const updated = acompanhamentos.map(a => a.id === editing.id ? { ...normalizedUpdated, id: editing.id } : a)
           setAcompanhamentos(updated)
-          setFilteredAcompanhamentos(updated)
+          // Re-apply current search filter instead of overwriting filteredAcompanhamentos
+          if (searchTerm) {
+            const lower = searchTerm.toLowerCase()
+            setFilteredAcompanhamentos(updated.filter(acomp =>
+              (acomp.imovel || '').toLowerCase().includes(lower) ||
+              (acomp.municipio || '').toLowerCase().includes(lower) ||
+              String(acomp.codImovel ?? '').includes(searchTerm)
+            ))
+          } else {
+            setFilteredAcompanhamentos(updated)
+          }
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
@@ -973,7 +993,17 @@ const Acompanhamentos: React.FC = () => {
         if (result.success) {
           const updated = [...acompanhamentos, normalizeAcompanhamento(result.data)]
           setAcompanhamentos(updated)
-          setFilteredAcompanhamentos(updated)
+          // Re-apply current search filter instead of overwriting filteredAcompanhamentos
+          if (searchTerm) {
+            const lower = searchTerm.toLowerCase()
+            setFilteredAcompanhamentos(updated.filter(acomp =>
+              (acomp.imovel || '').toLowerCase().includes(lower) ||
+              (acomp.municipio || '').toLowerCase().includes(lower) ||
+              String(acomp.codImovel ?? '').includes(searchTerm)
+            ))
+          } else {
+            setFilteredAcompanhamentos(updated)
+          }
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
@@ -1140,7 +1170,7 @@ const Acompanhamentos: React.FC = () => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(acompanhamentoId + 'ccir')
     try {
       const zip = new JSZip()
       
@@ -2141,6 +2171,13 @@ const Acompanhamentos: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {sortedAcompanhamentos.length === 0 && (
+                <tr>
+                  <td colSpan={24} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {searchTerm ? `Nenhum resultado encontrado para "${searchTerm}"` : 'Nenhum acompanhamento cadastrado.'}
+                  </td>
+                </tr>
+              )}
               {sortedAcompanhamentos.map((acomp, index) => (
                 <tr
                   key={acomp.id}
@@ -2167,7 +2204,7 @@ const Acompanhamentos: React.FC = () => {
                         title="Ver mapa do imóvel"
                       >
                         {acomp.imovel}
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                         </svg>
                       </button>
@@ -2408,7 +2445,7 @@ const Acompanhamentos: React.FC = () => {
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
                       {(() => {
-                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url);
+                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url) || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url) || (acomp.ccirDados || []).some(m => m.url);
                         return (
                           <button
                             onClick={() => handleDownloadRegistroZip(acomp)}
@@ -2462,13 +2499,13 @@ const Acompanhamentos: React.FC = () => {
             setFormErrors({})
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
+          <div
+            className="bg-white dark:!bg-[#243040] rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {editing ? 'Editar Acompanhamento' : 'Novo Acompanhamento'}
                 </h2>
                 <button
@@ -2478,7 +2515,7 @@ const Acompanhamentos: React.FC = () => {
                     setEditing(null)
                     setFormErrors({})
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-2xl"
                 >
                   ✕
                 </button>
@@ -2507,7 +2544,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="text"
                       value={form.imovel || ''}
-                      onChange={(e) => setForm({ ...form, imovel: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, imovel: e.target.value }))}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                         formErrors.imovel ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -2524,7 +2561,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="text"
                       value={form.municipio || ''}
-                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, municipio: e.target.value }))}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                         formErrors.municipio ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -2541,7 +2578,7 @@ const Acompanhamentos: React.FC = () => {
                     <input
                       type="url"
                       value={form.mapaUrl || ''}
-                      onChange={(e) => setForm({ ...form, mapaUrl: e.target.value })}
+                      onChange={(e) => setForm(prev => ({ ...prev, mapaUrl: e.target.value }))}
                       placeholder="https://www.google.com/maps/d/u/0/viewer?..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -2748,7 +2785,7 @@ const Acompanhamentos: React.FC = () => {
                         <input
                           type="text"
                           value={form.car || ''}
-                          onChange={(e) => setForm({ ...form, car: e.target.value })}
+                          onChange={(e) => setForm(prev => ({ ...prev, car: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="Número do CAR"
                         />
@@ -2798,7 +2835,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.statusCar || 'ATIVO - AGUARDANDO ANÁLISE SC'}
-                        onChange={(e) => setForm({ ...form, statusCar: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, statusCar: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option>ATIVO - AGUARDANDO ANÁLISE SC</option>
@@ -2966,7 +3003,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.geoCertificacao || 'NÃO'}
-                        onChange={(e) => setForm({ ...form, geoCertificacao: e.target.value as 'SIM' | 'NÃO' })}
+                        onChange={(e) => setForm(prev => ({ ...prev, geoCertificacao: e.target.value as 'SIM' | 'NÃO' }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
@@ -2980,7 +3017,7 @@ const Acompanhamentos: React.FC = () => {
                       </label>
                       <select
                         value={form.geoRegistro || 'NÃO'}
-                        onChange={(e) => setForm({ ...form, geoRegistro: e.target.value as 'SIM' | 'NÃO' })}
+                        onChange={(e) => setForm(prev => ({ ...prev, geoRegistro: e.target.value as 'SIM' | 'NÃO' }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
@@ -3002,7 +3039,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaTotal || ''}
-                        onChange={(e) => setForm({ ...form, areaTotal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaTotal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3015,7 +3052,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.reservaLegal || ''}
-                        onChange={(e) => setForm({ ...form, reservaLegal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, reservaLegal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3033,7 +3070,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.cultura1 || ''}
-                        onChange={(e) => setForm({ ...form, cultura1: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, cultura1: e.target.value }))}
                         placeholder="Ex: Cultura Temporária"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3047,7 +3084,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaCultura1 || ''}
-                        onChange={(e) => setForm({ ...form, areaCultura1: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaCultura1: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3059,7 +3096,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.cultura2 || ''}
-                        onChange={(e) => setForm({ ...form, cultura2: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, cultura2: e.target.value }))}
                         placeholder="Ex: Pasto"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3073,7 +3110,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaCultura2 || ''}
-                        onChange={(e) => setForm({ ...form, areaCultura2: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaCultura2: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3091,7 +3128,7 @@ const Acompanhamentos: React.FC = () => {
                       <input
                         type="text"
                         value={form.outros || ''}
-                        onChange={(e) => setForm({ ...form, outros: e.target.value })}
+                        onChange={(e) => setForm(prev => ({ ...prev, outros: e.target.value }))}
                         placeholder="Ex: Horta, Servidão"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -3105,7 +3142,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.areaOutros || ''}
-                        onChange={(e) => setForm({ ...form, areaOutros: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, areaOutros: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3124,7 +3161,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appCodigoFlorestal || ''}
-                        onChange={(e) => setForm({ ...form, appCodigoFlorestal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appCodigoFlorestal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3137,7 +3174,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appVegetada || ''}
-                        onChange={(e) => setForm({ ...form, appVegetada: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appVegetada: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3150,7 +3187,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.appNaoVegetada || ''}
-                        onChange={(e) => setForm({ ...form, appNaoVegetada: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, appNaoVegetada: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3163,7 +3200,7 @@ const Acompanhamentos: React.FC = () => {
                         type="number"
                         step="0.01"
                         value={form.remanescenteFlorestal || ''}
-                        onChange={(e) => setForm({ ...form, remanescenteFlorestal: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setForm(prev => ({ ...prev, remanescenteFlorestal: parseFloat(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
