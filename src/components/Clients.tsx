@@ -46,9 +46,12 @@ const Clients: React.FC = () => {
     const load = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/clients`)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json()
         if (j.success) setClients(j.data)
-      } catch {}
+      } catch (error) {
+        console.error('Erro ao carregar clientes:', error)
+      }
     }
     load()
   }, [])
@@ -128,7 +131,10 @@ const Clients: React.FC = () => {
     })
   }
 
-  const clearFilters = () => setFilters({ name: '', email: '', phone: '' })
+  const clearFilters = () => {
+    setFilters({ name: '', email: '', phone: '' })
+    setSelectedClients(new Set())
+  }
 
   // CRUD
   const validateForm = () => {
@@ -166,9 +172,11 @@ const Clients: React.FC = () => {
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/clients/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json(); if (j.success) setClients(prev => prev.map(c => c.id === editing.id ? j.data : c))
       } else {
         const r = await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(basePayload) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json(); if (j.success) setClients(prev => [j.data, ...prev])
       }
       setIsModalOpen(false); setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({})
@@ -182,8 +190,11 @@ const Clients: React.FC = () => {
   const deleteOne = async (id: string) => {
     try {
       const r = await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE' })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json(); if (j.success) setClients(prev => prev.filter(c => c.id !== id))
-    } catch {}
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error)
+    }
   }
 
   const deleteSelected = async () => {
@@ -192,7 +203,7 @@ const Clients: React.FC = () => {
       const r = await fetch(`${API_BASE_URL}/clients`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
       const j = await r.json()
       if (j.success) {
-        setClients(prev => prev.filter(c => !selectedClients.has(c.id)))
+        setClients(prev => prev.filter(c => !ids.includes(c.id)))
         setSelectedClients(new Set())
       }
     } catch (error) {
@@ -213,6 +224,7 @@ const Clients: React.FC = () => {
     formData.append('type', 'clients')
     try {
       const r = await fetch(`${API_BASE_URL}/import`, { method: 'POST', body: formData })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
       if (j.success) {
         setClients(prev => [...j.data, ...prev])
@@ -231,7 +243,7 @@ const Clients: React.FC = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `clients_${new Date().toISOString().split('T')[0]}.xlsx`
+      a.download = `clientes_${new Date().toISOString().split('T')[0]}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -245,7 +257,7 @@ const Clients: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Users className="w-8 h-8 text-blue-600" />
+          <Users className="w-8 h-8 text-blue-600" aria-hidden="true" />
           Clientes
         </h1>
         <div className="flex gap-3">
@@ -254,7 +266,7 @@ const Clients: React.FC = () => {
               onClick={() => setIsImportExportOpen(true)}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Download className="h-5 w-5" />
+              <Download className="h-5 w-5" aria-hidden="true" />
               Importar/Exportar
             </button>
           )}
@@ -263,7 +275,7 @@ const Clients: React.FC = () => {
               onClick={() => { setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({}); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-5 w-5" aria-hidden="true" />
               Novo Cliente
             </button>
           )}
@@ -274,7 +286,7 @@ const Clients: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-600" />
+            <Filter className="w-5 h-5 text-blue-600" aria-hidden="true" />
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Filtros</h2>
           </div>
           <div className="flex items-end gap-1 sm:gap-2 md:gap-3 lg:gap-4 flex-1">
@@ -287,7 +299,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Nome..."
                 value={filters.name}
-                onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, name: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -300,7 +312,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Email..."
                 value={filters.email}
-                onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, email: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -313,7 +325,7 @@ const Clients: React.FC = () => {
                 type="text"
                 placeholder="Telefone..."
                 value={filters.phone}
-                onChange={(e) => setFilters(prev => ({ ...prev, phone: e.target.value }))}
+                onChange={(e) => { setFilters(prev => ({ ...prev, phone: e.target.value })); setSelectedClients(new Set()) }}
                 className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-200 w-full transition-all duration-200"
               />
             </div>
@@ -406,13 +418,13 @@ const Clients: React.FC = () => {
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
                     {permissions.canEdit && (
-                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
-                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setFormErrors({}); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
+                        <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
                     )}
                     {permissions.canDelete && (
                       <button onClick={() => deleteOne(c.id)} className="p-0.5 sm:p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-all duration-200" title="Excluir cliente">
-                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -424,7 +436,7 @@ const Clients: React.FC = () => {
               <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/40">
                 <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedClients.size} selecionado{selectedClients.size > 1 ? 's' : ''}</span>
                 <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Deletar Selecionado{selectedClients.size > 1 ? 's' : ''}
                 </button>
               </div>
@@ -438,8 +450,8 @@ const Clients: React.FC = () => {
         <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" aria-hidden="true" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6 space-y-3">
               <div className="relative">
@@ -452,7 +464,7 @@ const Clients: React.FC = () => {
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.name ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.name && (
@@ -472,7 +484,7 @@ const Clients: React.FC = () => {
                   value={form.email}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.email ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.email && (
@@ -492,7 +504,7 @@ const Clients: React.FC = () => {
                   value={form.phone}
                   onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.phone ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.phone && (
@@ -512,7 +524,7 @@ const Clients: React.FC = () => {
                   value={form.address}
                   onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    formErrors.address ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {formErrors.address && (
@@ -555,7 +567,7 @@ const Clients: React.FC = () => {
                   }))}
                   placeholder={form.documentType === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    (form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj) ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
                   }`}
                 />
                 {((form.documentType === 'cpf' && formErrors.cpf) || (form.documentType === 'cnpj' && formErrors.cnpj)) && (
@@ -567,7 +579,7 @@ const Clients: React.FC = () => {
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
-                <button onClick={saveClient} disabled={isSaving} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0">{isSaving ? 'Salvando...' : 'Salvar'}</button>
+                <button onClick={saveClient} disabled={isSaving} aria-busy={isSaving} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0">{isSaving ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </div>
           </div>
@@ -581,22 +593,22 @@ const Clients: React.FC = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" /></div>
+                <div className="p-1.5 bg-white/20 rounded-lg"><Upload className="w-5 h-5 text-white" aria-hidden="true" /></div>
                 <h2 className="text-lg font-bold text-white">Importar/Exportar Clientes</h2>
               </div>
-              <button onClick={() => setIsImportExportOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsImportExportOpen(false)} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
 
             {/* Body */}
             <div className="px-5 py-5">
-              <p className="text-center text-sm text-gray-700 mb-5">Escolha uma das opções abaixo para gerenciar seus dados:</p>
+              <p className="text-center text-sm text-gray-700 dark:text-gray-300 mb-5">Escolha uma das opções abaixo para gerenciar seus dados:</p>
 
               {/* Dica / Info box */}
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6 text-center">
-                <p className="font-bold text-blue-800 mb-1">Primeiro baixe o modelo, depois importe!</p>
-                <p className="text-blue-700 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
+              <div className="rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-5 mb-6 text-center">
+                <p className="font-bold text-blue-800 dark:text-blue-300 mb-1">Primeiro baixe o modelo, depois importe!</p>
+                <p className="text-blue-700 dark:text-blue-400 text-sm">Baixe o arquivo modelo, preencha com seus dados e depois faça o upload.</p>
                 <button onClick={downloadModel} className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow mx-auto">
-                  <Download className="w-4 h-4" /> Baixar Modelo de Clientes
+                  <Download className="w-4 h-4" aria-hidden="true" /> Baixar Modelo de Clientes
                 </button>
               </div>
 
@@ -605,7 +617,7 @@ const Clients: React.FC = () => {
                 {permissions.canImport && (
                   <label className="block w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white cursor-pointer shadow hover:shadow-md transition-shadow text-center">
                     <div className="px-3 py-3 flex items-center justify-center gap-2">
-                      <Upload className="w-4 h-4 opacity-90" />
+                      <Upload className="w-4 h-4 opacity-90" aria-hidden="true" />
                       <div className="text-center">
                         <p className="text-lg font-bold leading-tight">Selecionar Arquivo</p>
                         <p className="text-white/90 text-xs">Carregar arquivo .xlsx</p>
@@ -618,7 +630,7 @@ const Clients: React.FC = () => {
                 {permissions.canExport && (
                   <button onClick={handleExport} className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-3 text-center shadow hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-center gap-2">
-                      <Download className="w-4 h-4 opacity-90" />
+                      <Download className="w-4 h-4 opacity-90" aria-hidden="true" />
                       <div className="text-center">
                         <p className="text-lg font-bold leading-tight">Exportar</p>
                         <p className="text-white/90 text-xs">Salvar dados em arquivo</p>
