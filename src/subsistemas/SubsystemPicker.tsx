@@ -99,8 +99,8 @@ export default function SubsystemPicker() {
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl">
             {canUseSubdomain
-              ? 'Cada subsistema vive em seu próprio subdomínio. Você pode trocar a qualquer momento pelo botão "Trocar subsistema" no header.'
-              : 'Em desenvolvimento local sem subdomínios — a escolha fica nesta aba do navegador. Em produção, cada subsistema terá seu próprio subdomínio.'}
+              ? 'Cada módulo vive em seu próprio subdomínio. Você pode trocar a qualquer momento pelo botão "Trocar módulo" no header.'
+              : 'Em desenvolvimento local sem subdomínios — a escolha fica nesta aba do navegador. Em produção, cada módulo terá seu próprio subdomínio.'}
           </p>
         </header>
 
@@ -110,10 +110,10 @@ export default function SubsystemPicker() {
               <LucideIcons.Lock className="h-7 w-7 text-gray-400 dark:text-gray-500" aria-hidden="true" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Nenhum subsistema disponível
+              Nenhum módulo disponível
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-              O seu perfil ainda não tem acesso a nenhum subsistema. A liberação para usuários
+              O seu perfil ainda não tem acesso a nenhum módulo. A liberação para usuários
               comuns está prevista para uma próxima entrega — fale com um administrador se
               precisa de acesso antes disso.
             </p>
