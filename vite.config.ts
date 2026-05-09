@@ -17,6 +17,38 @@ export default defineConfig({
       '@': nodePath.resolve(__dirname, 'src')
     }
   },
+  // Pré-bundle agressivo das deps mais pesadas. Em dev mode o Vite normalmente
+  // descobre deps em node_modules sob demanda — listar explicitamente reduz o
+  // número de re-bundles ao primeiro acesso e o número de requests HTTP em
+  // origens novas (cada *.impgeo.local é um cache HTTP separado para o browser).
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react-is',
+      'recharts',
+      'lucide-react',
+      'react-icons',
+      'date-fns',
+      'axios',
+      'dompurify',
+      'marked',
+      'browser-image-compression',
+      'react-easy-crop',
+      'jspdf',
+      'html2canvas',
+      'jszip',
+      'file-saver',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+      '@tiptap/react',
+      '@tiptap/pm',
+      '@tiptap/starter-kit',
+    ],
+  },
   define: {
     __HMR_CONFIG_NAME__: JSON.stringify('vite')
   },
@@ -70,6 +102,40 @@ export default defineConfig({
         './src/subsistemas/gerenciamento/modulos/**/*.tsx',
         './src/subsistemas/especial/modulos/**/*.tsx',
       ]
+    }
+  },
+  // Servidor de "preview" — serve o build de produção (dist/) com a mesma
+  // configuração de hosts e proxy do dev server, mas em outra porta. Útil
+  // para testar o fluxo entre subsistemas sem o overhead de dev (cada origem
+  // baixa um único bundle minificado em vez de centenas de módulos ESM
+  // individuais → primeira navegação cai de ~10s para <1s).
+  //
+  // Uso:
+  //   npm run build      # gera dist/
+  //   npm run preview    # serve dist/ em http://*.impgeo.local:9100
+  //
+  // Pode rodar em paralelo com `npm run dev` (porta 9000) — você decide qual
+  // porta abrir no browser dependendo de querer HMR ou velocidade.
+  // Atenção: sem HMR — qualquer mudança de código precisa de novo `npm run build`.
+  preview: {
+    port: 9100,
+    host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: [
+      'localhost',
+      '.impgeo.local',
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:9001',
+        changeOrigin: false,
+        rewrite: (apiPath) => apiPath
+      },
+      '/v': {
+        target: 'http://localhost:9001',
+        changeOrigin: false,
+        rewrite: (apiPath) => apiPath
+      }
     }
   },
   build: {
