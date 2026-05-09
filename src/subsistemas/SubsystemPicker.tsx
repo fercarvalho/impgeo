@@ -126,7 +126,10 @@ export default function SubsystemPicker() {
               const palette = sub.palette;
 
               const cardClasses = [
-                'group w-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-150',
+                // h-full + items-start: o grid estica cada célula para a maior
+                // descrição da linha; o card preenche toda a altura disponível
+                // para que todos fiquem com o mesmo tamanho.
+                'group w-full h-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-150',
                 'border border-gray-200 dark:border-gray-700',
                 'border-l-4', palette.accentBorder,
                 'p-5 sm:p-6 flex items-start gap-4',
@@ -139,7 +142,7 @@ export default function SubsystemPicker() {
               ].join(' ');
 
               return (
-                <li key={sub.key}>
+                <li key={sub.key} className="h-full">
                   <button
                     onClick={() => handleSelect(sub)}
                     type="button"
