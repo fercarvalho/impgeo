@@ -3,14 +3,41 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Fase 1.3 (subsistemas) — auth migrou de localStorage/Bearer header para
-// cookie httpOnly compartilhado entre subdomínios. Aqui só garantimos que
-// toda chamada same-origin para /api envie cookies automaticamente
-// (`credentials: 'include'`). O backend continua aceitando header
-// Authorization durante a transição, mas o frontend não envia mais.
+// Fase 1.3+ (subsistemas) — auth migrou de localStorage/Bearer header para
+// cookie httpOnly compartilhado. Aqui garantimos que toda chamada para o
+// backend de API envie cookies automaticamente (`credentials: 'include'`).
+//
+// Cobre 3 casos de "URL é o backend":
+//   1. URL relativa (`/api/...`) — passa pelo Vite proxy, mesma origin
+//   2. URL com a mesma origin do frontend
+//   3. URL absoluta para localhost:9001 em dev (cross-port mas mesmo backend).
+//      Cookies não são port-specific, então funcionam mesmo cross-port.
 if (window.fetch) {
   // bind(window) garante contexto correto em Safari/Firefox
   const originalFetch = window.fetch.bind(window);
+
+  const needsCredentials = (url: string): boolean => {
+    if (!url.includes('/api/')) return false;
+    if (url.startsWith('/')) return true;
+    try {
+      const u = new URL(url);
+      if (u.origin === window.location.origin) return true;
+      // Dev local: frontend em localhost:9000 chama backend em localhost:9001.
+      // Cross-port, mas same hostname — cookies viajam.
+      const devFrontHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
+      if (
+        u.hostname === 'localhost' &&
+        u.port === '9001' &&
+        devFrontHosts.includes(window.location.hostname)
+      ) {
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   window.fetch = async (...args) => {
     let [resource, config] = args;
 
@@ -23,20 +50,9 @@ if (window.fetch) {
       url = resource.url;
     }
 
-    let isSameOrigin = false;
-    if (url.startsWith('/')) {
-      isSameOrigin = true;
-    } else {
-      try {
-        isSameOrigin = new URL(url).origin === window.location.origin;
-      } catch {
-        // URL inválida — não toca
-      }
-    }
-
-    if (isSameOrigin && url.includes('/api/')) {
+    if (needsCredentials(url)) {
       if (resource instanceof Request) {
-        // Request.credentials é imutável — recriamos com credentials: 'include'
+        // Request.credentials é imutável — recriamos
         if (resource.credentials !== 'include') {
           resource = new Request(resource, { credentials: 'include' });
         }
