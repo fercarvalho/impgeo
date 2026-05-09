@@ -53,6 +53,23 @@ export default defineConfig({
         changeOrigin: false,
         rewrite: (apiPath) => apiPath
       }
+    },
+    // Pré-transforma os módulos de cada subsistema no startup do dev server,
+    // antes da primeira request. Em dev mode o Vite serve cada arquivo .tsx
+    // como módulo ESM separado e os transforma sob demanda — sem warmup, a
+    // primeira navegação para um subsistema dispara dezenas de transformações
+    // simultâneas, somando latência perceptível. Com warmup, os módulos já
+    // estão prontos em memória.
+    warmup: {
+      clientFiles: [
+        './src/App.tsx',
+        './src/subsistemas/SubsystemPicker.tsx',
+        './src/subsistemas/admin/modulos/**/*.tsx',
+        './src/subsistemas/gestao/modulos/**/*.tsx',
+        './src/subsistemas/financeiro/modulos/**/*.tsx',
+        './src/subsistemas/gerenciamento/modulos/**/*.tsx',
+        './src/subsistemas/especial/modulos/**/*.tsx',
+      ]
     }
   },
   build: {

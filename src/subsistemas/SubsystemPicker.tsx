@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -22,6 +22,12 @@ export default function SubsystemPicker() {
   const { user, logout } = useAuth();
   const { setSubsystem } = useCurrentSubsystem();
   const canUseSubdomain = useMemo(() => supportsSubdomainNavigation(), []);
+  // Quando o usuário clica num card e a navegação envolve trocar de origem
+  // (subdomínio diferente), a primeira visita pode levar segundos para o
+  // browser baixar os ~200 módulos ESM do dev server na origem nova. Sem
+  // feedback visual, a tela parece congelada. Marcamos qual card está sendo
+  // ativado para mostrar spinner local.
+  const [enteringSlug, setEnteringSlug] = useState<string | null>(null);
 
   // Por enquanto, admin/superadmin enxergam todos os 5 subsistemas.
   // Filtragem por permissão (user.modules + user.subsystems) entra em fase 1.8.
@@ -32,9 +38,15 @@ export default function SubsystemPicker() {
   }, [user]);
 
   const handleSelect = (sub: SubsystemDefinition) => {
+    if (enteringSlug) return; // já está navegando, ignora cliques múltiplos
+    setEnteringSlug(sub.slug);
     if (canUseSubdomain) {
+      // window.location.href causa navigation síncrona — o setState acima
+      // pinta o spinner antes do browser bloquear na navegação.
       window.location.href = buildSubsystemUrl(sub.slug);
     } else {
+      // Em localhost o setSubsystem é instantâneo (sessionStorage) — limpa o
+      // loading state quando o componente desmonta naturalmente.
       setSubsystem(sub.slug);
     }
   };
@@ -84,30 +96,43 @@ export default function SubsystemPicker() {
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleSubsystems.map(sub => (
-              <li key={sub.key}>
-                <button
-                  onClick={() => handleSelect(sub)}
-                  type="button"
-                  className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 hover:border-blue-500 hover:shadow-md transition-all flex items-start gap-4"
-                >
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center">
-                    {renderIcon(sub.iconName)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                      {sub.name}
-                    </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                      {sub.description}
-                    </p>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 font-mono">
-                      {sub.moduleKeys.length} módulo{sub.moduleKeys.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            ))}
+            {visibleSubsystems.map(sub => {
+              const isEntering = enteringSlug === sub.slug;
+              const isAnyEntering = enteringSlug !== null;
+              return (
+                <li key={sub.key}>
+                  <button
+                    onClick={() => handleSelect(sub)}
+                    type="button"
+                    disabled={isAnyEntering}
+                    className={`w-full text-left bg-white dark:bg-gray-800 border rounded-lg p-5 transition-all flex items-start gap-4 ${
+                      isEntering
+                        ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800 cursor-wait'
+                        : isAnyEntering
+                          ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                      {isEntering
+                        ? <LucideIcons.Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" />
+                        : renderIcon(sub.iconName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                        {sub.name}
+                      </h3>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {isEntering ? `Entrando em ${sub.name}…` : sub.description}
+                      </p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 font-mono">
+                        {sub.moduleKeys.length} módulo{sub.moduleKeys.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </main>
