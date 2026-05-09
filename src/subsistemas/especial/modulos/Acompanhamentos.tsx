@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
-import ChartModal from './modals/ChartModal'
+import { useAuth } from '@/contexts/AuthContext'
+import ChartModal from '@/components/modals/ChartModal'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 export interface MatriculaItem {

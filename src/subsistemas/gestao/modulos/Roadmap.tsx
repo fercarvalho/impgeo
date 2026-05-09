@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import axios from 'axios';
 import {
   Plus, Edit2, Trash2, GripVertical, CheckCircle2,
   Clock, Rocket, FlaskConical, Code2, Archive, Map as MapIcon,
   Calendar, ChevronLeft, ChevronRight, Tag, Layers, Settings,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RoadmapItem {
   id: string;

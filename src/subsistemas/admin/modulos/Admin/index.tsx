@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type ComponentType } from 'react';
 import { Users, Settings, Activity, BarChart3, Shield, MessageSquare, HelpCircle, FileText, BookOpen, Layout } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import LegacyUserManagement from '../AdminPanel';
+import { useAuth } from '@/contexts/AuthContext';
+import LegacyUserManagement from './AdminPanel';
 import ModuleManagement from './ModuleManagement';
 import ActivityLog from './ActivityLog';
 import Statistics from './Statistics';

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, UserPlus } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { validateEmail } from '../../utils/validation';
-import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '../../utils/phoneMask';
-import { applyCpfMask, removeCpfMask, validateCpfFormat } from '../../utils/cpfMask';
-import { applyCepMask, removeCepMask, validateCepFormat, fetchAddressByCep } from '../../utils/cepMask';
+import { useAuth } from '@/contexts/AuthContext';
+import { validateEmail } from '@/utils/validation';
+import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '@/utils/phoneMask';
+import { applyCpfMask, removeCpfMask, validateCpfFormat } from '@/utils/cpfMask';
+import { applyCepMask, removeCepMask, validateCepFormat, fetchAddressByCep } from '@/utils/cepMask';
 
 type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
 

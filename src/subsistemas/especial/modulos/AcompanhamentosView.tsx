@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe } from 'lucide-react'
-import ChartModal from './modals/ChartModal'
+import ChartModal from '@/components/modals/ChartModal'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 export interface MatriculaItem {

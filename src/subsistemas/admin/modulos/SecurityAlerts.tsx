@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, Shield, BarChart3, Clock, Calendar, Globe, User, XCircle, RefreshCw, Filter } from 'lucide-react';
-import { getAdminApiBaseUrl, getAuthHeaders } from './api';
+import { getAdminApiBaseUrl, getAuthHeaders } from './Admin/api';
 
 interface Alert {
   id: string;

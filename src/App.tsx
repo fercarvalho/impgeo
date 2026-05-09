@@ -30,35 +30,35 @@ import {
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts'
-import Login from './components/Login'
-import ResetarSenhaModal from './components/ResetarSenhaModal'
-import ChartModal from './components/modals/ChartModal'
-import MenuUsuario from './components/MenuUsuario'
+import Login from '@/components/Login'
+import ResetarSenhaModal from '@/components/ResetarSenhaModal'
+import ChartModal from '@/components/modals/ChartModal'
+import MenuUsuario from '@/components/MenuUsuario'
 
-const Reports = lazy(() => import('./components/Reports'))
-const TransactionsPage = lazy(() => import('./components/Transactions').then(module => ({ default: module.TransactionsPage })))
-const Clients = lazy(() => import('./components/Clients'))
-const DRE = lazy(() => import('./components/DRE'))
-const Projects = lazy(() => import('./components/Projects'))
-const Services = lazy(() => import('./components/Services'))
-const Projection = lazy(() => import('./components/Projection'))
-const Acompanhamentos = lazy(() => import('./components/Acompanhamentos'))
-const AcompanhamentosView = lazy(() => import('./components/AcompanhamentosView'))
-const AdminPanel = lazy(() => import('./components/admin/AdminTabs'))
-const ActiveSessions = lazy(() => import('./components/admin/ActiveSessions'))
-const AnomalyDashboard = lazy(() => import('./components/admin/AnomalyDashboard'))
-const SecurityAlerts = lazy(() => import('./components/admin/SecurityAlerts'))
-const FAQ = lazy(() => import('./components/FAQ'))
-import Documentation from './components/Documentation'
-const Roadmap = lazy(() => import('./components/Roadmap'))
-import ImpersonationBanner from './components/ImpersonationBanner'
-import FeedbackButton from './components/FeedbackButton'
-import Footer from './components/Footer'
-import CommitVersionModal from './components/CommitVersionModal'
-import VersaoNovaModal from './components/VersaoNovaModal'
+const Reports = lazy(() => import('@/subsistemas/financeiro/modulos/RelatoriosFinanceiro'))
+const TransactionsPage = lazy(() => import('@/subsistemas/financeiro/modulos/Transactions').then(module => ({ default: module.TransactionsPage })))
+const Clients = lazy(() => import('@/subsistemas/gerenciamento/modulos/Clients'))
+const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
+const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
+const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
+const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
+const Acompanhamentos = lazy(() => import('@/subsistemas/especial/modulos/Acompanhamentos'))
+const AcompanhamentosView = lazy(() => import('@/subsistemas/especial/modulos/AcompanhamentosView'))
+const AdminPanel = lazy(() => import('@/subsistemas/admin/modulos/Admin'))
+const ActiveSessions = lazy(() => import('@/subsistemas/admin/modulos/ActiveSessions'))
+const AnomalyDashboard = lazy(() => import('@/subsistemas/admin/modulos/AnomalyDashboard'))
+const SecurityAlerts = lazy(() => import('@/subsistemas/admin/modulos/SecurityAlerts'))
+const FAQ = lazy(() => import('@/subsistemas/gestao/modulos/FAQ'))
+import Documentation from '@/subsistemas/gestao/modulos/Documentation'
+const Roadmap = lazy(() => import('@/subsistemas/gestao/modulos/Roadmap'))
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import FeedbackButton from '@/components/FeedbackButton'
+import Footer from '@/components/Footer'
+import CommitVersionModal from '@/components/CommitVersionModal'
+import VersaoNovaModal from '@/components/VersaoNovaModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
-import ThemeToggle from './components/ThemeToggle'
+import ThemeToggle from '@/components/ThemeToggle'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 

@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   BookOpen, ChevronRight, ChevronDown, FileText, Search, X, Menu, Clock
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { marked, Renderer, use } from 'marked';
 import DOMPurify from 'dompurify';
 

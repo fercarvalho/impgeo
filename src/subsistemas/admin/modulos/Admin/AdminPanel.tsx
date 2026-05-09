@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from '../contexts/AuthContext';
-import UserCreationTypeModal from './admin/UserCreationTypeModal';
-import UserCreatedModal from './admin/UserCreatedModal';
-import CadastroCompletoModal from './admin/CadastroCompletoModal';
+import { useAuth } from '@/contexts/AuthContext';
+import UserCreationTypeModal from './UserCreationTypeModal';
+import UserCreatedModal from './UserCreatedModal';
+import CadastroCompletoModal from './CadastroCompletoModal';
 import {
   UserPlus,
   Edit,

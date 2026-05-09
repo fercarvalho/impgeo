@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Lock, XCircle, RefreshCw, Monitor, Smartphone, Globe, Clock, Calendar, MapPin, Trash2 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Session {
   id: string;

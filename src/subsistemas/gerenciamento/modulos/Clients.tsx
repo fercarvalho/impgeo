@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X } from 'lucide-react'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Client {
   id: string

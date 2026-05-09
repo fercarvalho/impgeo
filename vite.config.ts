@@ -89,28 +89,29 @@ export default defineConfig({
           }
 
           // Separar componentes grandes em chunks próprios
-          if (id.includes('/src/components/')) {
-            // Projection é muito grande, separar
-            if (id.includes('Projection')) {
+          // (cobre tanto src/components/ quanto src/subsistemas/<sub>/modulos/)
+          if (id.includes('/src/components/') || id.includes('/src/subsistemas/')) {
+            // Projeção (financeiro) — muito grande
+            if (id.includes('Projecao') || id.includes('Projection')) {
               return 'component-projection'
             }
 
-            // Reports com gráficos
-            if (id.includes('Reports') || id.includes('DRE')) {
+            // Relatórios + DRE (financeiro)
+            if (id.includes('RelatoriosFinanceiro') || id.includes('Reports') || id.includes('DRE')) {
               return 'component-reports'
             }
 
-            // Acompanhamentos
+            // Acompanhamentos (especial)
             if (id.includes('Acompanhamentos')) {
               return 'component-acompanhamentos'
             }
 
-            // Transactions
+            // Transações (financeiro)
             if (id.includes('Transactions')) {
               return 'component-transactions'
             }
 
-            // Projects
+            // Projetos (gerenciamento)
             if (id.includes('Projects')) {
               return 'component-projects'
             }

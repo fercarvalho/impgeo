@@ -4,8 +4,8 @@ import {
   FileText, Save, X, Eye, Code2, GripVertical, AlertTriangle,
   Globe, Users, ShieldCheck
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { marked, Renderer, use as markedUse } from 'marked';
 
 const API_BASE_URL =

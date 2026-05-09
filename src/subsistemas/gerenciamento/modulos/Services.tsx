@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag } from 'lucide-react'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Service {
   id: string

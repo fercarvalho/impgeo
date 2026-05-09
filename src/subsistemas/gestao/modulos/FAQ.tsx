@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { HelpCircle, ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const isLocalEnv =
   typeof window !== 'undefined' &&

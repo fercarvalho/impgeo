@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Download, Filter, ChevronDown, ChevronRight, Activity, Plus, Pencil, Trash2, LogIn, UserCheck, ChevronLeft
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useModules } from '../../hooks/useModules';
+import { useAuth } from '@/contexts/AuthContext';
+import { useModules } from '@/hooks/useModules';
 // Bug fix: removed `import.meta as any` cast (loses type safety) and `||` (drops empty string)
 const API_BASE_URL =
   typeof window !== 'undefined' &&

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, Download, FileText, Filter, BarChart3, ArrowLeftRight } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 

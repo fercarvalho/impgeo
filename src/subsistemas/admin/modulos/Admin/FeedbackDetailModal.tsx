@@ -4,7 +4,7 @@ import {
   Clock, CheckCircle, MessageCircle, ExternalLink,
   Send, CheckCheck, AlertCircle, User, MessageSquare
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 import { Feedback } from './FeedbackManagement';
 

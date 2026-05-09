@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
-import { useAuth } from '../contexts/AuthContext'
-import { useTheme } from '../contexts/ThemeContext'
-import { ChartCard } from './projection/charts/ChartCard'
-import { buildMonthlyMktComponentsData, buildMonthlyScenarioData } from './projection/charts/buildData'
-import { GrowthPercentBarChart } from './projection/charts/GrowthPercentBarChart'
-import { MultiLineChart, type MultiLineSeries } from './projection/charts/MultiLineChart'
-import { StackedMktChart } from './projection/charts/StackedMktChart'
-import { ThreeScenarioLineChart } from './projection/charts/ThreeScenarioLineChart'
-import { computeSeriesKpis, formatCurrencyBRL, formatPercentBR } from './projection/charts/formatters'
+import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
+import { ChartCard } from '@/components/projection/charts/ChartCard'
+import { buildMonthlyMktComponentsData, buildMonthlyScenarioData } from '@/components/projection/charts/buildData'
+import { GrowthPercentBarChart } from '@/components/projection/charts/GrowthPercentBarChart'
+import { MultiLineChart, type MultiLineSeries } from '@/components/projection/charts/MultiLineChart'
+import { StackedMktChart } from '@/components/projection/charts/StackedMktChart'
+import { ThreeScenarioLineChart } from '@/components/projection/charts/ThreeScenarioLineChart'
+import { computeSeriesKpis, formatCurrencyBRL, formatPercentBR } from '@/components/projection/charts/formatters'
 
 interface ProjectionData {
   despesasVariaveis: number[]

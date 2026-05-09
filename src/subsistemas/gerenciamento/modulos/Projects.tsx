@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Download, Upload, Edit, Trash2, X } from 'lucide-react'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Project {
   id: string

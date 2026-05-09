@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions } from '@/hooks/usePermissions'
 
 type TransactionType = 'Receita' | 'Despesa'
 
