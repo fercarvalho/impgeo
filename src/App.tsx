@@ -59,6 +59,10 @@ import VersaoNovaModal from '@/components/VersaoNovaModal'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
+import SubsystemPicker from '@/subsistemas/SubsystemPicker'
+import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
+import type { SubsystemDefinition } from '@/subsistemas/manifest'
+import ModuloEmConstrucao from '@/subsistemas/ModuloEmConstrucao'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -99,7 +103,19 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin' | 'sessions' | 'anomalies' | 'security_alerts' | 'faq' | 'documentacao' | 'roadmap'
+type TabType =
+  // Subsistema admin
+  | 'admin' | 'sessions' | 'anomalies' | 'security_alerts'
+  // Subsistema gestao
+  | 'roadmap' | 'documentacao' | 'faq'
+  // Subsistema financeiro (chaves renomeadas pela migração 016)
+  | 'dashboard_financeiro' | 'metas_financeiro' | 'relatorios_financeiro'
+  | 'projecao' | 'transactions' | 'dre'
+  // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados)
+  | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
+  | 'projects' | 'services' | 'clients'
+  // Subsistema especial
+  | 'acompanhamentos'
 
 const AppContent: React.FC = () => {
   const { user, token, logout, isLoading } = useAuth();
@@ -181,14 +197,31 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return <AppMain user={user} logout={logout} />;
+  return <AppContentRouter user={user} logout={logout} />;
 };
 
-const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
+// Roteador macro de subsistemas — fase 1.4.
+// Após login, decide entre o SubsystemPicker (domínio raiz) e o AppMain
+// (rodando dentro de um subsistema específico, identificado por subdomínio
+// ou — em localhost — por sessionStorage).
+const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
+  const { subsystem } = useCurrentSubsystem();
+  if (!subsystem) {
+    return <SubsystemPicker />;
+  }
+  return <AppMain user={user} logout={logout} subsystem={subsystem} />;
+};
+
+const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
   const permissions = usePermissions();
   const { token } = useAuth();
   const { isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
+  // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
+  // migração 016.
+  const [activeTab, setActiveTab] = useState<TabType>(
+    () => (subsystem.moduleKeys[0] as TabType | undefined) ?? 'dashboard_financeiro'
+  )
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [projectionData, setProjectionData] = useState<any>(null)
@@ -220,7 +253,21 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   }> | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
-    const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'documentacao'];
+    // Atualizado pela fase 1.4 (subsistemas):
+    //   - 3 chaves renomeadas: dashboard_financeiro, metas_financeiro, relatorios_financeiro
+    //   - 4 módulos novos (gerenciamento): dashboard_gerenciamento, metas_gerenciamento,
+    //     projecao_gerenciamento, relatorios_gerenciamento
+    const allWithoutAdmin = [
+      // Financeiro
+      'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
+      // Gerenciamento
+      'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
+      'projects', 'services', 'clients',
+      // Gestão
+      'faq', 'documentacao',
+      // Especial
+      'acompanhamentos',
+    ];
     if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
@@ -336,28 +383,33 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {
-      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'admin', 'sessions', 'anomalies', 'security_alerts'];
-      const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
+      // Fallback dentro do subsistema atual: pega o primeiro módulo acessível
+      // entre os módulos do subsistema. Se nenhum estiver acessível, usa o
+      // primeiro do subsistema mesmo (componentes vão renderizar nada por
+      // hasModuleAccess negativo, mas pelo menos o estado é consistente).
+      const fallbackTab =
+        (subsystem.moduleKeys.find((tab) => hasModuleAccess(tab)) as TabType | undefined)
+        ?? (subsystem.moduleKeys[0] as TabType);
       setActiveTab(fallbackTab);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, user, catalogModules]);
 
-  // Resetar para dashboard quando impersonation iniciar ou encerrar
+  // Resetar para o primeiro módulo do subsistema quando impersonation iniciar/encerrar
   useEffect(() => {
-    const handleImpersonationChange = () => setActiveTab('dashboard');
+    const handleImpersonationChange = () => setActiveTab(subsystem.moduleKeys[0] as TabType);
     window.addEventListener('auth:impersonation-changed', handleImpersonationChange);
     return () => window.removeEventListener('auth:impersonation-changed', handleImpersonationChange);
-  }, []);
+  }, [subsystem]);
 
   // Resetar modal quando trocar de aba
   useEffect(() => {
     setShowTransactionModal(false)
   }, [activeTab])
-  
-  // Executar resetar cálculos automaticamente quando entrar na aba de metas
+
+  // Executar resetar cálculos automaticamente quando entrar na aba de metas (financeiro)
   useEffect(() => {
-    if (activeTab === 'metas') {
+    if (activeTab === 'metas_financeiro') {
       // Aguardar um pequeno delay para garantir que o componente esteja carregado
       const timer = setTimeout(() => {
         // Disparar evento customizado para o componente Projection executar resetarCalculos
@@ -1024,32 +1076,44 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         <div className="flex items-center justify-start space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2 px-1">
           {(() => {
             const iconMap: Record<string, React.ElementType> = {
-              dashboard: Home,
-              projects: MapIcon,
-              services: Target,
-              reports: BarChart3,
-              metas: TrendingUp,
+              // Financeiro
+              dashboard_financeiro: Home,
+              metas_financeiro: TrendingUp,
+              relatorios_financeiro: BarChart3,
               projecao: Calculator,
               transactions: FileText,
-              clients: Building,
               dre: BarChart3,
-              acompanhamentos: ClipboardList,
-              faq: HelpCircle,
-              documentacao: BookOpen,
+              // Gerenciamento
+              dashboard_gerenciamento: Home,
+              metas_gerenciamento: TrendingUp,
+              projecao_gerenciamento: Calculator,
+              relatorios_gerenciamento: BarChart3,
+              projects: MapIcon,
+              services: Target,
+              clients: Building,
+              // Gestão
               roadmap: MapIcon,
+              documentacao: BookOpen,
+              faq: HelpCircle,
+              // Admin
               admin: Shield,
               sessions: Monitor,
               anomalies: AlertTriangle,
               security_alerts: ShieldAlert,
+              // Especial
+              acompanhamentos: ClipboardList,
             };
 
-            // Se o catálogo ainda não carregou, usa a ordem padrão como fallback
+            // Se o catálogo ainda não carregou, usa os módulos do subsistema atual
+            // como fallback (em vez da ordem global antiga).
             const orderedModules = catalogModules && catalogModules.length > 0
               ? catalogModules
-              : Object.keys(iconMap).map(key => ({ moduleKey: key, moduleName: key, iconName: null }));
+              : subsystem.moduleKeys.map(key => ({ moduleKey: key, moduleName: key, iconName: null }));
 
+            // Filtra pelos módulos do subsistema atual + permissão do usuário.
+            const subsystemModuleSet = new Set(subsystem.moduleKeys);
             return orderedModules
-              .filter(m => hasModuleAccess(m.moduleKey))
+              .filter(m => subsystemModuleSet.has(m.moduleKey) && hasModuleAccess(m.moduleKey))
               .map(m => {
                 const Icon = iconMap[m.moduleKey] ?? Shield;
                 const key = m.moduleKey as TabType;
@@ -1068,7 +1132,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
       </div>
     </nav>
-  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab])
+  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab, subsystem])
 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
@@ -3414,7 +3478,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
-        {activeTab === 'dashboard' && hasModuleAccess('dashboard') && (
+        {activeTab === 'dashboard_financeiro' && hasModuleAccess('dashboard_financeiro') && (
           <>
             {renderDashboard()}
             {showTransactionModal && (
@@ -3427,8 +3491,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             )}
           </>
         )}
-        {activeTab === 'metas' && hasModuleAccess('metas') && renderMetas()}
-        {activeTab === 'reports' && hasModuleAccess('reports') && (
+        {activeTab === 'metas_financeiro' && hasModuleAccess('metas_financeiro') && renderMetas()}
+        {activeTab === 'relatorios_financeiro' && hasModuleAccess('relatorios_financeiro') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Reports transactions={transactions} />
           </Suspense>
@@ -3501,6 +3565,37 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Roadmap />
           </Suspense>
+        )}
+
+        {/* Módulos novos do subsistema Gerenciamento — placeholders fase 1.4.
+            Conteúdo real virá em fase 1.7 (shells funcionais). */}
+        {activeTab === 'dashboard_gerenciamento' && hasModuleAccess('dashboard_gerenciamento') && (
+          <ModuloEmConstrucao
+            titulo="Dashboard de Gerenciamento"
+            descricao="Resumo operacional: projetos, serviços e clientes."
+            faseEntrega="1.7"
+          />
+        )}
+        {activeTab === 'metas_gerenciamento' && hasModuleAccess('metas_gerenciamento') && (
+          <ModuloEmConstrucao
+            titulo="Metas de Gerenciamento"
+            descricao="Acompanhamento das metas operacionais definidas em Projeção de Gerenciamento."
+            faseEntrega="1.7"
+          />
+        )}
+        {activeTab === 'projecao_gerenciamento' && hasModuleAccess('projecao_gerenciamento') && (
+          <ModuloEmConstrucao
+            titulo="Projeção de Gerenciamento"
+            descricao="Definição de metas e projeções operacionais."
+            faseEntrega="1.7"
+          />
+        )}
+        {activeTab === 'relatorios_gerenciamento' && hasModuleAccess('relatorios_gerenciamento') && (
+          <ModuloEmConstrucao
+            titulo="Relatórios de Gerenciamento"
+            descricao="Relatórios operacionais cruzando projetos, serviços e clientes."
+            faseEntrega="1.7"
+          />
         )}
       </main>
 

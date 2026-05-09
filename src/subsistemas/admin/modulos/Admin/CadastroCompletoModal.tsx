@@ -20,11 +20,19 @@ interface CadastroCompletoModalProps {
 }
 
 const getDefaultModules = (role: RoleType): string[] => {
+  // Atualizado pela fase 1.4 (subsistemas) — mesmas chaves que getDefaultModulesForRole
+  // do AdminPanel e que o backend (getDefaultModulesCatalog em database-pg.js).
+  const baseFinanceiroEGerenciamentoEEspecial = [
+    'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
+    'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
+    'projects', 'services', 'clients',
+    'acompanhamentos',
+  ];
   switch (role) {
-    case 'superadmin': return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin', 'sessions', 'anomalies', 'security_alerts'];
-    case 'admin': return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin'];
-    case 'user': return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
-    case 'guest': return ['dashboard', 'metas', 'reports', 'dre'];
+    case 'superadmin': return [...baseFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];
+    case 'admin':      return [...baseFinanceiroEGerenciamentoEEspecial, 'admin'];
+    case 'user':       return baseFinanceiroEGerenciamentoEEspecial;
+    case 'guest':      return ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'dre'];
   }
 };
 

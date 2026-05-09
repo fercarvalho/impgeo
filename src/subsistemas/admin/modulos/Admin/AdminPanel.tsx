@@ -58,15 +58,25 @@ interface ModuleOption {
 const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 
 const getDefaultModulesForRole = (role: RoleType): string[] => {
+  // Atualizado pela fase 1.4 (subsistemas).
+  // Financeiro: dashboard_financeiro, metas_financeiro, relatorios_financeiro, projecao, transactions, dre
+  // Gerenciamento: + dashboard_gerenciamento, metas_gerenciamento, projecao_gerenciamento, relatorios_gerenciamento, projects, services, clients
+  // Gestão: roadmap, documentacao, faq | Admin: admin, sessions, anomalies, security_alerts | Especial: acompanhamentos
+  const allFinanceiroEGerenciamentoEEspecial = [
+    'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
+    'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
+    'projects', 'services', 'clients',
+    'acompanhamentos',
+  ];
   switch (role) {
     case 'superadmin':
-      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin', 'sessions', 'anomalies', 'security_alerts'];
+      return [...allFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];
     case 'admin':
-      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'admin'];
+      return [...allFinanceiroEGerenciamentoEEspecial, 'admin'];
     case 'user':
-      return ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos'];
+      return allFinanceiroEGerenciamentoEEspecial;
     case 'guest':
-      return ['dashboard', 'metas', 'reports', 'dre'];
+      return ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'dre'];
     default:
       return [];
   }
