@@ -26,6 +26,7 @@ import {
   Zap,
   Wallet,
   XCircle,
+  Layers,
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -61,7 +62,12 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import SubsystemPicker from '@/subsistemas/SubsystemPicker'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
-import type { SubsystemDefinition } from '@/subsistemas/manifest'
+import {
+  clearSubsystemOverride,
+  supportsSubdomainNavigation,
+  getRootUrl,
+  type SubsystemDefinition,
+} from '@/subsistemas/manifest'
 import ModuloEmConstrucao from '@/subsistemas/ModuloEmConstrucao'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -1061,7 +1067,24 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
           </div>
           <div className="flex items-center space-x-4">
             <MenuUsuario />
-            <button 
+            {/* Trocar subsistema (placeholder fase 1.4 — fase 1.6 substitui pelo
+                dropdown completo estilo MenuUsuario com lista dos outros subsistemas) */}
+            <button
+              onClick={() => {
+                if (supportsSubdomainNavigation()) {
+                  window.location.href = getRootUrl();
+                } else {
+                  clearSubsystemOverride();
+                  window.dispatchEvent(new CustomEvent('subsystem:override-changed'));
+                }
+              }}
+              className="flex items-center space-x-2 px-3 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              title={`Você está em "${subsystem.name}" — clique para escolher outro subsistema`}
+            >
+              <Layers className="h-4 w-4" />
+              <span className="hidden sm:inline">Trocar subsistema</span>
+            </button>
+            <button
               onClick={logout}
               className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
               title="Sair"
