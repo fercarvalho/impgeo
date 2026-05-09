@@ -26,7 +26,6 @@ import {
   Zap,
   Wallet,
   XCircle,
-  Layers,
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -61,13 +60,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import SubsystemPicker from '@/subsistemas/SubsystemPicker'
+import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
-import {
-  clearSubsystemOverride,
-  supportsSubdomainNavigation,
-  getRootUrl,
-  type SubsystemDefinition,
-} from '@/subsistemas/manifest'
+import { type SubsystemDefinition } from '@/subsistemas/manifest'
 import ModuloEmConstrucao from '@/subsistemas/ModuloEmConstrucao'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
@@ -1066,23 +1061,10 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
           </div>
           <div className="flex items-center space-x-4">
             <MenuUsuario />
-            {/* Trocar subsistema (placeholder fase 1.4 — fase 1.6 substitui pelo
-                dropdown completo estilo MenuUsuario com lista dos outros subsistemas) */}
-            <button
-              onClick={() => {
-                if (supportsSubdomainNavigation()) {
-                  window.location.href = getRootUrl();
-                } else {
-                  clearSubsystemOverride();
-                  window.dispatchEvent(new CustomEvent('subsystem:override-changed'));
-                }
-              }}
-              className="flex items-center space-x-2 px-3 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors"
-              title={`Você está em "${subsystem.name}" — clique para escolher outro módulo`}
-            >
-              <Layers className="h-4 w-4" />
-              <span className="hidden sm:inline">Trocar módulo</span>
-            </button>
+            {/* Dropdown trocar-módulo (fase 1.6) — substitui o botão azul
+                temporário da fase 1.4+. Estilo MenuUsuario, com lista dos
+                outros módulos acessíveis + 'Voltar para escolha de módulo'. */}
+            <SubsystemSwitcher current={subsystem} />
             <button
               onClick={logout}
               className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
