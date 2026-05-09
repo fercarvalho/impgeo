@@ -185,7 +185,7 @@ type SortField =
 type SortDirection = 'asc' | 'desc'
 
 const Acompanhamentos: React.FC = () => {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
   const [filteredAcompanhamentos, setFilteredAcompanhamentos] = useState<Acompanhamento[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -1456,7 +1456,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const generateShareLink = async () => {
-    if (!token) {
+    if (!user) {
       alert('Você precisa estar autenticado para gerar um link compartilhável')
       return
     }
@@ -1471,7 +1471,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const openShareLinkManager = async () => {
-    if (!token) {
+    if (!user) {
       alert('Você precisa estar autenticado para gerenciar links compartilháveis')
       return
     }
@@ -1487,7 +1487,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const loadShareLinks = async () => {
-    if (!token) return
+    if (!user) return
     
     try {
       const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links`, {
@@ -1505,7 +1505,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const createNewShareLink = async () => {
-    if (!token) return
+    if (!user) return
     const selectedIds = Array.from(selectedItems)
 
     if (selectedIds.length === 0) {
@@ -1568,7 +1568,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const updateShareLinkName = async (linkToken: string, newName: string, newExpiresAt: string, newPassword: string) => {
-    if (!token) return
+    if (!user) return
 
     try {
       const body: any = {
@@ -1606,7 +1606,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const regenerateShareLinkToken = async (oldToken: string, name: string | null, expiresAt: string | null) => {
-    if (!token) return
+    if (!user) return
 
     if (!window.confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.')) {
       return
@@ -1643,7 +1643,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const deleteShareLink = async (tokenToDelete: string) => {
-    if (!token) return
+    if (!user) return
 
     if (!window.confirm('Tem certeza que deseja excluir este link compartilhável?')) {
       return

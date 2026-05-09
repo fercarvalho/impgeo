@@ -18,7 +18,7 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
   onClose,
   currentUsername
 }) => {
-  const { token, updateUser } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const [newUsername, setNewUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -121,7 +121,7 @@ const AlterarUsernameModal: React.FC<AlterarUsernameModalProps> = ({
       return;
     }
 
-    if (!token) {
+    if (!user) {
       setErrors({ general: 'Sessão expirada. Faça login novamente.' });
       return;
     }

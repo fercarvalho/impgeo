@@ -929,7 +929,7 @@ const Projection: React.FC = () => {
 
   // Salvar dados no servidor
   const saveToServer = async (newData: ProjectionData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1027,7 +1027,7 @@ const Projection: React.FC = () => {
 
   // Salvar dados de despesas fixas
   const saveFixedExpensesToServer = async (newData: FixedExpensesData) => {
-    if (!token) {
+    if (!user) {
       console.error('❌ Token não encontrado para salvar despesas fixas')
       return
     }
@@ -1427,7 +1427,7 @@ const Projection: React.FC = () => {
 
   // Limpar todos os dados de projeção
   const clearAllProjectionData = async () => {
-    if (!token) {
+    if (!user) {
       alert('Você precisa estar logado para limpar os dados!')
       return
     }
@@ -1514,7 +1514,7 @@ Continuar mesmo assim?`)
 
 
   const saveVariableExpensesToServer = async (newData: VariableExpensesData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1544,7 +1544,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento REURB
   const saveFaturamentoReurbToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1574,7 +1574,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento GEO
   const saveFaturamentoGeoToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1604,7 +1604,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento PLAN
   const saveFaturamentoPlanToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1634,7 +1634,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento REG
   const saveFaturamentoRegToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1664,7 +1664,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento NN
   const saveFaturamentoNnToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1694,7 +1694,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de faturamento total
   const saveFaturamentoTotalToServer = async (newData: FaturamentoData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1724,7 +1724,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de orçamento
   const saveBudgetToServer = async (newData: VariableExpensesData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1754,7 +1754,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de resultado
   const saveResultadoToServer = async (newData: VariableExpensesData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1784,7 +1784,7 @@ Continuar mesmo assim?`)
 
   // Salvar dados de MKT
   const saveMktToServer = async (newData: VariableExpensesData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {
@@ -1813,7 +1813,7 @@ Continuar mesmo assim?`)
   }
 
   const saveInvestmentsToServer = async (newData: VariableExpensesData) => {
-    if (!token) return
+    if (!user) return
     
     setIsSaving(true)
     try {

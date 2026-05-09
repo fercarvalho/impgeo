@@ -82,7 +82,7 @@ const formatPercent = (value: number) => {
 }
 
 const DRE: React.FC = () => {
-  const { token, logout } = useAuth()
+  const { token, user, logout } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<'mensal' | 'trimestral' | 'anual'>('mensal')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
@@ -135,7 +135,7 @@ const DRE: React.FC = () => {
   }, [token, logout])
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       setIsLoading(false)
       return
     }

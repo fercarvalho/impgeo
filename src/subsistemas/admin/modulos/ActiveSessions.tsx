@@ -26,7 +26,7 @@ const API_BASE_URL =
     : ((import.meta as any).env?.VITE_API_URL || '/api');
 
 export default function ActiveSessions() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export default function ActiveSessions() {
   }, [authHeaders]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
     const controller = new AbortController();
     fetchSessions(controller.signal);
     return () => controller.abort();

@@ -43,7 +43,7 @@ const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_TAMANHO_MB = 5;
 
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAtual }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef(true);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -159,7 +159,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     e.preventDefault();
     if (!validar()) return;
 
-    if (!token) {
+    if (!user) {
       setErrors({ geral: 'Sessão expirada. Faça login novamente.' });
       return;
     }
