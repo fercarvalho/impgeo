@@ -93,17 +93,36 @@ app.use(cors({
 
 app.use(cookieParser());
 
-// Helpers para cookies de auth (fase 1.3 — subsistemas).
-// COOKIE_DOMAIN no .env permite compartilhar o cookie entre subdomínios.
-//   - vazio (default em dev local): cookie vinculado ao host atual
-//   - .impgeo.local (dev com subdomínios): cookie compartilhado entre *.impgeo.local
-//   - .impgeo.sistemas.viverdepj.com.br (prod): cookie compartilhado em prod
-const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+// Helpers para cookies de auth (fase 1.3+ — subsistemas).
+//
+// Domain do cookie é resolvido dinamicamente a partir do Host do request,
+// para que o mesmo backend sirva tanto localhost quanto *.impgeo.local quanto
+// produção sem reconfigurar .env por ambiente.
+//
+// Override manual: COOKIE_DOMAIN no .env tem prioridade absoluta (útil para
+// debug ou cenários estranhos de proxy). Caso contrário:
+//   - hostname termina em .impgeo.local                       → '.impgeo.local'
+//   - hostname termina em .impgeo.sistemas.viverdepj.com.br   → '.impgeo.sistemas.viverdepj.com.br'
+//   - localhost / 127.0.0.1 / outros                          → undefined (cookie vinculado ao host)
+//
+// Para que req.hostname reflita o host original do navegador (e não o do proxy
+// do Vite), o vite.config.ts usa proxy com `changeOrigin: false`.
+const resolveCookieDomain = (req) => {
+  if (process.env.COOKIE_DOMAIN) return process.env.COOKIE_DOMAIN;
+  const hostname = (req.hostname || '').toLowerCase();
+  if (hostname === 'impgeo.local' || hostname.endsWith('.impgeo.local')) {
+    return '.impgeo.local';
+  }
+  if (hostname === 'impgeo.sistemas.viverdepj.com.br' || hostname.endsWith('.impgeo.sistemas.viverdepj.com.br')) {
+    return '.impgeo.sistemas.viverdepj.com.br';
+  }
+  return undefined; // cookie vinculado ao host (ex.: localhost)
+};
 const getAuthCookieOptions = (req) => ({
   httpOnly: true,
   secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
   sameSite: 'lax',
-  domain: COOKIE_DOMAIN,
+  domain: resolveCookieDomain(req),
   path: '/'
 });
 const ACCESS_TOKEN_MAX_AGE  = 24 * 60 * 60 * 1000;       // 24h

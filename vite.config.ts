@@ -32,18 +32,25 @@ export default defineConfig({
       '.impgeo.local'
     ],
     hmr: {
-      clientPort: 9000,
+      // clientPort fixo removido (era 9000) — força o websocket de HMR a usar
+      // window.location.host. Sem isso, a página servida em
+      // financeiro.impgeo.local:9000 tentava conectar em ws://localhost:9000
+      // e o HMR ficava quebrado em qualquer subdomínio.
       overlay: true
     },
     proxy: {
+      // changeOrigin: false preserva o Host original (financeiro.impgeo.local
+      // etc.) ao chegar no backend, permitindo que resolveCookieDomain decida
+      // o Domain certo dinamicamente. Em produção o Nginx envia X-Forwarded-Host
+      // e o backend usa esse, então o comportamento é equivalente.
       '/api': {
         target: 'http://localhost:9001',
-        changeOrigin: true,
+        changeOrigin: false,
         rewrite: (apiPath) => apiPath
       },
       '/v': {
         target: 'http://localhost:9001',
-        changeOrigin: true,
+        changeOrigin: false,
         rewrite: (apiPath) => apiPath
       }
     }
