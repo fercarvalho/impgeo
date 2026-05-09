@@ -318,10 +318,18 @@ class Database {
         await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
       }
 
-      // Garantir que módulos novos (faq, documentacao) existam para todos os usuários
+      // Garantir que módulos novos existam para todos os usuários sem
+      // permissão prévia. Cobre tanto usuários pré-faq/documentacao quanto
+      // pré-fase 1.7 (4 módulos novos do subsistema gerenciamento).
+      // user/guest ainda recebem a permissão aqui — o bloqueio efetivo deles
+      // é em camada superior (fase 1.8 — bloqueio do subsistema inteiro).
       const newModules = [
-        { key: 'faq',          superadminOnly: false, adminOnly: false },
-        { key: 'documentacao', superadminOnly: false, adminOnly: false },
+        { key: 'faq' },
+        { key: 'documentacao' },
+        { key: 'dashboard_gerenciamento' },
+        { key: 'metas_gerenciamento' },
+        { key: 'projecao_gerenciamento' },
+        { key: 'relatorios_gerenciamento' },
       ];
       for (const mod of newModules) {
         await this.queryWithRetry(`
