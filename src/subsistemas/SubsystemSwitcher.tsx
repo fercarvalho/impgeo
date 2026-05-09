@@ -219,7 +219,7 @@ export default function SubsystemSwitcher({ current }: Props) {
               <div className="text-sm font-medium text-red-700 dark:text-red-400">
                 {navigatingTo === '__root__' ? 'Voltando…' : 'Trocar de módulo'}
               </div>
-              <div className="text-xs text-red-500/80 dark:text-red-400/70 line-clamp-1">
+              <div className="text-xs text-red-600 dark:text-red-300 line-clamp-1">
                 {navigatingTo === '__root__'
                   ? 'Levando você de volta à tela de escolha'
                   : 'Voltar para a tela de escolha de módulo'}
