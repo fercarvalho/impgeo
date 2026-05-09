@@ -38,6 +38,10 @@ import MenuUsuario from '@/components/MenuUsuario'
 const Reports = lazy(() => import('@/subsistemas/financeiro/modulos/RelatoriosFinanceiro'))
 const TransactionsPage = lazy(() => import('@/subsistemas/financeiro/modulos/Transactions').then(module => ({ default: module.TransactionsPage })))
 const Clients = lazy(() => import('@/subsistemas/gerenciamento/modulos/Clients'))
+const DashboardGerenciamento  = lazy(() => import('@/subsistemas/gerenciamento/modulos/DashboardGerenciamento'))
+const MetasGerenciamento      = lazy(() => import('@/subsistemas/gerenciamento/modulos/MetasGerenciamento'))
+const ProjecaoGerenciamento   = lazy(() => import('@/subsistemas/gerenciamento/modulos/ProjecaoGerenciamento'))
+const RelatoriosGerenciamento = lazy(() => import('@/subsistemas/gerenciamento/modulos/RelatoriosGerenciamento'))
 const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
 const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
 const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
@@ -63,7 +67,6 @@ import SubsystemPicker from '@/subsistemas/SubsystemPicker'
 import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
 import { type SubsystemDefinition } from '@/subsistemas/manifest'
-import ModuloEmConstrucao from '@/subsistemas/ModuloEmConstrucao'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -3571,35 +3574,28 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
           </Suspense>
         )}
 
-        {/* Módulos novos do subsistema Gerenciamento — placeholders fase 1.4.
-            Conteúdo real virá em fase 1.7 (shells funcionais). */}
+        {/* Módulos novos do subsistema Gerenciamento — shells funcionais (fase 1.7).
+            DashboardGerenciamento já consome as APIs reais de projects/services/clients.
+            Os outros 3 são placeholders elegantes aguardando os respectivos backends. */}
         {activeTab === 'dashboard_gerenciamento' && hasModuleAccess('dashboard_gerenciamento') && (
-          <ModuloEmConstrucao
-            titulo="Dashboard de Gerenciamento"
-            descricao="Resumo operacional: projetos, serviços e clientes."
-            faseEntrega="1.7"
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <DashboardGerenciamento />
+          </Suspense>
         )}
         {activeTab === 'metas_gerenciamento' && hasModuleAccess('metas_gerenciamento') && (
-          <ModuloEmConstrucao
-            titulo="Metas de Gerenciamento"
-            descricao="Acompanhamento das metas operacionais definidas em Projeção de Gerenciamento."
-            faseEntrega="1.7"
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <MetasGerenciamento />
+          </Suspense>
         )}
         {activeTab === 'projecao_gerenciamento' && hasModuleAccess('projecao_gerenciamento') && (
-          <ModuloEmConstrucao
-            titulo="Projeção de Gerenciamento"
-            descricao="Definição de metas e projeções operacionais."
-            faseEntrega="1.7"
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ProjecaoGerenciamento />
+          </Suspense>
         )}
         {activeTab === 'relatorios_gerenciamento' && hasModuleAccess('relatorios_gerenciamento') && (
-          <ModuloEmConstrucao
-            titulo="Relatórios de Gerenciamento"
-            descricao="Relatórios operacionais cruzando projetos, serviços e clientes."
-            faseEntrega="1.7"
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <RelatoriosGerenciamento />
+          </Suspense>
         )}
       </main>
 
