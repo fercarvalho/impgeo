@@ -45,8 +45,9 @@ export default defineConfig({
       '@dnd-kit/sortable',
       '@dnd-kit/utilities',
       '@tiptap/react',
-      '@tiptap/pm',
       '@tiptap/starter-kit',
+      // @tiptap/pm é peer-dep dos dois acima e não tem export raiz "." —
+      // o Vite descobre os sub-paths (@tiptap/pm/state, /view etc.) sob demanda.
     ],
   },
   define: {
