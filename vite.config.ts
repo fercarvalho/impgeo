@@ -57,18 +57,12 @@ export default defineConfig({
     port: 9000,
     open: true,
     host: '0.0.0.0',
-    // Aceita acesso via *.impgeo.local em dev (subdomínios por subsistema).
-    // Vite 7 valida o Host header — sem isso, requisições com Host=financeiro.impgeo.local
-    // são rejeitadas por proteção contra DNS rebinding.
-    allowedHosts: [
-      'localhost',
-      '.impgeo.local'
-    ],
+    // Em dev local acessamos apenas via http://localhost:9000.
+    // O fluxo de subsistemas funciona via sessionStorage (resolveCurrentSubsystem
+    // em manifest.ts faz o fallback quando hostname não é subdomínio real).
+    // Subdomínios *.impgeo.sistemas.viverdepj.com.br são usados em produção,
+    // onde o Nginx faz o reverse proxy — Vite dev server não precisa lidar com isso.
     hmr: {
-      // clientPort fixo removido (era 9000) — força o websocket de HMR a usar
-      // window.location.host. Sem isso, a página servida em
-      // financeiro.impgeo.local:9000 tentava conectar em ws://localhost:9000
-      // e o HMR ficava quebrado em qualquer subdomínio.
       overlay: true
     },
     proxy: {
@@ -103,40 +97,6 @@ export default defineConfig({
         './src/subsistemas/gerenciamento/modulos/**/*.tsx',
         './src/subsistemas/especial/modulos/**/*.tsx',
       ]
-    }
-  },
-  // Servidor de "preview" — serve o build de produção (dist/) com a mesma
-  // configuração de hosts e proxy do dev server, mas em outra porta. Útil
-  // para testar o fluxo entre subsistemas sem o overhead de dev (cada origem
-  // baixa um único bundle minificado em vez de centenas de módulos ESM
-  // individuais → primeira navegação cai de ~10s para <1s).
-  //
-  // Uso:
-  //   npm run build      # gera dist/
-  //   npm run preview    # serve dist/ em http://*.impgeo.local:9100
-  //
-  // Pode rodar em paralelo com `npm run dev` (porta 9000) — você decide qual
-  // porta abrir no browser dependendo de querer HMR ou velocidade.
-  // Atenção: sem HMR — qualquer mudança de código precisa de novo `npm run build`.
-  preview: {
-    port: 9100,
-    host: '0.0.0.0',
-    strictPort: true,
-    allowedHosts: [
-      'localhost',
-      '.impgeo.local',
-    ],
-    proxy: {
-      '/api': {
-        target: 'http://localhost:9001',
-        changeOrigin: false,
-        rewrite: (apiPath) => apiPath
-      },
-      '/v': {
-        target: 'http://localhost:9001',
-        changeOrigin: false,
-        rewrite: (apiPath) => apiPath
-      }
     }
   },
   build: {
