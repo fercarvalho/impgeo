@@ -190,22 +190,42 @@ export default function SubsystemSwitcher({ current }: Props) {
 
           <div className="border-t border-gray-200 dark:border-gray-700" />
 
+          {/* Item 'voltar' com a mesma estrutura visual dos itens da lista
+              acima (ícone num quadrado + título + descrição secundária)
+              para coerência. Tom slate/neutro pra não competir com as
+              paletas coloridas dos outros módulos. */}
           <button
             role="menuitem"
             type="button"
             onClick={goBack}
             disabled={navigatingTo !== null}
-            className={`w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm transition-colors
+            className={`w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors group
               ${navigatingTo === '__root__'
-                ? 'bg-blue-50 dark:bg-blue-900/20 cursor-wait text-blue-700 dark:text-blue-300'
+                ? 'bg-blue-50 dark:bg-blue-900/20 cursor-wait'
                 : navigatingTo
-                  ? 'opacity-50 cursor-not-allowed text-gray-700 dark:text-gray-300'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
           >
-            {navigatingTo === '__root__'
-              ? <LucideIcons.Loader2 className="h-4 w-4 animate-spin flex-shrink-0" aria-hidden="true" />
-              : <ArrowLeft className="h-4 w-4 flex-shrink-0" aria-hidden="true" />}
-            <span>{navigatingTo === '__root__' ? 'Voltando…' : 'Voltar para escolha de módulo'}</span>
+            <div
+              className={`flex-shrink-0 w-9 h-9 rounded-md flex items-center justify-center transition-colors
+                ${navigatingTo === '__root__'
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 group-hover:bg-slate-200 dark:group-hover:bg-slate-600'}`}
+            >
+              {navigatingTo === '__root__'
+                ? <LucideIcons.Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                : <ArrowLeft className="h-5 w-5" aria-hidden="true" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {navigatingTo === '__root__' ? 'Voltando…' : 'Trocar de módulo'}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                {navigatingTo === '__root__'
+                  ? 'Levando você de volta à tela de escolha'
+                  : 'Voltar para a tela de escolha de módulo'}
+              </div>
+            </div>
           </button>
         </div>
       )}
