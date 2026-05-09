@@ -75,24 +75,43 @@ class Database {
   }
 
   getDefaultModulesCatalog() {
+    // Após a migração 016 (subsistemas), todo módulo tem subsystemKey obrigatório.
+    // 3 chaves foram renomeadas: dashboard→dashboard_financeiro,
+    //                           metas→metas_financeiro,
+    //                           reports→relatorios_financeiro.
+    // 4 módulos novos do subsistema gerenciamento foram adicionados.
+    // sortOrder é a ordem DENTRO do subsistema (não global).
     return [
-      { moduleKey: 'dashboard', moduleName: 'Dashboard', iconName: 'BarChart3', routePath: 'dashboard', isSystem: true, description: 'Visão geral do sistema' },
-      { moduleKey: 'projects', moduleName: 'Projetos', iconName: 'FolderOpen', routePath: 'projects', isSystem: true, description: 'Gestão de projetos' },
-      { moduleKey: 'services', moduleName: 'Serviços', iconName: 'Briefcase', routePath: 'services', isSystem: true, description: 'Gestão de serviços' },
-      { moduleKey: 'reports', moduleName: 'Relatórios', iconName: 'FileText', routePath: 'reports', isSystem: true, description: 'Relatórios e análises' },
-      { moduleKey: 'metas', moduleName: 'Metas', iconName: 'Target', routePath: 'metas', isSystem: true, description: 'Definição e acompanhamento de metas' },
-      { moduleKey: 'projecao', moduleName: 'Projeção', iconName: 'LineChart', routePath: 'projecao', isSystem: true, description: 'Projeções financeiras' },
-      { moduleKey: 'transactions', moduleName: 'Transações', iconName: 'Wallet', routePath: 'transactions', isSystem: true, description: 'Transações financeiras' },
-      { moduleKey: 'clients', moduleName: 'Clientes', iconName: 'Users', routePath: 'clients', isSystem: true, description: 'Cadastro de clientes' },
-      { moduleKey: 'dre', moduleName: 'DRE', iconName: 'Calculator', routePath: 'dre', isSystem: true, description: 'Demonstrativo de resultados' },
-      { moduleKey: 'acompanhamentos', moduleName: 'Acompanhamentos', iconName: 'ClipboardList', routePath: 'acompanhamentos', isSystem: true, description: 'Acompanhamento operacional' },
-      { moduleKey: 'admin', moduleName: 'Admin', iconName: 'Shield', routePath: 'admin', isSystem: true, description: 'Painel administrativo' },
-      { moduleKey: 'sessions', moduleName: 'Sessões Ativas', iconName: 'Monitor', routePath: 'sessions', isSystem: true, description: 'Gerenciamento de sessões ativas por dispositivo' },
-      { moduleKey: 'anomalies', moduleName: 'Anomalias', iconName: 'AlertTriangle', routePath: 'anomalies', isSystem: true, description: 'Dashboard de detecção de anomalias de segurança' },
-      { moduleKey: 'security_alerts', moduleName: 'Alertas de Segurança', iconName: 'ShieldAlert', routePath: 'security_alerts', isSystem: true, description: 'Portal de alertas e notificações de segurança' },
-      { moduleKey: 'faq', moduleName: 'FAQ', iconName: 'HelpCircle', routePath: 'faq', isSystem: true, description: 'Perguntas frequentes do sistema' },
-      { moduleKey: 'documentacao', moduleName: 'Documentação', iconName: 'BookOpen', routePath: 'documentacao', isSystem: true, description: 'Manual e guias do sistema' },
-      { moduleKey: 'roadmap', moduleName: 'Roadmap', iconName: 'Map', routePath: 'roadmap', isSystem: true, description: 'Roadmap de desenvolvimento do sistema' }
+      // Subsistema admin
+      { moduleKey: 'admin',                    moduleName: 'Admin',                 iconName: 'Shield',        routePath: 'admin',                    isSystem: true, description: 'Painel administrativo',                              subsystemKey: 'admin',         sortOrder: 1 },
+      { moduleKey: 'sessions',                 moduleName: 'Sessões Ativas',        iconName: 'Monitor',       routePath: 'sessions',                 isSystem: true, description: 'Gerenciamento de sessões ativas por dispositivo',   subsystemKey: 'admin',         sortOrder: 2 },
+      { moduleKey: 'anomalies',                moduleName: 'Anomalias',             iconName: 'AlertTriangle', routePath: 'anomalies',                isSystem: true, description: 'Dashboard de detecção de anomalias de segurança',  subsystemKey: 'admin',         sortOrder: 3 },
+      { moduleKey: 'security_alerts',          moduleName: 'Alertas de Segurança',  iconName: 'ShieldAlert',   routePath: 'security_alerts',          isSystem: true, description: 'Portal de alertas e notificações de segurança',     subsystemKey: 'admin',         sortOrder: 4 },
+
+      // Subsistema gestao
+      { moduleKey: 'roadmap',                  moduleName: 'Roadmap',               iconName: 'Map',           routePath: 'roadmap',                  isSystem: true, description: 'Roadmap de desenvolvimento do sistema',             subsystemKey: 'gestao',        sortOrder: 1 },
+      { moduleKey: 'documentacao',             moduleName: 'Documentação',          iconName: 'BookOpen',      routePath: 'documentacao',             isSystem: true, description: 'Manual e guias do sistema',                         subsystemKey: 'gestao',        sortOrder: 2 },
+      { moduleKey: 'faq',                      moduleName: 'FAQ',                   iconName: 'HelpCircle',    routePath: 'faq',                      isSystem: true, description: 'Perguntas frequentes do sistema',                   subsystemKey: 'gestao',        sortOrder: 3 },
+
+      // Subsistema financeiro
+      { moduleKey: 'dashboard_financeiro',     moduleName: 'Dashboard',             iconName: 'BarChart3',     routePath: 'dashboard_financeiro',     isSystem: true, description: 'Visão geral do sistema',                            subsystemKey: 'financeiro',    sortOrder: 1 },
+      { moduleKey: 'metas_financeiro',         moduleName: 'Metas',                 iconName: 'Target',        routePath: 'metas_financeiro',         isSystem: true, description: 'Definição e acompanhamento de metas',               subsystemKey: 'financeiro',    sortOrder: 2 },
+      { moduleKey: 'relatorios_financeiro',    moduleName: 'Relatórios',            iconName: 'FileText',      routePath: 'relatorios_financeiro',    isSystem: true, description: 'Relatórios e análises',                             subsystemKey: 'financeiro',    sortOrder: 3 },
+      { moduleKey: 'projecao',                 moduleName: 'Projeção',              iconName: 'LineChart',     routePath: 'projecao',                 isSystem: true, description: 'Projeções financeiras',                             subsystemKey: 'financeiro',    sortOrder: 4 },
+      { moduleKey: 'transactions',             moduleName: 'Transações',            iconName: 'Wallet',        routePath: 'transactions',             isSystem: true, description: 'Transações financeiras',                            subsystemKey: 'financeiro',    sortOrder: 5 },
+      { moduleKey: 'dre',                      moduleName: 'DRE',                   iconName: 'Calculator',    routePath: 'dre',                      isSystem: true, description: 'Demonstrativo de resultados',                       subsystemKey: 'financeiro',    sortOrder: 6 },
+
+      // Subsistema gerenciamento (4 módulos novos)
+      { moduleKey: 'dashboard_gerenciamento',  moduleName: 'Dashboard',             iconName: 'BarChart3',     routePath: 'dashboard_gerenciamento',  isSystem: true, description: 'Resumo do gerenciamento (projetos, serviços, clientes)', subsystemKey: 'gerenciamento', sortOrder: 1 },
+      { moduleKey: 'metas_gerenciamento',      moduleName: 'Metas',                 iconName: 'Target',        routePath: 'metas_gerenciamento',      isSystem: true, description: 'Metas operacionais do gerenciamento',               subsystemKey: 'gerenciamento', sortOrder: 2 },
+      { moduleKey: 'projecao_gerenciamento',   moduleName: 'Projeção',              iconName: 'LineChart',     routePath: 'projecao_gerenciamento',   isSystem: true, description: 'Projeções e definição de metas operacionais',       subsystemKey: 'gerenciamento', sortOrder: 3 },
+      { moduleKey: 'relatorios_gerenciamento', moduleName: 'Relatórios',            iconName: 'FileText',      routePath: 'relatorios_gerenciamento', isSystem: true, description: 'Relatórios operacionais do gerenciamento',          subsystemKey: 'gerenciamento', sortOrder: 4 },
+      { moduleKey: 'projects',                 moduleName: 'Projetos',              iconName: 'FolderOpen',    routePath: 'projects',                 isSystem: true, description: 'Gestão de projetos',                                subsystemKey: 'gerenciamento', sortOrder: 5 },
+      { moduleKey: 'services',                 moduleName: 'Serviços',              iconName: 'Briefcase',     routePath: 'services',                 isSystem: true, description: 'Gestão de serviços',                                subsystemKey: 'gerenciamento', sortOrder: 6 },
+      { moduleKey: 'clients',                  moduleName: 'Clientes',              iconName: 'Users',         routePath: 'clients',                  isSystem: true, description: 'Cadastro de clientes',                              subsystemKey: 'gerenciamento', sortOrder: 7 },
+
+      // Subsistema especial (módulos extras)
+      { moduleKey: 'acompanhamentos',          moduleName: 'Acompanhamentos',       iconName: 'ClipboardList', routePath: 'acompanhamentos',          isSystem: true, description: 'Acompanhamento operacional',                        subsystemKey: 'especial',      sortOrder: 1 }
     ];
   }
 
@@ -259,8 +278,8 @@ class Database {
         await this.queryWithRetry(
           `
             INSERT INTO modules_catalog
-              (module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, subsystem_key, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (module_key) DO UPDATE SET
               module_name = EXCLUDED.module_name,
               icon_name = COALESCE(modules_catalog.icon_name, EXCLUDED.icon_name),
@@ -268,6 +287,7 @@ class Database {
               route_path = COALESCE(modules_catalog.route_path, EXCLUDED.route_path),
               is_system = TRUE,
               is_active = EXCLUDED.is_active,
+              subsystem_key = EXCLUDED.subsystem_key,
               updated_at = EXCLUDED.updated_at
           `,
           [
@@ -278,6 +298,8 @@ class Database {
             module.routePath || null,
             module.isSystem === true,
             true,
+            module.sortOrder ?? null,
+            module.subsystemKey,
             new Date().toISOString(),
             new Date().toISOString()
           ]
