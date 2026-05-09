@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -66,7 +67,59 @@ app.use(helmet());
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : (process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : ['http://localhost:9000']);
-app.use(cors({ origin: corsOrigins, credentials: true }));
+
+// Após a fase 1.3 (subsistemas) o frontend é acessado por múltiplos subdomínios:
+//   *.impgeo.local em dev, *.impgeo.sistemas.viverdepj.com.br em prod.
+// Origem precisa ser permitida dinamicamente.
+const isAllowedSubsystemOrigin = (origin) => {
+  if (!origin) return false;
+  // dev: http(s)://(qualquer-coisa.)impgeo.local(:port)
+  if (/^https?:\/\/([a-z0-9-]+\.)?impgeo\.local(?::\d+)?$/.test(origin)) return true;
+  // prod: https://(qualquer-coisa.)impgeo.sistemas.viverdepj.com.br
+  if (/^https:\/\/([a-z0-9-]+\.)?impgeo\.sistemas\.viverdepj\.com\.br$/.test(origin)) return true;
+  return false;
+};
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // requisições same-origin / CLI / curl
+    if (corsOrigins.includes(origin) || isAllowedSubsystemOrigin(origin)) {
+      return cb(null, true);
+    }
+    return cb(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
+  credentials: true
+}));
+
+app.use(cookieParser());
+
+// Helpers para cookies de auth (fase 1.3 — subsistemas).
+// COOKIE_DOMAIN no .env permite compartilhar o cookie entre subdomínios.
+//   - vazio (default em dev local): cookie vinculado ao host atual
+//   - .impgeo.local (dev com subdomínios): cookie compartilhado entre *.impgeo.local
+//   - .impgeo.sistemas.viverdepj.com.br (prod): cookie compartilhado em prod
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+const getAuthCookieOptions = (req) => ({
+  httpOnly: true,
+  secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+  sameSite: 'lax',
+  domain: COOKIE_DOMAIN,
+  path: '/'
+});
+const ACCESS_TOKEN_MAX_AGE  = 24 * 60 * 60 * 1000;       // 24h
+const REFRESH_TOKEN_MAX_AGE = 7  * 24 * 60 * 60 * 1000;  // 7d
+const setAuthCookies = (req, res, accessToken, refreshToken) => {
+  const opts = getAuthCookieOptions(req);
+  res.cookie('accessToken', accessToken, { ...opts, maxAge: ACCESS_TOKEN_MAX_AGE });
+  if (refreshToken) {
+    res.cookie('refreshToken', refreshToken, { ...opts, maxAge: REFRESH_TOKEN_MAX_AGE });
+  }
+};
+const clearAuthCookies = (req, res) => {
+  const opts = getAuthCookieOptions(req);
+  res.clearCookie('accessToken',  opts);
+  res.clearCookie('refreshToken', opts);
+};
 
 app.use(mongoSanitize());
 app.use(xss());
@@ -280,12 +333,30 @@ function buildPasswordResetUrl(token) {
   return `${normalizedBase}/?token=${encodeURIComponent(token)}`;
 }
 
+// Lê o access token de header Authorization OU cookie httpOnly.
+// Header tem prioridade para que impersonation continue funcionando: durante
+// impersonation o frontend manda o impersonatedToken no header explicitamente,
+// enquanto o cookie ainda tem o token original — a request precisa usar o do
+// header. Em fluxo normal, o frontend recém-logado tem ambos com o mesmo token,
+// e após F5 (sem state em memória) o header vai como "Bearer null"/"Bearer undefined"
+// e cai para o cookie automaticamente.
+const extractAccessToken = (req) => {
+  const authHeader = req.headers['authorization'];
+  const headerToken = authHeader && authHeader.split(' ')[1];
+  const isValidHeaderToken =
+    headerToken &&
+    headerToken !== 'null' &&
+    headerToken !== 'undefined' &&
+    headerToken.length > 10;
+  if (isValidHeaderToken) return headerToken;
+  return req.cookies && req.cookies.accessToken;
+};
+
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
   if (req.user) return next();
 
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = extractAccessToken(req);
 
   if (!token) {
     return res.status(401).json({ error: 'Token de acesso requerido' });
@@ -293,7 +364,8 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
+      // 401 (não 403): cliente sabe que é problema de auth e dispara refresh
+      return res.status(401).json({ error: 'Token inválido ou expirado' });
     }
     req.user = user;
     next();
@@ -302,8 +374,7 @@ const authenticateToken = (req, res, next) => {
 
 // Middleware de auth opcional — preenche req.user se token válido, mas não bloqueia sem token
 const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = extractAccessToken(req);
   if (!token) return next();
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (!err) req.user = user;
@@ -2350,6 +2421,11 @@ app.post('/api/auth/login', async (req, res) => {
       response.newPassword = newPassword;
     }
 
+    // Fase 1.3 — auth via cookie compartilhado entre subdomínios.
+    // Mantemos `token` e `refreshToken` no body por compatibilidade com clientes
+    // legacy, mas o frontend novo usa apenas os cookies httpOnly.
+    setAuthCookies(req, res, token, refreshTokenValue);
+
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -3510,7 +3586,8 @@ app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res)
 
 app.post('/api/auth/refresh', async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Fase 1.3 — aceita refresh token via cookie httpOnly OU body (compatibilidade)
+    const refreshToken = (req.cookies && req.cookies.refreshToken) || req.body.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'refreshToken é obrigatório' });
     }
@@ -3531,6 +3608,9 @@ app.post('/api/auth/refresh', async (req, res) => {
       { expiresIn: '15m' }
     );
 
+    // Atualiza ambos os cookies (rotação)
+    setAuthCookies(req, res, accessToken, rotated.token);
+
     return res.json({ success: true, token: accessToken, refreshToken: rotated.token });
   } catch (error) {
     console.error('Erro ao renovar token:', error);
@@ -3540,7 +3620,8 @@ app.post('/api/auth/refresh', async (req, res) => {
 
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Fase 1.3 — aceita refresh token via cookie httpOnly OU body
+    const refreshToken = (req.cookies && req.cookies.refreshToken) || req.body.refreshToken;
     if (refreshToken) {
       const tokenData = await verifyRefreshToken(refreshToken);
       if (tokenData) {
@@ -3549,6 +3630,8 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
         await revokeRefreshToken(refreshToken);
       }
     }
+    // Limpa cookies independentemente de termos achado o refresh token
+    clearAuthCookies(req, res);
     await logAudit({
       operation: AUDIT_OPERATIONS.LOGOUT,
       userId: req.user.id,
