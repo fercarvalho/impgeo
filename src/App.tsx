@@ -65,8 +65,9 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import SubsystemPicker from '@/subsistemas/SubsystemPicker'
 import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
+import AcessoNegado from '@/subsistemas/AcessoNegado'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
-import { type SubsystemDefinition } from '@/subsistemas/manifest'
+import { userCanAccessSubsystem, type SubsystemDefinition } from '@/subsistemas/manifest'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -204,14 +205,22 @@ const AppContent: React.FC = () => {
   return <AppContentRouter user={user} logout={logout} />;
 };
 
-// Roteador macro de subsistemas — fase 1.4.
-// Após login, decide entre o SubsystemPicker (domínio raiz) e o AppMain
-// (rodando dentro de um subsistema específico, identificado por subdomínio
-// ou — em localhost — por sessionStorage).
+// Roteador macro de subsistemas — fase 1.4 + bloqueio user/guest da fase 1.8.
+//
+// Após login, decide entre 3 telas:
+//   1. SubsystemPicker (domínio raiz) — qualquer role logado pode ver, mas
+//      user/guest verão empty state.
+//   2. AcessoNegado (subsistema selecionado mas role sem permissão) — fase 1.8.
+//      Cobre tentativas de subdomínio direto, sessionStorage manipulado, e
+//      role rebaixado durante sessão ativa.
+//   3. AppMain (subsistema válido + permissão) — caminho feliz.
 const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
   const { subsystem } = useCurrentSubsystem();
   if (!subsystem) {
     return <SubsystemPicker />;
+  }
+  if (!userCanAccessSubsystem(user, subsystem)) {
+    return <AcessoNegado attemptedSubsystem={subsystem} />;
   }
   return <AppMain user={user} logout={logout} subsystem={subsystem} />;
 };

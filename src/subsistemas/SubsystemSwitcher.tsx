@@ -9,6 +9,7 @@ import {
   getRootUrl,
   setSubsystemOverride,
   clearSubsystemOverride,
+  userCanAccessSubsystem,
   type SubsystemDefinition,
 } from './manifest';
 
@@ -41,11 +42,11 @@ export default function SubsystemSwitcher({ current }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const accessible = useMemo<SubsystemDefinition[]>(() => {
-    if (!user) return [];
-    if (user.role === 'superadmin' || user.role === 'admin') return [...SUBSYSTEMS];
-    return [];
-  }, [user]);
+  // Filtragem por permissão — centralizada em manifest.ts (fase 1.8).
+  const accessible = useMemo<SubsystemDefinition[]>(
+    () => SUBSYSTEMS.filter(sub => userCanAccessSubsystem(user, sub)),
+    [user]
+  );
 
   // Lista para o dropdown: SEM o atual (esse já está visível no botão).
   const others = useMemo(

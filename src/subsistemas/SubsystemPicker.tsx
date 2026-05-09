@@ -8,6 +8,7 @@ import {
   SUBSYSTEMS,
   buildSubsystemUrl,
   supportsSubdomainNavigation,
+  userCanAccessSubsystem,
   type SubsystemDefinition,
 } from './manifest';
 import { useCurrentSubsystem } from './useCurrentSubsystem';
@@ -35,13 +36,12 @@ export default function SubsystemPicker() {
   const canUseSubdomain = useMemo(() => supportsSubdomainNavigation(), []);
   const [enteringSlug, setEnteringSlug] = useState<string | null>(null);
 
-  // Filtragem por permissão (fase 1: só admin/superadmin entram em qualquer
-  // subsistema; user/guest sem acesso até a fase 1.8).
-  const visibleSubsystems = useMemo<SubsystemDefinition[]>(() => {
-    if (!user) return [];
-    if (user.role === 'superadmin' || user.role === 'admin') return [...SUBSYSTEMS];
-    return [];
-  }, [user]);
+  // Filtragem por permissão — centralizada em manifest.ts (fase 1.8).
+  // user/guest sem permissão veem lista vazia (empty state).
+  const visibleSubsystems = useMemo<SubsystemDefinition[]>(
+    () => SUBSYSTEMS.filter(sub => userCanAccessSubsystem(user, sub)),
+    [user]
+  );
 
   const handleSelect = (sub: SubsystemDefinition) => {
     if (enteringSlug) return;
