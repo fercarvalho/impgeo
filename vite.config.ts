@@ -1,5 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
+import nodePath from 'node:path'
+
+const __dirname = nodePath.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   base: './',
@@ -8,6 +12,11 @@ export default defineConfig({
       jsxRuntime: 'automatic'
     })
   ],
+  resolve: {
+    alias: {
+      '@': nodePath.resolve(__dirname, 'src')
+    }
+  },
   define: {
     __HMR_CONFIG_NAME__: JSON.stringify('vite')
   },
@@ -15,6 +24,13 @@ export default defineConfig({
     port: 9000,
     open: true,
     host: '0.0.0.0',
+    // Aceita acesso via *.impgeo.local em dev (subdomínios por subsistema).
+    // Vite 7 valida o Host header — sem isso, requisições com Host=financeiro.impgeo.local
+    // são rejeitadas por proteção contra DNS rebinding.
+    allowedHosts: [
+      'localhost',
+      '.impgeo.local'
+    ],
     hmr: {
       clientPort: 9000,
       overlay: true
@@ -23,12 +39,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:9001',
         changeOrigin: true,
-        rewrite: (path) => path
+        rewrite: (apiPath) => apiPath
       },
       '/v': {
         target: 'http://localhost:9001',
         changeOrigin: true,
-        rewrite: (path) => path
+        rewrite: (apiPath) => apiPath
       }
     }
   },
