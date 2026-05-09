@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import MenuUsuario from '@/components/MenuUsuario';
+import ImpersonationBanner from '@/components/ImpersonationBanner';
 import {
   SUBSYSTEMS,
   buildSubsystemUrl,
@@ -10,123 +13,155 @@ import {
 import { useCurrentSubsystem } from './useCurrentSubsystem';
 
 /**
- * Tela inicial pós-login no domínio raiz: lista os subsistemas que o usuário
- * pode acessar e permite entrar em cada um. Em ambientes com subdomínio,
- * redireciona para o subdomínio correspondente; em localhost puro, grava a
- * escolha em sessionStorage e re-renderiza para o subsistema escolhido.
+ * Tela inicial pós-login no domínio raiz.
  *
- * Esta versão é a placeholder funcional da fase 1.4. A versão visual completa
- * (cards em grid + ícones + descrições + filtro por permissão) é fase 1.5.
+ * Layout — fase 1.5:
+ *   - ImpersonationBanner (quando ativo) acima de tudo
+ *   - Header reduzido: mesmo gradient azul do header dos subsistemas, com
+ *     logo + nome do sistema + MenuUsuario + botão Sair. SEM barra de módulos
+ *     (esse é o ponto da tela de escolha — escolher antes de ver módulos).
+ *   - Conteúdo: grid de cards (1 col mobile, 2 col tablet, 3 col desktop) com
+ *     paleta de cor própria por subsistema (border-l, ícone tonalizado).
+ *   - Cards não-acessíveis: estado vazio com explicação.
+ *
+ * Comportamento:
+ *   - Click num card → spinner local + window.location.href (subdomínio)
+ *     ou setSubsystem(slug) (localhost via sessionStorage).
+ *   - Click duplo / múltiplo: ignorado durante navegação.
  */
 export default function SubsystemPicker() {
   const { user, logout } = useAuth();
   const { setSubsystem } = useCurrentSubsystem();
   const canUseSubdomain = useMemo(() => supportsSubdomainNavigation(), []);
-  // Quando o usuário clica num card e a navegação envolve trocar de origem
-  // (subdomínio diferente), a primeira visita pode levar segundos para o
-  // browser baixar os ~200 módulos ESM do dev server na origem nova. Sem
-  // feedback visual, a tela parece congelada. Marcamos qual card está sendo
-  // ativado para mostrar spinner local.
   const [enteringSlug, setEnteringSlug] = useState<string | null>(null);
 
-  // Por enquanto, admin/superadmin enxergam todos os 5 subsistemas.
-  // Filtragem por permissão (user.modules + user.subsystems) entra em fase 1.8.
+  // Filtragem por permissão (fase 1: só admin/superadmin entram em qualquer
+  // subsistema; user/guest sem acesso até a fase 1.8).
   const visibleSubsystems = useMemo<SubsystemDefinition[]>(() => {
     if (!user) return [];
     if (user.role === 'superadmin' || user.role === 'admin') return [...SUBSYSTEMS];
-    return []; // user / guest sem acesso na fase 1
+    return [];
   }, [user]);
 
   const handleSelect = (sub: SubsystemDefinition) => {
-    if (enteringSlug) return; // já está navegando, ignora cliques múltiplos
+    if (enteringSlug) return;
     setEnteringSlug(sub.slug);
     if (canUseSubdomain) {
-      // window.location.href causa navigation síncrona — o setState acima
-      // pinta o spinner antes do browser bloquear na navegação.
       window.location.href = buildSubsystemUrl(sub.slug);
     } else {
-      // Em localhost o setSubsystem é instantâneo (sessionStorage) — limpa o
-      // loading state quando o componente desmonta naturalmente.
+      // localhost: só re-renderiza, sem F5 — por isso não pintamos loading muito.
       setSubsystem(sub.slug);
     }
   };
 
-  const renderIcon = (iconName: string) => {
+  const renderIcon = (iconName: string, sizeClass = 'h-7 w-7') => {
     const Icon = (LucideIcons as unknown as Record<string, React.ElementType>)[iconName]
       ?? LucideIcons.Layers;
-    return <Icon className="h-7 w-7" aria-hidden="true" />;
+    return <Icon className={sizeClass} aria-hidden="true" />;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header reduzido (fase 1.6 deixa idêntico ao header dos subsistemas em estilo) */}
-      <header className="bg-blue-800 text-white px-6 py-4 flex items-center justify-between shadow">
-        <h1 className="text-lg font-semibold">IMPGEO</h1>
-        <div className="flex items-center gap-3 text-sm">
-          {user && <span className="opacity-90">{user.firstName ?? user.username}</span>}
-          <button
-            onClick={logout}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-            type="button"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      <ImpersonationBanner />
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Escolha um subsistema
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            {canUseSubdomain
-              ? 'Cada subsistema tem seu próprio subdomínio.'
-              : 'Em desenvolvimento local sem subdomínios — a escolha fica nesta aba do navegador.'}
-          </p>
+      {/* Header reduzido — usa o mesmo gradient azul do NavigationBar dos
+          subsistemas para que o usuário sinta que está no mesmo sistema,
+          apenas num "antessala" sem módulos. */}
+      <nav className="bg-gradient-to-r from-blue-900 to-blue-800 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 py-2">
+            <div className="flex items-center flex-shrink-0">
+              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-8 w-8 mr-2 object-contain" />
+              <div>
+                <span className="text-white text-xl font-bold">IMPGEO</span>
+                <p className="text-blue-200 text-sm">Sistema de Gestão Inteligente</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <MenuUsuario />
+              <button
+                onClick={logout}
+                className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                title="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            </div>
+          </div>
         </div>
+      </nav>
+
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+        <header className="mb-8 sm:mb-10">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight mb-2">
+            Escolha um subsistema
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl">
+            {canUseSubdomain
+              ? 'Cada subsistema vive em seu próprio subdomínio. Você pode trocar a qualquer momento pelo botão "Trocar subsistema" no header.'
+              : 'Em desenvolvimento local sem subdomínios — a escolha fica nesta aba do navegador. Em produção, cada subsistema terá seu próprio subdomínio.'}
+          </p>
+        </header>
 
         {visibleSubsystems.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center text-gray-700 dark:text-gray-300">
-            <LucideIcons.Lock className="h-8 w-8 mx-auto mb-3 text-gray-400" aria-hidden="true" />
-            <p className="font-medium">Nenhum subsistema disponível para o seu perfil ainda.</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              A liberação de subsistemas para usuários comuns está prevista para a próxima fase.
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-10 text-center shadow-sm">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+              <LucideIcons.Lock className="h-7 w-7 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Nenhum subsistema disponível
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+              O seu perfil ainda não tem acesso a nenhum subsistema. A liberação para usuários
+              comuns está prevista para uma próxima entrega — fale com um administrador se
+              precisa de acesso antes disso.
             </p>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {visibleSubsystems.map(sub => {
               const isEntering = enteringSlug === sub.slug;
               const isAnyEntering = enteringSlug !== null;
+              const palette = sub.palette;
+
+              const cardClasses = [
+                'group w-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-150',
+                'border border-gray-200 dark:border-gray-700',
+                'border-l-4', palette.accentBorder,
+                'p-5 sm:p-6 flex items-start gap-4',
+                'focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900',
+                isEntering
+                  ? `${palette.activeBorder} ${palette.activeRing} cursor-wait`
+                  : isAnyEntering
+                    ? 'opacity-50 cursor-not-allowed'
+                    : `${palette.hoverBorder} ${palette.hoverRing} hover:ring-4 hover:shadow-md`,
+              ].join(' ');
+
               return (
                 <li key={sub.key}>
                   <button
                     onClick={() => handleSelect(sub)}
                     type="button"
                     disabled={isAnyEntering}
-                    className={`w-full text-left bg-white dark:bg-gray-800 border rounded-lg p-5 transition-all flex items-start gap-4 ${
-                      isEntering
-                        ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800 cursor-wait'
-                        : isAnyEntering
-                          ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:shadow-md'
-                    }`}
+                    className={cardClasses}
                   >
-                    <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${palette.iconBg} ${palette.iconText}`}>
                       {isEntering
                         ? <LucideIcons.Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" />
                         : renderIcon(sub.iconName)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                        {sub.name}
-                      </h3>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                      <div className="flex items-baseline justify-between gap-2 mb-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base">
+                          {sub.name}
+                        </h3>
+                        <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                          {sub.moduleKeys.length} módulo{sub.moduleKeys.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                         {isEntering ? `Entrando em ${sub.name}…` : sub.description}
-                      </p>
-                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 font-mono">
-                        {sub.moduleKeys.length} módulo{sub.moduleKeys.length === 1 ? '' : 's'}
                       </p>
                     </div>
                   </button>
@@ -135,6 +170,12 @@ export default function SubsystemPicker() {
             })}
           </ul>
         )}
+
+        <p className="mt-8 text-xs text-gray-400 dark:text-gray-500 text-center">
+          {visibleSubsystems.length > 0 && (
+            <>Logado como <span className="font-medium text-gray-600 dark:text-gray-300">{user?.firstName ?? user?.username}</span> ({user?.role}).</>
+          )}
+        </p>
       </main>
     </div>
   );

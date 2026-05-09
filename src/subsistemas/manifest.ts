@@ -10,6 +10,25 @@
 //   - Filtrar os módulos exibidos no header pelos do subsistema atual
 //   - Construir URLs de troca de subsistema (Picker, dropdown trocar-subsistema)
 
+// Paleta de cor por subsistema. Usada no Picker (cards) e potencialmente em
+// um destaque no header de cada subsistema (fase 1.6). Os tons são strings
+// fixas porque o Tailwind precisa ver as classes literais para gerá-las no
+// build — concatenação dinâmica não funciona.
+export interface SubsystemPalette {
+  // Borda à esquerda do card / faixa de identidade do subsistema
+  accentBorder: string;     // ex.: 'border-l-blue-500'
+  // Fundo do ícone no card (quadrado colorido)
+  iconBg: string;           // ex.: 'bg-blue-50 dark:bg-blue-900/30'
+  // Cor do ícone
+  iconText: string;         // ex.: 'text-blue-700 dark:text-blue-300'
+  // Hover do card (borda e ring)
+  hoverBorder: string;      // ex.: 'hover:border-blue-400'
+  hoverRing: string;        // ex.: 'hover:ring-blue-100 dark:hover:ring-blue-900/40'
+  // Estado "está entrando" — borda e ring sólidos
+  activeBorder: string;     // ex.: 'border-blue-500'
+  activeRing: string;       // ex.: 'ring-2 ring-blue-200 dark:ring-blue-800'
+}
+
 export interface SubsystemDefinition {
   key: string;          // chave canônica (igual a subsystems.subsystem_key no banco)
   slug: string;         // segmento de subdomínio (ex.: 'financeiro' → financeiro.impgeo.local)
@@ -17,32 +36,87 @@ export interface SubsystemDefinition {
   description: string;  // descrição curta para cards do Picker
   iconName: string;     // ícone Lucide React
   moduleKeys: string[]; // chaves dos módulos que pertencem a este subsistema
+  palette: SubsystemPalette;
 }
+
+// Tailwind JIT só gera classes que aparecem LITERALMENTE no código.
+// Strings montadas com template literal (`bg-${tone}-50`) seriam purgadas.
+// Por isso cada paleta é um objeto com classes inteiras escritas à mão.
+const PALETTES = {
+  rose: {
+    accentBorder: 'border-l-rose-500',
+    iconBg:       'bg-rose-50 dark:bg-rose-900/30',
+    iconText:     'text-rose-700 dark:text-rose-300',
+    hoverBorder:  'hover:border-rose-400',
+    hoverRing:    'hover:ring-rose-100 dark:hover:ring-rose-900/40',
+    activeBorder: 'border-rose-500',
+    activeRing:   'ring-2 ring-rose-200 dark:ring-rose-800',
+  },
+  sky: {
+    accentBorder: 'border-l-sky-500',
+    iconBg:       'bg-sky-50 dark:bg-sky-900/30',
+    iconText:     'text-sky-700 dark:text-sky-300',
+    hoverBorder:  'hover:border-sky-400',
+    hoverRing:    'hover:ring-sky-100 dark:hover:ring-sky-900/40',
+    activeBorder: 'border-sky-500',
+    activeRing:   'ring-2 ring-sky-200 dark:ring-sky-800',
+  },
+  emerald: {
+    accentBorder: 'border-l-emerald-500',
+    iconBg:       'bg-emerald-50 dark:bg-emerald-900/30',
+    iconText:     'text-emerald-700 dark:text-emerald-300',
+    hoverBorder:  'hover:border-emerald-400',
+    hoverRing:    'hover:ring-emerald-100 dark:hover:ring-emerald-900/40',
+    activeBorder: 'border-emerald-500',
+    activeRing:   'ring-2 ring-emerald-200 dark:ring-emerald-800',
+  },
+  violet: {
+    accentBorder: 'border-l-violet-500',
+    iconBg:       'bg-violet-50 dark:bg-violet-900/30',
+    iconText:     'text-violet-700 dark:text-violet-300',
+    hoverBorder:  'hover:border-violet-400',
+    hoverRing:    'hover:ring-violet-100 dark:hover:ring-violet-900/40',
+    activeBorder: 'border-violet-500',
+    activeRing:   'ring-2 ring-violet-200 dark:ring-violet-800',
+  },
+  amber: {
+    accentBorder: 'border-l-amber-500',
+    iconBg:       'bg-amber-50 dark:bg-amber-900/30',
+    iconText:     'text-amber-700 dark:text-amber-300',
+    hoverBorder:  'hover:border-amber-400',
+    hoverRing:    'hover:ring-amber-100 dark:hover:ring-amber-900/40',
+    activeBorder: 'border-amber-500',
+    activeRing:   'ring-2 ring-amber-200 dark:ring-amber-800',
+  },
+} as const satisfies Record<string, SubsystemPalette>;
 
 export const SUBSYSTEMS: ReadonlyArray<SubsystemDefinition> = [
   {
     key: 'admin',
     slug: 'admin',
     name: 'Admin',
-    description: 'Administração do sistema, sessões, anomalias e alertas',
+    description: 'Administração do sistema, sessões, anomalias e alertas de segurança',
     iconName: 'ShieldCheck',
     moduleKeys: ['admin', 'sessions', 'anomalies', 'security_alerts'],
+    palette: PALETTES.rose,
   },
   {
     key: 'gestao',
     slug: 'gestao',
     name: 'Gestão',
-    description: 'Roadmap, documentação e perguntas frequentes',
+    description: 'Roadmap do produto, documentação e perguntas frequentes',
     iconName: 'BookOpen',
     moduleKeys: ['roadmap', 'documentacao', 'faq'],
+    palette: PALETTES.sky,
   },
   {
     key: 'financeiro',
     slug: 'financeiro',
     name: 'Financeiro',
-    description: 'Dashboard, metas, relatórios, projeção, transações, DRE',
+    description: 'Dashboard, metas, relatórios, projeção, transações e DRE',
     iconName: 'DollarSign',
     moduleKeys: ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre'],
+    palette: PALETTES.emerald,
   },
   {
     key: 'gerenciamento',
@@ -51,14 +125,16 @@ export const SUBSYSTEMS: ReadonlyArray<SubsystemDefinition> = [
     description: 'Projetos, serviços, clientes e indicadores operacionais',
     iconName: 'Workflow',
     moduleKeys: ['dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento', 'projects', 'services', 'clients'],
+    palette: PALETTES.violet,
   },
   {
     key: 'especial',
     slug: 'especial',
     name: 'Módulos Extras',
-    description: 'Acompanhamentos e demais módulos não-temáticos',
+    description: 'Acompanhamentos e módulos especiais que não pertencem aos demais subsistemas',
     iconName: 'Sparkles',
     moduleKeys: ['acompanhamentos'],
+    palette: PALETTES.amber,
   },
 ];
 
