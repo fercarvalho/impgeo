@@ -361,12 +361,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   useEffect(() => {
     const loadModulesCatalog = async () => {
       try {
-        if (!token) return;
-        const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        // Após a fase 1.3, auth viaja por cookie httpOnly — não dependemos
+        // de `token` em state (que pode ser null logo após F5 mesmo com user
+        // logado pelo cookie). Se `user` está populado, há sessão válida.
+        if (!user) return;
+        const response = await fetch(`${API_BASE_URL}/modules-catalog`);
         const result = await response.json();
         if (response.ok && result?.success && Array.isArray(result.data)) {
           setCatalogModules(
