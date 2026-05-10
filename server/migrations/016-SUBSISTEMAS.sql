@@ -195,8 +195,13 @@ BEGIN
     IF total_subsystems <> 5 THEN
         RAISE EXCEPTION 'Esperado 5 subsistemas, encontrados %', total_subsystems;
     END IF;
-    IF total_user_perms <> 18 THEN
-        RAISE EXCEPTION 'Esperado 18 user_module_permissions com chaves novas (6+6+6), encontrados %', total_user_perms;
+    -- Cada usuário que tinha permissão para os 3 módulos antigos
+    -- (dashboard, metas, reports) deve ter as 3 chaves novas propagadas
+    -- via ON UPDATE CASCADE → total deve ser múltiplo de 3.
+    -- Hardcoding do número exato seria errado em ambientes com nº distinto
+    -- de usuários.
+    IF total_user_perms = 0 OR (total_user_perms % 3) <> 0 THEN
+        RAISE EXCEPTION 'Esperado total múltiplo de 3 (3 chaves renomeadas × N usuários); encontrados %', total_user_perms;
     END IF;
 
     RAISE NOTICE 'Migração 016 concluída: % módulos, % subsistemas, % permissões propagadas',
