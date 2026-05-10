@@ -12,23 +12,81 @@ interface FeedbackModalProps {
   paginaAtual?: string;
 }
 
-const PAGINA_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  transactions: 'Transações',
-  products: 'Produtos',
-  reports: 'Relatórios',
-  metas: 'Metas',
-  clients: 'Clientes',
-  projecao: 'Projeção',
-  admin: 'Administração',
-  dre: 'DRE',
-  activeSessions: 'Sessões Ativas',
-  anomalies: 'Anomalias',
-  securityAlerts: 'Alertas de Segurança',
-  nuvemshop: 'Nuvemshop',
-  roadmap: 'Roadmap',
-  faq: 'FAQ',
-};
+// Mapa de páginas — atualizado pela fase 1 dos subsistemas. As chaves são as
+// canônicas usadas em modules_catalog (banco) + uma chave especial
+// 'escolher_modulo' para o SubsystemPicker (tela inicial pós-login).
+//
+// O <select> de página de referência mostra grupos via <optgroup label>;
+// PAGINA_LABELS é uma flatten dos grupos, usada em outros lugares se preciso
+// (ex.: FeedbackManagement do admin para renderizar o nome amigável).
+interface PaginaGrupo {
+  label: string;
+  options: { key: string; label: string }[];
+}
+
+const PAGINA_GRUPOS: PaginaGrupo[] = [
+  {
+    label: 'Geral',
+    options: [
+      { key: 'escolher_modulo', label: 'Escolher módulo (tela inicial)' },
+    ],
+  },
+  {
+    label: 'Admin',
+    options: [
+      { key: 'admin',           label: 'Admin' },
+      { key: 'sessions',        label: 'Sessões Ativas' },
+      { key: 'anomalies',       label: 'Anomalias' },
+      { key: 'security_alerts', label: 'Alertas de Segurança' },
+    ],
+  },
+  {
+    label: 'Gestão',
+    options: [
+      { key: 'roadmap',      label: 'Roadmap' },
+      { key: 'documentacao', label: 'Documentação' },
+      { key: 'faq',          label: 'FAQ' },
+    ],
+  },
+  {
+    label: 'Financeiro',
+    options: [
+      { key: 'dashboard_financeiro',  label: 'Dashboard' },
+      { key: 'metas_financeiro',      label: 'Metas' },
+      { key: 'relatorios_financeiro', label: 'Relatórios' },
+      { key: 'projecao',              label: 'Projeção' },
+      { key: 'transactions',          label: 'Transações' },
+      { key: 'dre',                   label: 'DRE' },
+    ],
+  },
+  {
+    label: 'Gerenciamento',
+    options: [
+      { key: 'dashboard_gerenciamento',   label: 'Dashboard' },
+      { key: 'metas_gerenciamento',       label: 'Metas' },
+      { key: 'projecao_gerenciamento',    label: 'Projeção' },
+      { key: 'relatorios_gerenciamento',  label: 'Relatórios' },
+      { key: 'projects',                  label: 'Projetos' },
+      { key: 'services',                  label: 'Serviços' },
+      { key: 'clients',                   label: 'Clientes' },
+    ],
+  },
+  {
+    label: 'Módulos Extras',
+    options: [
+      { key: 'acompanhamentos', label: 'Acompanhamentos' },
+    ],
+  },
+];
+
+// Flatten para lookups por chave (compat com código que pode esperar essa forma).
+export const PAGINA_LABELS: Record<string, string> = PAGINA_GRUPOS.reduce(
+  (acc, grupo) => {
+    for (const opt of grupo.options) acc[opt.key] = opt.label;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
 
 type Categoria = 'duvida' | 'melhoria' | 'sugestao' | 'critica';
 
@@ -411,8 +469,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
                   className="w-full pl-9 pr-9 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:!bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm text-gray-700 dark:text-gray-100 appearance-none disabled:opacity-50"
                 >
                   <option value="">Nenhuma página específica</option>
-                  {Object.entries(PAGINA_LABELS).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
+                  {PAGINA_GRUPOS.map(grupo => (
+                    <optgroup key={grupo.label} label={grupo.label}>
+                      {grupo.options.map(opt => (
+                        <option key={opt.key} value={opt.key}>{opt.label}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" aria-hidden="true" />

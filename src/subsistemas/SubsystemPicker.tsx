@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import MenuUsuario from '@/components/MenuUsuario';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import Footer from '@/components/Footer';
+import FeedbackButton from '@/components/FeedbackButton';
 import {
   SUBSYSTEMS,
   buildSubsystemUrl,
@@ -183,6 +184,10 @@ export default function SubsystemPicker() {
       </main>
 
       <Footer />
+
+      {/* Botão flutuante de feedback. paginaAtual='escolher_modulo' é a chave
+          dedicada ao SubsystemPicker no FeedbackModal (grupo 'Geral'). */}
+      <FeedbackButton paginaAtual="escolher_modulo" />
     </div>
   );
 }

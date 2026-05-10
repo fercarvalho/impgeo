@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import MenuUsuario from '@/components/MenuUsuario';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import Footer from '@/components/Footer';
+import FeedbackButton from '@/components/FeedbackButton';
 import {
   supportsSubdomainNavigation,
   getRootUrl,
@@ -120,6 +121,11 @@ export default function AcessoNegado({ attemptedSubsystem }: Props) {
       </main>
 
       <Footer />
+
+      {/* Botão flutuante de feedback. user/guest sem acesso pode reportar a
+          situação. paginaAtual='escolher_modulo' (mesmo do Picker) — o usuário
+          pode descrever no texto qual módulo tentou abrir. */}
+      <FeedbackButton paginaAtual="escolher_modulo" />
     </div>
   );
 }
