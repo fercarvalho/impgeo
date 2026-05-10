@@ -58,8 +58,7 @@ const Roadmap = lazy(() => import('@/subsistemas/gestao/modulos/Roadmap'))
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import FeedbackButton from '@/components/FeedbackButton'
 import Footer from '@/components/Footer'
-import CommitVersionModal from '@/components/CommitVersionModal'
-import VersaoNovaModal from '@/components/VersaoNovaModal'
+import VersionModalsManager from '@/components/VersionModalsManager'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -202,7 +201,15 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return <AppContentRouter user={user} logout={logout} />;
+  return (
+    <>
+      {/* Modais de versionamento aparecem antes de qualquer tela autenticada
+          (Picker, AcessoNegado ou AppMain) — o componente apenas dispara fetches
+          conforme o role do usuário. */}
+      <VersionModalsManager />
+      <AppContentRouter user={user} logout={logout} />
+    </>
+  );
 };
 
 // Roteador macro de subsistemas — fase 1.4 + bloqueio user/guest da fase 1.8.
@@ -234,7 +241,6 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
 
 const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
   const permissions = usePermissions();
-  const { token } = useAuth();
   const { isDark } = useTheme();
   // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
   // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
@@ -256,21 +262,6 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [catalogModules, setCatalogModules] = useState<{ moduleKey: string; moduleName: string; iconName?: string | null }[] | null>(null)
-
-  // Commits pendentes em fila (superadmin) — carrossel
-  const [commitsPendentes, setCommitsPendentes] = useState<{
-    versaoAtual: string;
-    commits: Array<{ commitHash: string; mensagem: string; data: string }>;
-    manterSessionId: number;
-  } | null>(null);
-
-  // Notificação de nova versão (outros usuários)
-  const [versoesNovas, setVersoesNovas] = useState<Array<{
-    versao: string;
-    texto: string;
-    tipo?: 'versao' | 'aviso';
-    versaoReferencia?: string;
-  }> | null>(null);
 
   const getDefaultModulesByRole = (role: string): string[] => {
     // Atualizado pela fase 1.4 (subsistemas):
@@ -311,66 +302,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
 
-  // Verificar commits pendentes (fila) quando superadmin faz login
-  useEffect(() => {
-    if (!token || !user || user.role !== 'superadmin') return;
-    let cancelled = false;
-
-    const checkCommits = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/rodape/commits-pendentes`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data?.commits) && json.data.commits.length > 0 && !cancelled) {
-          setCommitsPendentes({
-            versaoAtual: json.data.versaoAtual || '',
-            commits: json.data.commits.map((c: any) => ({
-              commitHash: c.commitHash,
-              mensagem: c.mensagem || '',
-              data: c.data || '',
-            })),
-            manterSessionId: Date.now(),
-          });
-        }
-      } catch {
-        // silently ignore
-      }
-    };
-
-    checkCommits();
-    return () => { cancelled = true; };
-  }, [token, user?.id]);
-
-  // Verificar notificação de nova versão (usuários não-superadmin)
-  useEffect(() => {
-    if (!token || !user || user.role === 'superadmin') return;
-    let cancelled = false;
-
-    const checkVersao = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/notificacao-versao`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (json.success && json.data?.notificar && Array.isArray(json.data.versoes) && json.data.versoes.length > 0 && !cancelled) {
-          setVersoesNovas(json.data.versoes.map((v: any) => ({
-            versao: v.versao,
-            texto: v.texto || '',
-            tipo: v.tipo === 'aviso' ? 'aviso' : 'versao',
-            versaoReferencia: v.versaoReferencia || v.versao,
-          })));
-        }
-      } catch {
-        // silently ignore
-      }
-    };
-
-    checkVersao();
-    return () => { cancelled = true; };
-  }, [token, user?.id]);
+  // Os useEffects que carregavam commits-pendentes (superadmin) e
+  // notificacao-versao (demais roles) e os respectivos modais foram movidos
+  // para o componente VersionModalsManager (renderizado em AppContent), para
+  // que disparem em qualquer tela autenticada — incluindo o SubsystemPicker,
+  // que é a primeira tela pós-login na fase 1.
 
   useEffect(() => {
     const loadModulesCatalog = async () => {
@@ -3617,48 +3553,10 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
 
       <Footer />
 
-      {/* Modal de commits pendentes (carrossel — somente superadmin) */}
-      {commitsPendentes && commitsPendentes.commits.length > 0 && (
-        <CommitVersionModal
-          commits={commitsPendentes.commits}
-          versaoAtual={commitsPendentes.versaoAtual}
-          onClose={() => setCommitsPendentes(null)}
-          onProcess={async ({ commitHash, action, novaVersao, mensagem, data, rolesNotificados }) => {
-            const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                action,
-                novaVersao,
-                commitHash,
-                mensagem,
-                data,
-                rolesNotificados,
-                manterSessionId: commitsPendentes.manterSessionId,
-              }),
-            });
-            if (!res.ok) throw new Error('Falha na requisição');
-            window.dispatchEvent(new Event('rodape-updated'));
-          }}
-        />
-      )}
-
-      {/* Modal de nova versão para usuários */}
-      {versoesNovas && versoesNovas.length > 0 && (
-        <VersaoNovaModal
-          versoes={versoesNovas}
-          onConfirm={async (versao) => {
-            try {
-              await fetch(`${API_BASE_URL}/notificacao-versao/vista`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ versao }),
-              });
-            } catch { /* silently ignore */ }
-          }}
-          onClose={() => setVersoesNovas(null)}
-        />
-      )}
+      {/* Modais de versionamento (CommitVersionModal + VersaoNovaModal)
+          movidos para VersionModalsManager renderizado em AppContent —
+          assim disparam em qualquer tela autenticada, incluindo o
+          SubsystemPicker (primeira tela pós-login na fase 1). */}
 
       {/* Modal de Gráficos */}
       <ChartModal
