@@ -1,5 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
+import nodePath from 'node:path'
+
+const __dirname = nodePath.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   base: './',
@@ -8,6 +12,44 @@ export default defineConfig({
       jsxRuntime: 'automatic'
     })
   ],
+  resolve: {
+    alias: {
+      '@': nodePath.resolve(__dirname, 'src')
+    }
+  },
+  // Pré-bundle agressivo das deps mais pesadas. Em dev mode o Vite normalmente
+  // descobre deps em node_modules sob demanda — listar explicitamente reduz o
+  // número de re-bundles ao primeiro acesso e o número de requests HTTP em
+  // origens novas (cada *.impgeo.local é um cache HTTP separado para o browser).
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react-is',
+      'recharts',
+      'lucide-react',
+      'react-icons',
+      'date-fns',
+      'axios',
+      'dompurify',
+      'marked',
+      'browser-image-compression',
+      'react-easy-crop',
+      'jspdf',
+      'html2canvas',
+      'jszip',
+      'file-saver',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      // @tiptap/pm é peer-dep dos dois acima e não tem export raiz "." —
+      // o Vite descobre os sub-paths (@tiptap/pm/state, /view etc.) sob demanda.
+    ],
+  },
   define: {
     __HMR_CONFIG_NAME__: JSON.stringify('vite')
   },
@@ -15,21 +57,46 @@ export default defineConfig({
     port: 9000,
     open: true,
     host: '0.0.0.0',
+    // Em dev local acessamos apenas via http://localhost:9000.
+    // O fluxo de subsistemas funciona via sessionStorage (resolveCurrentSubsystem
+    // em manifest.ts faz o fallback quando hostname não é subdomínio real).
+    // Subdomínios *.impgeo.sistemas.viverdepj.com.br são usados em produção,
+    // onde o Nginx faz o reverse proxy — Vite dev server não precisa lidar com isso.
     hmr: {
-      clientPort: 9000,
       overlay: true
     },
     proxy: {
+      // changeOrigin: false preserva o Host original (financeiro.impgeo.local
+      // etc.) ao chegar no backend, permitindo que resolveCookieDomain decida
+      // o Domain certo dinamicamente. Em produção o Nginx envia X-Forwarded-Host
+      // e o backend usa esse, então o comportamento é equivalente.
       '/api': {
         target: 'http://localhost:9001',
-        changeOrigin: true,
-        rewrite: (path) => path
+        changeOrigin: false,
+        rewrite: (apiPath) => apiPath
       },
       '/v': {
         target: 'http://localhost:9001',
-        changeOrigin: true,
-        rewrite: (path) => path
+        changeOrigin: false,
+        rewrite: (apiPath) => apiPath
       }
+    },
+    // Pré-transforma os módulos de cada subsistema no startup do dev server,
+    // antes da primeira request. Em dev mode o Vite serve cada arquivo .tsx
+    // como módulo ESM separado e os transforma sob demanda — sem warmup, a
+    // primeira navegação para um subsistema dispara dezenas de transformações
+    // simultâneas, somando latência perceptível. Com warmup, os módulos já
+    // estão prontos em memória.
+    warmup: {
+      clientFiles: [
+        './src/App.tsx',
+        './src/subsistemas/SubsystemPicker.tsx',
+        './src/subsistemas/admin/modulos/**/*.tsx',
+        './src/subsistemas/gestao/modulos/**/*.tsx',
+        './src/subsistemas/financeiro/modulos/**/*.tsx',
+        './src/subsistemas/gerenciamento/modulos/**/*.tsx',
+        './src/subsistemas/especial/modulos/**/*.tsx',
+      ]
     }
   },
   build: {
@@ -73,28 +140,29 @@ export default defineConfig({
           }
 
           // Separar componentes grandes em chunks próprios
-          if (id.includes('/src/components/')) {
-            // Projection é muito grande, separar
-            if (id.includes('Projection')) {
+          // (cobre tanto src/components/ quanto src/subsistemas/<sub>/modulos/)
+          if (id.includes('/src/components/') || id.includes('/src/subsistemas/')) {
+            // Projeção (financeiro) — muito grande
+            if (id.includes('Projecao') || id.includes('Projection')) {
               return 'component-projection'
             }
 
-            // Reports com gráficos
-            if (id.includes('Reports') || id.includes('DRE')) {
+            // Relatórios + DRE (financeiro)
+            if (id.includes('RelatoriosFinanceiro') || id.includes('Reports') || id.includes('DRE')) {
               return 'component-reports'
             }
 
-            // Acompanhamentos
+            // Acompanhamentos (especial)
             if (id.includes('Acompanhamentos')) {
               return 'component-acompanhamentos'
             }
 
-            // Transactions
+            // Transações (financeiro)
             if (id.includes('Transactions')) {
               return 'component-transactions'
             }
 
-            // Projects
+            // Projetos (gerenciamento)
             if (id.includes('Projects')) {
               return 'component-projects'
             }

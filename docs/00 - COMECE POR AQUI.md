@@ -46,6 +46,14 @@ Este índice lista todos os guias disponíveis. Comece por aqui para navegar.
 
 ---
 
+## 🧭 Subsistemas (organização e acesso)
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 13 | [Deploy dos Subsistemas](./13%20-%20DEPLOY-SUBSISTEMAS.md) | Pré-requisitos para subir a feature de subsistemas em produção (DNS wildcard, SSL DNS-01, Nginx, migrations, checklist) |
+
+---
+
 ## 📁 Arquivos na Raiz do Projeto
 
 | Arquivo | Descrição |

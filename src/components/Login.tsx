@@ -9,7 +9,7 @@ import CookieBanner from './CookieBanner';
 import TermosUsoModal from './TermosUsoModal';
 import PoliticaPrivacidadeModal from './PoliticaPrivacidadeModal';
 import Footer from './Footer';
-import Documentation from './Documentation';
+import Documentation from '@/subsistemas/gestao/modulos/Documentation';
 
 // BUG FIX: inclui 0.0.0.0; tipo explícito string; import.meta.env tipado corretamente
 const isLocalEnv =

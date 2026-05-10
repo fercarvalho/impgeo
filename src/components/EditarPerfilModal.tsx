@@ -198,7 +198,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
   };
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
-    if (!token) {
+    if (!user) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
     try {
@@ -325,7 +325,7 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
       return;
     }
 
-    if (!token) {
+    if (!user) {
       setErrors({ general: 'Sessão expirada. Faça login novamente.' });
       return;
     }

@@ -10,28 +10,23 @@ const API_BASE_URL: string = isLocalEnv
   ? 'http://localhost:9001/api'
   : ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api');
 
-const api = axios.create({ baseURL: API_BASE_URL });
-
-// Interceptor de request: injeta Authorization header automaticamente
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem('authToken');
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+// Fase 1.3 (subsistemas) — `withCredentials: true` faz o axios enviar e receber
+// os cookies httpOnly de auth (accessToken / refreshToken) automaticamente.
+// Não lemos mais token de localStorage nem injetamos header Authorization.
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
-// Interceptor de response: tenta renovar token em caso de 401
+// Refresh em paralelo: se múltiplas requisições chegarem com 401 ao mesmo tempo,
+// só uma delas dispara o refresh e as outras esperam.
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value: unknown) => void; reject: (reason?: unknown) => void }> = [];
 
-const processQueue = (error: unknown, token: string | null = null) => {
+const processQueue = (error: unknown) => {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token);
-    }
+    if (error) reject(error);
+    else resolve(null);
   });
   failedQueue = [];
 };
@@ -49,45 +44,21 @@ api.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-          }
-          return api(originalRequest);
-        });
+        }).then(() => api(originalRequest));
       }
 
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        isRefreshing = false;
-        localStorage.removeItem('authToken');
-        window.location.href = '/';
-        return Promise.reject(error);
-      }
-
       try {
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-        const { token: newToken, refreshToken: newRefreshToken } = response.data;
-
-        localStorage.setItem('authToken', newToken);
-        if (newRefreshToken) {
-          localStorage.setItem('refreshToken', newRefreshToken);
-        }
-
-        api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        }
-
-        processQueue(null, newToken);
+        // O cookie refreshToken vai no request automaticamente via withCredentials.
+        // O backend rotaciona e devolve novos cookies. Não precisamos ler nada.
+        await axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+        processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('refreshToken');
+        processQueue(refreshError);
+        // Cookie já foi limpo pelo backend (ou era inválido). Volta para o login.
         window.location.href = '/';
         return Promise.reject(refreshError);
       } finally {

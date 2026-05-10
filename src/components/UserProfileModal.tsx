@@ -48,7 +48,7 @@ interface UserProfileData {
 }
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -62,7 +62,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   }, []);
 
   const loadProfileData = useCallback(async () => {
-    if (!token) return;
+    if (!user) return;
     setLoading(true);
     setLoadError(false);
 

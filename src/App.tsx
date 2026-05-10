@@ -30,35 +30,43 @@ import {
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts'
-import Login from './components/Login'
-import ResetarSenhaModal from './components/ResetarSenhaModal'
-import ChartModal from './components/modals/ChartModal'
-import MenuUsuario from './components/MenuUsuario'
+import Login from '@/components/Login'
+import ResetarSenhaModal from '@/components/ResetarSenhaModal'
+import ChartModal from '@/components/modals/ChartModal'
+import MenuUsuario from '@/components/MenuUsuario'
 
-const Reports = lazy(() => import('./components/Reports'))
-const TransactionsPage = lazy(() => import('./components/Transactions').then(module => ({ default: module.TransactionsPage })))
-const Clients = lazy(() => import('./components/Clients'))
-const DRE = lazy(() => import('./components/DRE'))
-const Projects = lazy(() => import('./components/Projects'))
-const Services = lazy(() => import('./components/Services'))
-const Projection = lazy(() => import('./components/Projection'))
-const Acompanhamentos = lazy(() => import('./components/Acompanhamentos'))
-const AcompanhamentosView = lazy(() => import('./components/AcompanhamentosView'))
-const AdminPanel = lazy(() => import('./components/admin/AdminTabs'))
-const ActiveSessions = lazy(() => import('./components/admin/ActiveSessions'))
-const AnomalyDashboard = lazy(() => import('./components/admin/AnomalyDashboard'))
-const SecurityAlerts = lazy(() => import('./components/admin/SecurityAlerts'))
-const FAQ = lazy(() => import('./components/FAQ'))
-import Documentation from './components/Documentation'
-const Roadmap = lazy(() => import('./components/Roadmap'))
-import ImpersonationBanner from './components/ImpersonationBanner'
-import FeedbackButton from './components/FeedbackButton'
-import Footer from './components/Footer'
-import CommitVersionModal from './components/CommitVersionModal'
-import VersaoNovaModal from './components/VersaoNovaModal'
+const Reports = lazy(() => import('@/subsistemas/financeiro/modulos/RelatoriosFinanceiro'))
+const TransactionsPage = lazy(() => import('@/subsistemas/financeiro/modulos/Transactions').then(module => ({ default: module.TransactionsPage })))
+const Clients = lazy(() => import('@/subsistemas/gerenciamento/modulos/Clients'))
+const DashboardGerenciamento  = lazy(() => import('@/subsistemas/gerenciamento/modulos/DashboardGerenciamento'))
+const MetasGerenciamento      = lazy(() => import('@/subsistemas/gerenciamento/modulos/MetasGerenciamento'))
+const ProjecaoGerenciamento   = lazy(() => import('@/subsistemas/gerenciamento/modulos/ProjecaoGerenciamento'))
+const RelatoriosGerenciamento = lazy(() => import('@/subsistemas/gerenciamento/modulos/RelatoriosGerenciamento'))
+const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
+const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
+const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
+const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
+const Acompanhamentos = lazy(() => import('@/subsistemas/especial/modulos/Acompanhamentos'))
+const AcompanhamentosView = lazy(() => import('@/subsistemas/especial/modulos/AcompanhamentosView'))
+const AdminPanel = lazy(() => import('@/subsistemas/admin/modulos/Admin'))
+const ActiveSessions = lazy(() => import('@/subsistemas/admin/modulos/ActiveSessions'))
+const AnomalyDashboard = lazy(() => import('@/subsistemas/admin/modulos/AnomalyDashboard'))
+const SecurityAlerts = lazy(() => import('@/subsistemas/admin/modulos/SecurityAlerts'))
+const FAQ = lazy(() => import('@/subsistemas/gestao/modulos/FAQ'))
+import Documentation from '@/subsistemas/gestao/modulos/Documentation'
+const Roadmap = lazy(() => import('@/subsistemas/gestao/modulos/Roadmap'))
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import FeedbackButton from '@/components/FeedbackButton'
+import Footer from '@/components/Footer'
+import VersionModalsManager from '@/components/VersionModalsManager'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
-import ThemeToggle from './components/ThemeToggle'
+import ThemeToggle from '@/components/ThemeToggle'
+import SubsystemPicker from '@/subsistemas/SubsystemPicker'
+import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
+import AcessoNegado from '@/subsistemas/AcessoNegado'
+import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
+import { userCanAccessSubsystem, type SubsystemDefinition } from '@/subsistemas/manifest'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -99,7 +107,19 @@ interface Meta {
   status: 'ativa' | 'pausada' | 'concluida';
 }
 
-type TabType = 'dashboard' | 'projects' | 'services' | 'reports' | 'metas' | 'transactions' | 'clients' | 'dre' | 'projecao' | 'acompanhamentos' | 'admin' | 'sessions' | 'anomalies' | 'security_alerts' | 'faq' | 'documentacao' | 'roadmap'
+type TabType =
+  // Subsistema admin
+  | 'admin' | 'sessions' | 'anomalies' | 'security_alerts'
+  // Subsistema gestao
+  | 'roadmap' | 'documentacao' | 'faq'
+  // Subsistema financeiro (chaves renomeadas pela migração 016)
+  | 'dashboard_financeiro' | 'metas_financeiro' | 'relatorios_financeiro'
+  | 'projecao' | 'transactions' | 'dre'
+  // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados)
+  | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
+  | 'projects' | 'services' | 'clients'
+  // Subsistema especial
+  | 'acompanhamentos'
 
 const AppContent: React.FC = () => {
   const { user, token, logout, isLoading } = useAuth();
@@ -181,14 +201,53 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return <AppMain user={user} logout={logout} />;
+  return (
+    <>
+      {/* Modais de versionamento aparecem antes de qualquer tela autenticada
+          (Picker, AcessoNegado ou AppMain) — o componente apenas dispara fetches
+          conforme o role do usuário. */}
+      <VersionModalsManager />
+      <AppContentRouter user={user} logout={logout} />
+    </>
+  );
 };
 
-const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
+// Roteador macro de subsistemas — fase 1.4 + bloqueio user/guest da fase 1.8.
+//
+// Após login, decide entre 3 telas:
+//   1. SubsystemPicker (domínio raiz) — qualquer role logado pode ver, mas
+//      user/guest verão empty state.
+//   2. AcessoNegado (subsistema selecionado mas role sem permissão) — fase 1.8.
+//      Cobre tentativas de subdomínio direto, sessionStorage manipulado, e
+//      role rebaixado durante sessão ativa.
+//   3. AppMain (subsistema válido + permissão) — caminho feliz.
+const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) => {
+  const { subsystem } = useCurrentSubsystem();
+  if (!subsystem) {
+    return <SubsystemPicker />;
+  }
+  if (!userCanAccessSubsystem(user, subsystem)) {
+    return <AcessoNegado attemptedSubsystem={subsystem} />;
+  }
+  // key={subsystem.key} força remount do AppMain a cada troca de subsistema.
+  // Em produção essa troca já implica reload (subdomínio diferente); em dev
+  // local, o sessionStorage muda sem reload e o componente apenas re-renderiza
+  // com prop novo. Sem o key, useState<TabType>(initial) não re-inicializa,
+  // o activeTab fica preso no módulo do subsistema antigo e o conteúdo da tela
+  // fica dessincronizado do header. Reset completo aqui é o comportamento
+  // desejado: trocar de subsistema = começar limpo no primeiro módulo.
+  return <AppMain key={subsystem.key} user={user} logout={logout} subsystem={subsystem} />;
+};
+
+const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
   const permissions = usePermissions();
-  const { token } = useAuth();
   const { isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
+  // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
+  // migração 016.
+  const [activeTab, setActiveTab] = useState<TabType>(
+    () => (subsystem.moduleKeys[0] as TabType | undefined) ?? 'dashboard_financeiro'
+  )
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [projectionData, setProjectionData] = useState<any>(null)
@@ -204,23 +263,22 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [catalogModules, setCatalogModules] = useState<{ moduleKey: string; moduleName: string; iconName?: string | null }[] | null>(null)
 
-  // Commits pendentes em fila (superadmin) — carrossel
-  const [commitsPendentes, setCommitsPendentes] = useState<{
-    versaoAtual: string;
-    commits: Array<{ commitHash: string; mensagem: string; data: string }>;
-    manterSessionId: number;
-  } | null>(null);
-
-  // Notificação de nova versão (outros usuários)
-  const [versoesNovas, setVersoesNovas] = useState<Array<{
-    versao: string;
-    texto: string;
-    tipo?: 'versao' | 'aviso';
-    versaoReferencia?: string;
-  }> | null>(null);
-
   const getDefaultModulesByRole = (role: string): string[] => {
-    const allWithoutAdmin = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'documentacao'];
+    // Atualizado pela fase 1.4 (subsistemas):
+    //   - 3 chaves renomeadas: dashboard_financeiro, metas_financeiro, relatorios_financeiro
+    //   - 4 módulos novos (gerenciamento): dashboard_gerenciamento, metas_gerenciamento,
+    //     projecao_gerenciamento, relatorios_gerenciamento
+    const allWithoutAdmin = [
+      // Financeiro
+      'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
+      // Gerenciamento
+      'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
+      'projects', 'services', 'clients',
+      // Gestão
+      'faq', 'documentacao',
+      // Especial
+      'acompanhamentos',
+    ];
     if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
@@ -244,76 +302,20 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
 
-  // Verificar commits pendentes (fila) quando superadmin faz login
-  useEffect(() => {
-    if (!token || !user || user.role !== 'superadmin') return;
-    let cancelled = false;
-
-    const checkCommits = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/rodape/commits-pendentes`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data?.commits) && json.data.commits.length > 0 && !cancelled) {
-          setCommitsPendentes({
-            versaoAtual: json.data.versaoAtual || '',
-            commits: json.data.commits.map((c: any) => ({
-              commitHash: c.commitHash,
-              mensagem: c.mensagem || '',
-              data: c.data || '',
-            })),
-            manterSessionId: Date.now(),
-          });
-        }
-      } catch {
-        // silently ignore
-      }
-    };
-
-    checkCommits();
-    return () => { cancelled = true; };
-  }, [token, user?.id]);
-
-  // Verificar notificação de nova versão (usuários não-superadmin)
-  useEffect(() => {
-    if (!token || !user || user.role === 'superadmin') return;
-    let cancelled = false;
-
-    const checkVersao = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/notificacao-versao`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (json.success && json.data?.notificar && Array.isArray(json.data.versoes) && json.data.versoes.length > 0 && !cancelled) {
-          setVersoesNovas(json.data.versoes.map((v: any) => ({
-            versao: v.versao,
-            texto: v.texto || '',
-            tipo: v.tipo === 'aviso' ? 'aviso' : 'versao',
-            versaoReferencia: v.versaoReferencia || v.versao,
-          })));
-        }
-      } catch {
-        // silently ignore
-      }
-    };
-
-    checkVersao();
-    return () => { cancelled = true; };
-  }, [token, user?.id]);
+  // Os useEffects que carregavam commits-pendentes (superadmin) e
+  // notificacao-versao (demais roles) e os respectivos modais foram movidos
+  // para o componente VersionModalsManager (renderizado em AppContent), para
+  // que disparem em qualquer tela autenticada — incluindo o SubsystemPicker,
+  // que é a primeira tela pós-login na fase 1.
 
   useEffect(() => {
     const loadModulesCatalog = async () => {
       try {
-        if (!token) return;
-        const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        // Após a fase 1.3, auth viaja por cookie httpOnly — não dependemos
+        // de `token` em state (que pode ser null logo após F5 mesmo com user
+        // logado pelo cookie). Se `user` está populado, há sessão válida.
+        if (!user) return;
+        const response = await fetch(`${API_BASE_URL}/modules-catalog`);
         const result = await response.json();
         if (response.ok && result?.success && Array.isArray(result.data)) {
           setCatalogModules(
@@ -336,28 +338,33 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {
-      const orderedTabs: TabType[] = ['dashboard', 'projects', 'services', 'reports', 'metas', 'projecao', 'transactions', 'clients', 'dre', 'acompanhamentos', 'faq', 'admin', 'sessions', 'anomalies', 'security_alerts'];
-      const fallbackTab = orderedTabs.find((tab) => hasModuleAccess(tab)) || 'dashboard';
+      // Fallback dentro do subsistema atual: pega o primeiro módulo acessível
+      // entre os módulos do subsistema. Se nenhum estiver acessível, usa o
+      // primeiro do subsistema mesmo (componentes vão renderizar nada por
+      // hasModuleAccess negativo, mas pelo menos o estado é consistente).
+      const fallbackTab =
+        (subsystem.moduleKeys.find((tab) => hasModuleAccess(tab)) as TabType | undefined)
+        ?? (subsystem.moduleKeys[0] as TabType);
       setActiveTab(fallbackTab);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, user, catalogModules]);
 
-  // Resetar para dashboard quando impersonation iniciar ou encerrar
+  // Resetar para o primeiro módulo do subsistema quando impersonation iniciar/encerrar
   useEffect(() => {
-    const handleImpersonationChange = () => setActiveTab('dashboard');
+    const handleImpersonationChange = () => setActiveTab(subsystem.moduleKeys[0] as TabType);
     window.addEventListener('auth:impersonation-changed', handleImpersonationChange);
     return () => window.removeEventListener('auth:impersonation-changed', handleImpersonationChange);
-  }, []);
+  }, [subsystem]);
 
   // Resetar modal quando trocar de aba
   useEffect(() => {
     setShowTransactionModal(false)
   }, [activeTab])
-  
-  // Executar resetar cálculos automaticamente quando entrar na aba de metas
+
+  // Executar resetar cálculos automaticamente quando entrar na aba de metas (financeiro)
   useEffect(() => {
-    if (activeTab === 'metas') {
+    if (activeTab === 'metas_financeiro') {
       // Aguardar um pequeno delay para garantir que o componente esteja carregado
       const timer = setTimeout(() => {
         // Disparar evento customizado para o componente Projection executar resetarCalculos
@@ -1009,7 +1016,11 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
           </div>
           <div className="flex items-center space-x-4">
             <MenuUsuario />
-            <button 
+            {/* Dropdown trocar-módulo (fase 1.6) — substitui o botão azul
+                temporário da fase 1.4+. Estilo MenuUsuario, com lista dos
+                outros módulos acessíveis + 'Voltar para escolha de módulo'. */}
+            <SubsystemSwitcher current={subsystem} />
+            <button
               onClick={logout}
               className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
               title="Sair"
@@ -1024,32 +1035,44 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         <div className="flex items-center justify-start space-x-3 overflow-x-auto scrollbar-hide nav-scroll pb-2 px-1">
           {(() => {
             const iconMap: Record<string, React.ElementType> = {
-              dashboard: Home,
-              projects: MapIcon,
-              services: Target,
-              reports: BarChart3,
-              metas: TrendingUp,
+              // Financeiro
+              dashboard_financeiro: Home,
+              metas_financeiro: TrendingUp,
+              relatorios_financeiro: BarChart3,
               projecao: Calculator,
               transactions: FileText,
-              clients: Building,
               dre: BarChart3,
-              acompanhamentos: ClipboardList,
-              faq: HelpCircle,
-              documentacao: BookOpen,
+              // Gerenciamento
+              dashboard_gerenciamento: Home,
+              metas_gerenciamento: TrendingUp,
+              projecao_gerenciamento: Calculator,
+              relatorios_gerenciamento: BarChart3,
+              projects: MapIcon,
+              services: Target,
+              clients: Building,
+              // Gestão
               roadmap: MapIcon,
+              documentacao: BookOpen,
+              faq: HelpCircle,
+              // Admin
               admin: Shield,
               sessions: Monitor,
               anomalies: AlertTriangle,
               security_alerts: ShieldAlert,
+              // Especial
+              acompanhamentos: ClipboardList,
             };
 
-            // Se o catálogo ainda não carregou, usa a ordem padrão como fallback
+            // Se o catálogo ainda não carregou, usa os módulos do subsistema atual
+            // como fallback (em vez da ordem global antiga).
             const orderedModules = catalogModules && catalogModules.length > 0
               ? catalogModules
-              : Object.keys(iconMap).map(key => ({ moduleKey: key, moduleName: key, iconName: null }));
+              : subsystem.moduleKeys.map(key => ({ moduleKey: key, moduleName: key, iconName: null }));
 
+            // Filtra pelos módulos do subsistema atual + permissão do usuário.
+            const subsystemModuleSet = new Set(subsystem.moduleKeys);
             return orderedModules
-              .filter(m => hasModuleAccess(m.moduleKey))
+              .filter(m => subsystemModuleSet.has(m.moduleKey) && hasModuleAccess(m.moduleKey))
               .map(m => {
                 const Icon = iconMap[m.moduleKey] ?? Shield;
                 const key = m.moduleKey as TabType;
@@ -1068,7 +1091,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
         </div>
       </div>
     </nav>
-  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab])
+  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab, subsystem])
 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
@@ -3414,7 +3437,7 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
-        {activeTab === 'dashboard' && hasModuleAccess('dashboard') && (
+        {activeTab === 'dashboard_financeiro' && hasModuleAccess('dashboard_financeiro') && (
           <>
             {renderDashboard()}
             {showTransactionModal && (
@@ -3427,8 +3450,8 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             )}
           </>
         )}
-        {activeTab === 'metas' && hasModuleAccess('metas') && renderMetas()}
-        {activeTab === 'reports' && hasModuleAccess('reports') && (
+        {activeTab === 'metas_financeiro' && hasModuleAccess('metas_financeiro') && renderMetas()}
+        {activeTab === 'relatorios_financeiro' && hasModuleAccess('relatorios_financeiro') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Reports transactions={transactions} />
           </Suspense>
@@ -3502,52 +3525,38 @@ const AppMain: React.FC<{ user: any; logout: () => void }> = ({ user, logout }) 
             <Roadmap />
           </Suspense>
         )}
+
+        {/* Módulos novos do subsistema Gerenciamento — shells funcionais (fase 1.7).
+            DashboardGerenciamento já consome as APIs reais de projects/services/clients.
+            Os outros 3 são placeholders elegantes aguardando os respectivos backends. */}
+        {activeTab === 'dashboard_gerenciamento' && hasModuleAccess('dashboard_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <DashboardGerenciamento />
+          </Suspense>
+        )}
+        {activeTab === 'metas_gerenciamento' && hasModuleAccess('metas_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <MetasGerenciamento />
+          </Suspense>
+        )}
+        {activeTab === 'projecao_gerenciamento' && hasModuleAccess('projecao_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ProjecaoGerenciamento />
+          </Suspense>
+        )}
+        {activeTab === 'relatorios_gerenciamento' && hasModuleAccess('relatorios_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <RelatoriosGerenciamento />
+          </Suspense>
+        )}
       </main>
 
       <Footer />
 
-      {/* Modal de commits pendentes (carrossel — somente superadmin) */}
-      {commitsPendentes && commitsPendentes.commits.length > 0 && (
-        <CommitVersionModal
-          commits={commitsPendentes.commits}
-          versaoAtual={commitsPendentes.versaoAtual}
-          onClose={() => setCommitsPendentes(null)}
-          onProcess={async ({ commitHash, action, novaVersao, mensagem, data, rolesNotificados }) => {
-            const res = await fetch(`${API_BASE_URL}/admin/rodape/confirmar-commit`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                action,
-                novaVersao,
-                commitHash,
-                mensagem,
-                data,
-                rolesNotificados,
-                manterSessionId: commitsPendentes.manterSessionId,
-              }),
-            });
-            if (!res.ok) throw new Error('Falha na requisição');
-            window.dispatchEvent(new Event('rodape-updated'));
-          }}
-        />
-      )}
-
-      {/* Modal de nova versão para usuários */}
-      {versoesNovas && versoesNovas.length > 0 && (
-        <VersaoNovaModal
-          versoes={versoesNovas}
-          onConfirm={async (versao) => {
-            try {
-              await fetch(`${API_BASE_URL}/notificacao-versao/vista`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ versao }),
-              });
-            } catch { /* silently ignore */ }
-          }}
-          onClose={() => setVersoesNovas(null)}
-        />
-      )}
+      {/* Modais de versionamento (CommitVersionModal + VersaoNovaModal)
+          movidos para VersionModalsManager renderizado em AppContent —
+          assim disparam em qualquer tela autenticada, incluindo o
+          SubsystemPicker (primeira tela pós-login na fase 1). */}
 
       {/* Modal de Gráficos */}
       <ChartModal

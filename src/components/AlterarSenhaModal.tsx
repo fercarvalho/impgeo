@@ -13,7 +13,7 @@ interface AlterarSenhaModalProps {
 }
 
 const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
@@ -91,7 +91,7 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
       return;
     }
 
-    if (!token) {
+    if (!user) {
       setErrors({ general: 'Sessão expirada. Faça login novamente.' });
       return;
     }

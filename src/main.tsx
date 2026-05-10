@@ -3,15 +3,43 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Bug 5 corrigido: verificar se window.fetch existe antes de fazer o monkey-patch
+// Fase 1.3+ (subsistemas) — auth migrou de localStorage/Bearer header para
+// cookie httpOnly compartilhado. Aqui garantimos que toda chamada para o
+// backend de API envie cookies automaticamente (`credentials: 'include'`).
+//
+// Cobre 3 casos de "URL é o backend":
+//   1. URL relativa (`/api/...`) — passa pelo Vite proxy, mesma origin
+//   2. URL com a mesma origin do frontend
+//   3. URL absoluta para localhost:9001 em dev (cross-port mas mesmo backend).
+//      Cookies não são port-specific, então funcionam mesmo cross-port.
 if (window.fetch) {
-  // Bug 7 corrigido: bind(window) garante que originalFetch seja sempre chamado com o contexto correto
-  // Sem bind, alguns browsers (Safari/Firefox) lançam TypeError: Illegal invocation
+  // bind(window) garante contexto correto em Safari/Firefox
   const originalFetch = window.fetch.bind(window);
+
+  const needsCredentials = (url: string): boolean => {
+    if (!url.includes('/api/')) return false;
+    if (url.startsWith('/')) return true;
+    try {
+      const u = new URL(url);
+      if (u.origin === window.location.origin) return true;
+      // Dev local: frontend em localhost:9000 chama backend em localhost:9001.
+      // Cross-port, mas same hostname — cookies viajam.
+      const devFrontHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
+      if (
+        u.hostname === 'localhost' &&
+        u.port === '9001' &&
+        devFrontHosts.includes(window.location.hostname)
+      ) {
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   window.fetch = async (...args) => {
     let [resource, config] = args;
-
-    const newConfig = { ...config } as RequestInit;
 
     let url = '';
     if (typeof resource === 'string') {
@@ -22,53 +50,25 @@ if (window.fetch) {
       url = resource.url;
     }
 
-    // Bug 4 corrigido: verificar se a URL é do mesmo domínio antes de injetar o token
-    // Bug 8 corrigido: startsWith(origin) tem falso positivo — "https://app.com.evil.com" passaria
-    // se origin fosse "https://app.com". Usar new URL().origin para comparação exata.
-    let isSameOrigin = false;
-    if (url.startsWith('/')) {
-      isSameOrigin = true;
-    } else {
-      try {
-        isSameOrigin = new URL(url).origin === window.location.origin;
-      } catch {
-        // URL inválida — não injeta token
-      }
-    }
-
-    if (isSameOrigin && url.includes('/api/')) {
-      // Bug 3 corrigido: try/catch para localStorage que pode lançar SecurityError
-      let token: string | null = null;
-      try {
-        token = localStorage.getItem('authToken');
-      } catch {
-        // localStorage indisponível (sandbox, modo privado restrito, etc.)
-      }
-
-      if (token) {
-        if (resource instanceof Request) {
-          // Bug 1 corrigido: Request.headers é imutável — criar novo Request com headers atualizados
-          const newHeaders = new Headers(resource.headers);
-          newHeaders.set('Authorization', `Bearer ${token}`);
-          resource = new Request(resource, { headers: newHeaders });
-        } else {
-          newConfig.headers = {
-            ...newConfig.headers,
-            'Authorization': `Bearer ${token}`
-          };
+    if (needsCredentials(url)) {
+      if (resource instanceof Request) {
+        // Request.credentials é imutável — recriamos
+        if (resource.credentials !== 'include') {
+          resource = new Request(resource, { credentials: 'include' });
         }
+      } else {
+        const newConfig: RequestInit = { ...config, credentials: 'include' };
+        return originalFetch(resource, newConfig);
       }
     }
 
-    // Bug 2 corrigido: separar os dois caminhos — Request não recebe newConfig como segundo arg
     if (resource instanceof Request) {
       return originalFetch(resource);
     }
-    return originalFetch(resource, newConfig);
+    return originalFetch(resource, config);
   };
 }
 
-// Bug 6 corrigido: verificar existência do elemento antes de usar non-null assertion
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   console.error('[main.tsx] Elemento #root não encontrado no DOM. O app não pode ser iniciado.');
