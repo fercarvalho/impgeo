@@ -2,6 +2,7 @@ import { Lock, ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import MenuUsuario from '@/components/MenuUsuario';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
+import Footer from '@/components/Footer';
 import {
   supportsSubdomainNavigation,
   getRootUrl,
@@ -117,6 +118,8 @@ export default function AcessoNegado({ attemptedSubsystem }: Props) {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

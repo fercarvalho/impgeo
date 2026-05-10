@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import MenuUsuario from '@/components/MenuUsuario';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
+import Footer from '@/components/Footer';
 import {
   SUBSYSTEMS,
   buildSubsystemUrl,
@@ -180,6 +181,8 @@ export default function SubsystemPicker() {
           )}
         </p>
       </main>
+
+      <Footer />
     </div>
   );
 }
