@@ -222,7 +222,14 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
   if (!userCanAccessSubsystem(user, subsystem)) {
     return <AcessoNegado attemptedSubsystem={subsystem} />;
   }
-  return <AppMain user={user} logout={logout} subsystem={subsystem} />;
+  // key={subsystem.key} força remount do AppMain a cada troca de subsistema.
+  // Em produção essa troca já implica reload (subdomínio diferente); em dev
+  // local, o sessionStorage muda sem reload e o componente apenas re-renderiza
+  // com prop novo. Sem o key, useState<TabType>(initial) não re-inicializa,
+  // o activeTab fica preso no módulo do subsistema antigo e o conteúdo da tela
+  // fica dessincronizado do header. Reset completo aqui é o comportamento
+  // desejado: trocar de subsistema = começar limpo no primeiro módulo.
+  return <AppMain key={subsystem.key} user={user} logout={logout} subsystem={subsystem} />;
 };
 
 const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
