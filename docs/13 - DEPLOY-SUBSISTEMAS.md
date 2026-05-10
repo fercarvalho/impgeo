@@ -227,13 +227,13 @@ Aplicar **em ordem** no banco de produção:
 
 ```bash
 # 0. Backup obrigatório (sempre!)
-pg_dump impgeo > /var/backups/impgeo/pre-subsistemas-$(date +%Y%m%d-%H%M).sql
+sudo -u fernandocarvalho pg_dump impgeo > /var/backups/impgeo/pre-subsistemas-$(date +%Y%m%d-%H%M).sql
 
 # 1. Subsistemas + ALTER modules_catalog + renomeio das 3 chaves antigas
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS.sql
 
 # 2. Permissões dos 4 módulos novos do gerenciamento para usuários existentes
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO.sql
 ```
 
 Verificação:
@@ -255,8 +255,8 @@ WHERE module_key IN (
 Rollback (apenas se algo der errado):
 
 ```bash
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO-rollback.sql
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS-rollback.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO-rollback.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS-rollback.sql
 ```
 
 ---
@@ -265,15 +265,15 @@ psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS-rollback.
 
 ```bash
 # 1. Backup
-pg_dump impgeo > /var/backups/impgeo/pre-subsistemas-$(date +%Y%m%d-%H%M).sql
+sudo -u fernandocarvalho pg_dump impgeo > /var/backups/impgeo/pre-subsistemas-$(date +%Y%m%d-%H%M).sql
 
 # 2. Pull do código novo
 cd /var/www/impgeo
 git pull
 
 # 3. Aplicar migrations
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS.sql
-psql -d impgeo -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/016-SUBSISTEMAS.sql
+psql -U fernandocarvalho -d impgeo -h localhost -v ON_ERROR_STOP=1 -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO.sql
 
 # 4. Backend deps + restart
 cd server
@@ -378,15 +378,15 @@ cd /var/www/impgeo
 git revert <commit-do-deploy>
 
 # 2. Reverter migrations
-psql -d impgeo -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO-rollback.sql
-psql -d impgeo -f server/migrations/016-SUBSISTEMAS-rollback.sql
+psql -U fernandocarvalho -d impgeo -h localhost -f server/migrations/017-PERMISSOES-NOVOS-MODULOS-GERENCIAMENTO-rollback.sql
+psql -U fernandocarvalho -d impgeo -h localhost -f server/migrations/016-SUBSISTEMAS-rollback.sql
 
 # 3. Rebuild + restart
 cd server && npm install && pm2 restart impgeo-api
 cd .. && npm install && npm run build
 
 # 4. (Opcional) restaurar do backup, se rollback SQL não bastou
-psql -d impgeo < /var/backups/impgeo/pre-subsistemas-<timestamp>.sql
+psql -U fernandocarvalho -d impgeo -h localhost < /var/backups/impgeo/pre-subsistemas-<timestamp>.sql
 ```
 
 DNS e SSL podem permanecer — não atrapalham o sistema antigo.
