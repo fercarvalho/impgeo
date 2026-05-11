@@ -519,20 +519,15 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   const recarregarDadosProjecao = async () => {
     try {
       setIsReloadingProjection(true)
-      const authToken = localStorage.getItem('authToken')
-      if (!authToken) {
-        console.warn('⚠️ Token não encontrado')
-        return
-      }
-      
+
       console.log('🔄 Iniciando recarregamento de dados...')
-      
+
       // Primeiro sincronizar os dados dos arquivos separados com projection.json
+      // (auth via cookie httpOnly desde a fase 1.3 — header Authorization não é mais necessário)
       const syncResponse = await fetch('/api/projection/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
         }
       })
       

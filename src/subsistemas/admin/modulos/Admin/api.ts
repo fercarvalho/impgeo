@@ -5,7 +5,9 @@ export const getAdminApiBaseUrl = (): string => {
   return (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || '/api';
 };
 
+// Após a fase 1.3 (cookie httpOnly), Authorization deixou de ser necessário
+// no frontend — o cookie viaja automaticamente em fetches same-origin (e via
+// `withCredentials: true` no axiosInterceptor / monkey-patch do main.tsx).
 export const getAuthHeaders = (): Record<string, string> => ({
-  Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
   'Content-Type': 'application/json'
 });

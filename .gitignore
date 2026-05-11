@@ -77,3 +77,6 @@ server/backup-json-data.js
 
 # Scripts de Utilidade Local
 /server/scripts/restore-import.js
+
+# Claude Code worktrees — diretórios locais de sessão, não versionar
+.claude/worktrees/

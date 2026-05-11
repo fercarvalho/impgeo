@@ -27,8 +27,8 @@ interface AnomalyRecord {
   status: string;
 }
 
+// Authorization removido (cookie httpOnly cuida da auth desde a fase 1.3).
 const authHeaders = () => ({
-  'Authorization': `Bearer ${localStorage.getItem('authToken') ?? ''}`,
   'Content-Type': 'application/json',
 });
 

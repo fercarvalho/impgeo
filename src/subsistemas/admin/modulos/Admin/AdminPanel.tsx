@@ -229,9 +229,9 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
   const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
   const [permissoesLegaisForm, setPermissoesLegaisForm] = useState<Record<string, boolean>>({});
 
-  // BUG FIX: authHeaders definido ANTES do useEffect que o usa; useCallback para referência estável
+  // authHeaders mantém useCallback para referência estável.
+  // Authorization removido na fase 1.3 (cookie httpOnly cuida da auth).
   const authHeaders = useCallback((): Record<string, string> => ({
-    Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
     'Content-Type': 'application/json',
   }), []);
 

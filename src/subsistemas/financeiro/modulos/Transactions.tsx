@@ -128,7 +128,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+
         },
         body: JSON.stringify({}),
       })
@@ -138,7 +138,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
         if (data.inserted > 0) {
           // FIX [L88]: incluir Authorization header no refetch após sync
           const r2 = await fetch(`${API_BASE_URL}/transactions`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+            headers: { }
           })
           const d2 = await r2.json()
           if (d2.success) setTransactions(d2.data || [])
@@ -1265,7 +1265,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                           formData.append('bank', selectedBank)
                           formData.append('importType', importType ?? 'extrato')
                           if (extratoPassword) formData.append('password', extratoPassword)
-                          const response = await fetch(`${API_BASE_URL}/import/extrato`, { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }, body: formData })
+                          const response = await fetch(`${API_BASE_URL}/import/extrato`, { method: 'POST', headers: { }, body: formData })
                           if (response.ok) {
                             const result = await response.json()
                             const withIds: PreviewTx[] = (result.data ?? []).map((t: Omit<PreviewTx, '_id'>, i: number) => ({ ...t, _id: `preview-${Date.now()}-${i}` }))
@@ -1369,7 +1369,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                           try {
                             const response = await fetch(`${API_BASE_URL}/import/extrato/confirm`, {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                              headers: { 'Content-Type': 'application/json' },
                               // FIX [L1226]: remover campos internos (_id, _selected) usando tipos corretos
                               body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, _selected: _s, ...rest }) => rest) })
                             })
@@ -1423,7 +1423,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 try {
                   const response = await fetch(`${API_BASE_URL}/transactions`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ids: lastImportBatch }),
                   })
                   if (response.ok) {
