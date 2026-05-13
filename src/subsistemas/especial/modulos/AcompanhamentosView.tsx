@@ -277,11 +277,10 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
     setIsSubmittingPassword(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      })
+      const response = await fetch(
+        `${API_BASE_URL}/acompanhamentos/public/${token}?password=${encodeURIComponent(password.trim())}`,
+        { method: 'GET' }
+      )
       const result = await response.json()
 
       if (result.success) {
