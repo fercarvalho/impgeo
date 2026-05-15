@@ -242,6 +242,9 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
 const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
   const permissions = usePermissions();
   const { isDark } = useTheme();
+  // `token` é consumido pelo loadModulesCatalog (envia Authorization header).
+  // user/logout vêm via props porque o AppContentRouter já os tinha do AuthContext.
+  const { token } = useAuth();
   // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
   // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
   // migração 016.
