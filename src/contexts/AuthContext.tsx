@@ -140,8 +140,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return safeParseUser(sessionStorage.getItem('originalUser'));
   });
 
-  // verifyToken: revalida sessão usando o cookie httpOnly. Não recebe token —
-  // o cookie viaja automaticamente via authFetch.
+  // verifyToken: revalida sessão usando cookie httpOnly E/OU header Authorization.
+  // O header é preenchido a partir do sessionStorage quando disponível, para
+  // sobreviver a cenários onde o cookie não chega (cross-origin em dev, SameSite,
+  // navegação anônima, etc.). Backend aceita ambos.
   // `tokenForState` opcional: durante impersonation, queremos popular state.token
   // explicitamente porque verifyToken não retorna o JWT no body.
   const verifyToken = useCallback(
@@ -152,9 +154,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }: { updateLoading?: boolean; tokenForState?: string | null } = {}
     ): Promise<User | null> => {
       try {
+        const persistedToken =
+          sessionStorage.getItem('impersonationToken') ??
+          sessionStorage.getItem('authToken');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (persistedToken) headers['Authorization'] = `Bearer ${persistedToken}`;
         const response = await authFetch(`${API_BASE_URL}/auth/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
 
         if (response.ok) {
@@ -283,9 +290,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = useCallback(async (): Promise<boolean> => {
     try {
+      const persistedToken =
+        sessionStorage.getItem('impersonationToken') ??
+        sessionStorage.getItem('authToken');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (persistedToken) headers['Authorization'] = `Bearer ${persistedToken}`;
       const response = await authFetch(`${API_BASE_URL}/auth/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
