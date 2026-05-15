@@ -315,7 +315,10 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         // de `token` em state (que pode ser null logo após F5 mesmo com user
         // logado pelo cookie). Se `user` está populado, há sessão válida.
         if (!user) return;
-        const response = await fetch(`${API_BASE_URL}/modules-catalog`);
+        const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
+          credentials: 'include',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         const result = await response.json();
         if (response.ok && result?.success && Array.isArray(result.data)) {
           setCatalogModules(
