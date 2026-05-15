@@ -107,8 +107,8 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          senhaAtual: senhaAtual,
-          novaSenha: novaSenha
+          currentPassword: senhaAtual,
+          newPassword: novaSenha
         })
       });
 
