@@ -279,7 +279,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       // Especial
       'acompanhamentos',
     ];
-    if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap'];
+    if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
     if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
     if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'acompanhamentos');
@@ -314,13 +314,14 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         // Após a fase 1.3, auth viaja por cookie httpOnly — não dependemos
         // de `token` em state (que pode ser null logo após F5 mesmo com user
         // logado pelo cookie). Se `user` está populado, há sessão válida.
-        if (!user) return;
+        if (!user || !token) return; // Aguarda token estar disponível
         const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
           credentials: 'include',
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (!response.ok) return; // Não limpa catálogo existente em caso de erro
         const result = await response.json();
-        if (response.ok && result?.success && Array.isArray(result.data)) {
+        if (result?.success && Array.isArray(result.data)) {
           setCatalogModules(
             result.data
               .filter((item: any) => Boolean(item?.moduleKey))
@@ -332,12 +333,12 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
           );
         }
       } catch (error) {
-        setCatalogModules(null);
+        // Silencia erros sem limpar catálogo existente
       }
     };
 
     loadModulesCatalog();
-  }, [user?.id]);
+  }, [user?.id, token]);
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {

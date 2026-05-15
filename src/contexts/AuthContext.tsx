@@ -121,7 +121,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // `token` agora vive APENAS em state (sessão) — não em localStorage.
   // Após F5 fica null e o backend usa o cookie automaticamente como fallback.
   // Durante impersonation, recebe o impersonatedToken e tem prioridade no backend.
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(
+    () => sessionStorage.getItem('authToken')
+  );
+  // Persiste o token no sessionStorage a cada mudança (sobrevive a F5 na mesma aba)
+  const persistToken = useCallback((t: string | null) => {
+    if (t) sessionStorage.setItem('authToken', t);
+    else   sessionStorage.removeItem('authToken');
+    setToken(t);
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isImpersonating, setIsImpersonating] = useState<boolean>(
@@ -153,21 +161,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const data = await response.json().catch(() => null) as { user?: User } | null;
           if (!data?.user) {
             setUser(null);
-            setToken(null);
+            persistToken(null);
             return null;
           }
           setUser(data.user);
-          if (tokenForState !== undefined) setToken(tokenForState);
+          if (tokenForState !== undefined) persistToken(tokenForState);
           return data.user;
         } else {
           setUser(null);
-          setToken(null);
+          persistToken(null);
           return null;
         }
       } catch (error) {
         console.error('Erro ao verificar token:', error);
         setUser(null);
-        setToken(null);
+        persistToken(null);
         return null;
       } finally {
         if (updateLoading) setIsLoading(false);
@@ -181,7 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Se houver impersonationToken em sessionStorage, restauramos no state.
     const impersonationToken = sessionStorage.getItem('impersonationToken');
     if (impersonationToken) {
-      setToken(impersonationToken);
+      persistToken(impersonationToken);
     }
     verifyToken({ updateLoading: true });
   }, [verifyToken]);
@@ -211,7 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Cookie já foi setado pelo backend no Set-Cookie.
           // Guardamos o token em state durante a sessão (compat com componentes
           // que injetam Authorization manualmente).
-          setToken(data.token);
+          persistToken(data.token);
 
           if (data.firstLogin && data.newPassword) {
             sessionStorage.setItem('pendingFirstLogin', 'true');
@@ -257,7 +265,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }).catch(() => {});
 
     setUser(null);
-    setToken(null);
+    persistToken(null);
     setIsImpersonating(false);
     setOriginalUser(null);
     sessionStorage.removeItem('pendingFirstLogin');
@@ -269,7 +277,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateUser = useCallback((userData: Partial<User>, newToken?: string) => {
     setUser(prev => (prev ? { ...prev, ...userData } : prev));
     if (newToken) {
-      setToken(newToken);
+      persistToken(newToken);
     }
   }, []);
 
@@ -282,7 +290,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           setUser(null);
-          setToken(null);
+          persistToken(null);
         }
         return false;
       }
@@ -324,7 +332,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Validamos o token impersonado fazendo verify (header tem prioridade
         // — vai usar o impersonationToken via Authorization).
         // Atualizamos state.token para o impersonado.
-        setToken(data.token);
+        persistToken(data.token);
         const impersonatedUser = await fetch(`${API_BASE_URL}/auth/verify`, {
           method: 'POST',
           credentials: 'include',
@@ -339,7 +347,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           sessionStorage.removeItem('isImpersonating');
           sessionStorage.removeItem('originalUser');
           sessionStorage.removeItem('impersonationToken');
-          setToken(null);
+          persistToken(null);
           setUser(currentUser);
           impersonatingRef.current = false;
           return false;
@@ -356,7 +364,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem('isImpersonating');
         sessionStorage.removeItem('originalUser');
         sessionStorage.removeItem('impersonationToken');
-        setToken(null);
+        persistToken(null);
         setUser(currentUser);
         impersonatingRef.current = false;
         return false;
@@ -375,7 +383,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     setIsImpersonating(false);
     setOriginalUser(null);
-    setToken(null); // sem header → cookie original (superadmin) volta a ser usado
+    persistToken(null); // sem header → cookie original (superadmin) volta a ser usado
     if (storedOriginalUser) setUser(storedOriginalUser);
 
     // Revalida com o cookie original
