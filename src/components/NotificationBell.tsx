@@ -1,0 +1,242 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Bell, Check, EyeOff, Trash2, CheckCheck, Eraser } from 'lucide-react'
+import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
+
+const API_BASE_URL = '/api'
+const POLL_INTERVAL_MS = 30_000
+
+interface Notification {
+  id: string
+  user_id: string
+  notification_type: string
+  title: string
+  message: string | null
+  related_entity_type: string | null
+  related_entity_id: string | null
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+const NotificationBell: React.FC = () => {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [resolving, setResolving] = useState<{ transactionId: string; description: string } | null>(null)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/notifications`)
+      const j = await r.json()
+      if (j.success) {
+        setItems(j.data || [])
+        setUnreadCount(j.unreadCount || 0)
+      }
+    } catch {
+      // silencioso (rede)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchNotifications()
+    const t = setInterval(fetchNotifications, POLL_INTERVAL_MS)
+    return () => clearInterval(t)
+  }, [fetchNotifications])
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('mousedown', onClick)
+    return () => window.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  const markRead = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/${id}/read`, { method: 'PATCH' })
+      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
+      setUnreadCount((c) => Math.max(0, c - 1))
+    } catch {}
+  }
+
+  const markAllRead = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/read-all`, { method: 'PATCH' })
+      setItems((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      setUnreadCount(0)
+    } catch {}
+  }
+
+  // "Limpar" = remove do sininho mas mantém no banco
+  const clearOne = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/${id}/clear`, { method: 'PATCH' })
+      setItems((prev) => {
+        const removed = prev.find((n) => n.id === id)
+        if (removed && !removed.is_read) setUnreadCount((c) => Math.max(0, c - 1))
+        return prev.filter((n) => n.id !== id)
+      })
+    } catch {}
+  }
+
+  const clearAll = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/clear-all`, { method: 'PATCH' })
+      setItems([])
+      setUnreadCount(0)
+    } catch {}
+  }
+
+  // "Excluir" = remove do banco permanentemente
+  const deleteOne = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/${id}`, { method: 'DELETE' })
+      setItems((prev) => {
+        const removed = prev.find((n) => n.id === id)
+        if (removed && !removed.is_read) setUnreadCount((c) => Math.max(0, c - 1))
+        return prev.filter((n) => n.id !== id)
+      })
+    } catch {}
+  }
+
+  const deleteAll = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications`, { method: 'DELETE' })
+      setItems([])
+      setUnreadCount(0)
+      setConfirmDeleteAll(false)
+    } catch {}
+  }
+
+  const handleClickNotification = async (n: Notification) => {
+    if (!n.is_read) await markRead(n.id)
+
+    if (n.notification_type === 'transaction_confirm_needed' && n.related_entity_id) {
+      setResolving({ transactionId: n.related_entity_id, description: n.message || '' })
+      setOpen(false)
+    }
+  }
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
+
+  return (
+    <>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+          title="Notificações"
+          aria-label="Notificações"
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {open && (
+          <div className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[70vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Notificações {items.length > 0 && <span className="text-xs text-gray-500 dark:text-gray-400">({items.length})</span>}</h3>
+              </div>
+              {items.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead} className="flex items-center gap-1 text-[11px] px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded font-semibold">
+                      <CheckCheck className="w-3 h-3" /> Marcar todas como lidas
+                    </button>
+                  )}
+                  <button onClick={clearAll} className="flex items-center gap-1 text-[11px] px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded font-semibold">
+                    <Eraser className="w-3 h-3" /> Limpar todas
+                  </button>
+                  <button onClick={() => setConfirmDeleteAll(true)} className="flex items-center gap-1 text-[11px] px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded font-semibold">
+                    <Trash2 className="w-3 h-3" /> Excluir todas
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {confirmDeleteAll && (
+              <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800/50">
+                <p className="text-xs font-semibold text-red-800 dark:text-red-200 mb-2">Excluir TODAS as notificações permanentemente?</p>
+                <div className="flex gap-2">
+                  <button onClick={deleteAll} className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-bold">Sim, excluir</button>
+                  <button onClick={() => setConfirmDeleteAll(false)} className="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded font-semibold">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {items.length === 0 ? (
+                <p className="text-center text-sm text-gray-500 py-8">Nenhuma notificação</p>
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {items.map((n) => (
+                    <li
+                      key={n.id}
+                      onClick={() => handleClickNotification(n)}
+                      className={`group relative p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${n.is_read ? 'opacity-70' : ''}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!n.is_read && <span className="mt-1.5 w-2 h-2 bg-purple-500 rounded-full flex-shrink-0" />}
+                        <div className="flex-1 min-w-0 pr-16">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{n.title}</p>
+                          {n.message && <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{n.message}</p>}
+                          <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString('pt-BR')}</p>
+                        </div>
+                      </div>
+
+                      {/* Ações de hover */}
+                      <div className="absolute top-2 right-2 hidden group-hover:flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-0.5" onClick={stop}>
+                        {!n.is_read && (
+                          <button
+                            onClick={() => markRead(n.id)}
+                            title="Marcar como lida"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => clearOne(n.id)}
+                          title="Limpar (esconde do sininho)"
+                          className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteOne(n.id)}
+                          title="Excluir definitivamente"
+                          className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ResolveTransactionModal
+        transactionId={resolving?.transactionId || null}
+        description={resolving?.description}
+        onClose={() => setResolving(null)}
+        onResolved={() => { fetchNotifications() }}
+      />
+    </>
+  )
+}
+
+export default NotificationBell

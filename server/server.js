@@ -886,8 +886,22 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
     let message = '';
 
     if (type === 'transactions') {
-      processedData = processTransactions(worksheet);
-      message = `${processedData.length} transações importadas com sucesso!`;
+      const parsed = processTransactions(worksheet);
+      // Persiste no banco + aplica regras automáticas
+      const saved = [];
+      let appliedCount = 0;
+      let pendingCount = 0;
+      for (const t of parsed) {
+        // O id gerado pelo parser não vai para o DB (saveTransaction gera UUID próprio)
+        const { id: _ignored, ...rest } = t;
+        const savedT = await db.saveTransaction(rest);
+        const { transaction: finalTx, applied } = await applyRulesAndPersist(savedT, { actingUserId: req.user?.id || null });
+        if (applied === 'rule') appliedCount++;
+        if (applied === 'pending') pendingCount++;
+        saved.push(finalTx);
+      }
+      processedData = saved;
+      message = `${saved.length} transações importadas com sucesso!${appliedCount ? ` (${appliedCount} classificadas por regras)` : ''}${pendingCount ? ` ${pendingCount} aguardam confirmação.` : ''}`;
     } else if (type === 'products') {
       processedData = processProducts(worksheet);
       message = `${processedData.length} produtos importados com sucesso!`;
@@ -1094,21 +1108,481 @@ app.post('/api/import/extrato/confirm', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nenhuma transação para importar.' });
     }
     const saved = [];
+    let pendingCount = 0;
+    let appliedCount = 0;
     for (const t of transactions) {
       const savedT = await db.saveTransaction({ ...t, userId: req.user.id });
+      const { transaction: finalTx, applied } = await applyRulesAndPersist(savedT, { actingUserId: req.user.id });
+      if (applied === 'rule') appliedCount++;
+      if (applied === 'pending') pendingCount++;
       await logActivity(req, {
         action: 'create',
         moduleKey: 'transactions',
         entityType: 'transaction',
-        entityId: savedT?.id || null,
-        details: { after: savedT },
+        entityId: finalTx?.id || null,
+        details: { after: finalTx, ruleApplication: applied },
       });
-      saved.push(savedT);
+      saved.push(finalTx);
     }
-    res.json({ success: true, message: `${saved.length} transações importadas com sucesso!`, data: saved, count: saved.length });
+    res.json({ success: true, message: `${saved.length} transações importadas com sucesso!`, data: saved, count: saved.length, ruleApplication: { applied: appliedCount, pending: pendingCount } });
   } catch (err) {
     console.error('[Extrato Confirm] Erro:', err);
     res.status(500).json({ success: false, error: err.message || 'Erro ao salvar transações' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGRAS AUTOMÁTICAS DE TRANSAÇÕES (migration 018)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VALID_TRANSACTION_TYPES = ['Receita', 'Despesa', 'Transferência entre contas', 'A confirmar'];
+
+function _truncateForNotif(s, n = 80) {
+  if (!s) return '';
+  const str = String(s);
+  return str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+// Helper: aplica regras a uma transação já persistida (saveTransaction retorna
+// a row do INSERT). Atualiza o tipo conforme as regras ATIVAS, ou marca como
+// 'A confirmar' quando 2+ regras dão match. Cria notificações nesse caso.
+async function applyRulesAndPersist(savedTransaction, { actingUserId = null } = {}) {
+  if (!savedTransaction || !savedTransaction.id) {
+    return { transaction: savedTransaction, applied: 'none', matchedRules: [] };
+  }
+  const { matched } = await db.evaluateRulesForTransaction(savedTransaction);
+
+  if (matched.length === 0) {
+    return { transaction: savedTransaction, applied: 'none', matchedRules: [] };
+  }
+  if (matched.length === 1) {
+    const updated = await db.applyRuleToTransaction(savedTransaction.id, matched[0].id);
+    return { transaction: updated, applied: 'rule', matchedRules: matched, ruleApplied: matched[0] };
+  }
+  // 2+ matches → pendente
+  const updated = await db.markTransactionPendingConfirmation(savedTransaction.id, matched.map(r => r.id));
+  const title = 'Transação pendente de confirmação';
+  const message = `A transação "${_truncateForNotif(savedTransaction.description)}" deu match em ${matched.length} regras. Escolha qual aplicar.`;
+  const notifPayload = {
+    notification_type: 'transaction_confirm_needed',
+    title,
+    message,
+    related_entity_type: 'transaction',
+    related_entity_id: savedTransaction.id,
+  };
+  // Para o ator (se houver) e fanout para todos admins/superadmins (dedup será via UI)
+  const notifiedUserIds = new Set();
+  if (actingUserId) {
+    await db.createNotification({ ...notifPayload, user_id: actingUserId });
+    notifiedUserIds.add(actingUserId);
+  }
+  const adminsResult = await db.queryWithRetry(
+    "SELECT id FROM users WHERE role IN ('admin', 'superadmin') AND is_active = TRUE"
+  );
+  for (const row of adminsResult.rows) {
+    if (notifiedUserIds.has(row.id)) continue;
+    await db.createNotification({ ...notifPayload, user_id: row.id });
+    notifiedUserIds.add(row.id);
+  }
+  return { transaction: updated, applied: 'pending', matchedRules: matched };
+}
+
+// Middleware: exige permissão de regras para uma ação
+function requireRulePermission(action /* 'create' | 'edit' | 'delete' */) {
+  return async (req, res, next) => {
+    try {
+      const perms = await db.getUserRulePermissions(req.user.id, req.user.role);
+      const flagMap = { create: 'can_create', edit: 'can_edit', delete: 'can_delete' };
+      if (!perms[flagMap[action]]) {
+        return res.status(403).json({ success: false, error: `Permissão insuficiente para ${action} de regras` });
+      }
+      req.rulePermissions = perms;
+      next();
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+}
+
+// ─── CRUD de regras ────────────────────────────────────────────────────────
+app.get('/api/transaction-rules', async (req, res) => {
+  try {
+    const rules = await db.getAllTransactionRules();
+    const perms = await db.getUserRulePermissions(req.user.id, req.user.role);
+    res.json({ success: true, data: rules, permissions: perms });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Regra: descrição obrigatória + pelo menos uma ação (tipo/categoria/subcategoria/ocultar).
+// Condições opcionais: faixa de valor e tipo casado.
+const transactionRuleSchema = z.object({
+  name: z.string().min(1, 'Nome obrigatório'),
+  description_contains: z.string().min(1, 'Descrição obrigatória'),
+  action_type: z.string().default('change_type'),
+  action_value:     z.string().nullable().optional(),
+  set_category:     z.string().nullable().optional(),
+  set_subcategory:  z.string().nullable().optional(),
+  hide_transaction: z.boolean().optional(),
+  min_value: z.union([z.number(), z.string().transform(v => v === '' ? null : parseFloat(v))]).nullable().optional(),
+  max_value: z.union([z.number(), z.string().transform(v => v === '' ? null : parseFloat(v))]).nullable().optional(),
+  match_type: z.string().nullable().optional(),
+  is_active: z.boolean().optional(),
+}).passthrough().refine(
+  (data) => Boolean(data.action_value) || Boolean(data.set_category) || Boolean(data.set_subcategory) || Boolean(data.hide_transaction),
+  { message: 'Defina ao menos uma ação: tipo, categoria, subcategoria ou ocultar' }
+).refine(
+  (data) => data.min_value == null || data.max_value == null || Number(data.min_value) <= Number(data.max_value),
+  { message: 'Valor mínimo deve ser menor ou igual ao máximo' }
+);
+
+app.post('/api/transaction-rules', requireRulePermission('create'), async (req, res) => {
+  try {
+    const data = transactionRuleSchema.parse(req.body);
+    if (data.action_value && !VALID_TRANSACTION_TYPES.includes(data.action_value)) {
+      return res.status(400).json({ success: false, error: `Tipo inválido. Use: ${VALID_TRANSACTION_TYPES.join(', ')}` });
+    }
+    const rule = await db.saveTransactionRule({ ...data, created_by: req.user.id });
+    res.json({ success: true, data: rule });
+    await logActivity(req, { action: 'rule_create', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: rule.id, details: { rule } });
+  } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ success: false, error: 'Dados inválidos', details: err.errors });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/transaction-rules/:id', requireRulePermission('edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.body.action_value && !VALID_TRANSACTION_TYPES.includes(req.body.action_value)) {
+      return res.status(400).json({ success: false, error: `Tipo inválido. Use: ${VALID_TRANSACTION_TYPES.join(', ')}` });
+    }
+    const rule = await db.updateTransactionRule(id, req.body);
+    res.json({ success: true, data: rule });
+    await logActivity(req, { action: 'rule_edit', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: id, details: { updates: req.body } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Exclusão recebe transactionAction: 'delete' | 'revert' | 'keep' para decidir
+// o destino das transações já modificadas por essa regra.
+app.delete('/api/transaction-rules/:id', requireRulePermission('delete'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transactionAction = 'revert' } = req.body || {};
+    if (!['delete', 'revert', 'keep'].includes(transactionAction)) {
+      return res.status(400).json({ success: false, error: 'transactionAction inválido' });
+    }
+
+    const affected = (await db.queryWithRetry(
+      'SELECT id FROM transactions WHERE applied_rule_id = $1',
+      [id]
+    )).rows;
+
+    for (const t of affected) {
+      if (transactionAction === 'delete') {
+        await db.deleteTransaction(t.id);
+      } else if (transactionAction === 'revert') {
+        await db.revertTransactionRule(t.id);
+      } else { // keep
+        await db.queryWithRetry(
+          'UPDATE transactions SET applied_rule_id = NULL, original_type = NULL, updated_at = NOW() WHERE id = $1',
+          [t.id]
+        );
+      }
+    }
+
+    await db.deleteTransactionRule(id);
+    res.json({ success: true, affected: affected.length, transactionAction });
+    await logActivity(req, { action: 'rule_delete', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: id, details: { transactionAction, affected: affected.length } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Retorna transações que JÁ estão classificadas por esta regra (independente
+// da condição atual). Usado no preview de edição para detectar transações que
+// ficaram "órfãs" — aplicadas pela regra mas que não casam mais com a nova condição.
+app.get('/api/transaction-rules/:id/affected', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.queryWithRetry(
+      'SELECT * FROM transactions WHERE applied_rule_id = $1 ORDER BY date DESC',
+      [id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reverte transações específicas (usado pelo modal de edição para "soltar" as órfãs)
+app.post('/api/transaction-rules/:id/revert', requireRulePermission('edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transactionIds = [] } = req.body || {};
+    let reverted = 0;
+    for (const txId of transactionIds) {
+      // Só reverte se a transação realmente está governada por essa regra
+      const t = (await db.queryWithRetry('SELECT applied_rule_id FROM transactions WHERE id = $1', [txId])).rows[0];
+      if (t && t.applied_rule_id === id) {
+        await db.revertTransactionRule(txId);
+        reverted++;
+      }
+    }
+    res.json({ success: true, reverted });
+    await logActivity(req, { action: 'rule_revert_transactions', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: id, details: { reverted } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reordena regras (drag/setas) — body: { orderedIds: [...] }
+app.post('/api/transaction-rules/reorder', requireRulePermission('edit'), async (req, res) => {
+  try {
+    const { orderedIds } = req.body || {};
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'orderedIds deve ser um array não-vazio' });
+    }
+    await db.reorderTransactionRules(orderedIds);
+    res.json({ success: true });
+    await logActivity(req, { action: 'rule_reorder', moduleKey: 'transactions', entityType: 'transaction_rule', details: { count: orderedIds.length } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Preview: dada uma condição, retorna transações que dariam match (para
+// o modal de criar/editar regra mostrar o que será afetado retroativamente).
+app.post('/api/transaction-rules/preview', async (req, res) => {
+  try {
+    const { description_contains, ruleId } = req.body || {};
+    if (!description_contains) {
+      return res.status(400).json({ success: false, error: 'description_contains obrigatório' });
+    }
+    const matches = await db.previewRuleMatches({ description_contains, excludeRuleId: ruleId || null });
+    res.json({ success: true, data: matches });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Aplica retroativo de uma regra. excludedTransactionIds = transações que o
+// usuário desmarcou no modal de preview.
+app.post('/api/transaction-rules/:id/apply-retroactive', requireRulePermission('edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { excludedTransactionIds = [] } = req.body || {};
+    const rule = await db.getTransactionRuleById(id);
+    if (!rule) return res.status(404).json({ success: false, error: 'Regra não encontrada' });
+
+    const candidates = await db.previewRuleMatches({ description_contains: rule.description_contains });
+    const excludedSet = new Set(excludedTransactionIds);
+    const eligible = candidates.filter(t => !excludedSet.has(t.id));
+
+    let applied = 0;
+    for (const t of eligible) {
+      // Respeita transações que já têm outra regra aplicada (não sobrescreve)
+      if (t.applied_rule_id && t.applied_rule_id !== id) continue;
+      await db.applyRuleToTransaction(t.id, id);
+      applied++;
+    }
+
+    res.json({ success: true, applied, excluded: excludedTransactionIds.length });
+    await logActivity(req, { action: 'rule_apply_retroactive', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: id, details: { applied, excluded: excludedTransactionIds.length } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Lista todas as transações pendentes com seus candidatos (para o modal bulk)
+app.get('/api/transactions/pending', async (req, res) => {
+  try {
+    const txResult = await db.queryWithRetry(
+      "SELECT * FROM transactions WHERE (needs_confirmation = TRUE OR type = 'A confirmar') AND is_hidden = FALSE ORDER BY date DESC"
+    );
+    const transactions = txResult.rows;
+    // Anexa candidatos a cada transação
+    const result = [];
+    for (const t of transactions) {
+      const candidates = await db.getTransactionRuleCandidates(t.id);
+      result.push({ ...t, candidates });
+    }
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Resolução em lote: recebe array [{transactionId, ruleId|null}]
+app.post('/api/transactions/resolve-confirmation-bulk', async (req, res) => {
+  try {
+    const { resolutions } = req.body || {};
+    if (!Array.isArray(resolutions) || resolutions.length === 0) {
+      return res.status(400).json({ success: false, error: 'resolutions deve ser um array não-vazio' });
+    }
+    let resolved = 0;
+    const errors = [];
+    for (const r of resolutions) {
+      try {
+        if (r.ruleId) {
+          await db.applyRuleToTransaction(r.transactionId, r.ruleId);
+        } else {
+          await db.revertTransactionRule(r.transactionId);
+        }
+        await db.deleteNotificationsByEntity('transaction', r.transactionId);
+        resolved++;
+      } catch (err) {
+        errors.push({ transactionId: r.transactionId, error: err.message });
+      }
+    }
+    res.json({ success: true, resolved, errors });
+    await logActivity(req, { action: 'transaction_resolve_confirmation_bulk', moduleKey: 'transactions', entityType: 'transaction', details: { resolved, errorCount: errors.length } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Lista regras que deram match na transação (usado pelo modal de resolução)
+app.get('/api/transactions/:id/candidates', async (req, res) => {
+  try {
+    const candidates = await db.getTransactionRuleCandidates(req.params.id);
+    res.json({ success: true, data: candidates });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Resolver pendência de uma transação (escolher uma regra ou manter original)
+app.post('/api/transactions/:id/resolve-confirmation', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ruleId = null } = req.body || {};
+    const tx = ruleId
+      ? await db.applyRuleToTransaction(id, ruleId)
+      : await db.revertTransactionRule(id);
+    await db.deleteNotificationsByEntity('transaction', id);
+    res.json({ success: true, data: tx });
+    await logActivity(req, { action: 'transaction_resolve_confirmation', moduleKey: 'transactions', entityType: 'transaction', entityId: id, details: { ruleId } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── Notificações ──────────────────────────────────────────────────────────
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const onlyUnread = req.query.onlyUnread === 'true';
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const notifs = await db.getNotificationsForUser(req.user.id, { onlyUnread, limit });
+    const unreadCount = await db.getUnreadNotificationCount(req.user.id);
+    res.json({ success: true, data: notifs, unreadCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/notifications/read-all', async (req, res) => {
+  try {
+    await db.markAllNotificationsAsRead(req.user.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// "Limpar todas" — esconde do sininho, mantém no banco
+app.patch('/api/notifications/clear-all', async (req, res) => {
+  try {
+    const cleared = await db.clearAllNotifications(req.user.id);
+    res.json({ success: true, cleared });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// "Excluir todas" — remove do banco permanentemente
+app.delete('/api/notifications', async (req, res) => {
+  try {
+    const onlyCleared = req.query.onlyCleared === 'true';
+    const deleted = await db.deleteAllNotificationsForUser(req.user.id, { onlyCleared });
+    res.json({ success: true, deleted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Rotas com :id (individuais) — colocadas DEPOIS das rotas literais para evitar
+// que '/clear-all' / 'read-all' sejam capturadas por ':id'.
+app.patch('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const updated = await db.markNotificationAsRead(req.params.id, req.user.id);
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/notifications/:id/clear', async (req, res) => {
+  try {
+    const updated = await db.clearNotification(req.params.id, req.user.id);
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    const deleted = await db.deleteNotification(req.params.id, req.user.id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Notificação não encontrada' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── Permissões granulares para regras ────────────────────────────────────
+app.get('/api/user-rule-permissions/me', async (req, res) => {
+  try {
+    const perms = await db.getUserRulePermissions(req.user.id, req.user.role);
+    res.json({ success: true, data: perms });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/users/:id/rule-permissions', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Apenas admins' });
+    }
+    const targetUser = await db.getUserById(req.params.id);
+    if (!targetUser) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    const perms = await db.getUserRulePermissions(req.params.id, targetUser.role);
+    res.json({ success: true, data: perms });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/users/:id/rule-permissions', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Apenas admins' });
+    }
+    const { can_create, can_edit, can_delete } = req.body || {};
+    const updated = await db.setUserRulePermissions(
+      req.params.id,
+      { can_create, can_edit, can_delete },
+      req.user.id
+    );
+    res.json({ success: true, data: updated });
+    await logActivity(req, { action: 'rule_permissions_set', moduleKey: 'transactions', entityType: 'user', entityId: req.params.id, details: { can_create, can_edit, can_delete } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -1135,12 +1609,14 @@ app.post('/api/transactions', async (req, res) => {
   try {
     const validatedData = transactionSchema.parse(req.body);
     const transaction = await db.saveTransaction(validatedData);
-    res.json({ success: true, data: transaction });
+    const { transaction: finalTx, applied, matchedRules } = await applyRulesAndPersist(transaction, { actingUserId: req.user.id });
+    res.json({ success: true, data: finalTx, ruleApplication: { applied, matchedCount: matchedRules.length } });
     await logActivity(req, {
       action: 'financial_create',
       moduleKey: 'transactions',
       entityType: 'transaction',
-      entityId: transaction?.id || null
+      entityId: finalTx?.id || null,
+      details: { ruleApplication: applied, matchedRuleIds: matchedRules.map(r => r.id) }
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1150,11 +1626,26 @@ app.post('/api/transactions', async (req, res) => {
   }
 });
 
+// Edição manual "solta" da regra: zera applied_rule_id/original_type/needs_confirmation
+// (o usuário tem controle total dos dados — uma vez editada manualmente, a transação
+// não é mais governada por nenhuma regra até que ele rode aplicação retroativa)
 app.put('/api/transactions/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const transaction = await db.updateTransaction(id, req.body);
-    res.json({ success: true, data: transaction });
+    // Solta da regra
+    await db.queryWithRetry(
+      `UPDATE transactions
+          SET applied_rule_id = NULL,
+              original_type = NULL,
+              needs_confirmation = FALSE,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [id]
+    );
+    await db.deleteNotificationsByEntity('transaction', id);
+    const fresh = (await db.queryWithRetry('SELECT * FROM transactions WHERE id = $1', [id])).rows[0];
+    res.json({ success: true, data: fresh });
     await logActivity(req, {
       action: 'financial_edit',
       moduleKey: 'transactions',
@@ -3873,8 +4364,12 @@ app.post('/api/asaas/sync', authenticateToken, requireAdmin, async (req, res) =>
 
     for (const tx of [...payments, ...transfers]) {
       const saved = await db.saveAsaasTransaction(tx);
-      if (saved) inserted++;
-      else skipped++;
+      if (saved) {
+        inserted++;
+        await applyRulesAndPersist(saved, { actingUserId: req.user.id });
+      } else {
+        skipped++;
+      }
     }
 
     console.log(`[Asaas Sync] ${inserted} inseridas, ${skipped} já existiam`);
@@ -3906,7 +4401,8 @@ app.post('/api/webhooks/asaas', async (req, res) => {
         category: 'Recebimento Asaas',
         subcategory: payment.billingType || 'Outro',
       };
-      await db.saveAsaasTransaction(tx);
+      const savedPayment = await db.saveAsaasTransaction(tx);
+      if (savedPayment) await applyRulesAndPersist(savedPayment, { actingUserId: null });
       console.log(`[Asaas Webhook] Entrada registrada: ${payment.id} — R$ ${tx.value}`);
     }
 
@@ -3923,7 +4419,8 @@ app.post('/api/webhooks/asaas', async (req, res) => {
         category: 'Transferência Asaas',
         subcategory: operationType,
       };
-      await db.saveAsaasTransaction(tx);
+      const savedTransfer = await db.saveAsaasTransaction(tx);
+      if (savedTransfer) await applyRulesAndPersist(savedTransfer, { actingUserId: null });
       console.log(`[Asaas Webhook] Saída registrada: ${transfer.id} — R$ ${tx.value}`);
     }
 
@@ -4908,7 +5405,10 @@ app.listen(port, async () => {
         let inserted = 0;
         for (const tx of [...payments, ...transfers]) {
           const saved = await db.saveAsaasTransaction(tx);
-          if (saved) inserted++;
+          if (saved) {
+            inserted++;
+            await applyRulesAndPersist(saved, { actingUserId: null });
+          }
         }
         if (inserted > 0) console.log(`[Asaas Auto-Sync] ${inserted} nova(s) transação(ões) importada(s)`);
       } catch (error) {

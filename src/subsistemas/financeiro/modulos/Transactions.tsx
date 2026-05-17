@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, Settings, MoreHorizontal } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
+import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
+import BulkResolveModal from '@/components/modals/BulkResolveModal'
 
-type TransactionType = 'Receita' | 'Despesa'
+type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
 
 interface Transaction {
   id: string
@@ -12,7 +15,42 @@ interface Transaction {
   type: TransactionType
   category: string
   subcategory?: string
+  applied_rule_id?: string | null
+  original_type?: string | null
+  needs_confirmation?: boolean
+  is_hidden?: boolean
 }
+
+// Estilos por tipo de transação — usado em badge da lista, valor monetário,
+// filtros, etc. Centralizar aqui evita inconsistência de cores.
+export const TRANSACTION_TYPE_STYLES: Record<TransactionType, { badge: string; valueText: string; sign: '+' | '-' | '' }> = {
+  'Receita': {
+    badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    valueText: 'text-green-600',
+    sign: '+',
+  },
+  'Despesa': {
+    badge: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    valueText: 'text-red-600',
+    sign: '-',
+  },
+  'Transferência entre contas': {
+    badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    valueText: 'text-blue-600',
+    sign: '',
+  },
+  'A confirmar': {
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    valueText: 'text-purple-600',
+    sign: '',
+  },
+}
+
+// Tipos efetivamente financeiros (entram em DRE/Dashboard). Os outros 2 são
+// neutros (transferências internas) ou pendentes (ainda não classificados).
+export const FINANCIAL_TRANSACTION_TYPES: TransactionType[] = ['Receita', 'Despesa']
+export const isFinancialType = (t: TransactionType | string | undefined): boolean =>
+  FINANCIAL_TRANSACTION_TYPES.includes(t as TransactionType)
 
 // FIX [L52]: PreviewTx definido no escopo do módulo (não dentro do componente)
 type PreviewTx = { _id: string; date: string; description: string; value: number; type: 'Receita' | 'Despesa'; category: string }
@@ -106,11 +144,33 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   // Undo system
   const [lastImportBatch, setLastImportBatch] = useState<string[]>([])
   const [showUndoToast, setShowUndoToast] = useState(false)
-  const [undoCountdown, setUndoCountdown] = useState(15)
+  const [undoCountdown, setUndoCountdown] = useState(60)
   const [isUndoing, setIsUndoing] = useState(false)
 
   const [isSyncingAsaas, setIsSyncingAsaas] = useState(false)
   const [syncResult, setSyncResult] = useState<{ inserted: number; skipped: number } | null>(null)
+
+  // Modal "Conjunto de Regras"
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
+  // Modal de resolução de conflito (clique na badge "A confirmar")
+  const [resolveTarget, setResolveTarget] = useState<{ id: string; description: string } | null>(null)
+  // Modal bulk de pendentes
+  const [isBulkResolveOpen, setIsBulkResolveOpen] = useState(false)
+  // Toggle: mostrar transações ocultas (is_hidden=true), por padrão escondidas
+  const [showHidden, setShowHidden] = useState(false)
+  // Dropdown "Ações" (agrupa ações secundárias)
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false)
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!isActionsMenuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setIsActionsMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsActionsMenuOpen(false) }
+    window.addEventListener('mousedown', onClick)
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('mousedown', onClick); window.removeEventListener('keydown', onKey) }
+  }, [isActionsMenuOpen])
 
   // Countdown do toast de desfazer importação
   useEffect(() => {
@@ -260,8 +320,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     return sortConfig.direction === 'asc' ? <span className="text-blue-600" aria-hidden="true">↑</span> : <span className="text-blue-600" aria-hidden="true">↓</span>
   }
 
+  const hiddenCount = useMemo(() => transactions.filter(t => t.is_hidden).length, [transactions])
+
   const filteredAndSorted = useMemo(() => {
     let list = [...transactions]
+    if (!showHidden) list = list.filter(t => !t.is_hidden)
     if (filters.description) list = list.filter(t => t.description.toLowerCase().includes(filters.description.toLowerCase()))
     if (filters.type) list = list.filter(t => t.type === filters.type)
     if (filters.category) list = list.filter(t => t.category.toLowerCase().includes(filters.category.toLowerCase()))
@@ -285,7 +348,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       })
     }
     return list
-  }, [transactions, filters, sortConfig])
+  }, [transactions, filters, sortConfig, showHidden])
 
   const handleSelectAll = () => {
     if (selectedTransactions.size === filteredAndSorted.length) setSelectedTransactions(new Set())
@@ -498,52 +561,133 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           <DollarSign className="w-8 h-8 text-blue-600" aria-hidden="true" />
           Transações
         </h1>
-        <div className="flex gap-3">
-          {(permissions.canImport || permissions.canExport) && (
-            <button
-              onClick={() => setIsImportExportOpen(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <Download className="h-5 w-5" />
-              Importar/Exportar
-            </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Status flutuante do Sync Asaas */}
+          {syncResult && (
+            <span className="text-xs text-green-700 bg-green-100 px-3 py-1.5 rounded-lg font-medium hidden md:inline">
+              ✓ {syncResult.inserted} importadas, {syncResult.skipped} já existiam
+            </span>
           )}
-          {permissions.canImport && (
+
+          {/* Dropdown "Ações" — agrupa importar, extrato, sync e regras */}
+          <div className="relative" ref={actionsMenuRef}>
             <button
-              onClick={() => { setIsImportExtratoModalOpen(true); setExtratoStep(0); setImportType(null); setSelectedBank(null); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-200"
+              type="button"
+              onClick={() => setIsActionsMenuOpen((o) => !o)}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 font-semibold rounded-xl border-2 border-indigo-500 hover:border-indigo-600 dark:border-indigo-400 dark:hover:border-indigo-300 shadow-sm transition-all duration-200"
+              aria-haspopup="menu"
+              aria-expanded={isActionsMenuOpen}
+              title="Mais ações"
             >
-              <Upload className="h-5 w-5" />
-              Importar Extrato
+              <MoreHorizontal className="h-5 w-5" />
+              <span className="hidden sm:inline">Ações</span>
             </button>
-          )}
-          <div className="flex items-center gap-2">
-            {syncResult && (
-              <span className="text-xs text-green-700 bg-green-100 px-3 py-1.5 rounded-lg font-medium">
-                ✓ {syncResult.inserted} importadas, {syncResult.skipped} já existiam
-              </span>
-            )}
-            <button
-              onClick={syncAsaas}
-              disabled={isSyncingAsaas}
-              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 shadow-md transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-              title="Sincronizar entradas e saídas do Asaas"
-            >
-              <RefreshCw className={`h-4 w-4 ${isSyncingAsaas ? 'animate-spin' : ''}`} />
-              {isSyncingAsaas ? 'Sincronizando...' : 'Sync Asaas'}
-            </button>
-            {permissions.canCreate && (
-              <button
-                onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
-                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-              >
-                <Plus className="h-5 w-5" />
-                Nova Transação
-              </button>
+
+            {isActionsMenuOpen && (
+              <div role="menu" className="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-40 overflow-hidden">
+                {(permissions.canImport || permissions.canExport) && (
+                  <button
+                    role="menuitem"
+                    onClick={() => { setIsImportExportOpen(true); setIsActionsMenuOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Download className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    Importar / Exportar
+                  </button>
+                )}
+                {permissions.canImport && (
+                  <button
+                    role="menuitem"
+                    onClick={() => { setIsImportExtratoModalOpen(true); setExtratoStep(0); setImportType(null); setSelectedBank(null); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]); setIsActionsMenuOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Upload className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    Importar Extrato / Fatura
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  onClick={() => { syncAsaas(); setIsActionsMenuOpen(false) }}
+                  disabled={isSyncingAsaas}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-60"
+                >
+                  <RefreshCw className={`h-4 w-4 text-emerald-600 flex-shrink-0 ${isSyncingAsaas ? 'animate-spin' : ''}`} />
+                  {isSyncingAsaas ? 'Sincronizando Asaas...' : 'Sincronizar com Asaas'}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setIsRulesModalOpen(true); setIsActionsMenuOpen(false) }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
+                >
+                  <Settings className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                  Conjunto de Regras
+                </button>
+              </div>
             )}
           </div>
+
+          {/* Botão destacado: confirmar pendentes (só aparece se houver) */}
+          {(() => {
+            const pendingCount = transactions.filter(t => t.type === 'A confirmar').length
+            if (pendingCount === 0) return null
+            return (
+              <button
+                onClick={() => setIsBulkResolveOpen(true)}
+                className="relative flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-purple-400 to-fuchsia-500 text-white font-semibold rounded-xl hover:from-purple-500 hover:to-fuchsia-600 shadow-md transition-all duration-200"
+                title="Confirmar transações pendentes"
+              >
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden md:inline">Confirmar pendentes</span>
+                <span className="ml-0.5 px-2 py-0.5 bg-white/25 rounded-full text-xs font-bold">{pendingCount}</span>
+              </button>
+            )
+          })()}
+
+          {/* Botão primário: Nova Transação */}
+          {permissions.canCreate && (
+            <button
+              onClick={() => { setEditing(null); setForm({ date: new Date().toISOString().split('T')[0], description: '', value: '', type: 'Receita', category: '', subcategory: '' }); setFormErrors({}); setIsModalOpen(true) }}
+              className="flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all duration-200"
+              title="Nova transação"
+            >
+              <Plus className="h-5 w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">Nova Transação</span>
+            </button>
+          )}
         </div>
       </div>
+
+      <TransactionRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        onRulesChanged={() => {
+          // Recarrega transações para refletir regras aplicadas retroativamente
+          fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
+            if (j.success) setTransactions(j.data || [])
+          }).catch(() => {})
+        }}
+      />
+
+      <ResolveTransactionModal
+        transactionId={resolveTarget?.id || null}
+        description={resolveTarget?.description}
+        onClose={() => setResolveTarget(null)}
+        onResolved={() => {
+          fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
+            if (j.success) setTransactions(j.data || [])
+          }).catch(() => {})
+        }}
+      />
+
+      <BulkResolveModal
+        isOpen={isBulkResolveOpen}
+        onClose={() => setIsBulkResolveOpen(false)}
+        onResolved={() => {
+          fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
+            if (j.success) setTransactions(j.data || [])
+          }).catch(() => {})
+        }}
+      />
 
       {/* Filtros */}
       <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
@@ -591,8 +735,19 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 <option value="">Todos os tipos</option>
                 <option value="Receita">Receitas</option>
                 <option value="Despesa">Despesas</option>
+                <option value="Transferência entre contas">Transferências</option>
+                <option value="A confirmar">A confirmar</option>
               </select>
             </div>
+            {hiddenCount > 0 && (
+              <div className="flex flex-col flex-shrink-0">
+                <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">&nbsp;</label>
+                <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer bg-white dark:bg-gray-700 text-xs sm:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+                  Mostrar ocultas ({hiddenCount})
+                </label>
+              </div>
+            )}
             <div className="flex flex-col flex-1 min-w-0">
               <label htmlFor="transaction-category-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Categoria</label>
               <input
@@ -714,7 +869,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             </div>
 
             {filteredAndSorted.map((t, index) => (
-              <div key={t.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === filteredAndSorted.length - 1 ? 'border-b-0' : ''}`}>
+              <div key={t.id} className={`${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'} border-b border-gray-100 dark:border-gray-700 p-4 transition-all duration-200 ${index === filteredAndSorted.length - 1 ? 'border-b-0' : ''} ${t.is_hidden ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 min-w-[800px]">
                   {permissions.canDelete && (
                     <div className="flex-shrink-0 text-left">
@@ -730,10 +885,23 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{t.description}</h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+                      {t.is_hidden && <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200" title="Ocultada por regra">OCULTA</span>}
+                      {t.description}
+                    </h3>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.type === 'Receita' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>{t.type}</span>
+                    {t.type === 'A confirmar' ? (
+                      <button
+                        onClick={() => setResolveTarget({ id: t.id, description: t.description })}
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold cursor-pointer hover:ring-2 hover:ring-purple-400 ${(TRANSACTION_TYPE_STYLES[t.type as TransactionType] || TRANSACTION_TYPE_STYLES['Despesa']).badge}`}
+                        title="Clique para confirmar esta transação"
+                      >
+                        {t.type}
+                      </button>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${(TRANSACTION_TYPE_STYLES[t.type as TransactionType] || TRANSACTION_TYPE_STYLES['Despesa']).badge}`} title={t.type}>{t.type}</span>
+                    )}
                   </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
                     <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.category}</span>
@@ -742,8 +910,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.subcategory || '-'}</span>
                   </div>
                   <div className="flex-shrink-0 w-28 sm:w-36 text-center">
-                    <p className={`text-xs sm:text-sm md:text-base font-bold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'} truncate`}>
-                      {t.type === 'Receita' ? '+' : '-'}R$ {(parseFloat(String(t.value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <p className={`text-xs sm:text-sm md:text-base font-bold ${(TRANSACTION_TYPE_STYLES[t.type as TransactionType] || TRANSACTION_TYPE_STYLES['Despesa']).valueText} truncate`}>
+                      {(TRANSACTION_TYPE_STYLES[t.type as TransactionType] || TRANSACTION_TYPE_STYLES['Despesa']).sign}R$ {(parseFloat(String(t.value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
@@ -868,6 +1036,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   >
                     <option value="Receita">Receita</option>
                     <option value="Despesa">Despesa</option>
+                    <option value="Transferência entre contas">Transferência entre contas</option>
                   </select>
                   {formErrors.type && (
                     <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -1378,7 +1547,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                               const savedIds: string[] = (result.data ?? []).map((t: { id: string }) => t.id)
                               if (result.data?.length) setTransactions(prev => [...result.data, ...prev])
                               setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([])
-                              setLastImportBatch(savedIds); setUndoCountdown(15); setShowUndoToast(true)
+                              setLastImportBatch(savedIds); setUndoCountdown(60); setShowUndoToast(true)
                             } else {
                               const errBody = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
                               alert(`Erro ao importar: ${errBody.error || 'Tente novamente.'}`)
@@ -1408,7 +1577,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             <div className="relative flex-shrink-0">
               <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
                 <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
-                <circle cx="18" cy="18" r="15" fill="none" stroke="#4ade80" strokeWidth="3" strokeDasharray={`${(undoCountdown / 15) * 94.2} 94.2`} strokeLinecap="round" />
+                <circle cx="18" cy="18" r="15" fill="none" stroke="#4ade80" strokeWidth="3" strokeDasharray={`${(undoCountdown / 60) * 94.2} 94.2`} strokeLinecap="round" />
               </svg>
               <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-400">{undoCountdown}</span>
             </div>

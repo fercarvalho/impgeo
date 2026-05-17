@@ -11,7 +11,7 @@ import {
   Legend
 } from 'recharts'
 
-export type TransactionType = 'Receita' | 'Despesa'
+export type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
 
 export interface Transaction {
   id: string
@@ -20,6 +20,7 @@ export interface Transaction {
   value: number
   type: TransactionType
   category: string
+  is_hidden?: boolean
 }
 
 interface ReportsProps {
@@ -87,7 +88,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const calcularVendasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => {
-      if (t.type === 'Receita') {
+      if (t.type === 'Receita' && !t.is_hidden) {
         mapa[t.category] = (mapa[t.category] || 0) + (Number(t.value) || 0)
       }
     })
@@ -98,7 +99,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const calcularDespesasPorCategoria = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => {
-      if (t.type === 'Despesa') {
+      if (t.type === 'Despesa' && !t.is_hidden) {
         mapa[t.category] = (mapa[t.category] || 0) + (Number(t.value) || 0)
       }
     })
@@ -110,7 +111,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const calcularVendasPorProduto = (ts: Transaction[]) => {
     const mapa: Record<string, number> = {}
     ts.forEach(t => {
-      if (t.type === 'Receita') {
+      if (t.type === 'Receita' && !t.is_hidden) {
         const n = t.description || 'Produto'
         mapa[n] = (mapa[n] || 0) + (Number(t.value) || 0)
       }
@@ -126,7 +127,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions }) => {
   const calcularProdutosPorPeriodo = (ts: Transaction[], tipo: 'dia' | 'semana' | 'mes' | 'trimestre') => {
     const produtosPorPeriodo: { [key: string]: { [key: string]: number } } = {}
     ts.forEach(t => {
-      if (t.type === 'Receita') {
+      if (t.type === 'Receita' && !t.is_hidden) {
         const data = parseLocalDate(t.date)
         let chave: string
         if (tipo === 'dia') {

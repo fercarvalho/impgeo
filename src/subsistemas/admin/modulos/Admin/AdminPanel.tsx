@@ -421,6 +421,9 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     setShowPasswordModal(true);
   }, [clearFeedback]);
 
+  // Permissões granulares de regras de transação (migration 018)
+  const [rulePerms, setRulePerms] = useState<{ can_create: boolean; can_edit: boolean; can_delete: boolean; is_admin_bypass?: boolean }>({ can_create: false, can_edit: false, can_delete: false });
+
   const openModulesModal = useCallback(async (user: User) => {
     clearFeedback();
     lastTriggerRef.current = document.activeElement as HTMLElement;
@@ -437,6 +440,17 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
       setModulesTargetUser(user);
       // BUG FIX: Array.isArray guard
       setModuleOptions(Array.isArray(data.data) ? data.data : []);
+
+      // Carrega permissões de regras
+      try {
+        const r2 = await fetch(`${API_BASE_URL}/users/${user.id}/rule-permissions`, { headers: authHeaders() });
+        const j2 = await r2.json();
+        if (j2.success) setRulePerms(j2.data);
+        else setRulePerms({ can_create: false, can_edit: false, can_delete: false });
+      } catch {
+        setRulePerms({ can_create: false, can_edit: false, can_delete: false });
+      }
+
       setShowModulesModal(true);
     } catch {
       setError('Erro ao conectar com o servidor');
@@ -470,7 +484,18 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         setError(data.error || 'Erro ao salvar módulos do usuário');
         return;
       }
-      showSuccess('Módulos de acesso atualizados com sucesso!');
+
+      // Salva permissões granulares de regras (apenas para usuários não-admin —
+      // admin/superadmin têm bypass e não precisam de linha em user_rule_permissions)
+      if (!rulePerms.is_admin_bypass) {
+        await fetch(`${API_BASE_URL}/users/${modulesTargetUser.id}/rule-permissions`, {
+          method: 'PUT',
+          headers: authHeaders(),
+          body: JSON.stringify({ can_create: rulePerms.can_create, can_edit: rulePerms.can_edit, can_delete: rulePerms.can_delete }),
+        });
+      }
+
+      showSuccess('Módulos e permissões atualizados com sucesso!');
       setShowModulesModal(false);
       setModulesTargetUser(null);
       setModuleOptions([]);
@@ -480,7 +505,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     } finally {
       setModulesSaving(false);
     }
-  }, [modulesTargetUser, moduleOptions, authHeaders, clearFeedback, showSuccess]);
+  }, [modulesTargetUser, moduleOptions, rulePerms, authHeaders, clearFeedback, showSuccess]);
 
   // BUG FIX: res.ok verificado ANTES de res.json() em updateUser
   const updateUser = useCallback(async (userId: string, payload: Record<string, unknown>, successText: string) => {
@@ -1484,6 +1509,49 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                 </div>
               </fieldset>
 
+              {/* Permissões granulares de regras de transação (migration 018) */}
+              <div className="mt-6 border-t border-gray-200 pt-5">
+                <h3 className="text-sm font-bold text-gray-900 mb-2">Permissões de Regras de Transação</h3>
+                {rulePerms.is_admin_bypass ? (
+                  <p className="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    Admins e superadmins têm controle total sobre regras automaticamente — não é necessário configurar aqui.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500 mb-3">Conceda poderes específicos para gerenciar regras automáticas de transações.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={rulePerms.can_create}
+                          onChange={(e) => setRulePerms((p) => ({ ...p, can_create: e.target.checked }))}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span>Criar regras</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={rulePerms.can_edit}
+                          onChange={(e) => setRulePerms((p) => ({ ...p, can_edit: e.target.checked }))}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span>Editar regras</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={rulePerms.can_delete}
+                          onChange={(e) => setRulePerms((p) => ({ ...p, can_delete: e.target.checked }))}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span>Excluir regras</span>
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
@@ -1500,7 +1568,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
                 >
                   <Save className="h-4 w-4" aria-hidden="true" />
-                  {modulesSaving ? 'Salvando...' : 'Salvar módulos'}
+                  {modulesSaving ? 'Salvando...' : 'Salvar módulos e permissões'}
                 </button>
               </div>
             </div>
