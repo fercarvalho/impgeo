@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import Modal from '@/components/Modal'
 import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 
@@ -89,10 +90,7 @@ const Services: React.FC = () => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isModalOpen) return
 
-      if (event.key === 'Escape') {
-        closeModal()
-        return
-      }
+      // ESC vem do <Modal>; aqui só preservamos o focus trap de Tab.
 
       // Focus trap: manter foco dentro do modal com Tab
       if (event.key === 'Tab' && modalRef.current) {
@@ -345,15 +343,8 @@ const Services: React.FC = () => {
       )}
 
       {/* Modal Novo/Editar Serviço */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-        >
-          <div ref={modalRef} className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isModalOpen} onClose={closeModal} ariaLabelledBy="modal-title">
+        <div ref={modalRef} className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 id="modal-title" className="text-lg font-bold text-white flex items-center gap-2">
                 <Target className="w-5 h-5" aria-hidden="true" />
@@ -505,8 +496,7 @@ const Services: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   )
 }

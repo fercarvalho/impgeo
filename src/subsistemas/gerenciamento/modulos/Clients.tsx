@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import Modal from '@/components/Modal'
 
 interface Client {
   id: string
@@ -65,25 +66,7 @@ const Clients: React.FC = () => {
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      if (isImportExportOpen) {
-        setIsImportExportOpen(false)
-        return
-      }
-
-      if (isModalOpen) {
-        setIsModalOpen(false)
-        setEditing(null)
-        setFormErrors({})
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isImportExportOpen, isModalOpen])
+  // ESC vem do <Modal> via stack global — apenas o modal no topo responde.
 
   const handleSort = (field: keyof Client) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -448,9 +431,8 @@ const Clients: React.FC = () => {
       </div>
 
       {/* Modal Novo/Editar Cliente */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditing(null); setFormErrors({}) } }}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" aria-hidden="true" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
@@ -585,13 +567,11 @@ const Clients: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal Importar/Exportar */}
-      {isImportExportOpen && (
-        <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="relative bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isImportExportOpen} onClose={() => setIsImportExportOpen(false)}>
+        <div className="relative bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -650,8 +630,7 @@ const Clients: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   )
 }
