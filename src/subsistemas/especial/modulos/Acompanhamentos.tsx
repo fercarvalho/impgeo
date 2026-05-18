@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
+import Modal from '@/components/Modal'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 export interface MatriculaItem {
@@ -484,58 +485,6 @@ const Acompanhamentos: React.FC = () => {
       restoreScroll()
     }
   }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen, itrDownloadModal])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      if (itrDownloadModal) {
-        setItrDownloadModal(null)
-        return
-      }
-
-      if (isMapModalOpen) {
-        setIsMapModalOpen(false)
-        setSelectedMapUrl('')
-        setSelectedImovel('')
-        return
-      }
-
-      if (isShareModalOpen) {
-        setIsShareModalOpen(false)
-        setShareModalMode('create')
-        setShareLink('')
-        setShareLinkName('')
-        setNewLinkExpiresAt('')
-        setNewLinkPassword('')
-        setLinkCopied(false)
-        setEditingLinkToken(null)
-        setEditingLinkName('')
-        setEditingLinkExpiresAt('')
-        setEditingLinkPassword('')
-        return
-      }
-
-      if (isShareSelectionWarningOpen) {
-        setIsShareSelectionWarningOpen(false)
-        return
-      }
-
-      if (isImportModalOpen) {
-        setIsImportModalOpen(false)
-        return
-      }
-
-      if (isModalOpen) {
-        setIsModalOpen(false)
-        setEditing(null)
-        setFormErrors({})
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, isMapModalOpen, itrDownloadModal])
 
   const handleEdit = (acomp: Acompanhamento) => {
     setEditing(acomp)
@@ -2509,20 +2458,15 @@ const Acompanhamentos: React.FC = () => {
       </div>
 
       {/* Modal de Edição/Criação */}
-      {isModalOpen && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => {
-            setIsModalOpen(false)
-            setEditing(null)
-            setFormErrors({})
-          }}
-        >
-          <div
-            className="bg-white dark:!bg-[#243040] rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditing(null)
+          setFormErrors({})
+        }}
+      >
+        <div className="bg-white dark:!bg-[#243040] rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -2536,6 +2480,7 @@ const Acompanhamentos: React.FC = () => {
                     setFormErrors({})
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-2xl"
+                  aria-label="Fechar modal"
                 >
                   ✕
                 </button>
@@ -3251,26 +3196,18 @@ const Acompanhamentos: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal de Importação */}
-      {isImportModalOpen && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => setIsImportModalOpen(false)}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-md w-full m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Importar / Exportar Acompanhamentos</h2>
                 <button
                   onClick={() => setIsImportModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
+                  aria-label="Fechar modal"
                 >
                   ✕
                 </button>
@@ -3325,27 +3262,19 @@ const Acompanhamentos: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal de Aviso de Seleção para Compartilhar */}
-      {isShareSelectionWarningOpen && (
-        <div
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => setIsShareSelectionWarningOpen(false)}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal isOpen={isShareSelectionWarningOpen} onClose={() => setIsShareSelectionWarningOpen(false)}>
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Nenhum registro selecionado</h2>
                 <button
                   onClick={() => setIsShareSelectionWarningOpen(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
+                  aria-label="Fechar modal"
                 >
                   ✕
                 </button>
@@ -3362,33 +3291,27 @@ const Acompanhamentos: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal de Gerenciamento de Links Compartilháveis */}
-      {isShareModalOpen && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => {
-            setIsShareModalOpen(false)
-            setShareModalMode('create')
-            setShareLink('')
-            setShareLinkName('')
-            setNewLinkExpiresAt('')
-            setNewLinkPassword('')
-            setLinkCopied(false)
-            setEditingLinkToken(null)
-            setEditingLinkName('')
-            setEditingLinkExpiresAt('')
-            setEditingLinkPassword('')
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal
+        isOpen={isShareModalOpen}
+        onClose={() => {
+          setIsShareModalOpen(false)
+          setShareModalMode('create')
+          setShareLink('')
+          setShareLinkName('')
+          setNewLinkExpiresAt('')
+          setNewLinkPassword('')
+          setLinkCopied(false)
+          setEditingLinkToken(null)
+          setEditingLinkName('')
+          setEditingLinkExpiresAt('')
+          setEditingLinkPassword('')
+        }}
+      >
+        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col m-4">
             <div className="p-6 border-b flex-shrink-0">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Gerenciar Links Compartilháveis</h2>
@@ -3407,6 +3330,7 @@ const Acompanhamentos: React.FC = () => {
                     setEditingLinkPassword('')
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
+                  aria-label="Fechar modal"
                 >
                   ✕
                 </button>
@@ -3700,25 +3624,19 @@ const Acompanhamentos: React.FC = () => {
                 </p>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal do Mapa */}
-      {isMapModalOpen && selectedMapUrl && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => {
-            setIsMapModalOpen(false)
-            setSelectedMapUrl('')
-            setSelectedImovel('')
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal
+        isOpen={isMapModalOpen && !!selectedMapUrl}
+        onClose={() => {
+          setIsMapModalOpen(false)
+          setSelectedMapUrl('')
+          setSelectedImovel('')
+        }}
+      >
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4">
             <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Mapa do Imóvel</h2>
@@ -3731,6 +3649,7 @@ const Acompanhamentos: React.FC = () => {
                   setSelectedImovel('')
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl transition-colors"
+                aria-label="Fechar modal"
               >
                 ✕
               </button>
@@ -3761,9 +3680,8 @@ const Acompanhamentos: React.FC = () => {
                 </a>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal de Gráfico */}
       <ChartModal
@@ -3777,26 +3695,20 @@ const Acompanhamentos: React.FC = () => {
         valueUnit={chartValueUnit}
       />
       {/* Modal de Download ITR */}
-      {itrDownloadModal && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => setItrDownloadModal(null)}
-        >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal isOpen={!!itrDownloadModal} onClose={() => setItrDownloadModal(null)}>
+        {itrDownloadModal && (
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900">
                   Downloads ITR: <span className="text-blue-600">{itrDownloadModal.item.numero}</span>
                 </h3>
-                <button 
+                <button
                   onClick={() => setItrDownloadModal(null)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Fechar modal"
                 >
-                  <X className="w-6 h-6 text-gray-400" />
+                  <X className="w-6 h-6 text-gray-400" aria-hidden="true" />
                 </button>
               </div>
 
@@ -3873,8 +3785,8 @@ const Acompanhamentos: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

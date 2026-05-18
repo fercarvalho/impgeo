@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { X, Trash2, CheckCircle, ImageIcon, Link, MessageSquarePlus, MapPin, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import Modal from './Modal';
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
@@ -142,15 +143,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
   }, [isSubmitting, paginaAtual, onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, handleClose]);
-
-  useEffect(() => {
     if (sucesso) {
       const t = setTimeout(() => handleClose(), 2500);
       return () => clearTimeout(t);
@@ -270,19 +262,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      tabIndex={-1}
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8 outline-none"
-      onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
+    <Modal isOpen={isOpen} onClose={handleClose} ariaLabelledBy={titleId}>
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700 outline-none"
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20 rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -519,7 +505,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, paginaAt
           </form>
         )}
       </div>
-    </div>
+    </Modal>
   );
 };
 

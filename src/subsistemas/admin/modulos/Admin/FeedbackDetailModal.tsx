@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   X, HelpCircle, TrendingUp, Lightbulb, ThumbsDown,
   Clock, CheckCircle, MessageCircle, ExternalLink,
   Send, CheckCheck, AlertCircle, User, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import Modal from '@/components/Modal';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 import { Feedback } from './FeedbackManagement';
 
@@ -39,18 +40,6 @@ const FeedbackDetailModal = ({ feedback, onClose, onAtualizar }: FeedbackDetailM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [erro, setErro] = useState('');
   const [imagemExpandida, setImagemExpandida] = useState(false);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSubmitting) {
-        if (imagemExpandida) { setImagemExpandida(false); return; }
-        if (acao) { setAcao(null); setMensagem(''); setErro(''); return; }
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isSubmitting, acao, imagemExpandida, onClose]);
 
   const formatarData = (dateStr: string): string => {
     if (!dateStr) return 'Data desconhecida';
@@ -102,10 +91,7 @@ const FeedbackDetailModal = ({ feedback, onClose, onAtualizar }: FeedbackDetailM
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[180px]"
-        onClick={e => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
-      >
+      <Modal isOpen={true} onClose={() => { if (!isSubmitting) onClose(); }} backdropClassName="!items-start pt-[180px]">
         <div className="bg-white dark:bg-[#243040] rounded-2xl p-6 w-full max-w-xl max-h-[calc(100vh-220px)] overflow-y-auto shadow-2xl border border-gray-200 dark:border-gray-700">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl">
@@ -303,28 +289,23 @@ const FeedbackDetailModal = ({ feedback, onClose, onAtualizar }: FeedbackDetailM
             </button>
           </div>
         </div>
-      </div>
+      </Modal>
 
       {/* Imagem expandida */}
-      {imagemExpandida && feedback.imagemBase64 && (
-        <div
-          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-zoom-out"
+      <Modal isOpen={imagemExpandida && !!feedback.imagemBase64} onClose={() => setImagemExpandida(false)} zIndexClass="z-[10060]" backdropClassName="!bg-black/80 cursor-zoom-out">
+        <img
+          src={feedback.imagemBase64 ?? undefined}
+          alt="Imagem expandida"
+          className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+        />
+        <button
           onClick={() => setImagemExpandida(false)}
+          className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+          aria-label="Fechar modal"
         >
-          <img
-            src={feedback.imagemBase64}
-            alt="Imagem expandida"
-            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-          />
-          <button
-            onClick={() => setImagemExpandida(false)}
-            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
-            aria-label="Fechar imagem expandida"
-          >
-            <X className="w-5 h-5" aria-hidden="true" />
-          </button>
-        </div>
-      )}
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </Modal>
     </>
   );
 };

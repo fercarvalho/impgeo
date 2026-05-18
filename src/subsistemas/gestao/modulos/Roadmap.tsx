@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import Modal from '@/components/Modal';
 import axios from 'axios';
 import {
   Plus, Edit2, Trash2, GripVertical, CheckCircle2,
@@ -475,25 +476,11 @@ interface ModalProps {
 }
 
 const InlineModal = ({ title, onClose, children }: ModalProps) => {
-  // Usa ref para onClose para evitar re-registro do listener a cada render
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, []);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm px-4 pb-4 pt-[180px]"
-      onClick={onClose}
-    >
+    <Modal isOpen={true} onClose={onClose} backdropClassName="!items-start pt-[180px]">
       <div
         className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col border border-gray-200/50 dark:border-gray-700"
         style={{ maxHeight: 'calc(100vh - 220px)' }}
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-900 rounded-t-2xl px-6 py-4 border-b border-blue-200/50 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
@@ -503,7 +490,7 @@ const InlineModal = ({ title, onClose, children }: ModalProps) => {
           </h2>
           <button
             onClick={onClose}
-            aria-label="Fechar"
+            aria-label="Fechar modal"
             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 rounded-full transition-all"
           >
             <span aria-hidden="true">✕</span>
@@ -512,7 +499,7 @@ const InlineModal = ({ title, onClose, children }: ModalProps) => {
         {/* Conteúdo com scroll */}
         <div className="overflow-y-auto p-6">{children}</div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

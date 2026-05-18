@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, KeyRound, X } from 'lucide-react';
+import Modal from './Modal';
 
 interface ResetarSenhaModalProps {
   isOpen: boolean;
@@ -81,8 +82,6 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
     };
   }, [isOpen, token]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -144,12 +143,7 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !isSubmitting) onClose();
-      }}
-    >
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -264,7 +258,7 @@ const ResetarSenhaModal: React.FC<ResetarSenhaModalProps> = ({ isOpen, token, on
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };
 

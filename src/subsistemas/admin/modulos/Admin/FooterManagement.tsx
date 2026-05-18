@@ -1530,25 +1530,31 @@ const FooterManagement = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ─── MODAL DE CONFIRMAÇÃO DE DELEÇÃO ─────────────────────── */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Excluir {deleteConfirm.label}?
-                  {deleteConfirm.tipo === 'coluna' && ' Todos os links desta coluna também serão excluídos.'}
-                </p>
-              </div>
+      <Modal isOpen={!!deleteConfirm} onClose={() => { if (!isDeleting) setDeleteConfirm(null); }} destructive>
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900 relative">
+          <button
+            onClick={() => setDeleteConfirm(null)}
+            disabled={isDeleting}
+            className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+            aria-label="Fechar modal"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
+            <div>
+              <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Excluir {deleteConfirm?.label}?
+                {deleteConfirm?.tipo === 'coluna' && ' Todos os links desta coluna também serão excluídos.'}
+              </p>
+            </div>
+          </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
@@ -1570,13 +1576,11 @@ const FooterManagement = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ─── MODAL DE BOTTOM LINK ────────────────────────────────── */}
-      {showModalBottom && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
+      <Modal isOpen={showModalBottom} onClose={() => { if (!isSavingBottom) fecharModalBottom(); }}>
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
@@ -1665,24 +1669,30 @@ const FooterManagement = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ─── MODAL CONFIRMAÇÃO DELETE BOTTOM LINK ────────────────── */}
-      {deleteBottomConfirm && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" aria-hidden="true" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Excluir {deleteBottomConfirm.label}?
-                </p>
-              </div>
+      <Modal isOpen={!!deleteBottomConfirm} onClose={() => { if (!isDeletingBottom) setDeleteBottomConfirm(null); }} destructive>
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-red-200 dark:border-red-900 relative">
+          <button
+            onClick={() => setDeleteBottomConfirm(null)}
+            disabled={isDeletingBottom}
+            className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+            aria-label="Fechar modal"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" aria-hidden="true" />
             </div>
+            <div>
+              <h3 className="font-bold text-gray-800 dark:text-gray-100">Confirmar exclusão</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Excluir {deleteBottomConfirm?.label}?
+              </p>
+            </div>
+          </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteBottomConfirm(null)}
@@ -1704,8 +1714,7 @@ const FooterManagement = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

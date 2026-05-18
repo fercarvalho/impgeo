@@ -4,6 +4,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
 import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
 import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
+import Modal from '@/components/Modal'
 
 type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
 
@@ -266,35 +267,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     return () => { body.classList.remove('modal-open') }
   }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      if (isRemoveSubcategoryOpen) {
-        setIsRemoveSubcategoryOpen(false)
-        return
-      }
-
-      if (isAddSubcategoryOpen) {
-        setIsAddSubcategoryOpen(false)
-        setNewSubcategoryError('')
-        return
-      }
-
-      if (isImportExportOpen) {
-        setIsImportExportOpen(false)
-        return
-      }
-
-      if (isModalOpen) {
-        closeModal()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  // FIX [L174]: closeModal agora é estável via useCallback e pode estar nas dependências
-  }, [isRemoveSubcategoryOpen, isAddSubcategoryOpen, isImportExportOpen, isModalOpen, closeModal])
+  // ESC vem do <Modal> via stack global — apenas o modal no topo da pilha
+  // responde, preservando hierarquia RemoveSubcategory > AddSubcategory >
+  // ImportExport > Modal principal automaticamente conforme a ordem de abertura.
 
   // FIX [L177]: quando showModal muda para false, usar closeModal para garantir limpeza completa
   useEffect(() => {
@@ -916,9 +891,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       </div>
 
       {/* Modal Nova/Editar Transação */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4" onClick={(e) => { if (e.target === e.currentTarget) { closeModal() } }}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isModalOpen} onClose={closeModal}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 {/* FIX [L684]: ícone decorativo */}
@@ -1113,13 +1087,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               <button onClick={saveTransaction} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">Salvar</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
-      {/* Modal Importar/Exportar (estrutura Alya com visual IMPGEO) */}
-      {isImportExportOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsImportExportOpen(false) }}>
-          <div className="relative bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      {/* Modal Importar/Exportar */}
+      <Modal isOpen={isImportExportOpen} onClose={() => setIsImportExportOpen(false)}>
+        <div className="relative bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
               <div className="flex items-center gap-3">
@@ -1179,13 +1151,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal Adicionar Nova Subcategoria */}
-      {isAddSubcategoryOpen && (
-        <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') } }}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isAddSubcategoryOpen} onClose={() => { setIsAddSubcategoryOpen(false); setNewSubcategoryError('') }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5" /> Adicionar Nova Subcategoria</h2>
               {/* FIX [L946]: aria-label no botão de fechar */}
@@ -1224,13 +1194,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             </div>
           </div>
         </div>
-      </div>
-      )}
+      </Modal>
 
       {/* Modal Remover Subcategoria */}
-      {isRemoveSubcategoryOpen && (
-        <div className="fixed inset-0 z-[10001] bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRemoveSubcategoryOpen(false) }}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <Modal isOpen={isRemoveSubcategoryOpen} onClose={() => setIsRemoveSubcategoryOpen(false)}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Trash2 className="w-5 h-5" /> Remover Subcategoria</h2>
               {/* FIX [L990]: aria-label no botão de fechar */}
@@ -1259,17 +1227,15 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
       {/* Modal de Importar Extrato / Fatura */}
-      {/* FIX [L1020]: z-index consistente com outros modais (z-[9999]) */}
-      {isImportExtratoModalOpen && (
-        <div
-          className={`fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 pb-4 z-[9999] ${extratoStep === 3 ? 'pt-4' : 'pt-[100px]'}`}
-          onClick={(e) => { if (e.target === e.currentTarget) { setIsImportExtratoModalOpen(false); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) } }}
-        >
-          {/* FIX [L1023]: overflow-hidden removido — conflitava com overflow-y-auto */}
-          <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200`}>
+      <Modal
+        isOpen={isImportExtratoModalOpen}
+        onClose={() => { setIsImportExtratoModalOpen(false); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([]) }}
+        backdropClassName={extratoStep === 3 ? '' : '!items-start pt-[100px]'}
+      >
+        {/* FIX [L1023]: overflow-hidden removido — conflitava com overflow-y-auto */}
+        <div className={`bg-white rounded-2xl w-full ${extratoStep === 3 ? 'max-w-4xl max-h-[calc(100vh-40px)]' : 'max-w-lg max-h-[calc(100vh-120px)]'} overflow-y-auto shadow-2xl border border-gray-200`}>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1539,8 +1505,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               })()}
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Toast de Desfazer Importação */}
       {showUndoToast && (

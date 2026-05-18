@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { X } from 'lucide-react';
+import Modal from '../Modal';
 
 interface ChartData {
   name: string;
@@ -140,15 +141,14 @@ const ChartModal = ({
   const effectiveFormat: 'currency' | 'number' | 'area' =
     valueFormat ?? (valueUnit ? 'area' : 'currency');
 
-  // Escape + focus trap
+  // Focus trap + restaurar foco para o trigger ao fechar (Modal wrapper já
+  // cobre ESC, click-outside, portal e scroll lock).
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false;
       return;
     }
 
-    // Bug fix: só captura o trigger e move o foco na transição real false→true.
-    // Re-runs por onClose instável não sobrescrevem triggerRef.current.
     if (!wasOpenRef.current) {
       triggerRef.current = document.activeElement;
       wasOpenRef.current = true;
@@ -156,10 +156,6 @@ const ChartModal = ({
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
       if (e.key !== 'Tab' || !dialogRef.current) return;
       const focusable = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
@@ -179,17 +175,7 @@ const ChartModal = ({
       window.removeEventListener('keydown', handleKeyDown);
       (triggerRef.current as HTMLElement | null)?.focus();
     };
-  }, [isOpen, onClose]);
-
-  // Scroll lock
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   // Bug fix: tooltipEl movido para depois do early return — não cria o objeto
   // desnecessariamente quando o modal está fechado.
@@ -204,21 +190,15 @@ const ChartModal = ({
   const isEmpty = data.length === 0;
 
   return (
-    // Bug fix: role="presentation" removido — div sem role nativo já é opaco para
-    // leitores de tela; aria-modal="true" no filho resolve o contexto de diálogo.
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={onClose}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabelledBy={titleId}
     >
       <div
         ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        // Bug fix: aria-describedby conecta o subtitle ao dialog para anúncio automático
         aria-describedby={subtitle ? subtitleId : undefined}
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden m-4"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -236,7 +216,7 @@ const ChartModal = ({
             ref={closeBtnRef}
             type="button"
             onClick={onClose}
-            aria-label="Fechar"
+            aria-label="Fechar modal"
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <X className="w-6 h-6 text-gray-600 dark:text-gray-400" aria-hidden="true" />
@@ -328,7 +308,7 @@ const ChartModal = ({
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

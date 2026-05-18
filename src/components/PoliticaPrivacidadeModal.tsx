@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import Modal from './Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -81,28 +82,12 @@ const PoliticaPrivacidadeModal: React.FC<PoliticaPrivacidadeModalProps> = ({ isO
     return () => controller.abort();
   }, [isOpen]);
 
-  // Keyboard handler: close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const conteudo = data?.conteudo?.trim() ? data.conteudo : DEFAULT_CONTENT;
   const versao = data?.versao ?? 1;
   const updatedAt = data?.updatedAt ? new Date(data.updatedAt).toLocaleDateString('pt-BR') : null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={HEADING_ID}
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabelledBy={HEADING_ID}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -119,7 +104,7 @@ const PoliticaPrivacidadeModal: React.FC<PoliticaPrivacidadeModalProps> = ({ isO
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200 rounded-lg p-1.5"
-            aria-label="Fechar"
+            aria-label="Fechar modal"
           >
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
@@ -159,7 +144,7 @@ const PoliticaPrivacidadeModal: React.FC<PoliticaPrivacidadeModalProps> = ({ isO
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -7,6 +7,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { marked, Renderer, use as markedUse } from 'marked';
+import Modal from '@/components/Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -695,12 +696,8 @@ const DocumentationManagement: React.FC = () => {
       </div>
 
       {/* Modal: Nova Seção */}
-      {showNewSection && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) { setShowNewSection(false); setNewSectionTitle(''); setNewSectionVisibility('todos'); } }}
-        >
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+      <Modal isOpen={showNewSection} onClose={() => { setShowNewSection(false); setNewSectionTitle(''); setNewSectionVisibility('todos'); }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <BookOpen className="h-4 w-4" aria-hidden="true" />
@@ -750,52 +747,49 @@ const DocumentationManagement: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal: Nova Página */}
-      {showNewPage && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={e => e.target === e.currentTarget && setShowNewPage(null)}
-        >
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Nova Página</h3>
-            <input
-              autoFocus
-              type="text"
-              value={newPageTitle}
-              onChange={e => setNewPageTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && createPage(showNewPage)}
-              placeholder="Título da página"
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => { setShowNewPage(null); setNewPageTitle(''); }}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => createPage(showNewPage)}
-                disabled={!newPageTitle.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
-              >
-                Criar
-              </button>
-            </div>
+      <Modal isOpen={!!showNewPage} onClose={() => { setShowNewPage(null); setNewPageTitle(''); }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
+          <button
+            onClick={() => { setShowNewPage(null); setNewPageTitle(''); }}
+            className="absolute top-3 right-3 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            aria-label="Fechar modal"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Nova Página</h3>
+          <input
+            autoFocus
+            type="text"
+            value={newPageTitle}
+            onChange={e => setNewPageTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && showNewPage && createPage(showNewPage)}
+            placeholder="Título da página"
+            className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 bg-white dark:!bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setShowNewPage(null); setNewPageTitle(''); }}
+              className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => showNewPage && createPage(showNewPage)}
+              disabled={!newPageTitle.trim()}
+              className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50"
+            >
+              Criar
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal: Editar Seção (título + visibilidade) */}
-      {editingSection && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setEditingSection(null)}
-        >
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+      <Modal isOpen={!!editingSection} onClose={() => setEditingSection(null)}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit2 className="h-4 w-4" aria-hidden="true" />
@@ -806,6 +800,7 @@ const DocumentationManagement: React.FC = () => {
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
+          {editingSection && (
             <div className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
@@ -830,68 +825,74 @@ const DocumentationManagement: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end px-6 pb-6 border-t border-gray-100 dark:border-gray-700 pt-4">
-              <button
-                onClick={() => setEditingSection(null)}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={updateSection}
-                disabled={!editingSection.title.trim()}
-                className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50 font-medium flex items-center gap-1.5"
-              >
-                <Save className="h-3.5 w-3.5" />
-                Salvar
-              </button>
-            </div>
+          )}
+          <div className="flex gap-2 justify-end px-6 pb-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+            <button
+              onClick={() => setEditingSection(null)}
+              className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={updateSection}
+              disabled={!editingSection?.title.trim()}
+              className="px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl disabled:opacity-50 font-medium flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" />
+              Salvar
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal: Confirmar Delete */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden="true" />
-              </div>
-              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
-                Deletar {deleteConfirm.type === 'section' ? 'Seção' : 'Página'}
-              </h3>
+      <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} destructive>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
+          <button
+            onClick={() => setDeleteConfirm(null)}
+            className="absolute top-3 right-3 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            aria-label="Fechar modal"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden="true" />
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
-              Tem certeza que deseja deletar{' '}
-              <strong>"{deleteConfirm.title}"</strong>?
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
+              Deletar {deleteConfirm?.type === 'section' ? 'Seção' : 'Página'}
+            </h3>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+            Tem certeza que deseja deletar{' '}
+            <strong>"{deleteConfirm?.title}"</strong>?
+          </p>
+          {deleteConfirm?.type === 'section' && (
+            <p className="text-xs text-red-500 mb-4">
+              Todas as páginas desta seção também serão deletadas.
             </p>
-            {deleteConfirm.type === 'section' && (
-              <p className="text-xs text-red-500 mb-4">
-                Todas as páginas desta seção também serão deletadas.
-              </p>
-            )}
-            <div className="flex gap-2 justify-end mt-4">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() =>
-                  deleteConfirm.type === 'section'
-                    ? deleteSection(deleteConfirm.id)
-                    : deletePage(deleteConfirm.id)
-                }
-                className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl"
-              >
-                Deletar
-              </button>
-            </div>
+          )}
+          <div className="flex gap-2 justify-end mt-4">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                if (!deleteConfirm) return;
+                deleteConfirm.type === 'section'
+                  ? deleteSection(deleteConfirm.id)
+                  : deletePage(deleteConfirm.id);
+              }}
+              className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl"
+            >
+              Deletar
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Estilos do conteúdo — light mode */}
       <style>{`

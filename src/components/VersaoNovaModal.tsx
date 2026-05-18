@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import Modal from './Modal';
 
 export interface VersaoItem {
   versao: string;
@@ -32,14 +33,6 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
       dialogRef.current.focus();
     }
   }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !confirming) onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose, confirming]);
 
   if (pendentes.length === 0) return null;
 
@@ -86,18 +79,11 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-8"
-      onClick={() => { if (!confirming) onClose(); }}
-    >
+    <Modal isOpen={true} onClose={onClose} ariaLabelledBy="versao-modal-title" destructive={confirming}>
       <div
         ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="versao-modal-title"
         tabIndex={-1}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md outline-none"
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-xl px-6 py-5 relative overflow-hidden">
@@ -195,7 +181,7 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

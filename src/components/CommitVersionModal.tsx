@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GitCommit, Tag, X, Check, Pencil, Bell, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import Modal from './Modal';
 
 const ROLES_DISPONIVEIS = [
   { value: 'admin', label: 'Administradores' },
@@ -71,12 +72,6 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
     setLoading(false);
     setIgnoring(false);
   }, [atual?.commitHash, versaoIniciada]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
 
   // Bug 1: se commits esvaziou externamente sem passar por avancarOuFechar, avisa o pai
   useEffect(() => {
@@ -151,16 +146,14 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-start justify-center pt-16 z-50 px-4"
-      onClick={() => { if (!loading && !ignoring) onClose(); }}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      ariaLabelledBy="commit-modal-title"
+      backdropClassName="!items-start !justify-center !pt-16 !py-0"
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="commit-modal-title"
         className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg my-4 max-h-[calc(100vh-6rem)] flex flex-col overflow-hidden"
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -340,7 +333,7 @@ const CommitVersionModal: React.FC<Props> = ({ commits, versaoAtual, onProcess, 
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

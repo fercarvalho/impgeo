@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FileText, RefreshCw } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import Modal from './Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -76,18 +77,6 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
     return () => { mounted = false; };
   }, [isOpen]);
 
-  const handleKey = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, handleKey]);
-
-  if (!isOpen) return null;
-
   const conteudo = data?.conteudo || DEFAULT_CONTENT;
   const versao = data?.versao ?? 1;
 
@@ -100,13 +89,7 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={HEADING_ID}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabelledBy={HEADING_ID}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -123,7 +106,7 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white hover:bg-white/20 transition-all duration-200 rounded-lg p-1.5"
-            aria-label="Fechar termos de uso"
+            aria-label="Fechar modal"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -156,7 +139,7 @@ const TermosUsoModal: React.FC<TermosUsoModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

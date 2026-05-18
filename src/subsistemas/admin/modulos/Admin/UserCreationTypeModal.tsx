@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { UserPlus, FileText, Zap, X } from 'lucide-react';
+import Modal from '@/components/Modal';
 
 interface UserCreationTypeModalProps {
   isOpen: boolean;
@@ -11,20 +11,8 @@ interface UserCreationTypeModalProps {
 const UserCreationTypeModal = ({
   isOpen, onClose, onSelectSimple, onSelectComplete
 }: UserCreationTypeModalProps) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl flex items-center justify-between">
@@ -127,7 +115,7 @@ const UserCreationTypeModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

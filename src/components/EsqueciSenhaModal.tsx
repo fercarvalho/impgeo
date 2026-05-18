@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mail, User, X } from 'lucide-react';
+import Modal from './Modal';
 
 interface EsqueciSenhaModalProps {
   isOpen: boolean;
@@ -46,15 +47,10 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
     }
   }, [isOpen]);
 
-  // Recria o listener sempre que isSubmitting ou handleClose mudam
+  // Focus trap: mantém o foco dentro do modal (ESC é tratado pelo wrapper Modal).
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleClose();
-        return;
-      }
-      // Focus trap: mantém o foco dentro do modal
       if (e.key === 'Tab' && modalRef.current) {
         const focusable = modalRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -77,9 +73,7 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleClose]);
-
-  if (!isOpen) return null;
+  }, [isOpen]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -154,17 +148,9 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) handleClose();
-      }}
-    >
+    <Modal isOpen={isOpen} onClose={handleClose} ariaLabelledBy={headingId}>
       <div
         ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={headingId}
         className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -252,7 +238,7 @@ const EsqueciSenhaModal: React.FC<EsqueciSenhaModalProps> = ({ isOpen, onClose }
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };
 

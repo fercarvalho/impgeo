@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, User, Key, Copy, Check, UserPlus, Mail } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle, User, Key, Copy, Check, UserPlus, Mail, X } from 'lucide-react';
+import Modal from '@/components/Modal';
 
 interface UserCreatedModalProps {
   isOpen: boolean;
@@ -26,15 +27,6 @@ const getRoleLabel = (role: string) => {
 const UserCreatedModal: React.FC<UserCreatedModalProps> = ({ isOpen, onClose, onCreateAnother, userData }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedField(field);
@@ -47,11 +39,15 @@ const UserCreatedModal: React.FC<UserCreatedModalProps> = ({ isOpen, onClose, on
   const isTemp = userData.email?.includes('@temp.local');
 
   return (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center px-4 z-[10001]"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 p-2 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+          aria-label="Fechar modal"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
         {/* Header sucesso */}
         <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-8 text-center rounded-t-2xl">
           <div className="flex justify-center mb-4">
@@ -180,7 +176,7 @@ const UserCreatedModal: React.FC<UserCreatedModalProps> = ({ isOpen, onClose, on
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
