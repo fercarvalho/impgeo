@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { AlertCircle, Check } from 'lucide-react'
+import { AlertCircle, Check, X as XIcon } from 'lucide-react'
+import Modal from '../Modal'
 
 const API_BASE_URL = '/api'
 
@@ -54,13 +55,6 @@ const ResolveTransactionModal: React.FC<Props> = ({ transactionId, description, 
     loadCandidates(transactionId)
   }, [transactionId, loadCandidates])
 
-  useEffect(() => {
-    if (!transactionId) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [transactionId, onClose])
-
   const resolve = async (ruleId: string | null) => {
     if (!transactionId) return
     setLoading(true)
@@ -79,17 +73,25 @@ const ResolveTransactionModal: React.FC<Props> = ({ transactionId, description, 
     }
   }
 
-  if (!transactionId) return null
-
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4">
+    <Modal isOpen={!!transactionId} onClose={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-purple-600" />
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Confirmar transação</h3>
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Confirmar transação</h3>
+            </div>
+            {description && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">{description}</p>}
           </div>
-          {description && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">{description}</p>}
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-colors flex-shrink-0"
+            aria-label="Fechar modal"
+          >
+            <XIcon className="w-5 h-5" aria-hidden="true" />
+          </button>
         </div>
         <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
           {loading && <p className="text-sm text-gray-500 text-center py-4">Carregando...</p>}
@@ -122,7 +124,7 @@ const ResolveTransactionModal: React.FC<Props> = ({ transactionId, description, 
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

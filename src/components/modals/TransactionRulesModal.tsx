@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { X, Plus, Edit, Trash2, ToggleLeft, ToggleRight, ArrowRight, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
+import Modal from '../Modal'
 
 const API_BASE_URL = '/api'
 
@@ -141,19 +142,19 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
     }).catch(() => {})
   }, [isOpen, refresh])
 
-  // Fecha com Esc
-  useEffect(() => {
-    if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (retroPreview) { setRetroPreview(null); return }
-      if (deletePrompt) { setDeletePrompt(null); return }
-      if (view === 'edit') { setView('list'); setEditing(null); setErrors({}); return }
-      onClose()
+  // ESC do modal principal: se está no modo edit, ESC volta pro list (sem fechar
+  // o modal). Senão, fecha. Os sub-modais (retroPreview/deletePrompt) têm seu
+  // próprio handler via <Modal> e o stack do componente garante que apenas o
+  // topo responda ao ESC.
+  const handleMainEsc = useCallback(() => {
+    if (view === 'edit') {
+      setView('list')
+      setEditing(null)
+      setErrors({})
+      return
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, retroPreview, deletePrompt, view, onClose])
+    onClose()
+  }, [view, onClose])
 
   if (!isOpen) return null
 
@@ -395,7 +396,7 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
+    <Modal isOpen={isOpen} onClose={handleMainEsc}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30">
@@ -403,8 +404,12 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Conjunto de Regras</h2>
             <p className="text-xs text-gray-600 dark:text-gray-400">Classifique transações automaticamente por trecho da descrição</p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
-            <X className="w-5 h-5" />
+          <button
+            onClick={handleMainEsc}
+            className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            aria-label={view === 'edit' ? 'Voltar para lista' : 'Fechar modal'}
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -669,17 +674,30 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
         </div>
       </div>
 
-      {/* Modal preview retroativo */}
-      {retroPreview && (
-        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
+      {/* Modal preview retroativo (aninhado) */}
+      <Modal
+        isOpen={!!retroPreview}
+        onClose={() => setRetroPreview(null)}
+        zIndexClass="z-[10100]"
+      >
+        {retroPreview && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Revisar impacto retroativo</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                {retroPreview.matches.length > 0 && `${retroPreview.matches.length} nova(s) transação(ões) podem ser classificadas.`}
-                {retroPreview.matches.length > 0 && retroPreview.orphans.length > 0 && ' '}
-                {retroPreview.orphans.length > 0 && `${retroPreview.orphans.length} transação(ões) não casam mais com a regra editada.`}
-              </p>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Revisar impacto retroativo</h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {retroPreview.matches.length > 0 && `${retroPreview.matches.length} nova(s) transação(ões) podem ser classificadas.`}
+                  {retroPreview.matches.length > 0 && retroPreview.orphans.length > 0 && ' '}
+                  {retroPreview.orphans.length > 0 && `${retroPreview.orphans.length} transação(ões) não casam mais com a regra editada.`}
+                </p>
+              </div>
+              <button
+                onClick={() => setRetroPreview(null)}
+                className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 flex-shrink-0"
+                aria-label="Fechar modal"
+              >
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Seção 1: Novas matches */}
@@ -772,21 +790,35 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* Modal de exclusão com 3 opções */}
-      {deletePrompt && (
-        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
+      {/* Modal de exclusão com 3 opções (destrutivo — não fecha ao clicar fora) */}
+      <Modal
+        isOpen={!!deletePrompt}
+        onClose={() => setDeletePrompt(null)}
+        zIndexClass="z-[10100]"
+        destructive
+      >
+        {deletePrompt && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Excluir regra "{deletePrompt.rule.name}"</h3>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Excluir regra "{deletePrompt.rule.name}"</h3>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Esta regra já modificou {deletePrompt.affected.length} transação(ões). O que fazer com elas?
+                </p>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Esta regra já modificou {deletePrompt.affected.length} transação(ões). O que fazer com elas?
-              </p>
+              <button
+                onClick={() => setDeletePrompt(null)}
+                className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 flex-shrink-0"
+                aria-label="Fechar modal"
+              >
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
             </div>
             <div className="p-6 space-y-3">
               <button onClick={() => confirmDelete('revert')} disabled={submitting} className="w-full text-left p-4 border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors">
@@ -808,9 +840,9 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </Modal>
+    </Modal>
   )
 }
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { X, Check, AlertCircle } from 'lucide-react'
+import Modal from '../Modal'
 
 const API_BASE_URL = '/api'
 
@@ -68,14 +69,7 @@ const BulkResolveModal: React.FC<Props> = ({ isOpen, onClose, onResolved }) => {
     load()
   }, [isOpen, load])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
+  // ESC/click-outside agora vêm do <Modal>.
 
   const validCount = items.filter(t => decisions[t.id] && decisions[t.id] !== '').length
 
@@ -114,7 +108,7 @@ const BulkResolveModal: React.FC<Props> = ({ isOpen, onClose, onResolved }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[150] bg-black/60 flex items-center justify-center p-4">
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30">
           <div className="flex items-center gap-2">
@@ -124,8 +118,12 @@ const BulkResolveModal: React.FC<Props> = ({ isOpen, onClose, onResolved }) => {
               <p className="text-xs text-gray-600 dark:text-gray-400">{items.length} transação(ões) aguardam classificação</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            aria-label="Fechar modal"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -203,7 +201,7 @@ const BulkResolveModal: React.FC<Props> = ({ isOpen, onClose, onResolved }) => {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
