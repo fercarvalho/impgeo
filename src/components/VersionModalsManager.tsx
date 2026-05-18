@@ -61,6 +61,7 @@ export default function VersionModalsManager() {
 
     const checkCommits = async () => {
       try {
+        // Wrapper global em main.tsx injeta credentials/Bearer automaticamente.
         const res = await fetch(`${API_BASE_URL}/admin/rodape/commits-pendentes`);
         if (!res.ok || cancelled) return;
         const json = await res.json();

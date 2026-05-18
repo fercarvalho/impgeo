@@ -125,14 +125,17 @@ type TabType =
   | 'acompanhamentos'
 
 const AppContent: React.FC = () => {
-  const { user, token, logout, isLoading } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const [viewToken, setViewToken] = useState<string | null>(null);
   const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
 
-  // Sincronizar consentimento de cookies com o banco após login
+  // Sincronizar consentimento de cookies com o banco após login.
+  // Auth: wrapper global injeta credentials/Bearer automaticamente — não
+  // precisamos do `token` em state (que fica null ao trocar de subdomínio
+  // em prod, mesmo com sessão válida via cookie).
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user) return;
     const LGPD_API = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
       ? 'http://localhost:9001/api'
       : ((import.meta as any).env?.VITE_API_URL || '/api');
@@ -142,7 +145,7 @@ const AppContent: React.FC = () => {
       const prefs = JSON.parse(saved);
       fetch(`${LGPD_API}/cookie-consentimento`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferencias: prefs, versaoTermos: 1, versaoPolitica: 1 }),
       }).catch(e => console.error('Erro ao sincronizar consentimento LGPD:', e));
     } catch {}
@@ -245,9 +248,6 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
 const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
   const permissions = usePermissions();
   const { isDark } = useTheme();
-  // `token` é consumido pelo loadModulesCatalog (envia Authorization header).
-  // user/logout vêm via props porque o AppContentRouter já os tinha do AuthContext.
-  const { token } = useAuth();
   // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
   // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
   // migração 016.
@@ -317,14 +317,15 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   useEffect(() => {
     const loadModulesCatalog = async () => {
       try {
-        // Após a fase 1.3, auth viaja por cookie httpOnly — não dependemos
-        // de `token` em state (que pode ser null logo após F5 mesmo com user
-        // logado pelo cookie). Se `user` está populado, há sessão válida.
-        if (!user || !token) return; // Aguarda token estar disponível
-        const response = await fetch(`${API_BASE_URL}/modules-catalog`, {
-          credentials: 'include',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Após a fase 1.3, auth viaja por cookie httpOnly compartilhado entre
+        // subdomínios. NÃO guardamos por `token` em state porque ao navegar
+        // entre subdomínios em prod o sessionStorage não atravessa — token
+        // fica null mesmo com sessão válida via cookie. O wrapper global
+        // (main.tsx) injeta credentials: 'include' e, se houver token no
+        // sessionStorage, também Authorization Bearer. Aqui só precisamos
+        // de `user` populado (indicando que verifyToken já validou a sessão).
+        if (!user) return;
+        const response = await fetch(`${API_BASE_URL}/modules-catalog`);
         if (!response.ok) return; // Não limpa catálogo existente em caso de erro
         const result = await response.json();
         if (result?.success && Array.isArray(result.data)) {
@@ -344,7 +345,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
     };
 
     loadModulesCatalog();
-  }, [user?.id, token]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!hasModuleAccess(activeTab)) {
