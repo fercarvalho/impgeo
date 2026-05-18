@@ -1455,6 +1455,56 @@ app.get('/api/transactions/:id/candidates', async (req, res) => {
   }
 });
 
+// Marca um conjunto de transações como "A confirmar" usando esta regra como
+// candidata (junto com outras regras ativas que também dão match na transação).
+// Usado pelo botão "Decidir depois" do modal de preview retroativo.
+app.post('/api/transaction-rules/:id/mark-pending-retroactive', requireRulePermission('edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transactionIds = [] } = req.body || {};
+    const rule = await db.getTransactionRuleById(id);
+    if (!rule) return res.status(404).json({ success: false, error: 'Regra não encontrada' });
+
+    let marked = 0;
+    for (const txId of transactionIds) {
+      const tx = (await db.queryWithRetry('SELECT * FROM transactions WHERE id = $1', [txId])).rows[0];
+      if (!tx) continue;
+      // Re-avalia para incluir TODAS as regras que dão match (não só a recém-criada)
+      const { matched } = await db.evaluateRulesForTransaction(tx);
+      const candidateIds = Array.from(new Set([id, ...matched.map(m => m.id)]));
+      await db.markTransactionPendingConfirmation(txId, candidateIds);
+      marked++;
+
+      // Notificação para o ator + fanout para admins (mesmo padrão de applyRulesAndPersist)
+      const title = 'Transação pendente de confirmação';
+      const message = `A transação "${_truncateForNotif(tx.description)}" tem ${candidateIds.length} regra(s) candidata(s). Escolha qual aplicar.`;
+      const notifPayload = {
+        notification_type: 'transaction_confirm_needed',
+        title, message,
+        related_entity_type: 'transaction',
+        related_entity_id: txId,
+      };
+      const notifiedUserIds = new Set();
+      if (req.user?.id) {
+        await db.createNotification({ ...notifPayload, user_id: req.user.id });
+        notifiedUserIds.add(req.user.id);
+      }
+      const adminsResult = await db.queryWithRetry(
+        "SELECT id FROM users WHERE role IN ('admin', 'superadmin') AND is_active = TRUE"
+      );
+      for (const row of adminsResult.rows) {
+        if (notifiedUserIds.has(row.id)) continue;
+        await db.createNotification({ ...notifPayload, user_id: row.id });
+        notifiedUserIds.add(row.id);
+      }
+    }
+    res.json({ success: true, marked });
+    await logActivity(req, { action: 'rule_mark_pending_retroactive', moduleKey: 'transactions', entityType: 'transaction_rule', entityId: id, details: { marked } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Resolver pendência de uma transação (escolher uma regra ou manter original)
 app.post('/api/transactions/:id/resolve-confirmation', async (req, res) => {
   try {

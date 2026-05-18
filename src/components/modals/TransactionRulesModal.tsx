@@ -373,6 +373,27 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
     }
   }
 
+  // "Decidir depois": marca TODAS as matches como A confirmar para o usuário
+  // resolver via sino/badge/bulk quando quiser. As órfãs (se houver) não são
+  // tocadas — continuam governadas pela regra.
+  const markAllPending = async () => {
+    if (!retroPreview) return
+    if (retroPreview.matches.length === 0) { setRetroPreview(null); return }
+    setSubmitting(true)
+    try {
+      const r = await fetch(`${API_BASE_URL}/transaction-rules/${retroPreview.ruleId}/mark-pending-retroactive`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionIds: retroPreview.matches.map((t) => t.id) }),
+      })
+      const j = await r.json()
+      if (!j.success) { alert(j.error || 'Falha ao marcar como pendente'); return }
+      setRetroPreview(null)
+      onRulesChanged?.()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -730,14 +751,24 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                 </div>
               )}
             </div>
-            <div className="flex justify-end items-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 gap-2">
+            <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 gap-2">
               <button onClick={() => setRetroPreview(null)} className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                Pular
+                Cancelar
               </button>
+              {retroPreview.matches.length > 0 && (
+                <button
+                  onClick={markAllPending}
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 rounded-lg"
+                  title="Marca todas as transações como 'A confirmar' para você decidir depois"
+                >
+                  {submitting ? 'Aguarde...' : `Decidir depois (${retroPreview.matches.length})`}
+                </button>
+              )}
               <button onClick={applyRetroactive} disabled={submitting} className="px-5 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg shadow-sm">
                 {submitting
                   ? 'Aplicando...'
-                  : `Confirmar (${retroPreview.matches.length - retroPreview.excluded.size} aplicar, ${retroPreview.orphansToRevert.size} reverter)`}
+                  : `Aplicar (${retroPreview.matches.length - retroPreview.excluded.size} aplicar, ${retroPreview.orphansToRevert.size} reverter)`}
               </button>
             </div>
           </div>
