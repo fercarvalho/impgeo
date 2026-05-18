@@ -68,7 +68,13 @@ import SubsystemPicker from '@/subsistemas/SubsystemPicker'
 import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
 import AcessoNegado from '@/subsistemas/AcessoNegado'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
-import { userCanAccessSubsystem, type SubsystemDefinition } from '@/subsistemas/manifest'
+import {
+  userCanAccessSubsystem,
+  supportsSubdomainNavigation,
+  getRootUrl,
+  clearSubsystemOverride,
+  type SubsystemDefinition,
+} from '@/subsistemas/manifest'
 import { usePermissions } from './hooks/usePermissions'
 // Gráficos agora são usados pelo componente Reports
 
@@ -1012,13 +1018,26 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         {/* Primeira linha: Logo, nome, subtítulo, usuário e botão sair */}
         <div className="flex justify-between items-center h-16 py-2">
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (supportsSubdomainNavigation()) {
+                  window.location.href = getRootUrl();
+                } else {
+                  clearSubsystemOverride();
+                  window.dispatchEvent(new CustomEvent('subsystem:override-changed'));
+                }
+              }}
+              className="flex-shrink-0 flex items-center rounded-lg px-1 py-1 -ml-1 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors cursor-pointer"
+              title="Voltar para escolha de subsistema"
+              aria-label="Voltar para escolha de subsistema"
+            >
               <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-8 w-8 mr-2 object-contain" />
-              <div>
-                <span className="text-white text-xl font-bold">IMPGEO</span>
-                <p className="text-blue-200 text-sm">Sistema de Gestão Inteligente</p>
+              <div className="text-left">
+                <span className="block text-white text-xl font-bold leading-tight">IMPGEO</span>
+                <p className="text-blue-200 text-sm leading-tight">Sistema de Gestão Inteligente</p>
               </div>
-            </div>
+            </button>
           </div>
           <div className="flex items-center space-x-4">
             <NotificationBell />
