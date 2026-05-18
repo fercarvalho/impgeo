@@ -84,9 +84,11 @@ function isMapLink(link: string): boolean {
 }
 
 function ContatoIcon({ link, texto }: { link: string; texto: string }) {
-  if (link.startsWith('https://wa.me') || texto.includes('(')) return <Phone className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
-  if (link.startsWith('mailto:') || texto.includes('@')) return <Mail className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  // Mapa tem prioridade — endereços costumam ter parênteses (ex.: "São Paulo (SP)")
+  // e cairiam erroneamente na heurística de telefone abaixo.
   if (isMapLink(link)) return <Map className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  if (link.startsWith('mailto:') || texto.includes('@')) return <Mail className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  if (link.startsWith('https://wa.me') || texto.includes('(')) return <Phone className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
   if (link.startsWith('https://') || link.startsWith('http://')) return <Globe className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
   return null;
 }
