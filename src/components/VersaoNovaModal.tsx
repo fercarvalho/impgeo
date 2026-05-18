@@ -120,7 +120,7 @@ const VersaoNovaModal: React.FC<Props> = ({ versoes, onConfirm, onClose }) => {
           <div
             aria-live="polite"
             aria-atomic="true"
-            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 min-h-[80px]"
+            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 min-h-[80px] max-h-[40vh] overflow-y-auto"
           >
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line">{atual.texto}</p>
           </div>
