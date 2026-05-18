@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { X, Key, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import Modal from './Modal';
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:9001/api'
@@ -144,17 +144,8 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
     }
   };
 
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 py-8"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) {
-          onClose();
-        }
-      }}
-    >
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabelledBy="alterar-senha-titulo">
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700 max-h-[calc(100vh-4rem)] overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 rounded-t-2xl border-b border-white/20">
@@ -342,10 +333,8 @@ const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({ isOpen, onClose }
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
-
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default AlterarSenhaModal;

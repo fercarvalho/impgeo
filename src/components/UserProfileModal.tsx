@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { X, User, Shield, CheckCircle, XCircle, Calendar, Clock, Edit, Mail, Phone, MapPin, Briefcase, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LazyAvatar from './LazyAvatar';
 import EditarPerfilModal from './EditarPerfilModal';
+import Modal from './Modal';
 import { applyPhoneMask } from '../utils/phoneMask';
 import { applyCpfMask } from '../utils/cpfMask';
 import { applyCepMask } from '../utils/cepMask';
@@ -177,20 +177,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     }
   };
 
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="user-profile-modal-title"
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[70] px-4 py-8"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !showEditProfileModal) {
-          handleClose();
-        }
-      }}
-    >
+  return (
+    <>
+      <Modal isOpen={isOpen} onClose={handleClose} ariaLabelledBy="user-profile-modal-title">
       <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
@@ -420,26 +409,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           </div>
         )}
       </div>
-    </div>
-  );
-
-  return (
-    <>
-      {typeof document !== 'undefined'
-        ? createPortal(
-            <>
-              {modalContent}
-              <EditarPerfilModal
-                isOpen={showEditProfileModal}
-                onClose={() => {
-                  setShowEditProfileModal(false);
-                  loadProfileData(); // Recarregar dados após fechar edição
-                }}
-              />
-            </>,
-            document.body
-          )
-        : null}
+      </Modal>
+      <EditarPerfilModal
+        isOpen={showEditProfileModal}
+        onClose={() => {
+          setShowEditProfileModal(false);
+          loadProfileData(); // Recarregar dados após fechar edição
+        }}
+      />
     </>
   );
 };

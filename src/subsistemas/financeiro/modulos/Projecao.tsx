@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FaBullseye, FaChartLine, FaChartBar, FaRocket, FaUndo, FaTrash, FaSearch, FaEdit, FaCalculator, FaHandPointer, FaTable } from 'react-icons/fa'
+import Modal from '../../../components/Modal'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { ChartCard } from '@/components/projection/charts/ChartCard'
@@ -8484,17 +8485,18 @@ Continuar mesmo assim?`)
       )}
 
       {/* Modal de Limpeza Seletiva das Tabelas da Projeção */}
-      {showSelectiveClearModal && (
-        <div 
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
-          onClick={() => setShowSelectiveClearModal(false)}
-        >
+      {/* destructive: fluxo de exclusão de dados — bloqueia ESC e click-outside
+          para evitar fechar acidentalmente perdendo as seleções de tabelas. */}
+      <Modal
+        isOpen={showSelectiveClearModal}
+        onClose={() => setShowSelectiveClearModal(false)}
+        destructive
+        ariaLabelledBy="selective-clear-modal-title"
+        noBackdrop
+        backdropClassName="bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm"
+      >
           <div
             className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[95vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="selective-clear-modal-title"
           >
             {/* Header do Modal */}
             <div className="flex items-center justify-between mb-6">
@@ -8655,8 +8657,7 @@ Continuar mesmo assim?`)
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
     </div>
   )

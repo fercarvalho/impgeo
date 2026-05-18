@@ -3,6 +3,7 @@ import { Phone, Mail, Globe, Map, X } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import TermosUsoModal from './TermosUsoModal';
 import PoliticaPrivacidadeModal from './PoliticaPrivacidadeModal';
+import Modal from './Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -116,12 +117,7 @@ const Footer: React.FC = () => {
     link.includes('privacy-policy') ||
     link.includes('termos-uso');
 
-  useEffect(() => {
-    if (!showNotas) return;
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowNotas(false); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [showNotas]);
+  // ESC handling is provided by <Modal />.
 
   useEffect(() => {
     let cancelled = false;
@@ -299,17 +295,15 @@ const Footer: React.FC = () => {
     <PoliticaPrivacidadeModal isOpen={showPolitica} onClose={() => setShowPolitica(false)} />
 
     {/* Modal de Notas da Versão */}
-    {showNotas && (
-      <div
-        className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 pb-4 pt-[120px]"
-        onClick={() => setShowNotas(false)}
-      >
+    <Modal
+      isOpen={showNotas}
+      onClose={() => setShowNotas(false)}
+      ariaLabelledBy="notas-versao-title"
+      noBackdrop
+      backdropClassName="bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm pt-[120px]"
+    >
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="notas-versao-title"
           className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[68vh] flex flex-col"
-          onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div>
@@ -329,8 +323,7 @@ const Footer: React.FC = () => {
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(config.notas_versao) }}
           />
         </div>
-      </div>
-    )}
+    </Modal>
     </>
   );
 };

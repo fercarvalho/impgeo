@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Cookie, X, Settings, ChevronDown, ChevronUp, Shield } from 'lucide-react';
+import Modal from './Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -121,12 +122,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
     }
   }, []);
 
-  useEffect(() => {
-    if (!showModal) return;
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') fecharModal(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [showModal, fecharModal]);
+  // ESC handling is provided by <Modal />.
 
   const salvarPreferencias = (prefs: CookiePreferences) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
@@ -229,17 +225,15 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
       </div>
 
       {/* Modal de Personalização */}
-      {showModal && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-4"
-          onClick={fecharModal}
-        >
+      <Modal
+        isOpen={showModal}
+        onClose={fecharModal}
+        ariaLabelledBy="cookie-modal-title"
+        noBackdrop
+        backdropClassName="bg-black/60 items-end sm:items-center"
+      >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cookie-modal-title"
             className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg max-h-[85vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2.5">
@@ -329,8 +323,7 @@ const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenTermos, onOpenPolitic
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 };

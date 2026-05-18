@@ -9,6 +9,7 @@ import CookieBanner from './CookieBanner';
 import TermosUsoModal from './TermosUsoModal';
 import PoliticaPrivacidadeModal from './PoliticaPrivacidadeModal';
 import Footer from './Footer';
+import Modal from './Modal';
 import Documentation from '@/subsistemas/gestao/modulos/Documentation';
 
 // BUG FIX: inclui 0.0.0.0; tipo explícito string; import.meta.env tipado corretamente
@@ -192,21 +193,8 @@ const Login = () => {
     setPasswordCopied(false);
   }, [completeFirstLogin]);
 
-  // BUG FIX: useEffect de teclado declarado APÓS todos os handlers para evitar referência
-  //          a handleCloseModal antes da sua declaração (erro TS2448)
-  //          closeFaqModal, closeDocsModal e handleCloseModal nas deps — sem stale closures
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (showFaqModal)      { closeFaqModal();         return; }
-      if (showDocsModal)     { closeDocsModal();        return; }
-      // BUG FIX: Escape no modal de senha deve chamar handleCloseModal (completeFirstLogin)
-      // em vez de só fechar o modal — evita que o estado de primeiro acesso fique incompleto
-      if (showPasswordModal) { void handleCloseModal(); return; }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showFaqModal, showDocsModal, showPasswordModal, closeFaqModal, closeDocsModal, handleCloseModal]);
+  // ESC handling is provided by <Modal />. The first-access modal is `destructive`
+  // so ESC won't close it — completion is required via the "Entendi, continuar" button.
 
   // BUG FIX: move foco para o botão fechar ao abrir cada modal (a11y)
   useEffect(() => { if (showFaqModal)  faqCloseRef.current?.focus(); }, [showFaqModal]);
@@ -341,19 +329,14 @@ const Login = () => {
       </div>
 
       {/* ─── Modal FAQ ─── */}
-      {/* BUG FIX: role="dialog", aria-modal, aria-labelledby no painel; aria-label no overlay */}
-      {showFaqModal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[9999] p-4"
-          onClick={closeFaqModal}
-          aria-label="Fechar perguntas frequentes"
-        >
+      <Modal
+        isOpen={showFaqModal}
+        onClose={closeFaqModal}
+        ariaLabelledBy="faq-modal-title"
+        backdropClassName="items-end sm:items-center"
+      >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="faq-modal-title"
             className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
-            onClick={e => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -425,23 +408,13 @@ const Login = () => {
               ))}
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ─── Modal Documentação ─── */}
-      {/* BUG FIX: role="dialog", aria-modal, aria-label no painel */}
-      {showDocsModal && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-          onClick={closeDocsModal}
-          aria-label="Fechar documentação"
-        >
+      <Modal isOpen={showDocsModal} onClose={closeDocsModal}>
           <div
-            role="dialog"
-            aria-modal="true"
             aria-label="Documentação do sistema"
             className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto relative"
-            onClick={e => e.stopPropagation()}
           >
             <button
               ref={docsCloseRef}
@@ -454,25 +427,30 @@ const Login = () => {
             </button>
             <Documentation inModal />
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ─── Modal Primeiro Acesso ─── */}
-      {/* BUG FIX: role="dialog", aria-modal, aria-labelledby;
-                  overlay chama handleCloseModal (não setShowPasswordModal diretamente) */}
-      {showPasswordModal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4"
-          onClick={handleCloseModal}
-          aria-label="Fechar modal de primeiro acesso"
-        >
+      {/* destructive: usuário precisa concluir o fluxo (ver/copiar nova senha)
+          antes de prosseguir — ESC e click-outside ficam bloqueados pelo Modal. */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={handleCloseModal}
+        destructive
+        ariaLabelledBy="first-login-title"
+      >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="first-login-title"
-            className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl p-8 w-full max-w-md"
-            onClick={e => e.stopPropagation()}
+            className="bg-white dark:!bg-[#243040] rounded-2xl shadow-2xl p-8 w-full max-w-md relative"
           >
+            {/* Botão X visível: como o Modal é destructive, é a única saída além do
+                "Entendi, continuar" — mas o handler ainda completa o fluxo. */}
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              aria-label="Fechar modal de primeiro acesso"
+              className="absolute top-4 right-4 w-8 h-8 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
             <div className="text-center mb-6">
               {/* BUG FIX: ícone decorativo com aria-hidden */}
               <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4" aria-hidden="true">
@@ -526,8 +504,7 @@ const Login = () => {
               Entendi, continuar
             </button>
           </div>
-        </div>
-      )}
+      </Modal>
 
       <EsqueciSenhaModal isOpen={showEsqueciSenhaModal} onClose={() => setShowEsqueciSenhaModal(false)} />
       <CookieBanner onOpenTermos={() => setShowTermos(true)} onOpenPolitica={() => setShowPolitica(true)} />

@@ -3,6 +3,7 @@ import {
   Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff,
   HelpCircle, Save, X, AlertTriangle, Globe, Users, ShieldCheck
 } from 'lucide-react';
+import Modal from '@/components/Modal';
 import { getAdminApiBaseUrl, getAuthHeaders } from './api';
 
 type Visibility = 'todos' | 'usuarios' | 'admins';
@@ -135,17 +136,6 @@ const FAQManagement = () => {
   }, []);
 
   useEffect(() => { loadItems(); }, [loadItems]);
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key !== 'Escape') return;
-    if (deleteConfirm && !isDeleting) { setDeleteConfirm(null); return; }
-    if (showModal && !isSaving) { setShowModal(false); }
-  }, [showModal, isSaving, deleteConfirm, isDeleting]);
-
-  useEffect(() => {
-    if (showModal || deleteConfirm) document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showModal, deleteConfirm, handleKeyDown]);
 
   const openCreate = () => {
     setEditingItem(null);
@@ -351,17 +341,8 @@ const FAQManagement = () => {
       )}
 
       {/* Modal Criar/Editar */}
-      {showModal && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget && !isSaving) setShowModal(false); }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="faq-modal-title"
-            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-          >
+      <Modal isOpen={showModal} onClose={() => { if (!isSaving) setShowModal(false); }} ariaLabelledBy="faq-modal-title">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <h3 id="faq-modal-title" className="text-lg font-bold text-white flex items-center gap-2">
@@ -447,49 +428,46 @@ const FAQManagement = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal de confirmação de exclusão */}
-      {deleteConfirm && (
-        <div
-          className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget && !isDeleting) setDeleteConfirm(null); }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-modal-title"
-            className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center"
+      <Modal isOpen={!!deleteConfirm} onClose={() => { if (!isDeleting) setDeleteConfirm(null); }} destructive ariaLabelledBy="delete-modal-title">
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center relative">
+          <button
+            onClick={() => setDeleteConfirm(null)}
+            disabled={isDeleting}
+            className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+            aria-label="Fechar modal"
           >
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-4">
-                <AlertTriangle className="h-8 w-8 text-red-500 dark:text-red-400" aria-hidden="true" />
-              </div>
-            </div>
-            <h3 id="delete-modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Confirmar Exclusão</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Esta ação não pode ser desfeita.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm!)}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {isDeleting ? (
-                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Excluindo...</>
-                ) : 'Excluir'}
-              </button>
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex justify-center mb-4">
+            <div className="bg-red-100 dark:bg-red-900/30 rounded-full p-4">
+              <AlertTriangle className="h-8 w-8 text-red-500 dark:text-red-400" aria-hidden="true" />
             </div>
           </div>
+          <h3 id="delete-modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Confirmar Exclusão</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Esta ação não pode ser desfeita.</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              disabled={isDeleting}
+              className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => handleDelete(deleteConfirm!)}
+              disabled={isDeleting}
+              className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? (
+                <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true" />Excluindo...</>
+              ) : 'Excluir'}
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { X, User, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import PhotoUpload from './PhotoUpload';
+import Modal from './Modal';
 import { validateEmail } from '../utils/validation';
 import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '../utils/phoneMask';
 import { applyCpfMask, removeCpfMask, validateCpfFormat } from '../utils/cpfMask';
@@ -418,17 +418,10 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
     }
   };
 
-  if (!isOpen || !user) return null;
+  if (!user) return null;
 
-  const modalContent = (
-    <div
-      className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[90] px-4 py-8"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting && !isUploadingPhoto) {
-          onClose();
-        }
-      }}
-    >
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabelledBy="editarPerfilModalTitle">
       <div className="bg-[#ffffff] dark:!bg-[#243040] rounded-2xl p-6 w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto shadow-2xl border border-gray-200/50 dark:border-gray-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 -mx-6 -mt-6 mb-6 px-6 py-4 border-b border-white/20">
@@ -888,10 +881,8 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
-
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default EditarPerfilModal;

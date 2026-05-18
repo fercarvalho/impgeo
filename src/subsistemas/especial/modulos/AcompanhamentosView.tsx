@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
+import Modal from '@/components/Modal'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 export interface MatriculaItem {
@@ -839,31 +840,6 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
   }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      if (itrDownloadModal) {
-        setItrDownloadModal(null)
-        return
-      }
-
-      if (chartModalOpen) {
-        setChartModalOpen(false)
-        return
-      }
-
-      if (isMapModalOpen) {
-        setIsMapModalOpen(false)
-        setSelectedMapUrl('')
-        setSelectedImovel('')
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isMapModalOpen, itrDownloadModal, chartModalOpen])
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
@@ -1527,20 +1503,15 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
       </footer>
 
       {/* Modal do Mapa */}
-      {isMapModalOpen && selectedMapUrl && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => {
-            setIsMapModalOpen(false)
-            setSelectedMapUrl('')
-            setSelectedImovel('')
-          }}
-        >
-          <div
-            className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal
+        isOpen={isMapModalOpen && !!selectedMapUrl}
+        onClose={() => {
+          setIsMapModalOpen(false)
+          setSelectedMapUrl('')
+          setSelectedImovel('')
+        }}
+      >
+        <div className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4">
             <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mapa do Imóvel</h2>
@@ -1553,6 +1524,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                   setSelectedImovel('')
                 }}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl transition-colors"
+                aria-label="Fechar modal"
               >
                 ✕
               </button>
@@ -1583,9 +1555,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 </a>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Modal de Gráfico */}
       <ChartModal
@@ -1599,16 +1570,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         valueUnit={chartValueUnit}
       />
       {/* Modal de Download ITR */}
-      {itrDownloadModal && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-          style={{ margin: 0, padding: 0 }}
-          onClick={() => setItrDownloadModal(null)}
-        >
-          <div
-            className="bg-white dark:bg-[#1e2a3a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal isOpen={!!itrDownloadModal} onClose={() => setItrDownloadModal(null)}>
+        {itrDownloadModal && (
+          <div className="bg-white dark:bg-[#1e2a3a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -1617,8 +1581,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 <button
                   onClick={() => setItrDownloadModal(null)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Fechar modal"
                 >
-                  <X className="w-6 h-6 text-gray-400" />
+                  <X className="w-6 h-6 text-gray-400" aria-hidden="true" />
                 </button>
               </div>
 
@@ -1695,8 +1660,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

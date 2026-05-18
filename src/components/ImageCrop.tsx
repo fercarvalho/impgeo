@@ -1,10 +1,10 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
 import 'react-easy-crop/react-easy-crop.css';
 import { Check, X } from 'lucide-react';
 import { cropImage } from '../utils/imageProcessor';
+import Modal from './Modal';
 
 interface ImageCropProps {
   image: File | string;
@@ -72,12 +72,9 @@ const ImageCrop: React.FC<ImageCropProps> = ({ image, onCropComplete, onCancel }
     }
   };
 
-  const modalContent = (
-    <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+  return (
+    <Modal isOpen={true} onClose={onCancel} ariaLabelledBy="image-crop-title">
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="image-crop-title"
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -157,10 +154,8 @@ const ImageCrop: React.FC<ImageCropProps> = ({ image, onCropComplete, onCancel }
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
-
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default ImageCrop;

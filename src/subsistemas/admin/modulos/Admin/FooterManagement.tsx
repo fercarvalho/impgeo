@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '@/contexts/AuthContext';
+import Modal from '@/components/Modal';
 
 const API_BASE_URL =
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -481,19 +482,6 @@ const FooterManagement = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Fechar modais com ESC
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (deleteConfirm) { setDeleteConfirm(null); return; }
-      if (deleteBottomConfirm) { setDeleteBottomConfirm(null); return; }
-      if (showModalLink && !isSavingLink) { fecharModalLink(); return; }
-      if (showModalBottom && !isSavingBottom) { fecharModalBottom(); }
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [showModalLink, isSavingLink, deleteConfirm, showModalBottom, isSavingBottom, deleteBottomConfirm]);
 
   // ─── Colunas ────────────────────────────────────────────────────────────────
 
@@ -1434,9 +1422,8 @@ const FooterManagement = () => {
       )}
 
       {/* ─── MODAL DE LINK ─────────────────────────────────────────── */}
-      {showModalLink && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
+      <Modal isOpen={showModalLink} onClose={() => { if (!isSavingLink) fecharModalLink(); }}>
+        <div className="bg-[#ffffff] dark:bg-[#243040] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
