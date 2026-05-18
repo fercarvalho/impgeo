@@ -50,7 +50,7 @@ const PendingTransactionsBanner: React.FC = () => {
             {count === 1 ? '1 transação pendente' : `${count} transações pendentes`} de confirmação
           </p>
           <p className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5">
-            Os totais nesta tela não incluem transações com status &quot;A confirmar&quot;. Confirme agora para que entrem no cálculo.
+            Resolva agora para que entrem corretamente nos relatórios e totais.
           </p>
         </div>
         <button

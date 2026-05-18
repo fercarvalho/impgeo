@@ -3,7 +3,7 @@ import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, 
 import { usePermissions } from '@/hooks/usePermissions'
 import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
 import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
-import BulkResolveModal from '@/components/modals/BulkResolveModal'
+import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
 
 type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
 
@@ -154,8 +154,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
   // Modal de resolução de conflito (clique na badge "A confirmar")
   const [resolveTarget, setResolveTarget] = useState<{ id: string; description: string } | null>(null)
-  // Modal bulk de pendentes
-  const [isBulkResolveOpen, setIsBulkResolveOpen] = useState(false)
   // Toggle: mostrar transações ocultas (is_hidden=true), por padrão escondidas
   const [showHidden, setShowHidden] = useState(false)
   // Dropdown "Ações" (agrupa ações secundárias)
@@ -556,6 +554,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   return (
     <div className="space-y-6">
+      <PendingTransactionsBanner />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <DollarSign className="w-8 h-8 text-blue-600" aria-hidden="true" />
@@ -626,23 +625,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             )}
           </div>
 
-          {/* Botão destacado: confirmar pendentes (só aparece se houver) */}
-          {(() => {
-            const pendingCount = transactions.filter(t => t.type === 'A confirmar').length
-            if (pendingCount === 0) return null
-            return (
-              <button
-                onClick={() => setIsBulkResolveOpen(true)}
-                className="relative flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-purple-400 to-fuchsia-500 text-white font-semibold rounded-xl hover:from-purple-500 hover:to-fuchsia-600 shadow-md transition-all duration-200"
-                title="Confirmar transações pendentes"
-              >
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden md:inline">Confirmar pendentes</span>
-                <span className="ml-0.5 px-2 py-0.5 bg-white/25 rounded-full text-xs font-bold">{pendingCount}</span>
-              </button>
-            )
-          })()}
-
           {/* Botão primário: Nova Transação */}
           {permissions.canCreate && (
             <button
@@ -672,16 +654,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
         transactionId={resolveTarget?.id || null}
         description={resolveTarget?.description}
         onClose={() => setResolveTarget(null)}
-        onResolved={() => {
-          fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
-            if (j.success) setTransactions(j.data || [])
-          }).catch(() => {})
-        }}
-      />
-
-      <BulkResolveModal
-        isOpen={isBulkResolveOpen}
-        onClose={() => setIsBulkResolveOpen(false)}
         onResolved={() => {
           fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
             if (j.success) setTransactions(j.data || [])
