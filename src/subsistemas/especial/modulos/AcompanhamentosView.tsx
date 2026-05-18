@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe } from 'lucide-react'
+import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
 import JSZip from 'jszip'
@@ -220,6 +220,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null)
   const [isDownloadingRecordZip, setIsDownloadingRecordZip] = useState<string | null>(null)
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -572,10 +573,18 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const sortedAcompanhamentos = useMemo(() => {
-    const rows = [...acompanhamentos]
+    const lower = searchTerm.toLowerCase()
+    const filtered = searchTerm
+      ? acompanhamentos.filter(a =>
+          (a.imovel || '').toLowerCase().includes(lower) ||
+          (a.municipio || '').toLowerCase().includes(lower) ||
+          String(a.codImovel ?? '').includes(searchTerm)
+        )
+      : [...acompanhamentos]
+
     const direction = sortDirection === 'asc' ? 1 : -1
 
-    rows.sort((a, b) => {
+    filtered.sort((a, b) => {
       const aValue = getSortValue(a, sortField)
       const bValue = getSortValue(b, sortField)
 
@@ -587,8 +596,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
         .localeCompare(String(bValue ?? ''), 'pt-BR', { sensitivity: 'base' }) * direction
     })
 
-    return rows
-  }, [acompanhamentos, sortField, sortDirection])
+    return filtered
+  }, [acompanhamentos, sortField, sortDirection, searchTerm])
 
   // Função para converter URL do Google Maps para formato embed
   const convertMapUrlToEmbed = (url: string): string => {
@@ -1117,33 +1126,52 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           </div>
         </div>
 
-        {/* Ordenação */}
-        <div className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-          <label htmlFor="sort-select" className="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">Ordenar por</label>
-          <select
-            id="sort-select"
-            value={sortField}
-            onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
-            className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer"
-          >
-            <option value="codImovel">Código</option>
-            <option value="imovel">Imóvel</option>
-            <option value="municipio">Município</option>
-            <option value="areaTotal">Área Total</option>
-            <option value="reservaLegal">Reserva Legal</option>
-            <option value="saldoReservaLegal">Saldo R.L.</option>
-            <option value="geoCertificacao">Geo Certificação</option>
-            <option value="geoRegistro">Geo Registro</option>
-            <option value="car">CAR</option>
-            <option value="statusCar">Status CAR</option>
-          </select>
-          <button
-            onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
-            aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
-          >
-            {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
-          </button>
+        {/* Busca + Ordenação */}
+        <div className="flex flex-col sm:flex-row gap-2 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
+          <div className="flex-1 relative min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
+            <input
+              type="text"
+              placeholder="Buscar por imóvel, município ou código..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
+              bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
+              Mostrando {sortedAcompanhamentos.length}/{acompanhamentos.length} Resultados
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-600" />
+            <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
+              <select
+                id="sort-select"
+                value={sortField}
+                onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
+                className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+              >
+                <option value="codImovel">Código</option>
+                <option value="imovel">Imóvel</option>
+                <option value="municipio">Município</option>
+                <option value="areaTotal">Área Total</option>
+                <option value="reservaLegal">Reserva Legal</option>
+                <option value="saldoReservaLegal">Saldo R.L.</option>
+                <option value="geoCertificacao">Geo Certificação</option>
+                <option value="geoRegistro">Geo Registro</option>
+                <option value="car">CAR</option>
+                <option value="statusCar">Status CAR</option>
+              </select>
+            </div>
+            <button
+              onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+              aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+            >
+              {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
+            </button>
+          </div>
         </div>
 
         {/* Cards */}
@@ -1151,7 +1179,9 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           {sortedAcompanhamentos.length === 0 ? (
             <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
               <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">Nenhum registro disponível</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">
+                {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro disponível'}
+              </p>
             </div>
           ) : sortedAcompanhamentos.map((acomp) => {
             const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)

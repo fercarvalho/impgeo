@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Filter, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -412,20 +412,6 @@ const Acompanhamentos: React.FC = () => {
     )
     setFilteredAcompanhamentos(filtered)
   }, [searchTerm, acompanhamentos])
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-      return
-    }
-    setSortField(field)
-    setSortDirection('asc')
-  }
-
-  const getSortIndicator = (field: SortField) => {
-    if (sortField !== field) return '↕'
-    return sortDirection === 'asc' ? '▲' : '▼'
-  }
 
   const sortedAcompanhamentos = useMemo(() => {
     const rows = [...filteredAcompanhamentos]
@@ -1990,471 +1976,358 @@ const Acompanhamentos: React.FC = () => {
         </div>
       </div>
 
-      {/* Filtros e Busca */}
-      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:block flex-shrink-0">Buscar</span>
-          <div className="flex-1 relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Buscar por imóvel, município ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#ffffff] dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 shadow-sm transition-all"
-            />
+      {/* Busca + Ordenação + Seleção */}
+      <div className="flex flex-col sm:flex-row gap-2 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="checkbox"
+            onChange={handleSelectAll}
+            checked={sortedAcompanhamentos.length > 0 && sortedAcompanhamentos.every(a => selectedItems.has(a.id))}
+            title="Selecionar todos"
+            className="rounded border-gray-300 dark:border-gray-600"
+          />
+          {selectedItems.size > 0 && (
+            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+              {selectedItems.size} selecionado{selectedItems.size !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <div className="flex-1 relative min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
+          <input
+            type="text"
+            placeholder="Buscar por imóvel, município ou código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
+            bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
+            Mostrando {sortedAcompanhamentos.length}/{acompanhamentos.length} Resultados
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-600" />
+          <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
+            <select
+              id="sort-select-acomp"
+              value={sortField}
+              onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
+              className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+            >
+              <option value="codImovel">Código</option>
+              <option value="imovel">Imóvel</option>
+              <option value="municipio">Município</option>
+              <option value="areaTotal">Área Total</option>
+              <option value="reservaLegal">Reserva Legal</option>
+              <option value="saldoReservaLegal">Saldo R.L.</option>
+              <option value="geoCertificacao">Geo Certificação</option>
+              <option value="geoRegistro">Geo Registro</option>
+              <option value="car">CAR</option>
+              <option value="statusCar">Status CAR</option>
+            </select>
           </div>
-          <button disabled title="Filtros avançados (em breve)" className="flex items-center gap-2 px-4 py-2.5 bg-[#ffffff] dark:!bg-[#2d3f52] border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 rounded-xl text-sm font-medium transition-all shadow-sm flex-shrink-0 cursor-not-allowed opacity-60">
-            <Filter className="h-4 w-4" />
-            Filtros
+          <button
+            onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+            aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+          >
+            {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
           </button>
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white dark:!bg-[#243040] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[2000px]">
-            <thead>
-              <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-0 z-20 bg-blue-600" style={{ width: '50px', minWidth: '50px' }}>
-                  <input
-                    type="checkbox"
-                    onChange={handleSelectAll}
-                    checked={sortedAcompanhamentos.length > 0 && sortedAcompanhamentos.every(a => selectedItems.has(a.id))}
-                    className="rounded"
-                  />
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[50px] z-20 bg-blue-600" style={{ width: '100px', minWidth: '100px' }}>
-                  <button type="button" onClick={() => handleSort('codImovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    COD. IMP <span>{getSortIndicator('codImovel')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[150px] z-20 bg-blue-600" style={{ width: '250px', minWidth: '250px' }}>
-                  <button type="button" onClick={() => handleSort('imovel')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    IMÓVEL <span>{getSortIndicator('imovel')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider sticky left-[400px] z-20 bg-blue-600" style={{ width: '150px', minWidth: '150px' }}>
-                  <button type="button" onClick={() => handleSort('municipio')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    MUNICÍPIO <span>{getSortIndicator('municipio')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ minWidth: '350px' }}>MATRÍCULAS</th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('nIncraCcir')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    N INCRA / CCIR <span>{getSortIndicator('nIncraCcir')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('car')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    CAR <span>{getSortIndicator('car')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('statusCar')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    STATUS CAR <span>{getSortIndicator('statusCar')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('itr')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    ITR <span>{getSortIndicator('itr')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('geoCertificacao')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    GEO CERTIFICAÇÃO <span>{getSortIndicator('geoCertificacao')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('geoRegistro')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    GEO REGISTRO <span>{getSortIndicator('geoRegistro')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('areaTotal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    ÁREA TOTAL (ha) <span>{getSortIndicator('areaTotal')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('reservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    20% RESERVA LEGAL (ha) <span>{getSortIndicator('reservaLegal')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('saldoReservaLegal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    SALDO RESERVA LEGAL (ha) <span>{getSortIndicator('saldoReservaLegal')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('cultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    CULTURAS <span>{getSortIndicator('cultura1')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('areaCultura1')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    ÁREA (ha) <span>{getSortIndicator('areaCultura1')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('cultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    CULTURAS <span>{getSortIndicator('cultura2')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('areaCultura2')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    ÁREA (ha) <span>{getSortIndicator('areaCultura2')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('outros')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    OUTROS <span>{getSortIndicator('outros')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('areaOutros')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    ÁREA (ha) <span>{getSortIndicator('areaOutros')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('appCodigoFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    APP (CÓDIGO FLORESTAL) <span>{getSortIndicator('appCodigoFlorestal')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('appVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    APP (VEGETADA) <span>{getSortIndicator('appVegetada')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('appNaoVegetada')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    APP (NÃO VEGETADA) <span>{getSortIndicator('appNaoVegetada')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">
-                  <button type="button" onClick={() => handleSort('remanescenteFlorestal')} className="inline-flex items-center gap-1 hover:text-blue-200">
-                    REMANESCENTE FLORESTAL (ha) <span>{getSortIndicator('remanescenteFlorestal')}</span>
-                  </button>
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider">AÇÕES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {sortedAcompanhamentos.length === 0 && (
-                <tr>
-                  <td colSpan={25} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    {searchTerm ? `Nenhum resultado encontrado para "${searchTerm}"` : 'Nenhum acompanhamento cadastrado.'}
-                  </td>
-                </tr>
-              )}
-              {sortedAcompanhamentos.map((acomp, index) => (
-                <tr
-                  key={acomp.id}
-                  className={`group ${index % 2 === 0 ? 'imp-row-even' : 'imp-row-odd'}`}
-                >
-                  <td className={`px-3 py-2 whitespace-nowrap sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '50px', minWidth: '50px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.has(acomp.id)}
-                      onChange={() => handleSelectItem(acomp.id)}
-                      className="rounded"
-                    />
-                  </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[50px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '100px', minWidth: '100px' }}>{formatCodImovel(acomp.codImovel)}</td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[150px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '250px', minWidth: '250px' }}>
-                    {acomp.mapaUrl ? (
-                      <button
-                        onClick={() => {
-                          setSelectedMapUrl(acomp.mapaUrl || '')
-                          setSelectedImovel(acomp.imovel)
-                          setIsMapModalOpen(true)
-                        }}
-                        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
-                        title="Ver mapa do imóvel"
-                      >
-                        {acomp.imovel}
-                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                      </button>
-                    ) : (
-                      <span>{acomp.imovel}</span>
-                    )}
-                  </td>
-                  <td className={`px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 sticky left-[400px] z-10 ${index % 2 === 0 ? 'bg-white dark:bg-[#213040] group-hover:bg-gray-50 dark:group-hover:bg-[#263548]' : 'bg-slate-50/70 dark:bg-[#1e3858] group-hover:bg-slate-100/80 dark:group-hover:bg-[#234260]'}`} style={{ width: '150px', minWidth: '150px' }}>{acomp.municipio}</td>
-                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '450px', minWidth: '450px' }}>
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex flex-wrap gap-1 w-full">
-                        {acomp.matriculasDados && acomp.matriculasDados.length > 0 ? (
-                          acomp.matriculasDados.map((mat, i) => (
-                             <React.Fragment key={mat.id}>
-                               {mat.url ? (
-                                  <a 
-                                    href={mat.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1 whitespace-nowrap"
-                                    title={`Baixar documento matrícula: ${mat.numero}`}
-                                  >
-                                    {mat.numero}
-                                  </a>
-                               ) : (
-                                  <span className="whitespace-nowrap">{mat.numero}</span>
-                               )}
-                               {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-400">,</span>}
-                             </React.Fragment>
-                          ))
-                        ) : (
-                          <span className="whitespace-nowrap">{acomp.matriculas}</span>
-                        )}
-                      </div>
-                      
-                      {(() => {
-                        const hasPdfs = (acomp.matriculasDados || []).some(m => m.url);
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasPdfs || isDownloadingZip === acomp.id}
-                            title={hasPdfs ? "Baixar todos os PDFs de matrícula (em ZIP)" : "Nenhum PDF disponível"}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDownloadAllZipped(acomp.id, acomp.matriculasDados || [], acomp.imovel)
-                            }}
-                            className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                              hasPdfs 
-                                ? (isDownloadingZip === acomp.id ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                          >
-                            {isDownloadingZip === acomp.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`w-4 h-4 ${!hasPdfs ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '550px', minWidth: '550px' }}>
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex flex-wrap gap-1 w-full">
-                        {acomp.ccirDados && acomp.ccirDados.length > 0 ? (
-                          acomp.ccirDados.map((item, i) => (
-                             <React.Fragment key={item.id}>
-                               {item.url ? (
-                                  <a 
-                                    href={item.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1 whitespace-nowrap"
-                                    title={`Baixar documento CCIR: ${item.numero}`}
-                                  >
-                                    {item.numero}
-                                  </a>
-                               ) : (
-                                  <span className="whitespace-nowrap">{item.numero}</span>
-                               )}
-                               {i < acomp.ccirDados!.length - 1 && <span className="text-gray-400">,</span>}
-                             </React.Fragment>
-                          ))
-                        ) : (
-                          <span className="whitespace-nowrap">{acomp.nIncraCcir}</span>
-                        )}
-                      </div>
-                      
-                      {(() => {
-                        const hasCcirPdfs = (acomp.ccirDados || []).some(m => m.url);
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
-                            title={hasCcirPdfs ? "Baixar todos os PDFs de CCIR (em ZIP)" : "Nenhum PDF disponível"}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDownloadAllCcirZipped(acomp.id, acomp.ccirDados || [], acomp.imovel)
-                            }}
-                            className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                              hasCcirPdfs 
-                                ? (isDownloadingZip === acomp.id + 'ccir' ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                          >
-                            {isDownloadingZip === acomp.id + 'ccir' ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`w-4 h-4 ${!hasCcirPdfs ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-sm max-w-xs truncate text-gray-700 dark:text-gray-300">
-                    {acomp.car ? (
-                      acomp.carUrl ? (
-                        <a
-                          href={acomp.carUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1"
-                          title={`Baixar documento CAR: ${acomp.car}`}
-                        >
-                          {acomp.car}
-                          <Download className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span title={acomp.car} className="text-gray-700">{acomp.car}</span>
-                      )
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{acomp.statusCar}</td>
-                  <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300" style={{ width: '450px', minWidth: '450px' }}>
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex flex-row flex-wrap gap-x-2 gap-y-1 w-full">
-                        {acomp.itrDados && acomp.itrDados.length > 0 ? (
-                          acomp.itrDados.map((item, i) => (
-                             <div key={item.id} className="flex items-center group">
-                               <div className="flex items-center overflow-hidden">
-                                 {item.declaracaoUrl || item.reciboUrl || item.url ? (
-                                   <button
-                                     type="button"
-                                     onClick={() => setItrDownloadModal({ item, imovel: acomp.imovel })}
-                                     className="whitespace-nowrap font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
-                                     title={`Opções de download para ITR ${item.numero}`}
-                                   >
-                                     {item.numero}
-                                   </button>
-                                 ) : (
-                                   <span className="whitespace-nowrap font-medium text-gray-700">{item.numero}</span>
-                                 )}
-                                 {i < acomp.itrDados!.length - 1 && <span className="text-gray-400 ml-1">,</span>}
-                               </div>
-                             </div>
-                          ))
-                        ) : (
-                          <span className="whitespace-nowrap">{acomp.itr || '-'}</span>
-                        )}
-                      </div>
-                      
-                      {(() => {
-                        const hasAnyItrPdf = (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url);
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasAnyItrPdf || isDownloadingZip === acomp.id + 'itr'}
-                            title={hasAnyItrPdf ? "Baixar todos os PDFs de ITR (em ZIP)" : "Nenhum PDF disponível"}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleDownloadAllItrZipped(acomp.id, acomp.itrDados || [], acomp.imovel)
-                            }}
-                            className={`p-1 rounded-full flex-shrink-0 transition-colors ${
-                              hasAnyItrPdf 
-                                ? (isDownloadingZip === acomp.id + 'itr' ? 'text-blue-400 bg-blue-50 cursor-wait' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800') 
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                          >
-                            {isDownloadingZip === acomp.id + 'itr' ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`w-4 h-4 ${!hasAnyItrPdf ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                    }`}>
-                      {acomp.geoCertificacao}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                    }`}>
-                      {acomp.geoRegistro}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 font-semibold">{formatNumber(acomp.areaTotal)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.reservaLegal)}</td>
-                  <td
-                    className="px-3 py-2 whitespace-nowrap text-sm font-semibold"
-                    title="Saldo = Reserva Legal (ha) - 20% da Área Total (ha)"
+      {/* Cards */}
+      <div className="space-y-4">
+        {sortedAcompanhamentos.length === 0 ? (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
+            <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400 font-medium">
+              {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum acompanhamento cadastrado.'}
+            </p>
+          </div>
+        ) : sortedAcompanhamentos.map((acomp) => {
+          const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+          const hasDocs = !!acomp.carUrl
+            || (acomp.matriculasDados || []).some(m => m.url)
+            || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+            || (acomp.ccirDados || []).some(m => m.url)
+          const hasMatriculas = (acomp.matriculasDados || []).length > 0
+          const hasCcir = (acomp.ccirDados || []).length > 0
+          const hasItr = (acomp.itrDados || []).length > 0
+          const hasMatriculasPdfs = (acomp.matriculasDados || []).some(m => m.url)
+          const hasCcirPdfs = (acomp.ccirDados || []).some(m => m.url)
+          const hasItrPdfs = (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+          const hasUsoDoSolo = acomp.cultura1 || acomp.cultura2 || acomp.outros
+          const hasApp = acomp.appCodigoFlorestal > 0 || acomp.appVegetada > 0 || acomp.appNaoVegetada > 0 || acomp.remanescenteFlorestal > 0
+
+          return (
+            <div key={acomp.id} className={`bg-white dark:!bg-[#243040] rounded-2xl shadow-md border overflow-hidden hover:shadow-lg transition-shadow duration-200 ${selectedItems.has(acomp.id) ? 'border-blue-400 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
+
+              {/* ── HEADER ───────────────────────────────── */}
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedItems.has(acomp.id)}
+                  onChange={() => handleSelectItem(acomp.id)}
+                  className="rounded border-white/40 bg-white/20 text-blue-600 shrink-0"
+                  title="Selecionar registro"
+                />
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
+                    #{formatCodImovel(acomp.codImovel)}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-white font-bold text-sm leading-tight truncate">{acomp.imovel}</div>
+                    <div className="text-blue-200 text-xs mt-0.5">{acomp.municipio}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {acomp.mapaUrl && (
+                    <button
+                      onClick={() => { setSelectedMapUrl(acomp.mapaUrl || ''); setSelectedImovel(acomp.imovel); setIsMapModalOpen(true) }}
+                      title="Ver mapa do imóvel"
+                      aria-label={`Ver mapa de ${acomp.imovel}`}
+                      className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                    >
+                      <MapIcon className="w-4 h-4 text-white" aria-hidden="true" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDownloadRegistroZip(acomp)}
+                    disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
+                    title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
+                    aria-label={hasDocs ? `Baixar documentos de ${acomp.imovel}` : 'Sem documentos'}
+                    className={`p-1.5 rounded-lg transition-colors ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
                   >
-                    {(() => {
-                      const required = (acomp.areaTotal || 0) * 0.2
-                      const saldo = (acomp.reservaLegal || 0) - required
-                      const isOk = saldo >= 0
-                      return (
-                        <span className={isOk ? 'text-green-700' : 'text-red-600'}>
-                          {isOk ? '+' : '-'}
-                          {formatNumber(Math.abs(saldo))} ha
-                        </span>
-                      )
-                    })()}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura1}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaCultura1)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.cultura2}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaCultura2)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{acomp.outros}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.areaOutros)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appCodigoFlorestal)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appVegetada)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.appNaoVegetada)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatNumber(acomp.remanescenteFlorestal)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
-                      {(() => {
-                        const hasDocs = !!acomp.carUrl || (acomp.matriculasDados || []).some(m => m.url) || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url) || (acomp.ccirDados || []).some(m => m.url);
-                        return (
-                          <button
-                            onClick={() => handleDownloadRegistroZip(acomp)}
-                            disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
-                            className={`transition-colors flex-shrink-0 ${
-                              hasDocs 
-                                ? (isDownloadingRecordZip === acomp.id ? 'text-blue-400 cursor-wait' : 'text-blue-600 hover:text-blue-900')
-                                : 'text-gray-300 cursor-not-allowed'
-                            }`}
-                            title={hasDocs ? "Baixar todos os documentos do registro (ZIP)" : "Nenhum documento disponível"}
-                          >
-                            {isDownloadingRecordZip === acomp.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                            ) : (
-                              <Download className={`h-4 w-4 ${!hasDocs ? 'opacity-50' : ''}`} />
-                            )}
-                          </button>
-                        )
-                      })()}
-                      <button
-                        onClick={() => handleEdit(acomp)}
-                        className="text-blue-600 hover:text-blue-900 flex-shrink-0"
-                        title="Editar"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(acomp.id)}
-                        className="text-red-600 hover:text-red-900 flex-shrink-0"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    {isDownloadingRecordZip === acomp.id
+                      ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+                      : <Archive className="w-4 h-4 text-white" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => handleEdit(acomp)}
+                    title="Editar"
+                    aria-label={`Editar ${acomp.imovel}`}
+                    className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                  >
+                    <Edit className="w-4 h-4 text-white" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(acomp.id)}
+                    title="Excluir"
+                    aria-label={`Excluir ${acomp.imovel}`}
+                    className="p-1.5 bg-white/10 hover:bg-red-500/60 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* ── BODY ─────────────────────────────────── */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+
+                {/* DOCUMENTOS */}
+                <div className="px-4 py-3 space-y-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Documentos
+                  </p>
+
+                  {/* Matrículas */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">Matrículas</span>
+                    <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                      {hasMatriculas ? acomp.matriculasDados!.map((mat, i) => (
+                        <React.Fragment key={mat.id}>
+                          {mat.url
+                            ? <a href={mat.url} target="_blank" rel="noopener noreferrer" title={`Baixar matrícula ${mat.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{mat.numero}</a>
+                            : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{mat.numero}</span>
+                          }
+                          {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                        </React.Fragment>
+                      )) : <span className="text-xs text-gray-400">{acomp.matriculas || '—'}</span>}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {hasMatriculas && (
+                      <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
+                        onClick={() => handleDownloadAllZipped(acomp.id, acomp.matriculasDados || [], acomp.imovel)}
+                        title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Sem PDFs disponíveis'}
+                        className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                        {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* N. INCRA / CCIR */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">N. INCRA/CCIR</span>
+                    <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                      {hasCcir ? acomp.ccirDados!.map((item, i) => (
+                        <React.Fragment key={item.id}>
+                          {item.url
+                            ? <a href={item.url} target="_blank" rel="noopener noreferrer" title={`Baixar CCIR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</a>
+                            : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{item.numero}</span>
+                          }
+                          {i < acomp.ccirDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                        </React.Fragment>
+                      )) : <span className="text-xs text-gray-400">{acomp.nIncraCcir || '—'}</span>}
+                    </div>
+                    {hasCcir && (
+                      <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
+                        onClick={() => handleDownloadAllCcirZipped(acomp.id, acomp.ccirDados || [], acomp.imovel)}
+                        title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Sem PDFs disponíveis'}
+                        className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                        {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* CAR */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">CAR</span>
+                    <div className="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                      {acomp.car ? (
+                        acomp.carUrl
+                          ? <a href={acomp.carUrl} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${acomp.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{acomp.car}</a>
+                          : <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{acomp.car}</span>
+                      ) : <span className="text-xs text-gray-400">—</span>}
+                      {acomp.statusCar && (
+                        <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">{acomp.statusCar}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ITR */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">ITR</span>
+                    <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
+                      {hasItr ? acomp.itrDados!.map((item, i) => (
+                        <React.Fragment key={item.id}>
+                          {item.declaracaoUrl || item.reciboUrl || item.url
+                            ? <button type="button" onClick={() => setItrDownloadModal({ item, imovel: acomp.imovel })} title={`Opções de download ITR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</button>
+                            : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{item.numero}</span>
+                          }
+                          {i < acomp.itrDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                        </React.Fragment>
+                      )) : <span className="text-xs text-gray-400">{acomp.itr || '—'}</span>}
+                    </div>
+                    {hasItr && (
+                      <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
+                        onClick={() => handleDownloadAllItrZipped(acomp.id, acomp.itrDados || [], acomp.imovel)}
+                        title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Sem PDFs disponíveis'}
+                        className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
+                        {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* GEORREFERENCIAMENTO */}
+                <div className="px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+                    <ClipboardCheck className="w-3.5 h-3.5" /> Georreferenciamento
+                  </p>
+                  <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Certificação</span>
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {acomp.geoCertificacao}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Registro</span>
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {acomp.geoRegistro}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ÁREAS */}
+                <div className="px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">Áreas (ha)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Total</div>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.areaTotal)}</div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Res. Legal</div>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.reservaLegal)}</div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Saldo RL</div>
+                      <div className={`text-sm font-bold leading-tight ${saldo >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {saldo >= 0 ? '+' : ''}{formatNumber(saldo)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* USO DO SOLO */}
+                {hasUsoDoSolo && (
+                  <div className="px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">Uso do Solo</p>
+                    <div className="flex flex-wrap gap-2">
+                      {acomp.cultura1 && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl px-3 py-1.5">
+                          <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">{acomp.cultura1}</div>
+                          <div className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">{formatNumber(acomp.areaCultura1)} ha</div>
+                        </div>
+                      )}
+                      {acomp.cultura2 && (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5">
+                          <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">{acomp.cultura2}</div>
+                          <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">{formatNumber(acomp.areaCultura2)} ha</div>
+                        </div>
+                      )}
+                      {acomp.outros && (
+                        <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-3 py-1.5">
+                          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{acomp.outros}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatNumber(acomp.areaOutros)} ha</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* APP / AMBIENTAL */}
+                {hasApp && (
+                  <div className="px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">APP / Ambiental (ha)</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                      {acomp.appCodigoFlorestal > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Cód. Florestal</span>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{formatNumber(acomp.appCodigoFlorestal)}</span>
+                        </div>
+                      )}
+                      {acomp.appVegetada > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">APP Vegetada</span>
+                          <span className="text-xs font-semibold text-green-600 dark:text-green-400">{formatNumber(acomp.appVegetada)}</span>
+                        </div>
+                      )}
+                      {acomp.appNaoVegetada > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">APP Não Veg.</span>
+                          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{formatNumber(acomp.appNaoVegetada)}</span>
+                        </div>
+                      )}
+                      {acomp.remanescenteFlorestal > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Remanescente</span>
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatNumber(acomp.remanescenteFlorestal)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Modal de Edição/Criação */}
