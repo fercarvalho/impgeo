@@ -3,6 +3,7 @@ import * as LucideIcons from 'lucide-react';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import MenuUsuario from '@/components/MenuUsuario';
+import NotificationBell from '@/components/NotificationBell';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import Footer from '@/components/Footer';
 import FeedbackButton from '@/components/FeedbackButton';
@@ -80,6 +81,7 @@ export default function SubsystemPicker() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <MenuUsuario />
               <button
                 onClick={logout}
