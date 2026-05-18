@@ -78,11 +78,17 @@ function renderInfoTexto(texto: string) {
   });
 }
 
+// Identifica URLs que apontam para serviços de mapa (endereço físico)
+function isMapLink(link: string): boolean {
+  return /(?:maps\.google|google\.[^/]+\/maps|goo\.gl\/maps|maps\.app\.goo\.gl|maps\.apple\.com|apple\.com\/maps|waze\.com|openstreetmap\.org|bing\.com\/maps)/i.test(link);
+}
+
 function ContatoIcon({ link, texto }: { link: string; texto: string }) {
   if (link.startsWith('https://wa.me') || texto.includes('(')) return <Phone className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
   if (link.startsWith('mailto:') || texto.includes('@')) return <Mail className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  if (isMapLink(link)) return <Map className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
   if (link.startsWith('https://') || link.startsWith('http://')) return <Globe className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
-  return <Map className="h-4 w-4 mr-2 flex-shrink-0" aria-hidden="true" />;
+  return null;
 }
 
 const Footer: React.FC = () => {
@@ -218,7 +224,6 @@ const Footer: React.FC = () => {
                     </div>
                   ) : (
                     <div key={item.id} className="flex items-center">
-                      <ContatoIcon link={item.link} texto={item.texto} />
                       <p className="text-sm">{item.texto}</p>
                     </div>
                   )
