@@ -2,198 +2,38 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User, AlertTriangle } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
-import JSZip from 'jszip'
-import { saveAs } from 'file-saver'
-export interface MatriculaItem {
-  id: string
-  numero: string
-  url?: string
-}
-
-interface ItrItem {
-  id: string
-  numero: string
-  url?: string
-  declaracaoUrl?: string
-  reciboUrl?: string
-}
-
-export interface CcirItem {
-  id: string
-  numero: string
-  url?: string
-}
-
-interface TerraControlRecord {
-  id: string
-  codImovel: number
-  imovel: string
-  municipio: string
-  mapaUrl?: string
-  matriculas: string
-  matriculasDados?: MatriculaItem[]
-  nIncraCcir: string
-  car: string
-  carUrl?: string
-  statusCar: string
-  itr: string
-  itrDados?: ItrItem[]
-  ccirDados?: CcirItem[]
-  geoCertificacao: 'SIM' | 'NÃO'
-  geoRegistro: 'SIM' | 'NÃO'
-  areaTotal: number
-  reservaLegal: number
-  cultura1: string
-  areaCultura1: number
-  cultura2: string
-  areaCultura2: number
-  outros: string
-  areaOutros: number
-  appCodigoFlorestal: number
-  appVegetada: number
-  appNaoVegetada: number
-  remanescenteFlorestal: number
-}
+// Tipos, normalize, helpers de URL/cultura, builders de gráfico e empacotadores
+// de ZIP vêm dos módulos compartilhados — ver src/subsistemas/especial/modulos/
+// terracontrol/. Antes desta refatoração (G3.1), tudo estava duplicado aqui
+// e em TerraControl.tsx, com pequenas divergências que vazavam bugs.
+import {
+  type ItrItem,
+  type TerraControlRecord,
+  type SortField,
+  type SortDirection,
+  normalizeRecords,
+  formatCodImovel,
+  formatNumber,
+  isAllowedMapUrl,
+  convertMapUrlToEmbed,
+  getAreaByCulturaType,
+  type ChartDatum,
+  type APPField,
+  getTotalImoveisData,
+  getAreaTotalData,
+  getGeoCertificacaoData,
+  getGeoRegistroData,
+  getCulturaData,
+  getAPPData,
+  getReservaLegalData,
+  downloadAllMatriculasZip,
+  downloadAllItrZip,
+  downloadSingleItrZip,
+  downloadAllCcirZip,
+  downloadRegistroZip,
+} from './_terracontrol'
 
 const API_BASE_URL = '/api'
-
-const normalizeRecord = (raw: any): TerraControlRecord => {
-  let matriculas_dados: MatriculaItem[] = []
-  if (raw?.matriculasDados || raw?.matriculas_dados) {
-    try {
-      if (typeof (raw?.matriculasDados || raw?.matriculas_dados) === 'string') {
-        matriculas_dados = JSON.parse(raw?.matriculasDados || raw?.matriculas_dados)
-      } else {
-        matriculas_dados = raw?.matriculasDados || raw?.matriculas_dados
-      }
-    } catch(e) { console.error('Error parsing matriculas_dados', e) }
-  } else if (raw?.matriculas && typeof raw?.matriculas === 'string') {
-    // legacy string support
-    matriculas_dados = raw.matriculas.split(',').map((m: string, idx: number) => ({
-      id: `legacy-mat-${String(raw?.id ?? '')}-${idx}`,
-      numero: m.trim(),
-      url: ''
-    })).filter((m: MatriculaItem) => m.numero.length > 0)
-  }
-
-  let itr_dados: ItrItem[] = []
-  if (raw?.itrDados || raw?.itr_dados) {
-    try {
-      if (typeof (raw?.itrDados || raw?.itr_dados) === 'string') {
-        itr_dados = JSON.parse(raw?.itrDados || raw?.itr_dados)
-      } else {
-        itr_dados = raw?.itrDados || raw?.itr_dados
-      }
-    } catch(e) { console.error('Error parsing itr_dados', e) }
-  } else if (raw?.itr && typeof raw?.itr === 'string') {
-    // legacy string support
-    itr_dados = raw.itr.split(',').map((m: string, idx: number) => ({
-      id: `legacy-itr-${String(raw?.id ?? '')}-${idx}`,
-      numero: m.trim(),
-      url: '',
-      declaracaoUrl: '',
-      reciboUrl: ''
-    })).filter((m: ItrItem) => m.numero.length > 0)
-  }
-
-  // Fallback for ITR documents: map existing 'url' to 'declaracaoUrl' if empty
-  itr_dados = itr_dados.map(item => ({
-    ...item,
-    declaracaoUrl: item.declaracaoUrl || item.url || ''
-  }))
-
-  let ccir_dados: CcirItem[] = []
-  if (raw?.ccirDados || raw?.ccir_dados) {
-    try {
-      if (typeof (raw?.ccirDados || raw?.ccir_dados) === 'string') {
-        ccir_dados = JSON.parse(raw?.ccirDados || raw?.ccir_dados)
-      } else {
-        ccir_dados = raw?.ccirDados || raw?.ccir_dados
-      }
-    } catch(e) { console.error('Error parsing ccir_dados', e) }
-  } else if ((raw?.nIncraCcir || raw?.n_incra_ccir) && typeof (raw?.nIncraCcir || raw?.n_incra_ccir) === 'string') {
-    // legacy string support
-    const legacyVal = raw?.nIncraCcir || raw?.n_incra_ccir
-    ccir_dados = legacyVal.split(',').map((m: string, idx: number) => ({
-      id: `legacy-ccir-${String(raw?.id ?? '')}-${idx}`,
-      numero: m.trim(),
-      url: ''
-    })).filter((m: any) => m.numero.length > 0)
-  }
-
-  return {
-    id: String(raw?.id ?? ''),
-    codImovel: Number(raw?.codImovel ?? raw?.cod_imovel ?? 0),
-    imovel: raw?.imovel ?? raw?.endereco ?? '',
-    municipio: raw?.municipio ?? '',
-    mapaUrl: raw?.mapaUrl ?? raw?.mapa_url ?? '',
-    matriculas: raw?.matriculas ?? '',
-    matriculasDados: matriculas_dados,
-    nIncraCcir: raw?.nIncraCcir ?? raw?.n_incra_ccir ?? '',
-    ccirDados: ccir_dados,
-    car: raw?.car ?? '',
-    carUrl: raw?.carUrl ?? raw?.car_url ?? '',
-    statusCar: raw?.statusCar ?? raw?.status_car ?? '',
-    itr: raw?.itr ?? '',
-    itrDados: itr_dados,
-    geoCertificacao: (raw?.geoCertificacao ?? raw?.geo_certificacao) === 'SIM' ? 'SIM' : 'NÃO',
-    geoRegistro: (raw?.geoRegistro ?? raw?.geo_registro) === 'SIM' ? 'SIM' : 'NÃO',
-    areaTotal: Number(raw?.areaTotal ?? raw?.area_total ?? 0),
-    reservaLegal: Number(raw?.reservaLegal ?? raw?.reserva_legal ?? 0),
-    cultura1: raw?.cultura1 ?? '',
-    areaCultura1: Number(raw?.areaCultura1 ?? raw?.area_cultura1 ?? 0),
-    cultura2: raw?.cultura2 ?? '',
-    areaCultura2: Number(raw?.areaCultura2 ?? raw?.area_cultura2 ?? 0),
-    outros: raw?.outros ?? '',
-    areaOutros: Number(raw?.areaOutros ?? raw?.area_outros ?? 0),
-    appCodigoFlorestal: Number(raw?.appCodigoFlorestal ?? raw?.app_codigo_florestal ?? 0),
-    appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
-    appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
-    remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0)
-  }
-}
-
-const normalizeRecords = (rows: any[]): TerraControlRecord[] =>
-  Array.isArray(rows) ? rows.map(normalizeRecord) : []
-
-const formatCodImovel = (value: number): string => String(Number(value || 0)).padStart(3, '0')
-
-const getSafeImovelName = (name: string): string => {
-  if (!name) return 'Sem_Nome'
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-    .replace(/[^a-z0-9]/gi, '_') // Remove caracteres especiais
-    .replace(/_+/g, '_') // Remove underscores duplicados
-    .replace(/^_+|_+$/g, '') // Remove underscores nas bordas
-    || 'Sem_Nome'
-}
-
-type SortField =
-  | 'codImovel'
-  | 'imovel'
-  | 'municipio'
-  | 'nIncraCcir'
-  | 'car'
-  | 'statusCar'
-  | 'itr'
-  | 'geoCertificacao'
-  | 'geoRegistro'
-  | 'areaTotal'
-  | 'reservaLegal'
-  | 'saldoReservaLegal'
-  | 'cultura1'
-  | 'areaCultura1'
-  | 'cultura2'
-  | 'areaCultura2'
-  | 'outros'
-  | 'areaOutros'
-  | 'appCodigoFlorestal'
-  | 'appVegetada'
-  | 'appNaoVegetada'
-  | 'remanescenteFlorestal'
-
-type SortDirection = 'asc' | 'desc'
 
 const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   const [records, setRecords] = useState<TerraControlRecord[]>([])
@@ -322,272 +162,106 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     }
   }
 
-  const handleDownloadAllZipped = async (recordId: string, matriculasDados: MatriculaItem[], imovelName: string) => {
-    const matriculasComUrl = (matriculasDados || []).filter(m => m.url)
-    if (matriculasComUrl.length === 0) return
-
-    setIsDownloadingZip(recordId)
+  // Handlers de download finos: gerenciam só o estado visual de "downloading"
+  // e delegam a montagem do ZIP para os helpers em ./terracontrol/downloads.ts.
+  // Cada chamada injeta withShareAuth para que /api/documents/* receba o
+  // share token na query string (G2.1).
+  const handleDownloadAllMatriculas = async (record: TerraControlRecord) => {
+    setIsDownloadingZip(record.id)
     try {
-      const zip = new JSZip()
-      
-      const downloadPromises = matriculasComUrl.map(async (mat) => {
-        try {
-          const response = await fetch(withShareAuth(mat.url))
-          const blob = await response.blob()
-          const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-          zip.file(`Matricula_${safeName}.pdf`, blob)
-        } catch (e) {
-          console.error(`Erro ao baixar a matrícula ${mat.numero}:`, e)
-        }
-      })
-
-      await Promise.all(downloadPromises)
-      
-      const content = await zip.generateAsync({ type: 'blob' })
-      const safeImovel = getSafeImovelName(imovelName)
-      saveAs(content, `Matriculas_${safeImovel}.zip`)
-    } catch (error) {
-      console.error('Erro geral ao zipar arquivos:', error)
-      alert('Erro ao tentar compactar as matrículas.')
+      await downloadAllMatriculasZip(record.matriculasDados || [], record.imovel, withShareAuth)
     } finally {
       setIsDownloadingZip(null)
     }
   }
 
-  const handleDownloadAllItrZipped = async (recordId: string, itrDados: ItrItem[], imovelName: string) => {
-    const itrsComDocumentos = (itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
-    if (itrsComDocumentos.length === 0) return
-
-    setIsDownloadingZip(recordId + 'itr')
+  const handleDownloadAllItr = async (record: TerraControlRecord) => {
+    setIsDownloadingZip(record.id + 'itr')
     try {
-      const zip = new JSZip()
-      const downloadPromises: Promise<void>[] = []
-      
-      itrsComDocumentos.forEach((item) => {
-        const safeNumero = item.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-        const declUrl = item.declaracaoUrl || item.url
-        if (declUrl) {
-          downloadPromises.push((async () => {
-            try {
-              const res = await fetch(withShareAuth(declUrl))
-              const blob = await res.blob()
-              zip.file(`Itr_${safeNumero}_Declaracao.pdf`, blob)
-            } catch (e) { console.error(`Erro ITR:`, e) }
-          })())
-        }
-        if (item.reciboUrl) {
-          downloadPromises.push((async () => {
-            try {
-              const res = await fetch(withShareAuth(item.reciboUrl))
-              const blob = await res.blob()
-              zip.file(`Itr_${safeNumero}_Recibo.pdf`, blob)
-            } catch (e) { console.error(`Erro ITR:`, e) }
-          })())
-        }
-      })
-
-      await Promise.all(downloadPromises)
-      const content = await zip.generateAsync({ type: 'blob' })
-      const safeImovel = getSafeImovelName(imovelName)
-      saveAs(content, `ITRs_${safeImovel}.zip`)
-    } catch (error) {
-      console.error('Erro geral ao zipar ITRs:', error)
-      alert('Erro ao tentar compactar os ITRs.')
+      await downloadAllItrZip(record.itrDados || [], record.imovel, withShareAuth)
     } finally {
       setIsDownloadingZip(null)
     }
   }
 
-  const handleDownloadSingleItrZipped = async (item: ItrItem, imovelName: string) => {
-    if (!item.declaracaoUrl && !item.reciboUrl && !item.url) return
-
+  const handleDownloadSingleItr = async (item: ItrItem, imovelName: string) => {
     setIsDownloadingSingleZip(item.id)
     try {
-      const zip = new JSZip()
-      const downloadPromises: Promise<void>[] = []
-      const safeNumero = item.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-      
-      const declUrl = item.declaracaoUrl || item.url
-      if (declUrl) {
-        downloadPromises.push((async () => {
-          try {
-            const res = await fetch(withShareAuth(declUrl))
-            const blob = await res.blob()
-            zip.file(`Itr_${safeNumero}_Declaracao.pdf`, blob)
-          } catch (e) { console.error(`Erro:`, e) }
-        })())
-      }
-      
-      if (item.reciboUrl) {
-        downloadPromises.push((async () => {
-          try {
-            const res = await fetch(withShareAuth(item.reciboUrl))
-            const blob = await res.blob()
-            zip.file(`Itr_${safeNumero}_Recibo.pdf`, blob)
-          } catch (e) { console.error(`Erro:`, e) }
-        })())
-      }
-
-      await Promise.all(downloadPromises)
-      const content = await zip.generateAsync({ type: 'blob' })
-      const safeImovel = getSafeImovelName(imovelName)
-      saveAs(content, `ITR_${item.numero}_${safeImovel}.zip`)
-    } catch (error) {
-      console.error('Erro ao zipar ITR:', error)
-      alert('Erro ao tentar compactar os documentos.')
+      await downloadSingleItrZip(item, imovelName, withShareAuth)
     } finally {
       setIsDownloadingSingleZip(null)
     }
   }
 
-  const handleDownloadAllCcirZipped = async (recordId: string, ccirDados: CcirItem[], imovelName: string) => {
-    const ccirsComUrl = (ccirDados || []).filter(m => m.url)
-    if (ccirsComUrl.length === 0) return
-
-    setIsDownloadingZip(recordId + 'ccir')
+  const handleDownloadAllCcir = async (record: TerraControlRecord) => {
+    setIsDownloadingZip(record.id + 'ccir')
     try {
-      const zip = new JSZip()
-
-      const downloadPromises = ccirsComUrl.map(async (mat) => {
-        try {
-          const response = await fetch(withShareAuth(mat.url))
-          const blob = await response.blob()
-          const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-          zip.file(`Ccir_${safeName}.pdf`, blob)
-        } catch (e) {
-          console.error(`Erro ao baixar o CCIR ${mat.numero}:`, e)
-        }
-      })
-
-      await Promise.all(downloadPromises)
-
-      const content = await zip.generateAsync({ type: 'blob' })
-      const safeImovel = getSafeImovelName(imovelName)
-      saveAs(content, `CCIRs_${safeImovel}.zip`)
-    } catch (error) {
-      console.error('Erro geral ao zipar arquivos CCIR:', error)
-      alert('Erro ao tentar compactar os CCIRs.')
+      await downloadAllCcirZip(record.ccirDados || [], record.imovel, withShareAuth)
     } finally {
       setIsDownloadingZip(null)
     }
   }
 
-
-
-
-
-  const handleDownloadRegistroZip = async (acomp: TerraControlRecord) => {
-    const matriculasComUrl = (acomp.matriculasDados || []).filter(m => m.url)
-    const itrsComDados = (acomp.itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
-    const ccirComUrl = (acomp.ccirDados || []).filter(m => m.url)
-    const hasCarUrl = !!acomp.carUrl
-
-    if (!hasCarUrl && matriculasComUrl.length === 0 && itrsComDados.length === 0 && ccirComUrl.length === 0) {
-      alert('Nenhum documento disponível para download neste registro.')
-      return
-    }
-
-    setIsDownloadingRecordZip(acomp.id)
+  const handleDownloadRegistro = async (record: TerraControlRecord) => {
+    setIsDownloadingRecordZip(record.id)
     try {
-      const zip = new JSZip()
-      const promises: Promise<void>[] = []
-
-      if (hasCarUrl) {
-        promises.push((async () => {
-          try {
-            const response = await fetch(withShareAuth(acomp.carUrl))
-            const blob = await response.blob()
-            const safeName = (acomp.car || 'CAR').replace(/[^a-z0-9]/gi, '_').toLowerCase()
-            zip.folder('CAR')?.file(`CAR_${safeName}.pdf`, blob)
-          } catch (e) {
-            console.error(`Erro ao baixar o CAR ${acomp.car}:`, e)
-          }
-        })())
+      const result = await downloadRegistroZip(record, withShareAuth)
+      if (result.empty) {
+        alert('Nenhum documento disponível para download neste registro.')
       }
-
-      if (matriculasComUrl.length > 0) {
-        const matriculasPromises = matriculasComUrl.map(async (mat) => {
-          try {
-            const response = await fetch(withShareAuth(mat.url))
-            const blob = await response.blob()
-            const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-            zip.folder('Matriculas')?.file(`Matricula_${safeName}.pdf`, blob)
-          } catch (e) {
-            console.error(`Erro ao baixar a matrícula ${mat.numero}:`, e)
-          }
-        })
-        promises.push(...matriculasPromises)
-      }
-
-      if (itrsComDados.length > 0) {
-        const itrPromises = itrsComDados.flatMap((item) => {
-          const itemPromises: Promise<void>[] = []
-          const safeName = item.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-
-          const declUrl = item.declaracaoUrl || item.url
-          if (declUrl) {
-            itemPromises.push((async () => {
-              try {
-                const res = await fetch(withShareAuth(declUrl))
-                const blob = await res.blob()
-                zip.folder('Itr')?.file(`Itr_${safeName}_Declaracao.pdf`, blob)
-              } catch (e) { console.error(`Erro ao baixar declaração ${item.numero}:`, e) }
-            })())
-          }
-
-          if (item.reciboUrl) {
-            itemPromises.push((async () => {
-              try {
-                const res = await fetch(withShareAuth(item.reciboUrl))
-                const blob = await res.blob()
-                zip.folder('Itr')?.file(`Itr_${safeName}_Recibo.pdf`, blob)
-              } catch (e) { console.error(`Erro ao baixar recibo ${item.numero}:`, e) }
-            })())
-          }
-
-          return itemPromises
-        })
-        promises.push(...itrPromises)
-      }
-
-      if (ccirComUrl.length > 0) {
-        const ccirPromises = ccirComUrl.map(async (mat) => {
-          try {
-            const response = await fetch(withShareAuth(mat.url))
-            const blob = await response.blob()
-            const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-            zip.folder('CCIR')?.file(`Ccir_${safeName}.pdf`, blob)
-          } catch (e) {
-            console.error(`Erro ao baixar CCIR ${mat.numero}:`, e)
-          }
-        })
-        promises.push(...ccirPromises)
-      }
-
-      await Promise.all(promises)
-      
-      const content = await zip.generateAsync({ type: 'blob' })
-      const safeImovel = getSafeImovelName(acomp.imovel)
-      saveAs(content, `Documentos_${safeImovel}.zip`)
-    } catch (error) {
-      console.error('Erro geral ao zipar registro:', error)
-      alert('Erro ao tentar compactar os documentos. Entre em contato com o suporte ou baixe manualmente.')
     } finally {
       setIsDownloadingRecordZip(null)
     }
   }
 
-  const formatNumber = (num: number) => {
-    return (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
+  // Helpers de cálculo derivados dos registros (G3.6 — memoizados).
+  // Antes recalculavam a cada render mesmo sem o records mudar.
+  const totalImoveisData       = useMemo(() => getTotalImoveisData(records),    [records])
+  const areaTotalData          = useMemo(() => getAreaTotalData(records),       [records])
+  const geoCertificacaoData    = useMemo(() => getGeoCertificacaoData(records), [records])
+  const geoRegistroData        = useMemo(() => getGeoRegistroData(records),     [records])
+  const reservaLegalData       = useMemo(() => getReservaLegalData(records),    [records])
+  // Para builders que tomam um parâmetro (tipo/field), só capturamos `records`
+  // num closure — quem chama passa o argumento. A memoização real fica a cargo
+  // do useMemo do total agregado abaixo.
+  const culturaChartData = (tipo: string)    => getCulturaData(records, tipo)
+  const appChartData     = (field: APPField) => getAPPData(records, field)
+  const areaPorCultura   = (tipo: string)    => getAreaByCulturaType(records, tipo)
 
-  const getSortValue = (acomp: TerraControlRecord, field: SortField): string | number => {
-    if (field === 'saldoReservaLegal') {
-      return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+  // Abre o ChartModal com os dados informados. Centralizado aqui porque vários
+  // stat cards diferentes chamam a mesma rotina (título + dados + total).
+  const openChart = (
+    title: string,
+    subtitle: string,
+    data: ChartDatum[],
+    options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
+  ) => {
+    if (!data || data.length === 0) {
+      alert('Não há dados disponíveis para exibir o gráfico.')
+      return
     }
-    return acomp[field as keyof TerraControlRecord] as string | number
+    const total = data.reduce((sum, item) => sum + item.value, 0)
+    if (total === 0) {
+      alert('Não há dados disponíveis para exibir o gráfico.')
+      return
+    }
+    setChartTitle(title)
+    setChartSubtitle(subtitle)
+    setChartData(data)
+    setChartTotal(total)
+    setChartValueUnit(options?.valueUnit ?? 'ha')
+    setChartValueFormat(options?.valueFormat ?? 'area')
+    setChartModalOpen(true)
   }
 
+  const getSortValue = (record: TerraControlRecord, field: SortField): string | number => {
+    if (field === 'saldoReservaLegal') {
+      return (record.reservaLegal || 0) - ((record.areaTotal || 0) * 0.2)
+    }
+    return record[field as keyof TerraControlRecord] as string | number
+  }
+
+  // G3.4 — filter + sort num único useMemo (já era assim na View; mantido).
   const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
     const filtered = searchTerm
@@ -614,236 +288,6 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
     return filtered
   }, [records, sortField, sortDirection, searchTerm])
-
-  // G2.5 — mesma validação aplicada no TerraControl.tsx (admin).
-  // Só renderiza iframe se a URL for confiavelmente Google Maps.
-  const isAllowedMapUrl = (url: string): boolean => {
-    if (!url || typeof url !== 'string') return false
-    try {
-      const u = new URL(url)
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
-      const allowedHosts = ['www.google.com', 'google.com', 'maps.google.com']
-      return allowedHosts.includes(u.hostname)
-    } catch {
-      return false
-    }
-  }
-
-  // Função para converter URL do Google Maps para formato embed
-  const convertMapUrlToEmbed = (url: string): string => {
-    if (!isAllowedMapUrl(url)) return ''
-
-    // Se já for uma URL embed, retorna como está
-    if (url.includes('/embed')) return url
-
-    // Extrai o mid (map ID) da URL
-    const midMatch = url.match(/[?&]mid=([^&]+)/)
-    if (midMatch) {
-      const mid = midMatch[1]
-      return `https://www.google.com/maps/d/embed?mid=${mid}`
-    }
-
-    // Se não encontrar mid, tenta converter edit/viewer para embed
-    let embedUrl = url
-      .replace('/edit', '/embed')
-      .replace('/u/0/viewer', '/embed')
-      .replace('/viewer', '/embed')
-
-    return embedUrl
-  }
-
-  // Cores para os gráficos
-  const chartColors = [
-    '#3b82f6', // azul
-    '#22c55e', // verde
-    '#ef4444', // vermelho
-    '#f59e0b', // laranja
-    '#8b5cf6', // roxo
-    '#ec4899', // rosa
-    '#06b6d4', // ciano
-    '#84cc16', // verde limão
-    '#f97316', // laranja escuro
-    '#6366f1', // índigo
-  ]
-
-  // Função para abrir gráfico
-  const openChart = (
-    title: string,
-    subtitle: string,
-    data: Array<{name: string; value: number; color: string}>,
-    options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
-  ) => {
-    if (!data || data.length === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
-      return
-    }
-    const total = data.reduce((sum, item) => sum + item.value, 0)
-    if (total === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
-      return
-    }
-    setChartTitle(title)
-    setChartSubtitle(subtitle)
-    setChartData(data)
-    setChartTotal(total)
-    setChartValueUnit(options?.valueUnit ?? 'ha')
-    setChartValueFormat(options?.valueFormat ?? 'area')
-    setChartModalOpen(true)
-  }
-
-  // Função para normalizar o nome da cultura (remove acentos e converte para maiúsculas)
-  const normalizeCulturaName = (name: string): string => {
-    if (!name) return ''
-    return name
-      .toUpperCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-  }
-
-  // Função para verificar se uma cultura corresponde ao tipo (com variações)
-  const matchesCulturaType = (cultura: string, tipo: string): boolean => {
-    const culturaNorm = normalizeCulturaName(cultura)
-    const tipoNorm = normalizeCulturaName(tipo)
-    
-    if (culturaNorm === tipoNorm) return true
-    
-    // Variações comuns
-    const variacoes: { [key: string]: string[] } = {
-      'CULTURA TEMPORARIA': ['CULTURA TEMPORARIA', 'CULTURA TEMPORÁRIA', 'TEMPORARIA', 'TEMPORÁRIA'],
-      'SILVICULTURA': ['SILVICULTURA', 'SILVICULTURA', 'REFLORESTAMENTO'],
-      'PASTO': ['PASTO', 'PASTAGEM', 'PASTAGENS'],
-      'BANHADO': ['BANHADO', 'BANHADOS', 'BREJO', 'BREJOS'],
-      'SERVIDAO': ['SERVIDAO', 'SERVIDÃO', 'SERVIDOES', 'SERVIÇÕES'],
-      'AREA ANTROPIZADA': ['AREA ANTROPIZADA', 'ÁREA ANTROPIZADA', 'ANTROPIZADA', 'ANTROPIZADO']
-    }
-    
-    const variacoesTipo = variacoes[tipoNorm] || []
-    return variacoesTipo.some(v => normalizeCulturaName(v) === culturaNorm) || culturaNorm.includes(tipoNorm) || tipoNorm.includes(culturaNorm)
-  }
-
-  // Função para calcular área total por tipo de cultura
-  const getAreaByCulturaType = (tipo: string): number => {
-    let total = 0
-
-    records.forEach(acomp => {
-      // Verificar cultura1
-      if (matchesCulturaType(acomp.cultura1, tipo)) {
-        total += acomp.areaCultura1 || 0
-      }
-      // Verificar cultura2
-      if (matchesCulturaType(acomp.cultura2, tipo)) {
-        total += acomp.areaCultura2 || 0
-      }
-      // Verificar outros
-      if (matchesCulturaType(acomp.outros, tipo)) {
-        total += acomp.areaOutros || 0
-      }
-    })
-
-    return total
-  }
-
-  // Funções para gerar dados de cada gráfico
-  const getTotalImoveisData = () => {
-    const byMunicipio = records.reduce((acc, acomp) => {
-      acc[acomp.municipio] = (acc[acomp.municipio] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    return Object.entries(byMunicipio)
-      .map(([name, value], index) => ({
-        name,
-        value,
-        color: chartColors[index % chartColors.length]
-      }))
-      .sort((a, b) => b.value - a.value)
-  }
-
-  const getAreaTotalData = () => {
-    const byMunicipio = records.reduce((acc, acomp) => {
-      acc[acomp.municipio] = (acc[acomp.municipio] || 0) + (acomp.areaTotal || 0)
-      return acc
-    }, {} as Record<string, number>)
-
-    return Object.entries(byMunicipio)
-      .map(([name, value], index) => ({
-        name,
-        value,
-        color: chartColors[index % chartColors.length]
-      }))
-      .sort((a, b) => b.value - a.value)
-  }
-
-  const getGeoCertificacaoData = () => {
-    const sim = records.filter(a => a.geoCertificacao === 'SIM').length
-    const nao = records.filter(a => a.geoCertificacao === 'NÃO').length
-    return [
-      { name: 'SIM', value: sim, color: '#22c55e' },
-      { name: 'NÃO', value: nao, color: '#ef4444' }
-    ]
-  }
-
-  const getGeoRegistroData = () => {
-    const sim = records.filter(a => a.geoRegistro === 'SIM').length
-    const nao = records.filter(a => a.geoRegistro === 'NÃO').length
-    return [
-      { name: 'SIM', value: sim, color: '#22c55e' },
-      { name: 'NÃO', value: nao, color: '#ef4444' }
-    ]
-  }
-
-  const getCulturaData = (tipo: string) => {
-    const data = records.map(acomp => {
-      let area = 0
-      if (matchesCulturaType(acomp.cultura1, tipo)) area += acomp.areaCultura1 || 0
-      if (matchesCulturaType(acomp.cultura2, tipo)) area += acomp.areaCultura2 || 0
-      if (matchesCulturaType(acomp.outros, tipo)) area += acomp.areaOutros || 0
-      return { imovel: acomp.imovel, area }
-    }).filter(item => item.area > 0)
-      .sort((a, b) => b.area - a.area)
-      .slice(0, 10) // Top 10
-
-    return data.map((item, index) => ({
-      name: item.imovel,
-      value: item.area,
-      color: chartColors[index % chartColors.length]
-    }))
-  }
-
-  const getAPPData = (tipo: 'appCodigoFlorestal' | 'appVegetada' | 'appNaoVegetada' | 'remanescenteFlorestal') => {
-    const data = records
-      .map(acomp => ({
-        imovel: acomp.imovel,
-        area: acomp[tipo] || 0
-      }))
-      .filter(item => item.area > 0)
-      .sort((a, b) => b.area - a.area)
-      .slice(0, 10) // Top 10
-
-    return data.map((item, index) => ({
-      name: item.imovel,
-      value: item.area,
-      color: chartColors[index % chartColors.length]
-    }))
-  }
-
-  const getReservaLegalData = () => {
-    const data = records
-      .map(acomp => ({
-        imovel: acomp.imovel,
-        area: acomp.reservaLegal || 0
-      }))
-      .filter(item => item.area > 0)
-      .sort((a, b) => b.area - a.area)
-      .slice(0, 10) // Top 10
-
-    return data.map((item, index) => ({
-      name: item.imovel,
-      value: item.area,
-      color: chartColors[index % chartColors.length]
-    }))
-  }
 
   // Bloquear scroll do body quando o modal de mapa estiver aberto
   useEffect(() => {
@@ -1013,14 +457,14 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
+            onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', totalImoveisData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{records.length}</p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', getAreaTotalData())}
+            onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', areaTotalData)}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1029,7 +473,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', getGeoCertificacaoData(), { valueFormat: 'number', valueUnit: '' })}
+            onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', geoCertificacaoData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
             <p className="text-2xl font-bold text-green-600">
@@ -1038,7 +482,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', getGeoRegistroData(), { valueFormat: 'number', valueUnit: '' })}
+            onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', geoRegistroData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
             <p className="text-2xl font-bold text-green-600">
@@ -1051,47 +495,47 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', getCulturaData('Silvicultura'))}
+            onClick={() => openChart('Silvicultura', 'Distribuição de área por imóvel (ha)', culturaChartData('Silvicultura'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Silvicultura</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Silvicultura'))} ha
+              {formatNumber(areaPorCultura('Silvicultura'))} ha
             </p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Cultura Temporária', 'Distribuição de área por imóvel (ha)', getCulturaData('Cultura Temporária'))}
+            onClick={() => openChart('Cultura Temporária', 'Distribuição de área por imóvel (ha)', culturaChartData('Cultura Temporária'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cultura Temporária</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Cultura Temporária'))} ha
+              {formatNumber(areaPorCultura('Cultura Temporária'))} ha
             </p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Pasto', 'Distribuição de área por imóvel (ha)', getCulturaData('Pasto'))}
+            onClick={() => openChart('Pasto', 'Distribuição de área por imóvel (ha)', culturaChartData('Pasto'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pasto</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Pasto'))} ha
+              {formatNumber(areaPorCultura('Pasto'))} ha
             </p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Banhado', 'Distribuição de área por imóvel (ha)', getCulturaData('Banhado'))}
+            onClick={() => openChart('Banhado', 'Distribuição de área por imóvel (ha)', culturaChartData('Banhado'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Banhado</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Banhado'))} ha
+              {formatNumber(areaPorCultura('Banhado'))} ha
             </p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Servidão', 'Distribuição de área por imóvel (ha)', getCulturaData('Servidão'))}
+            onClick={() => openChart('Servidão', 'Distribuição de área por imóvel (ha)', culturaChartData('Servidão'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Servidão</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Servidão'))} ha
+              {formatNumber(areaPorCultura('Servidão'))} ha
             </p>
           </div>
         </div>
@@ -1100,16 +544,16 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', getCulturaData('Área Antropizada'))}
+            onClick={() => openChart('Área Antropizada', 'Distribuição de área por imóvel (ha)', culturaChartData('Área Antropizada'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Antropizada</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(getAreaByCulturaType('Área Antropizada'))} ha
+              {formatNumber(areaPorCultura('Área Antropizada'))} ha
             </p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('appCodigoFlorestal'))}
+            onClick={() => openChart('APP Código Florestal', 'Distribuição de área por imóvel (ha)', appChartData('appCodigoFlorestal'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1118,7 +562,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('APP Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appVegetada'))}
+            onClick={() => openChart('APP Vegetada', 'Distribuição de área por imóvel (ha)', appChartData('appVegetada'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
             <p className="text-2xl font-bold text-green-600">
@@ -1127,7 +571,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('APP Não Vegetada', 'Distribuição de área por imóvel (ha)', getAPPData('appNaoVegetada'))}
+            onClick={() => openChart('APP Não Vegetada', 'Distribuição de área por imóvel (ha)', appChartData('appNaoVegetada'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
             <p className="text-2xl font-bold text-orange-600">
@@ -1136,7 +580,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('20% Reserva Legal', 'Distribuição de área por imóvel (ha)', getReservaLegalData())}
+            onClick={() => openChart('20% Reserva Legal', 'Distribuição de área por imóvel (ha)', reservaLegalData)}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1145,7 +589,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
-            onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', getAPPData('remanescenteFlorestal'))}
+            onClick={() => openChart('Remanescente Florestal', 'Distribuição de área por imóvel (ha)', appChartData('remanescenteFlorestal'))}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Remanescente Florestal</p>
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -1252,7 +696,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDownloadRegistroZip(acomp)}
+                      onClick={() => handleDownloadRegistro(acomp)}
                       disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
                       title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
                       aria-label={hasDocs ? `Baixar todos os documentos de ${acomp.imovel} em ZIP` : 'Nenhum documento disponível'}
@@ -1291,7 +735,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       </div>
                       {hasMatriculas && (
                         <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
-                          onClick={() => handleDownloadAllZipped(acomp.id, acomp.matriculasDados || [], acomp.imovel)}
+                          onClick={() => handleDownloadAllMatriculas(acomp)}
                           title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Sem PDFs disponíveis'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
@@ -1315,7 +759,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       </div>
                       {hasCcir && (
                         <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
-                          onClick={() => handleDownloadAllCcirZipped(acomp.id, acomp.ccirDados || [], acomp.imovel)}
+                          onClick={() => handleDownloadAllCcir(acomp)}
                           title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Sem PDFs disponíveis'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
@@ -1354,7 +798,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       </div>
                       {hasItr && (
                         <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
-                          onClick={() => handleDownloadAllItrZipped(acomp.id, acomp.itrDados || [], acomp.imovel)}
+                          onClick={() => handleDownloadAllItr(acomp)}
                           title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Sem PDFs disponíveis'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
@@ -1697,7 +1141,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                 )}
 
                 <button
-                  onClick={() => handleDownloadSingleItrZipped(itrDownloadModal.item, itrDownloadModal.imovel)}
+                  onClick={() => handleDownloadSingleItr(itrDownloadModal.item, itrDownloadModal.imovel)}
                   disabled={isDownloadingSingleZip === itrDownloadModal.item.id}
                   className="w-full flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
