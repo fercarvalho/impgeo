@@ -66,8 +66,8 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - Log de auditoria completo no banco de dados
 - Criptografia em repouso (AES-256-GCM)
 
-### 📑 Gestão de Acompanhamentos
-- Módulo dedicado para registros de acompanhamentos e relatórios
+### 📑 Gestão de TerraControl
+- Módulo dedicado para registros do TerraControl e relatórios
 - Sincronização e upload de arquivos associados
 
 ### 📥 Importação e Exportação
@@ -221,7 +221,7 @@ impgeo/
 │   ├── components/           # Componentes React
 │   │   ├── admin/           # Painel de Controle e Usuários
 │   │   ├── modals/          # Modais (Chart, Product, Transaction, Senhas, Perfil)
-│   │   ├── Acompanhamentos.tsx
+│   │   ├── TerraControl.tsx
 │   │   ├── Dashboard.tsx
 │   │   ├── Login.tsx
 │   │   ├── MenuUsuario.tsx  # Navegação de Perfil e Conta
@@ -236,7 +236,7 @@ impgeo/
 │   └── index.css            # Estilos globais
 ├── server/                  # Backend (Express)
 │   ├── migrations/          # Scripts de inicialização do PostgreSQL
-│   ├── uploads/             # Avatares, Arquivos e Acompanhamentos enviados
+│   ├── uploads/             # Avatares, Arquivos e TerraControl enviados
 │   ├── database-pg.js       # Configuração e queries do PostgreSQL
 │   ├── server.js            # Servidor Express principal
 │   └── package.json
@@ -304,7 +304,7 @@ Este é um projeto pessoal, mas sugestões e feedback são sempre bem-vindos!
 - ✅ **Controle de Acessos**: RBAC com Painel Administrativo gerencial
 - ✅ **Segurança da Conta**: Fluxo completo de reset e recuperação de senha via SendGrid
 - ✅ **Perfil Mobile/Desktop**: Upload e recorte de avatares
-- ✅ **Acompanhamentos**: Timeline com suporte a anexos
+- ✅ **TerraControl**: Timeline com suporte a anexos
 - ✅ Dashboard executivo com métricas em tempo real
 - ✅ Sistema de metas mensais e anuais
 - ✅ Projeções financeiras com múltiplos cenários

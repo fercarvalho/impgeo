@@ -92,7 +92,7 @@ async function seedFAQ() {
 
   await insert(
     'O que é o Dashboard e o que ele exibe?',
-    'O Dashboard é a página inicial do sistema. Ele apresenta um resumo visual do seu negócio:\n\n• Cartões com totais de clientes, projetos e receitas\n• Gráficos de desempenho financeiro\n• Lista dos projetos e acompanhamentos mais recentes\n• Alertas de metas próximas do vencimento\n\nAs informações são atualizadas em tempo real.',
+    'O Dashboard é a página inicial do sistema. Ele apresenta um resumo visual do seu negócio:\n\n• Cartões com totais de clientes, projetos e receitas\n• Gráficos de desempenho financeiro\n• Lista dos projetos e TerraControl mais recentes\n• Alertas de metas próximas do vencimento\n\nAs informações são atualizadas em tempo real.',
     ordem++
   );
 
@@ -100,7 +100,7 @@ async function seedFAQ() {
 
   await insert(
     'Como cadastro um novo cliente?',
-    'Vá até o módulo Clientes e clique no botão "Novo Cliente" (ícone +). Preencha os dados obrigatórios (nome e CPF/CNPJ) e opcionalmente telefone, e-mail e endereço.\n\nApós salvar, o cliente fica disponível para ser vinculado a projetos e acompanhamentos.',
+    'Vá até o módulo Clientes e clique no botão "Novo Cliente" (ícone +). Preencha os dados obrigatórios (nome e CPF/CNPJ) e opcionalmente telefone, e-mail e endereço.\n\nApós salvar, o cliente fica disponível para ser vinculado a projetos e TerraControl.',
     ordem++
   );
 
@@ -112,7 +112,7 @@ async function seedFAQ() {
 
   await insert(
     'Posso editar ou excluir um cliente?',
-    'Sim. Na lista de clientes, clique no cliente para abrir seus detalhes. Use o botão de edição (lápis) para alterar os dados ou o botão de exclusão (lixeira) para remover.\n\n⚠️ Atenção: excluir um cliente remove também todos os projetos, acompanhamentos e transações vinculadas a ele. Essa ação não pode ser desfeita.',
+    'Sim. Na lista de clientes, clique no cliente para abrir seus detalhes. Use o botão de edição (lápis) para alterar os dados ou o botão de exclusão (lixeira) para remover.\n\n⚠️ Atenção: excluir um cliente remove também todos os projetos, TerraControl e transações vinculadas a ele. Essa ação não pode ser desfeita.',
     ordem++
   );
 
@@ -120,7 +120,7 @@ async function seedFAQ() {
 
   await insert(
     'Como crio um novo projeto?',
-    'Acesse o módulo Projetos e clique em "Novo Projeto". Informe o nome do projeto, selecione o cliente vinculado, defina o status inicial e, se desejar, o valor contratado e as datas de início e término.\n\nDepois de criar o projeto, você pode adicionar acompanhamentos e transações a ele.',
+    'Acesse o módulo Projetos e clique em "Novo Projeto". Informe o nome do projeto, selecione o cliente vinculado, defina o status inicial e, se desejar, o valor contratado e as datas de início e término.\n\nDepois de criar o projeto, você pode adicionar TerraControl e transações a ele.',
     ordem++
   );
 
@@ -144,29 +144,29 @@ async function seedFAQ() {
     ordem++
   );
 
-  // ─── BLOCO 6: Acompanhamentos ──────────────────────────────────────────────
+  // ─── BLOCO 6: TerraControl ──────────────────────────────────────────────
 
   await insert(
-    'O que é um Acompanhamento?',
-    'Acompanhamentos são registros de imóveis ou processos em andamento dentro de um projeto. Cada acompanhamento possui etapas de progresso, documentos e um status que reflete a situação atual do processo.',
+    'O que é um TerraControl?',
+    'TerraControl são registros de imóveis ou processos em andamento dentro de um projeto. Cada TerraControl possui etapas de progresso, documentos e um status que reflete a situação atual do processo.',
     ordem++
   );
 
   await insert(
-    'Como avanço a etapa de um acompanhamento?',
-    'Abra o acompanhamento desejado e localize a seção de Etapas. Clique no botão de avançar ou marque a etapa como concluída. O progresso é atualizado automaticamente na barra de status.\n\nVocê pode adicionar observações em cada etapa antes de avançar.',
+    'Como avanço a etapa de um TerraControl?',
+    'Abra o TerraControl desejado e localize a seção de Etapas. Clique no botão de avançar ou marque a etapa como concluída. O progresso é atualizado automaticamente na barra de status.\n\nVocê pode adicionar observações em cada etapa antes de avançar.',
     ordem++
   );
 
   await insert(
-    'Como anexo documentos a um acompanhamento?',
-    'Dentro do acompanhamento, acesse a aba de Documentos. Clique em "Anexar Arquivo" e selecione o arquivo do seu computador. São aceitos PDF, JPG, PNG e outros formatos comuns (tamanho máximo: 10 MB por arquivo).\n\nOs documentos ficam armazenados e podem ser baixados a qualquer momento.',
+    'Como anexo documentos a um TerraControl?',
+    'Dentro do TerraControl, acesse a aba de Documentos. Clique em "Anexar Arquivo" e selecione o arquivo do seu computador. São aceitos PDF, JPG, PNG e outros formatos comuns (tamanho máximo: 10 MB por arquivo).\n\nOs documentos ficam armazenados e podem ser baixados a qualquer momento.',
     ordem++
   );
 
   await insert(
-    'Como compartilho o status de um acompanhamento com o cliente?',
-    'No módulo Acompanhamentos, localize o registro e clique em "Gerar Link de Compartilhamento". Um link único é criado e pode ser enviado por e-mail ou WhatsApp para o cliente.\n\nO cliente consegue visualizar o progresso sem precisar de login no sistema.',
+    'Como compartilho o status de um TerraControl com o cliente?',
+    'No módulo TerraControl, localize o registro e clique em "Gerar Link de Compartilhamento". Um link único é criado e pode ser enviado por e-mail ou WhatsApp para o cliente.\n\nO cliente consegue visualizar o progresso sem precisar de login no sistema.',
     ordem++
   );
 

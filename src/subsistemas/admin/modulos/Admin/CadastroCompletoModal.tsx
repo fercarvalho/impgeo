@@ -26,7 +26,7 @@ const getDefaultModules = (role: RoleType): string[] => {
     'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
     'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
     'projects', 'services', 'clients',
-    'acompanhamentos',
+    'terracontrol',
   ];
   switch (role) {
     case 'superadmin': return [...baseFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];

@@ -131,9 +131,9 @@ export const SUBSYSTEMS: ReadonlyArray<SubsystemDefinition> = [
     key: 'especial',
     slug: 'especial',
     name: 'Módulos Extras',
-    description: 'Acompanhamentos e módulos especiais que não pertencem aos demais subsistemas',
+    description: 'TerraControl e módulos especiais que não pertencem aos demais subsistemas',
     iconName: 'Sparkles',
-    moduleKeys: ['acompanhamentos'],
+    moduleKeys: ['terracontrol'],
     palette: PALETTES.amber,
   },
 ];

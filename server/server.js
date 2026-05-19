@@ -415,7 +415,7 @@ const publicApiPrefixes = [
   '/avatars',
   '/documents',
   '/auth/validar-token/',
-  '/acompanhamentos/public',
+  '/terracontrol/public',
   '/modelo/',
   '/webhooks/',
   '/documentation/public'
@@ -623,14 +623,14 @@ function processClients(worksheet) {
   return clients;
 }
 
-// Função para processar dados de acompanhamentos
-function processAcompanhamentos(worksheet) {
+// Função para processar dados de records
+function processTerraControl(worksheet) {
   const data = XLSX.utils.sheet_to_json(worksheet);
-  const acompanhamentos = [];
+  const records = [];
 
   data.forEach((row, index) => {
     try {
-      const acompanhamento = {
+      const record = {
         id: Date.now() + index,
         codImovel: parseInt(row['COD. IMP'] || row['Cod. Imp'] || row['codImovel'] || row['COD IMP'] || 0),
         imovel: row['IMÓVEL'] || row['Imóvel'] || row['imovel'] || row['IMOVEL'] || '',
@@ -658,15 +658,15 @@ function processAcompanhamentos(worksheet) {
       };
 
       // Validar se tem dados essenciais
-      if (acompanhamento.codImovel > 0 && acompanhamento.imovel) {
-        acompanhamentos.push(acompanhamento);
+      if (record.codImovel > 0 && record.imovel) {
+        records.push(record);
       }
     } catch (error) {
       console.log(`Erro ao processar linha ${index + 1}:`, error.message);
     }
   });
 
-  return acompanhamentos;
+  return records;
 }
 
 // Função para processar dados de projetos
@@ -709,8 +709,8 @@ function processProjects(worksheet) {
 app.get('/api/modelo/:type', async (req, res) => {
   try {
     const { type } = req.params;
-    if (!['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "acompanhamentos"' });
+    if (!['transactions', 'products', 'clients', 'projects', 'terracontrol'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "terracontrol"' });
     }
 
     // Sempre gerar arquivo modelo dinamicamente para garantir colunas atualizadas
@@ -789,7 +789,7 @@ app.get('/api/modelo/:type', async (req, res) => {
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Projetos');
-    } else if (type === 'acompanhamentos') {
+    } else if (type === 'terracontrol') {
       const sampleData = [
         {
           'COD. IMP': 1,
@@ -818,7 +818,7 @@ app.get('/api/modelo/:type', async (req, res) => {
         }
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Acompanhamentos');
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'TerraControl');
     } else {
       const headers = [{
         'Nome': '',
@@ -836,7 +836,7 @@ app.get('/api/modelo/:type', async (req, res) => {
     const filename = type === 'transactions' ? 'modelo-transacoes.xlsx' :
       type === 'clients' ? 'modelo-clientes.xlsx' :
         type === 'projects' ? 'modelo-projetos.xlsx' :
-          type === 'acompanhamentos' ? 'modelo-acompanhamentos.xlsx' : 'modelo-produtos.xlsx';
+          type === 'terracontrol' ? 'modelo-terracontrol.xlsx' : 'modelo-produtos.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -849,7 +849,7 @@ app.get('/api/modelo/:type', async (req, res) => {
   }
 });
 
-app.post('/api/acompanhamentos/upload-car', authenticateToken, uploadDocument.single('file'), (req, res) => {
+app.post('/api/terracontrol/upload-car', authenticateToken, uploadDocument.single('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
@@ -869,10 +869,10 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nenhum arquivo foi enviado!' });
     }
 
-    const { type } = req.body; // 'transactions', 'products', 'clients', 'projects' ou 'acompanhamentos'
+    const { type } = req.body; // 'transactions', 'products', 'clients', 'projects' ou 'terracontrol'
 
-    if (!type || !['transactions', 'products', 'clients', 'projects', 'acompanhamentos'].includes(type)) {
-      return res.status(400).json({ success: false, error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "acompanhamentos"' });
+    if (!type || !['transactions', 'products', 'clients', 'projects', 'terracontrol'].includes(type)) {
+      return res.status(400).json({ success: false, error: 'Tipo inválido! Use "transactions", "products", "clients", "projects" ou "terracontrol"' });
     }
 
     console.log(`Processando arquivo: ${req.file.originalname} (${type})`);
@@ -920,22 +920,22 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
           console.error('Erro ao salvar projeto:', error);
         }
       }
-    } else if (type === 'acompanhamentos') {
-      processedData = processAcompanhamentos(worksheet);
-      console.log(`Processados ${processedData.length} acompanhamentos do arquivo`);
-      message = `${processedData.length} acompanhamentos importados com sucesso!`;
+    } else if (type === 'terracontrol') {
+      processedData = processTerraControl(worksheet);
+      console.log(`Processados ${processedData.length} records do arquivo`);
+      message = `${processedData.length} records importados com sucesso!`;
 
-      // Salvar acompanhamentos processados no banco de dados
+      // Salvar records processados no banco de dados
       let savedCount = 0;
-      for (const acompanhamento of processedData) {
+      for (const record of processedData) {
         try {
-          await db.saveAcompanhamento(acompanhamento);
+          await db.saveTerraControl(record);
           savedCount++;
         } catch (error) {
-          console.error('Erro ao salvar acompanhamento:', error);
+          console.error('Erro ao salvar record:', error);
         }
       }
-      console.log(`${savedCount} acompanhamentos salvos no banco de dados`);
+      console.log(`${savedCount} records salvos no banco de dados`);
     }
 
     // Limpar o arquivo temporário
@@ -1024,7 +1024,7 @@ app.post('/api/export', async (req, res) => {
       }));
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
-    } else if (type === 'acompanhamentos') {
+    } else if (type === 'terracontrol') {
       const excelData = data.map(a => ({
         'Código do Imóvel': a.codImovel ?? a.cod_imovel ?? '',
         'Imóvel': a.imovel ?? a.endereco ?? '',
@@ -1051,7 +1051,7 @@ app.post('/api/export', async (req, res) => {
         'Remanescente Florestal (ha)': a.remanescenteFlorestal ?? a.remanescente_florestal ?? 0
       }));
       worksheet = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Acompanhamentos');
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'TerraControl');
     }
 
     // Gerar buffer do arquivo
@@ -1904,60 +1904,60 @@ app.delete('/api/services/:id', async (req, res) => {
   }
 });
 
-// APIs para Acompanhamentos
-app.get('/api/acompanhamentos', async (req, res) => {
+// APIs para TerraControl
+app.get('/api/terracontrol', async (req, res) => {
   try {
-    const acompanhamentos = await db.getAllAcompanhamentos();
-    res.json({ success: true, data: acompanhamentos });
+    const records = await db.getAllTerraControl();
+    res.json({ success: true, data: records });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/acompanhamentos', async (req, res) => {
+app.post('/api/terracontrol', async (req, res) => {
   try {
-    const acompanhamento = await db.saveAcompanhamento(req.body);
-    res.json({ success: true, data: acompanhamento });
+    const record = await db.saveTerraControl(req.body);
+    res.json({ success: true, data: record });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.put('/api/acompanhamentos/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const acompanhamento = await db.updateAcompanhamento(id, req.body);
-    res.json({ success: true, data: acompanhamento });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.delete('/api/acompanhamentos/:id', async (req, res) => {
+app.put('/api/terracontrol/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await db.deleteAcompanhamento(id);
-    res.json({ success: true, message: 'Acompanhamento deletado com sucesso' });
+    const record = await db.updateTerraControl(id, req.body);
+    res.json({ success: true, data: record });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-app.delete('/api/acompanhamentos', async (req, res) => {
+app.delete('/api/terracontrol/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.deleteTerraControl(id);
+    res.json({ success: true, message: 'TerraControlRecord deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/terracontrol', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    await db.deleteMultipleAcompanhamentos(ids);
-    res.json({ success: true, message: `${ids.length} acompanhamentos deletados com sucesso` });
+    await db.deleteMultipleTerraControl(ids);
+    res.json({ success: true, message: `${ids.length} records deletados com sucesso` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Rota para listar todos os links compartilháveis
-app.get('/api/acompanhamentos/share-links', authenticateToken, async (req, res) => {
+app.get('/api/terracontrol/share-links', authenticateToken, async (req, res) => {
   try {
     const shareLinks = await db.getAllShareLinks();
     res.json({
@@ -1969,8 +1969,8 @@ app.get('/api/acompanhamentos/share-links', authenticateToken, async (req, res) 
   }
 });
 
-// Rota para gerar link compartilhável de acompanhamentos
-app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (req, res) => {
+// Rota para gerar link compartilhável de records
+app.post('/api/terracontrol/generate-share-link', authenticateToken, async (req, res) => {
   try {
     const { name, expiresAt, password, selectedIds } = req.body;
     const bcrypt = require('bcryptjs');
@@ -2031,7 +2031,7 @@ app.post('/api/acompanhamentos/generate-share-link', authenticateToken, async (r
 });
 
 // Rota para atualizar um link compartilhável
-app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req, res) => {
+app.put('/api/terracontrol/share-links/:token', authenticateToken, async (req, res) => {
   try {
     const { token } = req.params;
     const { name, expiresAt, password, regenerateToken } = req.body;
@@ -2148,7 +2148,7 @@ app.put('/api/acompanhamentos/share-links/:token', authenticateToken, async (req
 });
 
 // Rota para excluir um link compartilhável
-app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, async (req, res) => {
+app.delete('/api/terracontrol/share-links/:token', authenticateToken, async (req, res) => {
   try {
     const { token } = req.params;
     await db.deleteShareLink(token);
@@ -2162,7 +2162,7 @@ app.delete('/api/acompanhamentos/share-links/:token', authenticateToken, async (
 });
 
 // Rota para validar senha do link compartilhável
-app.post('/api/acompanhamentos/public/:token/validate-password', async (req, res) => {
+app.post('/api/terracontrol/public/:token/validate-password', async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
@@ -2243,8 +2243,8 @@ app.get('/v/:token', async (req, res) => {
   }
 });
 
-// Rota pública para visualizar acompanhamentos (sem autenticação)
-app.get('/api/acompanhamentos/public/:token', async (req, res) => {
+// Rota pública para visualizar records (sem autenticação)
+app.get('/api/terracontrol/public/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.query;
@@ -2304,15 +2304,15 @@ app.get('/api/acompanhamentos/public/:token', async (req, res) => {
       }
     }
 
-    // Buscar todos os acompanhamentos (público)
-    const acompanhamentos = await db.getAllAcompanhamentos();
-    const filteredAcompanhamentos = linkSelectedIds.length > 0
-      ? acompanhamentos.filter((item) => linkSelectedIds.includes(String(item.id)))
-      : acompanhamentos;
+    // Buscar todos os records (público)
+    const records = await db.getAllTerraControl();
+    const filteredTerraControl = linkSelectedIds.length > 0
+      ? records.filter((item) => linkSelectedIds.includes(String(item.id)))
+      : records;
 
     res.json({
       success: true,
-      data: filteredAcompanhamentos,
+      data: filteredTerraControl,
       shareLinkName: shareLink.name
     });
   } catch (error) {

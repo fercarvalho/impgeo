@@ -152,9 +152,9 @@ export default defineConfig({
               return 'component-reports'
             }
 
-            // Acompanhamentos (especial)
-            if (id.includes('Acompanhamentos')) {
-              return 'component-acompanhamentos'
+            // TerraControl (especial)
+            if (id.includes('TerraControl')) {
+              return 'component-terracontrol'
             }
 
             // Transações (financeiro)

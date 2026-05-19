@@ -92,7 +92,7 @@ Comandos úteis dentro do psql:
 | `transactions` | Transações financeiras |
 | `clients` | Clientes |
 | `metas` | Metas financeiras |
-| `acompanhamentos` | Acompanhamentos |
+| `terracontrol` | TerraControl |
 | `modules_catalog` | Catálogo de módulos disponíveis |
 | `user_module_permissions` | Permissões de módulos por usuário |
 | `refresh_tokens` | Tokens de longa duração |

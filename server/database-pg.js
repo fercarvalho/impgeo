@@ -31,8 +31,8 @@ class Database {
     this.profileSchemaEnsuring = null;
     this.passwordResetSchemaEnsured = false;
     this.passwordResetSchemaEnsuring = null;
-    this.acompanhamentosSchemaEnsured = false;
-    this.acompanhamentosSchemaEnsuring = null;
+    this.terracontrolSchemaEnsured = false;
+    this.terracontrolSchemaEnsuring = null;
     this.legalSchemaEnsured = false;
     this.legalSchemaEnsuring = null;
     this.docSchemaEnsured = false;
@@ -95,7 +95,7 @@ class Database {
 
       // Subsistema financeiro
       { moduleKey: 'dashboard_financeiro',     moduleName: 'Dashboard',             iconName: 'BarChart3',     routePath: 'dashboard_financeiro',     isSystem: true, description: 'Visão geral do sistema',                            subsystemKey: 'financeiro',    sortOrder: 1 },
-      { moduleKey: 'metas_financeiro',         moduleName: 'Metas',                 iconName: 'Target',        routePath: 'metas_financeiro',         isSystem: true, description: 'Definição e acompanhamento de metas',               subsystemKey: 'financeiro',    sortOrder: 2 },
+      { moduleKey: 'metas_financeiro',         moduleName: 'Metas',                 iconName: 'Target',        routePath: 'metas_financeiro',         isSystem: true, description: 'Definição e record de metas',               subsystemKey: 'financeiro',    sortOrder: 2 },
       { moduleKey: 'relatorios_financeiro',    moduleName: 'Relatórios',            iconName: 'FileText',      routePath: 'relatorios_financeiro',    isSystem: true, description: 'Relatórios e análises',                             subsystemKey: 'financeiro',    sortOrder: 3 },
       { moduleKey: 'projecao',                 moduleName: 'Projeção',              iconName: 'LineChart',     routePath: 'projecao',                 isSystem: true, description: 'Projeções financeiras',                             subsystemKey: 'financeiro',    sortOrder: 4 },
       { moduleKey: 'transactions',             moduleName: 'Transações',            iconName: 'Wallet',        routePath: 'transactions',             isSystem: true, description: 'Transações financeiras',                            subsystemKey: 'financeiro',    sortOrder: 5 },
@@ -111,7 +111,7 @@ class Database {
       { moduleKey: 'clients',                  moduleName: 'Clientes',              iconName: 'Users',         routePath: 'clients',                  isSystem: true, description: 'Cadastro de clientes',                              subsystemKey: 'gerenciamento', sortOrder: 7 },
 
       // Subsistema especial (módulos extras)
-      { moduleKey: 'acompanhamentos',          moduleName: 'Acompanhamentos',       iconName: 'ClipboardList', routePath: 'acompanhamentos',          isSystem: true, description: 'Acompanhamento operacional',                        subsystemKey: 'especial',      sortOrder: 1 }
+      { moduleKey: 'terracontrol',          moduleName: 'TerraControl',       iconName: 'ClipboardList', routePath: 'terracontrol',          isSystem: true, description: 'Controle e acompanhamento de imóveis rurais',          subsystemKey: 'especial',      sortOrder: 1 }
     ];
   }
 
@@ -128,7 +128,7 @@ class Database {
         return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin' && !superadminOnlyModules.includes(moduleKey) && !adminAndSuperadminModules.includes(moduleKey));
       case 'guest':
         return allModuleKeys.filter(
-          (moduleKey) => !['admin', 'dre', 'acompanhamentos', ...superadminOnlyModules, ...adminAndSuperadminModules].includes(moduleKey)
+          (moduleKey) => !['admin', 'dre', 'terracontrol', ...superadminOnlyModules, ...adminAndSuperadminModules].includes(moduleKey)
         );
       default:
         return [];
@@ -1614,24 +1614,24 @@ class Database {
     }
   }
 
-  // Métodos para Acompanhamentos
-  async getAllAcompanhamentos() {
+  // Métodos para TerraControl
+  async getAllTerraControl() {
     try {
-      await this.ensureAcompanhamentosSchema();
-      const result = await this.queryWithRetry('SELECT * FROM acompanhamentos ORDER BY cod_imovel');
+      await this.ensureTerraControlSchema();
+      const result = await this.queryWithRetry('SELECT * FROM terracontrol ORDER BY cod_imovel');
       return result.rows;
     } catch (error) {
-      console.error('Erro ao ler acompanhamentos:', error);
+      console.error('Erro ao ler TerraControl:', error);
       return [];
     }
   }
 
-  async saveAcompanhamento(acompanhamentoData) {
+  async saveTerraControl(recordData) {
     try {
-      await this.ensureAcompanhamentosSchema();
+      await this.ensureTerraControlSchema();
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO acompanhamentos (
+        `INSERT INTO terracontrol (
            id, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
            geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
            cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,
@@ -1645,50 +1645,50 @@ class Database {
          RETURNING *`,
         [
           id,
-          acompanhamentoData.imovel || acompanhamentoData.endereco || null,
-          acompanhamentoData.municipio || null,
-          acompanhamentoData.mapa_url || acompanhamentoData.mapaUrl || null,
-          acompanhamentoData.matriculas || null,
-          acompanhamentoData.matriculas_dados ? JSON.stringify(acompanhamentoData.matriculas_dados) : (acompanhamentoData.matriculasDados ? JSON.stringify(acompanhamentoData.matriculasDados) : null),
-          acompanhamentoData.n_incra_ccir || acompanhamentoData.nIncraCcir || null,
-          acompanhamentoData.ccir_dados ? JSON.stringify(acompanhamentoData.ccir_dados) : (acompanhamentoData.ccirDados ? JSON.stringify(acompanhamentoData.ccirDados) : null),
-          acompanhamentoData.car || null,
-          acompanhamentoData.car_url || acompanhamentoData.carUrl || null,
-          acompanhamentoData.status_car || acompanhamentoData.statusCar || acompanhamentoData.status || null,
-          acompanhamentoData.itr || null,
-          acompanhamentoData.itr_dados ? JSON.stringify(acompanhamentoData.itr_dados) : (acompanhamentoData.itrDados ? JSON.stringify(acompanhamentoData.itrDados) : null),
-          acompanhamentoData.geo_certificacao || acompanhamentoData.geoCertificacao || 'NÃO',
-          acompanhamentoData.geo_registro || acompanhamentoData.geoRegistro || 'NÃO',
-          acompanhamentoData.area_total ?? acompanhamentoData.areaTotal ?? 0,
-          acompanhamentoData.reserva_legal ?? acompanhamentoData.reservaLegal ?? 0,
-          acompanhamentoData.cultura1 || null,
-          acompanhamentoData.area_cultura1 ?? acompanhamentoData.areaCultura1 ?? 0,
-          acompanhamentoData.cultura2 || null,
-          acompanhamentoData.area_cultura2 ?? acompanhamentoData.areaCultura2 ?? 0,
-          acompanhamentoData.outros || null,
-          acompanhamentoData.area_outros ?? acompanhamentoData.areaOutros ?? 0,
-          acompanhamentoData.app_codigo_florestal ?? acompanhamentoData.appCodigoFlorestal ?? 0,
-          acompanhamentoData.app_vegetada ?? acompanhamentoData.appVegetada ?? 0,
-          acompanhamentoData.app_nao_vegetada ?? acompanhamentoData.appNaoVegetada ?? 0,
-          acompanhamentoData.remanescente_florestal ?? acompanhamentoData.remanescenteFlorestal ?? 0,
-          acompanhamentoData.endereco || acompanhamentoData.imovel || null,
-          acompanhamentoData.status || acompanhamentoData.statusCar || null,
-          acompanhamentoData.observacoes || null,
+          recordData.imovel || recordData.endereco || null,
+          recordData.municipio || null,
+          recordData.mapa_url || recordData.mapaUrl || null,
+          recordData.matriculas || null,
+          recordData.matriculas_dados ? JSON.stringify(recordData.matriculas_dados) : (recordData.matriculasDados ? JSON.stringify(recordData.matriculasDados) : null),
+          recordData.n_incra_ccir || recordData.nIncraCcir || null,
+          recordData.ccir_dados ? JSON.stringify(recordData.ccir_dados) : (recordData.ccirDados ? JSON.stringify(recordData.ccirDados) : null),
+          recordData.car || null,
+          recordData.car_url || recordData.carUrl || null,
+          recordData.status_car || recordData.statusCar || recordData.status || null,
+          recordData.itr || null,
+          recordData.itr_dados ? JSON.stringify(recordData.itr_dados) : (recordData.itrDados ? JSON.stringify(recordData.itrDados) : null),
+          recordData.geo_certificacao || recordData.geoCertificacao || 'NÃO',
+          recordData.geo_registro || recordData.geoRegistro || 'NÃO',
+          recordData.area_total ?? recordData.areaTotal ?? 0,
+          recordData.reserva_legal ?? recordData.reservaLegal ?? 0,
+          recordData.cultura1 || null,
+          recordData.area_cultura1 ?? recordData.areaCultura1 ?? 0,
+          recordData.cultura2 || null,
+          recordData.area_cultura2 ?? recordData.areaCultura2 ?? 0,
+          recordData.outros || null,
+          recordData.area_outros ?? recordData.areaOutros ?? 0,
+          recordData.app_codigo_florestal ?? recordData.appCodigoFlorestal ?? 0,
+          recordData.app_vegetada ?? recordData.appVegetada ?? 0,
+          recordData.app_nao_vegetada ?? recordData.appNaoVegetada ?? 0,
+          recordData.remanescente_florestal ?? recordData.remanescenteFlorestal ?? 0,
+          recordData.endereco || recordData.imovel || null,
+          recordData.status || recordData.statusCar || null,
+          recordData.observacoes || null,
           new Date().toISOString(),
           new Date().toISOString()
         ]
       );
       return result.rows[0];
     } catch (error) {
-      throw new Error('Erro ao salvar acompanhamento: ' + error.message);
+      throw new Error('Erro ao salvar TerraControl: ' + error.message);
     }
   }
 
-  async updateAcompanhamento(id, updatedData) {
+  async updateTerraControl(id, updatedData) {
     try {
-      await this.ensureAcompanhamentosSchema();
+      await this.ensureTerraControlSchema();
       const result = await this.queryWithRetry(
-        `UPDATE acompanhamentos 
+        `UPDATE terracontrol 
          SET imovel = $1,
              municipio = $2,
              mapa_url = $3,
@@ -1756,67 +1756,67 @@ class Database {
         ]
       );
       if (result.rows.length === 0) {
-        throw new Error('Acompanhamento não encontrado');
+        throw new Error('TerraControl não encontrado');
       }
       return result.rows[0];
     } catch (error) {
-      throw new Error('Erro ao atualizar acompanhamento: ' + error.message);
+      throw new Error('Erro ao atualizar TerraControl: ' + error.message);
     }
   }
 
-  async deleteAcompanhamento(id) {
+  async deleteTerraControl(id) {
     try {
       const result = await this.queryWithRetry(
-        'DELETE FROM acompanhamentos WHERE id = $1 RETURNING id',
+        'DELETE FROM terracontrol WHERE id = $1 RETURNING id',
         [id]
       );
       if (result.rows.length === 0) {
-        throw new Error('Acompanhamento não encontrado');
+        throw new Error('TerraControl não encontrado');
       }
       return true;
     } catch (error) {
-      throw new Error('Erro ao excluir acompanhamento: ' + error.message);
+      throw new Error('Erro ao excluir TerraControl: ' + error.message);
     }
   }
 
-  async deleteMultipleAcompanhamentos(ids) {
+  async deleteMultipleTerraControl(ids) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       for (const id of ids) {
-        await client.query('DELETE FROM acompanhamentos WHERE id = $1', [id]);
+        await client.query('DELETE FROM terracontrol WHERE id = $1', [id]);
       }
       await client.query('COMMIT');
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
-      throw new Error('Erro ao excluir acompanhamentos: ' + error.message);
+      throw new Error('Erro ao excluir TerraControl: ' + error.message);
     } finally {
       client.release();
     }
   }
 
-  async ensureAcompanhamentosSchema() {
-    if (this.acompanhamentosSchemaEnsured) return;
-    if (this.acompanhamentosSchemaEnsuring) {
-      await this.acompanhamentosSchemaEnsuring;
+  async ensureTerraControlSchema() {
+    if (this.terracontrolSchemaEnsured) return;
+    if (this.terracontrolSchemaEnsuring) {
+      await this.terracontrolSchemaEnsuring;
       return;
     }
 
-    this.acompanhamentosSchemaEnsuring = (async () => {
-      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS car_url TEXT');
-      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS matriculas_dados JSONB');
-      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS itr_dados JSONB');
-      await this.queryWithRetry('ALTER TABLE acompanhamentos ADD COLUMN IF NOT EXISTS ccir_dados JSONB');
+    this.terracontrolSchemaEnsuring = (async () => {
+      await this.queryWithRetry('ALTER TABLE terracontrol ADD COLUMN IF NOT EXISTS car_url TEXT');
+      await this.queryWithRetry('ALTER TABLE terracontrol ADD COLUMN IF NOT EXISTS matriculas_dados JSONB');
+      await this.queryWithRetry('ALTER TABLE terracontrol ADD COLUMN IF NOT EXISTS itr_dados JSONB');
+      await this.queryWithRetry('ALTER TABLE terracontrol ADD COLUMN IF NOT EXISTS ccir_dados JSONB');
     })()
       .then(() => {
-        this.acompanhamentosSchemaEnsured = true;
+        this.terracontrolSchemaEnsured = true;
       })
       .finally(() => {
-        this.acompanhamentosSchemaEnsuring = null;
+        this.terracontrolSchemaEnsuring = null;
       });
 
-    await this.acompanhamentosSchemaEnsuring;
+    await this.terracontrolSchemaEnsuring;
   }
 
   async ensureShareLinksSchema() {

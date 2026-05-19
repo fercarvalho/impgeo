@@ -2,8 +2,8 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 const REMOTE_URL =
-  process.env.REMOTE_ACOMPANHAMENTOS_URL ||
-  'https://impgeo.sistemas.viverdepj.com.br/api/acompanhamentos';
+  process.env.REMOTE_TERRACONTROL_URL ||
+  'https://impgeo.sistemas.viverdepj.com.br/api/terracontrol';
 
 function formatCodImovel(value) {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -69,7 +69,7 @@ async function syncRows(rows) {
 
     for (const row of rows) {
       await client.query(
-        `INSERT INTO acompanhamentos (
+        `INSERT INTO terracontrol (
            id, cod_imovel, imovel, municipio, mapa_url, matriculas, n_incra_ccir, car, status_car, itr,
            geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
            cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,

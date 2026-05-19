@@ -155,8 +155,8 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Acompanhamentos
-CREATE TABLE IF NOT EXISTS acompanhamentos (
+-- TerraControl
+CREATE TABLE IF NOT EXISTS terracontrol (
     id VARCHAR(255) PRIMARY KEY,
     cod_imovel VARCHAR(255),
     imovel TEXT,
@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS acompanhamentos (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_acompanhamentos_cod_imovel ON acompanhamentos(cod_imovel);
+CREATE INDEX idx_terracontrol_cod_imovel ON terracontrol(cod_imovel);
 
 -- Share Links
 CREATE TABLE IF NOT EXISTS share_links (

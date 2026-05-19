@@ -216,15 +216,15 @@ Se você está com uma dúvida e acredita que outros usuários também podem ter
 
 ### Como vincular um imóvel a um projeto?
 
-Na ficha do projeto, vá na aba **"Acompanhamentos"** → clique em **"+ Vincular Imóvel"** → selecione o acompanhamento desejado → salve.
+Na ficha do projeto, vá na aba **"TerraControl"** → clique em **"+ Vincular Imóvel"** → selecione o TerraControl desejado → salve.
 
-Ou, pela ficha do acompanhamento, selecione o projeto no campo **"Projeto"**.
+Ou, pela ficha do TerraControl, selecione o projeto no campo **"Projeto"**.
 
 ---
 
 ### Como registrar que o CAR de um imóvel foi aprovado?
 
-Abra o acompanhamento → aba **"CAR"** → mude o **Status do CAR** para **"Ativo"** → preencha o número de inscrição e o link do comprovante → salve.
+Abra o TerraControl → aba **"CAR"** → mude o **Status do CAR** para **"Ativo"** → preencha o número de inscrição e o link do comprovante → salve.
 
 ---
 
@@ -297,7 +297,7 @@ O IMPGeo foi lançado com os módulos completos:
 
 ✅ Dashboard com indicadores e gráficos
 ✅ Gestão de Clientes, Projetos e Serviços
-✅ Módulo de Acompanhamentos (CAR, ITR, Geo, dados ambientais)
+✅ Módulo de TerraControl (CAR, ITR, Geo, dados ambientais)
 ✅ Controle Financeiro (Transações, Metas, DRE, Projeção)
 ✅ Relatórios operacionais e financeiros
 ✅ FAQ e Documentação integrados
@@ -464,7 +464,7 @@ O usuário perde o acesso imediatamente, mas o histórico de ações dele é pre
 
 Além do papel (guest/user/admin), você pode habilitar ou desabilitar módulos individualmente por usuário. Isso permite criar perfis customizados:
 
-- Um estagiário que só precisa ver Acompanhamentos e Clientes
+- Um estagiário que só precisa ver TerraControl e Clientes
 - Um técnico de campo que não precisa ver o módulo financeiro
 - Um sócio que só precisa visualizar (guest) mas com acesso a DRE e Projeção
 
@@ -485,7 +485,7 @@ O menu do usuário se atualiza na próxima vez que ele navegar pelo sistema.
 
 | Módulo | Quem pode ter acesso |
 |--------|---------------------|
-| Dashboard, Clientes, Projetos, Serviços, Acompanhamentos, Transações, Metas, Relatórios, DRE, Projeção, FAQ, Documentação | Qualquer papel (guest, user, admin) |
+| Dashboard, Clientes, Projetos, Serviços, TerraControl, Transações, Metas, Relatórios, DRE, Projeção, FAQ, Documentação | Qualquer papel (guest, user, admin) |
 | **Roadmap** | Apenas admin |
 | **Administração** | Apenas admin |
 

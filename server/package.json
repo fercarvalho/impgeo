@@ -7,8 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node migrations/migrate-data.js",
-    "recover:acompanhamentos": "node migrations/recover-acompanhamentos.js",
-    "sync:acompanhamentos:remote": "node migrations/sync-acompanhamentos-from-remote.js"
+    "recover:terracontrol": "node migrations/recover-terracontrol.js",
+    "sync:terracontrol:remote": "node migrations/sync-terracontrol-from-remote.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",

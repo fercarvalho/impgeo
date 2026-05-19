@@ -49,7 +49,7 @@ async function seedBemVindo() {
 
   await createPage(sid, 'O que é o IMPGeo', `# Bem-vindo ao IMPGeo 👋
 
-O **IMPGeo** é o sistema de gestão da sua empresa de geoprocessamento. Aqui você controla tudo em um só lugar: clientes, projetos, serviços, imóveis rurais em acompanhamento, finanças e muito mais.
+O **IMPGeo** é o sistema de gestão da sua empresa de geoprocessamento. Aqui você controla tudo em um só lugar: clientes, projetos, serviços, imóveis rurais em TerraControl, finanças e muito mais.
 
 ---
 
@@ -333,10 +333,10 @@ Na página **Meu Perfil**, a seção **"Meus Módulos"** lista todos os módulos
 | **Dashboard** | Visão geral com indicadores e gráficos |
 | **Clientes** | Cadastro e gestão de clientes |
 | **Projetos** | Controle de projetos da empresa |
-| **Serviços** | Registro e acompanhamento de serviços |
-| **Acompanhamentos** | Monitoramento de imóveis rurais |
+| **Serviços** | Registro e TerraControl de serviços |
+| **TerraControl** | Monitoramento de imóveis rurais |
 | **Transações** | Lançamento de receitas e despesas |
-| **Metas** | Definição e acompanhamento de objetivos |
+| **Metas** | Definição e TerraControl de objetivos |
 | **Relatórios** | Geração de relatórios operacionais e financeiros |
 | **DRE** | Demonstração do Resultado do Exercício |
 | **Projeção** | Projeções e simulações financeiras |
@@ -433,9 +433,9 @@ Um indicador visual (barra de progresso ou percentual) mostrando o quanto das me
 
 ---
 
-## Painel de Acompanhamentos
+## Painel de TerraControl
 
-Um resumo rápido dos imóveis rurais em acompanhamento, destacando os que têm pendências como CAR não registrado, Georreferenciamento em andamento ou ITR a resolver. Clique em qualquer alerta para ir direto ao registro correspondente.
+Um resumo rápido dos imóveis rurais em TerraControl, destacando os que têm pendências como CAR não registrado, Georreferenciamento em andamento ou ITR a resolver. Clique em qualquer alerta para ir direto ao registro correspondente.
 
 ---
 
@@ -450,7 +450,7 @@ Abra o Dashboard toda manhã para ter uma visão rápida de como está o mês. V
 
 1. O saldo do mês — está positivo?
 2. As metas — estamos no ritmo certo?
-3. Os alertas de acompanhamento — há alguma pendência crítica?
+3. Os alertas de TerraControl — há alguma pendência crítica?
 
 ---
 
@@ -490,7 +490,7 @@ async function seedClientes() {
 
 ## Por que cadastrar corretamente?
 
-Um cadastro completo facilita vincular projetos, acompanhamentos de imóveis e transações ao cliente certo. Também permite gerar relatórios por cliente e manter um histórico fiel do relacionamento.
+Um cadastro completo facilita vincular projetos, TerraControl de imóveis e transações ao cliente certo. Também permite gerar relatórios por cliente e manter um histórico fiel do relacionamento.
 
 ---
 
@@ -559,7 +559,7 @@ Clientes inativos ficam ocultos da lista padrão mas podem ser encontrados ativa
 
 ## Excluindo um cliente
 
-A exclusão só é possível para clientes **sem nenhum registro vinculado** (projetos, acompanhamentos, transações). Se o cliente tiver histórico, o sistema não permitirá a exclusão — use a inativação.
+A exclusão só é possível para clientes **sem nenhum registro vinculado** (projetos, TerraControl, transações). Se o cliente tiver histórico, o sistema não permitirá a exclusão — use a inativação.
 
 ---
 
@@ -582,7 +582,7 @@ Nome, documento, contato, endereço e status.
 ### Projetos Vinculados
 Lista de todos os projetos criados para este cliente, com status e valor de cada um.
 
-### Acompanhamentos
+### TerraControl
 Imóveis rurais cadastrados para este cliente — com situação do CAR, ITR e Georreferenciamento.
 
 ### Transações
@@ -662,11 +662,11 @@ O Dashboard e a listagem de projetos destacam automaticamente projetos com:
 - 🟡 **Prazo próximo**: menos de 7 dias para o prazo estimado
 `, 1);
 
-  await createPage(sid, 'Vinculando serviços e acompanhamentos', `# Vinculando serviços e acompanhamentos 🔗
+  await createPage(sid, 'Vinculando serviços e TerraControl', `# Vinculando serviços e TerraControl 🔗
 
 ## Por que vincular?
 
-Ao vincular serviços e acompanhamentos a um projeto, você mantém tudo organizado e consegue ver o andamento completo em um único lugar — sem precisar cruzar informações entre módulos.
+Ao vincular serviços e TerraControl a um projeto, você mantém tudo organizado e consegue ver o andamento completo em um único lugar — sem precisar cruzar informações entre módulos.
 
 ---
 
@@ -681,12 +681,12 @@ Ao vincular serviços e acompanhamentos a um projeto, você mantém tudo organiz
 
 ---
 
-## Vinculando imóveis (Acompanhamentos)
+## Vinculando imóveis (TerraControl)
 
 1. Abra o projeto
-2. Vá na aba **"Acompanhamentos"**
+2. Vá na aba **"TerraControl"**
 3. Clique em **"+ Vincular Imóvel"**
-4. Selecione um acompanhamento já cadastrado ou crie um novo
+4. Selecione um TerraControl já cadastrado ou crie um novo
 5. Salve
 
 ---

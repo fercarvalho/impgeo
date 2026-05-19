@@ -25,7 +25,7 @@ export interface CcirItem {
   url?: string
 }
 
-interface Acompanhamento {
+interface TerraControlRecord {
   id: string
   codImovel: number
   imovel: string
@@ -58,7 +58,7 @@ interface Acompanhamento {
 
 const API_BASE_URL = '/api'
 
-const normalizeAcompanhamento = (raw: any): Acompanhamento => {
+const normalizeRecord = (raw: any): TerraControlRecord => {
   let matriculas_dados: MatriculaItem[] = []
   if (raw?.matriculasDados || raw?.matriculas_dados) {
     try {
@@ -154,8 +154,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
 }
 }
 
-const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
-  Array.isArray(rows) ? rows.map(normalizeAcompanhamento) : []
+const normalizeRecords = (rows: any[]): TerraControlRecord[] =>
+  Array.isArray(rows) ? rows.map(normalizeRecord) : []
 
 const formatCodImovel = (value: number): string => String(Number(value || 0)).padStart(3, '0')
 
@@ -185,16 +185,16 @@ type SortField =
 
 type SortDirection = 'asc' | 'desc'
 
-const Acompanhamentos: React.FC = () => {
+const TerraControl: React.FC = () => {
   const { token, user } = useAuth()
-  const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
-  const [filteredAcompanhamentos, setFilteredAcompanhamentos] = useState<Acompanhamento[]>([])
+  const [records, setRecords] = useState<TerraControlRecord[]>([])
+  const [filteredRecords, setFilteredRecords] = useState<TerraControlRecord[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const [selectedMapUrl, setSelectedMapUrl] = useState<string>('')
   const [selectedImovel, setSelectedImovel] = useState<string>('')
-  const [editing, setEditing] = useState<Acompanhamento | null>(null)
+  const [editing, setEditing] = useState<TerraControlRecord | null>(null)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
@@ -265,7 +265,7 @@ const Acompanhamentos: React.FC = () => {
     return safe || 'Sem_Nome'
   }
   
-  const [form, setForm] = useState<Partial<Acompanhamento>>({
+  const [form, setForm] = useState<Partial<TerraControlRecord>>({
     codImovel: 0,
     imovel: '',
     municipio: '',
@@ -297,7 +297,7 @@ const Acompanhamentos: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
 
   // Dados de exemplo baseados na imagem
-  const exemploDados: Acompanhamento[] = [
+  const exemploDados: TerraControlRecord[] = [
     {
       id: '1',
       codImovel: 1,
@@ -379,45 +379,45 @@ const Acompanhamentos: React.FC = () => {
   useEffect(() => {
     const controller = new AbortController()
     // Carregar dados da API
-    const loadAcompanhamentos = async () => {
+    const loadRecords = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos`, { signal: controller.signal })
+        const response = await fetch(`${API_BASE_URL}/terracontrol`, { signal: controller.signal })
         const result = await response.json()
         if (result.success) {
-          const normalized = normalizeAcompanhamentos(result.data)
-          setAcompanhamentos(normalized)
-          setFilteredAcompanhamentos(normalized)
+          const normalized = normalizeRecords(result.data)
+          setRecords(normalized)
+          setFilteredRecords(normalized)
         } else {
           // Se não houver dados, usar dados de exemplo
-          setAcompanhamentos(exemploDados)
-          setFilteredAcompanhamentos(exemploDados)
+          setRecords(exemploDados)
+          setFilteredRecords(exemploDados)
         }
       } catch (error: any) {
         if (error?.name === 'AbortError') return
-        console.error('Erro ao carregar acompanhamentos:', error)
+        console.error('Erro ao carregar TerraControl:', error)
         // Em caso de erro, usar dados de exemplo
-        setAcompanhamentos(exemploDados)
-        setFilteredAcompanhamentos(exemploDados)
+        setRecords(exemploDados)
+        setFilteredRecords(exemploDados)
       }
     }
-    loadAcompanhamentos()
+    loadRecords()
     return () => controller.abort()
   }, [])
 
   useEffect(() => {
-    const filtered = acompanhamentos.filter(acomp =>
+    const filtered = records.filter(acomp =>
       (acomp.imovel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (acomp.municipio || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(acomp.codImovel ?? '').includes(searchTerm)
     )
-    setFilteredAcompanhamentos(filtered)
-  }, [searchTerm, acompanhamentos])
+    setFilteredRecords(filtered)
+  }, [searchTerm, records])
 
-  const sortedAcompanhamentos = useMemo(() => {
-    const rows = [...filteredAcompanhamentos]
+  const sortedRecords = useMemo(() => {
+    const rows = [...filteredRecords]
     const direction = sortDirection === 'asc' ? 1 : -1
 
-    const getValue = (acomp: Acompanhamento, field: SortField): string | number => {
+    const getValue = (acomp: TerraControlRecord, field: SortField): string | number => {
       if (field === 'saldoReservaLegal') {
         return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
       }
@@ -437,7 +437,7 @@ const Acompanhamentos: React.FC = () => {
     })
 
     return rows
-  }, [filteredAcompanhamentos, sortField, sortDirection])
+  }, [filteredRecords, sortField, sortDirection])
 
   // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
@@ -472,7 +472,7 @@ const Acompanhamentos: React.FC = () => {
     }
   }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen, itrDownloadModal])
 
-  const handleEdit = (acomp: Acompanhamento) => {
+  const handleEdit = (acomp: TerraControlRecord) => {
     setEditing(acomp)
     setForm(acomp)
     setIsModalOpen(true)
@@ -531,7 +531,7 @@ const Acompanhamentos: React.FC = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/upload-car`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/upload-car`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token || localStorage.getItem('impgeo_token')}`
@@ -599,7 +599,7 @@ const Acompanhamentos: React.FC = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/upload-car`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/upload-car`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token || localStorage.getItem('impgeo_token')}`
@@ -678,7 +678,7 @@ const Acompanhamentos: React.FC = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/upload-car`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/upload-car`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token || localStorage.getItem('impgeo_token')}`
@@ -725,7 +725,7 @@ const Acompanhamentos: React.FC = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/upload-car`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/upload-car`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token || localStorage.getItem('impgeo_token')}`
@@ -798,7 +798,7 @@ const Acompanhamentos: React.FC = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/upload-car`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/upload-car`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token || localStorage.getItem('impgeo_token')}`
@@ -841,7 +841,7 @@ const Acompanhamentos: React.FC = () => {
     if (!validateForm()) return
 
     try {
-      const acompanhamentoData = {
+      const recordData = {
         codImovel: form.codImovel || 0,
         imovel: form.imovel || '',
         municipio: form.municipio || '',
@@ -874,10 +874,10 @@ const Acompanhamentos: React.FC = () => {
 
       if (editing) {
         // Atualizar
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos/${editing.id}`, {
+        const response = await fetch(`${API_BASE_URL}/terracontrol/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(acompanhamentoData)
+          body: JSON.stringify(recordData)
         })
         
         if (!response.ok) {
@@ -887,22 +887,22 @@ const Acompanhamentos: React.FC = () => {
         
         const result = await response.json()
         if (result.success) {
-          const normalizedUpdated = normalizeAcompanhamento(result.data)
-          const updated = acompanhamentos.map(a => a.id === editing.id ? { ...normalizedUpdated, id: editing.id } : a)
-          // setAcompanhamentos dispara o useEffect [searchTerm, acompanhamentos] que atualiza filteredAcompanhamentos
-          setAcompanhamentos(updated)
+          const normalizedUpdated = normalizeRecord(result.data)
+          const updated = records.map(a => a.id === editing.id ? { ...normalizedUpdated, id: editing.id } : a)
+          // setRecords dispara o useEffect [searchTerm, records] que atualiza filteredRecords
+          setRecords(updated)
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
         } else {
-          alert('Erro ao atualizar acompanhamento: ' + (result.error || 'Erro desconhecido'))
+          alert('Erro ao atualizar record: ' + (result.error || 'Erro desconhecido'))
         }
       } else {
         // Criar novo
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos`, {
+        const response = await fetch(`${API_BASE_URL}/terracontrol`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(acompanhamentoData)
+          body: JSON.stringify(recordData)
         })
 
         if (!response.ok) {
@@ -912,48 +912,48 @@ const Acompanhamentos: React.FC = () => {
 
         const result = await response.json()
         if (result.success) {
-          const updated = [...acompanhamentos, normalizeAcompanhamento(result.data)]
-          // setAcompanhamentos dispara o useEffect [searchTerm, acompanhamentos] que atualiza filteredAcompanhamentos
-          setAcompanhamentos(updated)
+          const updated = [...records, normalizeRecord(result.data)]
+          // setRecords dispara o useEffect [searchTerm, records] que atualiza filteredRecords
+          setRecords(updated)
           setIsModalOpen(false)
           setEditing(null)
           setFormErrors({})
         } else {
-          alert('Erro ao criar acompanhamento: ' + (result.error || 'Erro desconhecido'))
+          alert('Erro ao criar record: ' + (result.error || 'Erro desconhecido'))
         }
       }
     } catch (error: any) {
-      console.error('Erro ao salvar acompanhamento:', error)
-      const errorMessage = error?.message || error?.toString() || 'Erro desconhecido ao salvar acompanhamento'
-      alert(`Erro ao salvar acompanhamento: ${errorMessage}`)
+      console.error('Erro ao salvar record:', error)
+      const errorMessage = error?.message || error?.toString() || 'Erro desconhecido ao salvar record'
+      alert(`Erro ao salvar record: ${errorMessage}`)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este acompanhamento?')) {
+    if (window.confirm('Tem certeza que deseja excluir este record?')) {
       try {
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/terracontrol/${id}`, {
           method: 'DELETE'
         })
         const result = await response.json()
         if (result.success) {
-          setAcompanhamentos(acompanhamentos.filter(a => a.id !== id))
-          setFilteredAcompanhamentos(filteredAcompanhamentos.filter(a => a.id !== id))
+          setRecords(records.filter(a => a.id !== id))
+          setFilteredRecords(filteredRecords.filter(a => a.id !== id))
         } else {
-          alert('Erro ao excluir acompanhamento: ' + result.error)
+          alert('Erro ao excluir record: ' + result.error)
         }
       } catch (error) {
-        console.error('Erro ao excluir acompanhamento:', error)
-        alert('Erro ao excluir acompanhamento')
+        console.error('Erro ao excluir record:', error)
+        alert('Erro ao excluir record')
       }
     }
   }
 
-  const handleDownloadAllZipped = async (acompanhamentoId: string, matriculasDados: MatriculaItem[], imovelName: string) => {
+  const handleDownloadAllZipped = async (recordId: string, matriculasDados: MatriculaItem[], imovelName: string) => {
     const matriculasComUrl = (matriculasDados || []).filter(m => m.url)
     if (matriculasComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(recordId)
     try {
       const zip = new JSZip()
 
@@ -977,15 +977,15 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos:', error)
       alert('Erro ao tentar compactar as matrículas.')
     } finally {
-      setIsDownloadingZip(prev => prev === acompanhamentoId ? null : prev)
+      setIsDownloadingZip(prev => prev === recordId ? null : prev)
     }
   }
 
-  const handleDownloadAllItrZipped = async (acompanhamentoId: string, itrDados: ItrItem[], imovelName: string) => {
+  const handleDownloadAllItrZipped = async (recordId: string, itrDados: ItrItem[], imovelName: string) => {
     const itrsComDocumentos = (itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
     if (itrsComDocumentos.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId + 'itr')
+    setIsDownloadingZip(recordId + 'itr')
     try {
       const zip = new JSZip()
       
@@ -1031,7 +1031,7 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos ITR:', error)
       alert('Erro ao tentar compactar os ITRs.')
     } finally {
-      setIsDownloadingZip(prev => prev === acompanhamentoId + 'itr' ? null : prev)
+      setIsDownloadingZip(prev => prev === recordId + 'itr' ? null : prev)
     }
   }
 
@@ -1077,11 +1077,11 @@ const Acompanhamentos: React.FC = () => {
     }
   }
 
-  const handleDownloadAllCcirZipped = async (acompanhamentoId: string, ccirDados: CcirItem[], imovelName: string) => {
+  const handleDownloadAllCcirZipped = async (recordId: string, ccirDados: CcirItem[], imovelName: string) => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId + 'ccir')
+    setIsDownloadingZip(recordId + 'ccir')
     try {
       const zip = new JSZip()
       
@@ -1105,11 +1105,11 @@ const Acompanhamentos: React.FC = () => {
       console.error('Erro geral ao zipar arquivos CCIR:', error)
       alert('Erro ao tentar compactar os CCIRs.')
     } finally {
-      setIsDownloadingZip(prev => prev === acompanhamentoId + 'ccir' ? null : prev)
+      setIsDownloadingZip(prev => prev === recordId + 'ccir' ? null : prev)
     }
   }
 
-  const handleDownloadRegistroZip = async (acomp: Acompanhamento) => {
+  const handleDownloadRegistroZip = async (acomp: TerraControlRecord) => {
     const matriculasComUrl = (acomp.matriculasDados || []).filter(m => m.url)
     const itrsComDados = (acomp.itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
     const ccirComUrl = (acomp.ccirDados || []).filter(m => m.url)
@@ -1214,7 +1214,7 @@ const Acompanhamentos: React.FC = () => {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedItems(new Set(sortedAcompanhamentos.map(a => a.id)))
+      setSelectedItems(new Set(sortedRecords.map(a => a.id)))
     } else {
       setSelectedItems(new Set())
     }
@@ -1269,7 +1269,7 @@ const Acompanhamentos: React.FC = () => {
   const getAreaByCulturaType = (tipo: string): number => {
     let total = 0
 
-    acompanhamentos.forEach(acomp => {
+    records.forEach(acomp => {
       // Verificar cultura1
       if (matchesCulturaType(acomp.cultura1, tipo)) {
         total += acomp.areaCultura1 || 0
@@ -1310,7 +1310,7 @@ const Acompanhamentos: React.FC = () => {
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('type', 'acompanhamentos')
+    formData.append('type', 'terracontrol')
 
     setIsImporting(true)
     fetch(`${API_BASE_URL}/import`, { method: 'POST', body: formData })
@@ -1325,10 +1325,10 @@ const Acompanhamentos: React.FC = () => {
       })
       .then(data => {
         if (data.success) {
-          const updated = [...acompanhamentos, ...normalizeAcompanhamentos(data.data)]
-          setAcompanhamentos(updated)
-          setFilteredAcompanhamentos(updated)
-          alert(`${data.data.length} acompanhamentos importados com sucesso!`)
+          const updated = [...records, ...normalizeRecords(data.data)]
+          setRecords(updated)
+          setFilteredRecords(updated)
+          alert(`${data.data.length} records importados com sucesso!`)
           setIsImportModalOpen(false)
         } else {
           alert('Erro ao importar: ' + (data.error || data.message || 'Erro desconhecido'))
@@ -1345,12 +1345,12 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const downloadModel = () => {
-    window.open(`${API_BASE_URL}/modelo/acompanhamentos`, '_blank')
+    window.open(`${API_BASE_URL}/modelo/terracontrol`, '_blank')
   }
 
   const handleExportSelected = async () => {
     const selectedIds = new Set(Array.from(selectedItems).map((id) => String(id)))
-    const selectedRows = acompanhamentos.filter((item) => selectedIds.has(String(item.id)))
+    const selectedRows = records.filter((item) => selectedIds.has(String(item.id)))
 
     if (selectedRows.length === 0) {
       setIsShareSelectionWarningOpen(true)
@@ -1364,7 +1364,7 @@ const Acompanhamentos: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          type: 'acompanhamentos',
+          type: 'terracontrol',
           data: selectedRows
         })
       })
@@ -1379,13 +1379,13 @@ const Acompanhamentos: React.FC = () => {
       const link = document.createElement('a')
       const today = new Date().toISOString().split('T')[0]
       link.href = url
-      link.download = `acompanhamentos_selecionados_${today}.xlsx`
+      link.download = `terracontrol_${today}.xlsx`
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
     } catch (error: any) {
-      console.error('Erro ao exportar acompanhamentos selecionados:', error)
+      console.error('Erro ao exportar TerraControl selecionados:', error)
       alert('Erro ao exportar registros selecionados: ' + (error.message || 'Tente novamente'))
     }
   }
@@ -1425,7 +1425,7 @@ const Acompanhamentos: React.FC = () => {
     if (!user) return
     
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/share-links`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1450,27 +1450,27 @@ const Acompanhamentos: React.FC = () => {
 
     try {
       // Primeiro, recarregar os dados do servidor (sem sobrescrever o filtro de busca ativo)
-      const refreshResponse = await fetch(`${API_BASE_URL}/acompanhamentos`)
+      const refreshResponse = await fetch(`${API_BASE_URL}/terracontrol`)
       if (refreshResponse.ok) {
         const refreshResult = await refreshResponse.json()
         if (refreshResult.success && refreshResult.data) {
-          const normalized = normalizeAcompanhamentos(refreshResult.data)
-          setAcompanhamentos(normalized)
-          // Reaplicar o searchTerm atual ao invés de sobrescrever filteredAcompanhamentos
+          const normalized = normalizeRecords(refreshResult.data)
+          setRecords(normalized)
+          // Reaplicar o searchTerm atual ao invés de sobrescrever filteredRecords
           if (searchTerm) {
             const lower = searchTerm.toLowerCase()
-            setFilteredAcompanhamentos(normalized.filter(acomp =>
+            setFilteredRecords(normalized.filter(acomp =>
               (acomp.imovel || '').toLowerCase().includes(lower) ||
               (acomp.municipio || '').toLowerCase().includes(lower) ||
               String(acomp.codImovel ?? '').includes(searchTerm)
             ))
           } else {
-            setFilteredAcompanhamentos(normalized)
+            setFilteredRecords(normalized)
           }
         }
       }
 
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/generate-share-link`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/generate-share-link`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -1515,7 +1515,7 @@ const Acompanhamentos: React.FC = () => {
       // Se vazio, remove a senha; se tiver conteúdo, atualiza
       body.password = newPassword || null
       
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${linkToken}`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/share-links/${linkToken}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -1548,7 +1548,7 @@ const Acompanhamentos: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${oldToken}`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/share-links/${oldToken}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -1585,7 +1585,7 @@ const Acompanhamentos: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/acompanhamentos/share-links/${tokenToDelete}`, {
+      const response = await fetch(`${API_BASE_URL}/terracontrol/share-links/${tokenToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1696,7 +1696,7 @@ const Acompanhamentos: React.FC = () => {
 
   // Funções para gerar dados de cada gráfico
   const getTotalImoveisData = () => {
-    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+    const byMunicipio = records.reduce((acc, acomp) => {
       acc[acomp.municipio] = (acc[acomp.municipio] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -1711,7 +1711,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getAreaTotalData = () => {
-    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+    const byMunicipio = records.reduce((acc, acomp) => {
       acc[acomp.municipio] = (acc[acomp.municipio] || 0) + (acomp.areaTotal || 0)
       return acc
     }, {} as Record<string, number>)
@@ -1726,8 +1726,8 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getGeoCertificacaoData = () => {
-    const sim = acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length
-    const nao = acompanhamentos.filter(a => a.geoCertificacao === 'NÃO').length
+    const sim = records.filter(a => a.geoCertificacao === 'SIM').length
+    const nao = records.filter(a => a.geoCertificacao === 'NÃO').length
     return [
       { name: 'SIM', value: sim, color: '#22c55e' },
       { name: 'NÃO', value: nao, color: '#ef4444' }
@@ -1735,8 +1735,8 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getGeoRegistroData = () => {
-    const sim = acompanhamentos.filter(a => a.geoRegistro === 'SIM').length
-    const nao = acompanhamentos.filter(a => a.geoRegistro === 'NÃO').length
+    const sim = records.filter(a => a.geoRegistro === 'SIM').length
+    const nao = records.filter(a => a.geoRegistro === 'NÃO').length
     return [
       { name: 'SIM', value: sim, color: '#22c55e' },
       { name: 'NÃO', value: nao, color: '#ef4444' }
@@ -1744,7 +1744,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getCulturaData = (tipo: string) => {
-    const data = acompanhamentos.map(acomp => {
+    const data = records.map(acomp => {
       let area = 0
       if (matchesCulturaType(acomp.cultura1, tipo)) area += acomp.areaCultura1 || 0
       if (matchesCulturaType(acomp.cultura2, tipo)) area += acomp.areaCultura2 || 0
@@ -1762,7 +1762,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getAPPData = (tipo: 'appCodigoFlorestal' | 'appVegetada' | 'appNaoVegetada' | 'remanescenteFlorestal') => {
-    const data = acompanhamentos
+    const data = records
       .map(acomp => ({
         imovel: acomp.imovel,
         area: acomp[tipo] || 0
@@ -1779,7 +1779,7 @@ const Acompanhamentos: React.FC = () => {
   }
 
   const getReservaLegalData = () => {
-    const data = acompanhamentos
+    const data = records
       .map(acomp => ({
         imovel: acomp.imovel,
         area: acomp.reservaLegal || 0
@@ -1804,7 +1804,7 @@ const Acompanhamentos: React.FC = () => {
             <ClipboardCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Acompanhamentos</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">TerraControl</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm">Gestão de propriedades rurais e cadastros ambientais</p>
           </div>
         </div>
@@ -1847,7 +1847,7 @@ const Acompanhamentos: React.FC = () => {
           onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{acompanhamentos.length}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{records.length}</p>
         </div>
         <div 
           className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
@@ -1855,7 +1855,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
+            {formatNumber(records.reduce((sum, a) => sum + a.areaTotal, 0))} ha
           </p>
         </div>
         <div 
@@ -1864,7 +1864,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
           <p className="text-2xl font-bold text-green-600">
-            {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
+            {records.filter(a => a.geoCertificacao === 'SIM').length}
           </p>
         </div>
         <div 
@@ -1873,7 +1873,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
           <p className="text-2xl font-bold text-green-600">
-            {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
+            {records.filter(a => a.geoRegistro === 'SIM').length}
           </p>
         </div>
       </div>
@@ -1944,7 +1944,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
+            {formatNumber(records.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
           </p>
         </div>
         <div 
@@ -1953,7 +1953,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
           <p className="text-2xl font-bold text-green-600">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
+            {formatNumber(records.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
           </p>
         </div>
         <div 
@@ -1962,7 +1962,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
           <p className="text-2xl font-bold text-orange-600">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
+            {formatNumber(records.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
           </p>
         </div>
         <div
@@ -1971,7 +1971,7 @@ const Acompanhamentos: React.FC = () => {
         >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
+            {formatNumber(records.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
           </p>
         </div>
       </div>
@@ -1982,7 +1982,7 @@ const Acompanhamentos: React.FC = () => {
           <input
             type="checkbox"
             onChange={handleSelectAll}
-            checked={sortedAcompanhamentos.length > 0 && sortedAcompanhamentos.every(a => selectedItems.has(a.id))}
+            checked={sortedRecords.length > 0 && sortedRecords.every(a => selectedItems.has(a.id))}
             title="Selecionar todos"
             className="rounded border-gray-300 dark:border-gray-600"
           />
@@ -2003,7 +2003,7 @@ const Acompanhamentos: React.FC = () => {
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
             bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
-            Mostrando {sortedAcompanhamentos.length}/{acompanhamentos.length} Resultados
+            Mostrando {sortedRecords.length}/{records.length} Resultados
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -2040,14 +2040,14 @@ const Acompanhamentos: React.FC = () => {
 
       {/* Cards */}
       <div className="space-y-4">
-        {sortedAcompanhamentos.length === 0 ? (
+        {sortedRecords.length === 0 ? (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
             <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">
-              {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum acompanhamento cadastrado.'}
+              {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum record cadastrado.'}
             </p>
           </div>
-        ) : sortedAcompanhamentos.map((acomp) => {
+        ) : sortedRecords.map((acomp) => {
           const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
           const hasDocs = !!acomp.carUrl
             || (acomp.matriculasDados || []).some(m => m.url)
@@ -2343,7 +2343,7 @@ const Acompanhamentos: React.FC = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {editing ? 'Editar Acompanhamento' : 'Novo Acompanhamento'}
+                  {editing ? 'Editar TerraControlRecord' : 'Novo TerraControlRecord'}
                 </h2>
                 <button
                   type="button"
@@ -3076,7 +3076,7 @@ const Acompanhamentos: React.FC = () => {
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Importar / Exportar Acompanhamentos</h2>
+                <h2 className="text-xl font-bold text-gray-900">Importar / Exportar TerraControl</h2>
                 <button
                   onClick={() => setIsImportModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -3492,7 +3492,7 @@ const Acompanhamentos: React.FC = () => {
             <div className="p-6 border-t bg-gray-50 flex-shrink-0">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
-                  <strong>Nota:</strong> Os links compartilháveis permitem visualizar todos os acompanhamentos em modo somente leitura, sem necessidade de login. 
+                  <strong>Nota:</strong> Os links compartilháveis permitem visualizar todos os TerraControl em modo somente leitura, sem necessidade de login. 
                   Compartilhe os links com quem precisa visualizar os dados.
                 </p>
               </div>
@@ -3664,5 +3664,5 @@ const Acompanhamentos: React.FC = () => {
   )
 }
 
-export default Acompanhamentos
+export default TerraControl
 

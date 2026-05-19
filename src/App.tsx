@@ -48,8 +48,8 @@ const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
 const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
 const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
 const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
-const Acompanhamentos = lazy(() => import('@/subsistemas/especial/modulos/Acompanhamentos'))
-const AcompanhamentosView = lazy(() => import('@/subsistemas/especial/modulos/AcompanhamentosView'))
+const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
+const TerraControlView = lazy(() => import('@/subsistemas/especial/modulos/TerraControlView'))
 const AdminPanel = lazy(() => import('@/subsistemas/admin/modulos/Admin'))
 const ActiveSessions = lazy(() => import('@/subsistemas/admin/modulos/ActiveSessions'))
 const AnomalyDashboard = lazy(() => import('@/subsistemas/admin/modulos/AnomalyDashboard'))
@@ -128,7 +128,7 @@ type TabType =
   | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
   | 'projects' | 'services' | 'clients'
   // Subsistema especial
-  | 'acompanhamentos'
+  | 'terracontrol'
 
 const AppContent: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
@@ -163,7 +163,7 @@ const AppContent: React.FC = () => {
     const hash = window.location.hash.substring(1);
     const urlToken = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
     const isPasswordResetToken = urlToken && /^[0-9a-f]{64}$/i.test(urlToken);
-    const isViewRoute = window.location.pathname.includes('/acompanhamentos-view');
+    const isViewRoute = window.location.pathname.includes('/terracontrol-view');
 
     // Se o token existe e não é de reset de senha, ou se estamos na rota de visualização
     if (urlToken && (!isPasswordResetToken || isViewRoute || urlToken.startsWith('view_'))) {
@@ -181,7 +181,7 @@ const AppContent: React.FC = () => {
 
   if (viewToken) {
     // Renderizar visualização pública sem autenticação
-    return <AcompanhamentosView token={viewToken} />;
+    return <TerraControlView token={viewToken} />;
   }
 
   if (isLoading) {
@@ -289,12 +289,12 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       // Gestão
       'faq', 'documentacao',
       // Especial
-      'acompanhamentos',
+      'terracontrol',
     ];
     if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
     if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
     if (role === 'user') return allWithoutAdmin;
-    if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'acompanhamentos');
+    if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'terracontrol');
     return [];
   };
 
@@ -1086,7 +1086,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
               anomalies: AlertTriangle,
               security_alerts: ShieldAlert,
               // Especial
-              acompanhamentos: ClipboardList,
+              terracontrol: ClipboardList,
             };
 
             // Se o catálogo ainda não carregou, usa os módulos do subsistema atual
@@ -3514,9 +3514,9 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
             <DRE />
           </Suspense>
         )}
-        {activeTab === 'acompanhamentos' && hasModuleAccess('acompanhamentos') && (
+        {activeTab === 'terracontrol' && hasModuleAccess('terracontrol') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
-            <Acompanhamentos />
+            <TerraControl />
           </Suspense>
         )}
         {activeTab === 'faq' && hasModuleAccess('faq') && (

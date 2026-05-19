@@ -75,7 +75,7 @@ const PAGINA_GRUPOS: PaginaGrupo[] = [
   {
     label: 'Módulos Extras',
     options: [
-      { key: 'acompanhamentos', label: 'Acompanhamentos' },
+      { key: 'terracontrol', label: 'TerraControl' },
     ],
   },
 ];

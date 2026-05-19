@@ -24,7 +24,7 @@ export interface CcirItem {
   url?: string
 }
 
-interface Acompanhamento {
+interface TerraControlRecord {
   id: string
   codImovel: number
   imovel: string
@@ -57,7 +57,7 @@ interface Acompanhamento {
 
 const API_BASE_URL = '/api'
 
-const normalizeAcompanhamento = (raw: any): Acompanhamento => {
+const normalizeRecord = (raw: any): TerraControlRecord => {
   let matriculas_dados: MatriculaItem[] = []
   if (raw?.matriculasDados || raw?.matriculas_dados) {
     try {
@@ -153,8 +153,8 @@ const normalizeAcompanhamento = (raw: any): Acompanhamento => {
   }
 }
 
-const normalizeAcompanhamentos = (rows: any[]): Acompanhamento[] =>
-  Array.isArray(rows) ? rows.map(normalizeAcompanhamento) : []
+const normalizeRecords = (rows: any[]): TerraControlRecord[] =>
+  Array.isArray(rows) ? rows.map(normalizeRecord) : []
 
 const formatCodImovel = (value: number): string => String(Number(value || 0)).padStart(3, '0')
 
@@ -195,8 +195,8 @@ type SortField =
 
 type SortDirection = 'asc' | 'desc'
 
-const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
-  const [acompanhamentos, setAcompanhamentos] = useState<Acompanhamento[]>([])
+const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
+  const [records, setRecords] = useState<TerraControlRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [shareLinkName, setShareLinkName] = useState<string | null>(null)
@@ -225,15 +225,15 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   useEffect(() => {
     const controller = new AbortController()
 
-    const loadAcompanhamentos = async () => {
+    const loadRecords = async () => {
       let aborted = false
       try {
         // Tentar carregar sem senha primeiro
-        const response = await fetch(`${API_BASE_URL}/acompanhamentos/public/${token}`, { signal: controller.signal })
+        const response = await fetch(`${API_BASE_URL}/terracontrol/public/${token}`, { signal: controller.signal })
         const result = await response.json()
 
         if (result.success) {
-          setAcompanhamentos(normalizeAcompanhamentos(result.data))
+          setRecords(normalizeRecords(result.data))
           setShareLinkName(result.shareLinkName)
           setRequiresPassword(false)
         } else {
@@ -257,13 +257,13 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           aborted = true
           return
         }
-        console.error('Erro ao carregar acompanhamentos:', error)
+        console.error('Erro ao carregar TerraControl:', error)
         setError('Erro ao carregar dados')
       } finally {
         if (!aborted) setLoading(false)
       }
     }
-    loadAcompanhamentos()
+    loadRecords()
 
     return () => { controller.abort() }
   }, [token])
@@ -280,13 +280,13 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     setIsSubmittingPassword(true)
     try {
       const response = await fetch(
-        `${API_BASE_URL}/acompanhamentos/public/${token}?password=${encodeURIComponent(password.trim())}`,
+        `${API_BASE_URL}/terracontrol/public/${token}?password=${encodeURIComponent(password.trim())}`,
         { method: 'GET' }
       )
       const result = await response.json()
 
       if (result.success) {
-        setAcompanhamentos(normalizeAcompanhamentos(result.data))
+        setRecords(normalizeRecords(result.data))
         setShareLinkName(result.shareLinkName)
         setRequiresPassword(false)
         setPassword('')
@@ -306,11 +306,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
   }
 
-  const handleDownloadAllZipped = async (acompanhamentoId: string, matriculasDados: MatriculaItem[], imovelName: string) => {
+  const handleDownloadAllZipped = async (recordId: string, matriculasDados: MatriculaItem[], imovelName: string) => {
     const matriculasComUrl = (matriculasDados || []).filter(m => m.url)
     if (matriculasComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId)
+    setIsDownloadingZip(recordId)
     try {
       const zip = new JSZip()
       
@@ -338,11 +338,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
   }
 
-  const handleDownloadAllItrZipped = async (acompanhamentoId: string, itrDados: ItrItem[], imovelName: string) => {
+  const handleDownloadAllItrZipped = async (recordId: string, itrDados: ItrItem[], imovelName: string) => {
     const itrsComDocumentos = (itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
     if (itrsComDocumentos.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId + 'itr')
+    setIsDownloadingZip(recordId + 'itr')
     try {
       const zip = new JSZip()
       const downloadPromises: Promise<void>[] = []
@@ -424,11 +424,11 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     }
   }
 
-  const handleDownloadAllCcirZipped = async (acompanhamentoId: string, ccirDados: CcirItem[], imovelName: string) => {
+  const handleDownloadAllCcirZipped = async (recordId: string, ccirDados: CcirItem[], imovelName: string) => {
     const ccirsComUrl = (ccirDados || []).filter(m => m.url)
     if (ccirsComUrl.length === 0) return
 
-    setIsDownloadingZip(acompanhamentoId + 'ccir')
+    setIsDownloadingZip(recordId + 'ccir')
     try {
       const zip = new JSZip()
 
@@ -460,7 +460,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
 
 
-  const handleDownloadRegistroZip = async (acomp: Acompanhamento) => {
+  const handleDownloadRegistroZip = async (acomp: TerraControlRecord) => {
     const matriculasComUrl = (acomp.matriculasDados || []).filter(m => m.url)
     const itrsComDados = (acomp.itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
     const ccirComUrl = (acomp.ccirDados || []).filter(m => m.url)
@@ -565,22 +565,22 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     return (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
-  const getSortValue = (acomp: Acompanhamento, field: SortField): string | number => {
+  const getSortValue = (acomp: TerraControlRecord, field: SortField): string | number => {
     if (field === 'saldoReservaLegal') {
       return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
     }
-    return acomp[field as keyof Acompanhamento] as string | number
+    return acomp[field as keyof TerraControlRecord] as string | number
   }
 
-  const sortedAcompanhamentos = useMemo(() => {
+  const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
     const filtered = searchTerm
-      ? acompanhamentos.filter(a =>
+      ? records.filter(a =>
           (a.imovel || '').toLowerCase().includes(lower) ||
           (a.municipio || '').toLowerCase().includes(lower) ||
           String(a.codImovel ?? '').includes(searchTerm)
         )
-      : [...acompanhamentos]
+      : [...records]
 
     const direction = sortDirection === 'asc' ? 1 : -1
 
@@ -597,7 +597,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
     })
 
     return filtered
-  }, [acompanhamentos, sortField, sortDirection, searchTerm])
+  }, [records, sortField, sortDirection, searchTerm])
 
   // Função para converter URL do Google Maps para formato embed
   const convertMapUrlToEmbed = (url: string): string => {
@@ -696,7 +696,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   const getAreaByCulturaType = (tipo: string): number => {
     let total = 0
 
-    acompanhamentos.forEach(acomp => {
+    records.forEach(acomp => {
       // Verificar cultura1
       if (matchesCulturaType(acomp.cultura1, tipo)) {
         total += acomp.areaCultura1 || 0
@@ -716,7 +716,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
   // Funções para gerar dados de cada gráfico
   const getTotalImoveisData = () => {
-    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+    const byMunicipio = records.reduce((acc, acomp) => {
       acc[acomp.municipio] = (acc[acomp.municipio] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -731,7 +731,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getAreaTotalData = () => {
-    const byMunicipio = acompanhamentos.reduce((acc, acomp) => {
+    const byMunicipio = records.reduce((acc, acomp) => {
       acc[acomp.municipio] = (acc[acomp.municipio] || 0) + (acomp.areaTotal || 0)
       return acc
     }, {} as Record<string, number>)
@@ -746,8 +746,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getGeoCertificacaoData = () => {
-    const sim = acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length
-    const nao = acompanhamentos.filter(a => a.geoCertificacao === 'NÃO').length
+    const sim = records.filter(a => a.geoCertificacao === 'SIM').length
+    const nao = records.filter(a => a.geoCertificacao === 'NÃO').length
     return [
       { name: 'SIM', value: sim, color: '#22c55e' },
       { name: 'NÃO', value: nao, color: '#ef4444' }
@@ -755,8 +755,8 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getGeoRegistroData = () => {
-    const sim = acompanhamentos.filter(a => a.geoRegistro === 'SIM').length
-    const nao = acompanhamentos.filter(a => a.geoRegistro === 'NÃO').length
+    const sim = records.filter(a => a.geoRegistro === 'SIM').length
+    const nao = records.filter(a => a.geoRegistro === 'NÃO').length
     return [
       { name: 'SIM', value: sim, color: '#22c55e' },
       { name: 'NÃO', value: nao, color: '#ef4444' }
@@ -764,7 +764,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getCulturaData = (tipo: string) => {
-    const data = acompanhamentos.map(acomp => {
+    const data = records.map(acomp => {
       let area = 0
       if (matchesCulturaType(acomp.cultura1, tipo)) area += acomp.areaCultura1 || 0
       if (matchesCulturaType(acomp.cultura2, tipo)) area += acomp.areaCultura2 || 0
@@ -782,7 +782,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getAPPData = (tipo: 'appCodigoFlorestal' | 'appVegetada' | 'appNaoVegetada' | 'remanescenteFlorestal') => {
-    const data = acompanhamentos
+    const data = records
       .map(acomp => ({
         imovel: acomp.imovel,
         area: acomp[tipo] || 0
@@ -799,7 +799,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const getReservaLegalData = () => {
-    const data = acompanhamentos
+    const data = records
       .map(acomp => ({
         imovel: acomp.imovel,
         area: acomp.reservaLegal || 0
@@ -953,7 +953,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
                 <ClipboardCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Acompanhamentos de Imóveis</h1>
+                <h1 className="text-xl font-bold">TerraControl</h1>
                 <p className="text-blue-200 text-sm">Visualização somente leitura</p>
               </div>
             </div>
@@ -976,7 +976,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
               <h2 className="text-lg font-bold">
                 Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
               </h2>
-              <p className="text-blue-100 text-sm">Visualização somente leitura dos acompanhamentos de imóveis</p>
+              <p className="text-blue-100 text-sm">Visualização somente leitura dos imóveis (TerraControl)</p>
             </div>
           </div>
         </div>
@@ -988,7 +988,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', getTotalImoveisData(), { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{acompanhamentos.length}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{records.length}</p>
           </div>
           <div 
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
@@ -996,7 +996,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + a.areaTotal, 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + a.areaTotal, 0))} ha
             </p>
           </div>
           <div 
@@ -1005,7 +1005,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
             <p className="text-2xl font-bold text-green-600">
-              {acompanhamentos.filter(a => a.geoCertificacao === 'SIM').length}
+              {records.filter(a => a.geoCertificacao === 'SIM').length}
             </p>
           </div>
           <div 
@@ -1014,7 +1014,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
             <p className="text-2xl font-bold text-green-600">
-              {acompanhamentos.filter(a => a.geoRegistro === 'SIM').length}
+              {records.filter(a => a.geoRegistro === 'SIM').length}
             </p>
           </div>
         </div>
@@ -1085,7 +1085,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -1094,7 +1094,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
             <p className="text-2xl font-bold text-green-600">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -1103,7 +1103,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
             <p className="text-2xl font-bold text-orange-600">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
             </p>
           </div>
           <div
@@ -1112,7 +1112,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -1121,7 +1121,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Remanescente Florestal</p>
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {formatNumber(acompanhamentos.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
+              {formatNumber(records.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
             </p>
           </div>
         </div>
@@ -1139,7 +1139,7 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
               bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
-              Mostrando {sortedAcompanhamentos.length}/{acompanhamentos.length} Resultados
+              Mostrando {sortedRecords.length}/{records.length} Resultados
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1176,14 +1176,14 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
 
         {/* Cards */}
         <div className="space-y-4">
-          {sortedAcompanhamentos.length === 0 ? (
+          {sortedRecords.length === 0 ? (
             <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
               <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400 font-medium">
                 {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro disponível'}
               </p>
             </div>
-          ) : sortedAcompanhamentos.map((acomp) => {
+          ) : sortedRecords.map((acomp) => {
             const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
             const hasDocs = !!acomp.carUrl
               || (acomp.matriculasDados || []).some(m => m.url)
@@ -1696,5 +1696,5 @@ const AcompanhamentosView: React.FC<{ token: string }> = ({ token }) => {
   )
 }
 
-export default AcompanhamentosView
+export default TerraControlView
 

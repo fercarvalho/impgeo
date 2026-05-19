@@ -24,7 +24,7 @@ class Database {
     this.faturamentoNnFile = path.join(this.dbPath, 'faturamentoNn.json');
     this.faturamentoTotalFile = path.join(this.dbPath, 'faturamentoTotal.json');
     this.resultadoFile = path.join(this.dbPath, 'resultado.json');
-    this.acompanhamentosFile = path.join(this.dbPath, 'acompanhamentos.json');
+    this.terracontrolFile = path.join(this.dbPath, 'terracontrol.json');
     this.shareLinksFile = path.join(this.dbPath, 'shareLinks.json');
     
     // Mapeamento de arquivos de projeção para seus backups
@@ -122,8 +122,8 @@ class Database {
       fs.writeFileSync(this.servicesFile, '[]');
     }
     
-    if (!fs.existsSync(this.acompanhamentosFile)) {
-      fs.writeFileSync(this.acompanhamentosFile, '[]');
+    if (!fs.existsSync(this.terracontrolFile)) {
+      fs.writeFileSync(this.terracontrolFile, '[]');
     }
     
     if (!fs.existsSync(this.shareLinksFile)) {
@@ -732,76 +732,76 @@ class Database {
     }
   }
 
-  // Métodos para Acompanhamentos
-  getAllAcompanhamentos() {
+  // Métodos para TerraControl
+  getAllTerraControl() {
     try {
-      const data = fs.readFileSync(this.acompanhamentosFile, 'utf8');
+      const data = fs.readFileSync(this.terracontrolFile, 'utf8');
       return JSON.parse(data);
     } catch (error) {
-      console.error('Erro ao ler acompanhamentos:', error);
+      console.error('Erro ao ler TerraControl:', error);
       return [];
     }
   }
 
-  saveAcompanhamento(acompanhamentoData) {
+  saveTerraControl(recordData) {
     try {
-      const acompanhamentos = this.getAllAcompanhamentos();
-      const newAcompanhamento = {
+      const records = this.getAllTerraControl();
+      const newTerraControlRecord = {
         id: this.generateId(),
-        ...acompanhamentoData,
+        ...recordData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      acompanhamentos.push(newAcompanhamento);
-      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(acompanhamentos, null, 2));
-      return newAcompanhamento;
+      records.push(newTerraControlRecord);
+      fs.writeFileSync(this.terracontrolFile, JSON.stringify(records, null, 2));
+      return newTerraControlRecord;
     } catch (error) {
-      throw new Error('Erro ao salvar acompanhamento: ' + error.message);
+      throw new Error('Erro ao salvar TerraControl: ' + error.message);
     }
   }
 
-  updateAcompanhamento(id, updatedData) {
+  updateTerraControl(id, updatedData) {
     try {
-      const acompanhamentos = this.getAllAcompanhamentos();
+      const records = this.getAllTerraControl();
       // Converter ambos para string para comparação flexível
       const idStr = String(id);
-      const index = acompanhamentos.findIndex(a => String(a.id) === idStr);
+      const index = records.findIndex(a => String(a.id) === idStr);
       if (index === -1) {
-        throw new Error('Acompanhamento não encontrado');
+        throw new Error('TerraControl não encontrado');
       }
-      acompanhamentos[index] = {
-        ...acompanhamentos[index],
+      records[index] = {
+        ...records[index],
         ...updatedData,
-        id: acompanhamentos[index].id, // Preservar o ID original
+        id: records[index].id, // Preservar o ID original
         updatedAt: new Date().toISOString()
       };
-      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(acompanhamentos, null, 2));
-      return acompanhamentos[index];
+      fs.writeFileSync(this.terracontrolFile, JSON.stringify(records, null, 2));
+      return records[index];
     } catch (error) {
-      throw new Error('Erro ao atualizar acompanhamento: ' + error.message);
+      throw new Error('Erro ao atualizar TerraControl: ' + error.message);
     }
   }
 
-  deleteAcompanhamento(id) {
+  deleteTerraControl(id) {
     try {
-      const acompanhamentos = this.getAllAcompanhamentos();
-      const filteredAcompanhamentos = acompanhamentos.filter(a => a.id !== id);
-      if (filteredAcompanhamentos.length === acompanhamentos.length) {
-        throw new Error('Acompanhamento não encontrado');
+      const records = this.getAllTerraControl();
+      const filteredTerraControl = records.filter(a => a.id !== id);
+      if (filteredTerraControl.length === records.length) {
+        throw new Error('TerraControl não encontrado');
       }
-      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(filteredAcompanhamentos, null, 2));
+      fs.writeFileSync(this.terracontrolFile, JSON.stringify(filteredTerraControl, null, 2));
     } catch (error) {
-      throw new Error('Erro ao excluir acompanhamento: ' + error.message);
+      throw new Error('Erro ao excluir TerraControl: ' + error.message);
     }
   }
 
-  deleteMultipleAcompanhamentos(ids) {
+  deleteMultipleTerraControl(ids) {
     try {
-      const acompanhamentos = this.getAllAcompanhamentos();
-      const filteredAcompanhamentos = acompanhamentos.filter(a => !ids.includes(a.id));
-      fs.writeFileSync(this.acompanhamentosFile, JSON.stringify(filteredAcompanhamentos, null, 2));
+      const records = this.getAllTerraControl();
+      const filteredTerraControl = records.filter(a => !ids.includes(a.id));
+      fs.writeFileSync(this.terracontrolFile, JSON.stringify(filteredTerraControl, null, 2));
     } catch (error) {
-      throw new Error('Erro ao excluir acompanhamentos: ' + error.message);
+      throw new Error('Erro ao excluir TerraControl: ' + error.message);
     }
   }
 

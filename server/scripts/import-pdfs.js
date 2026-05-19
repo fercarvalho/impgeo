@@ -69,7 +69,7 @@ async function run() {
   }
 
   // Carregar lista de IDs e campos legados para o primeiro match
-  const { rows: acompanhamentos } = await pool.query('SELECT id, matriculas, car, itr, n_incra_ccir FROM acompanhamentos');
+  const { rows: records } = await pool.query('SELECT id, matriculas, car, itr, n_incra_ccir FROM terracontrol');
 
   let successCount = 0;
   let failCount = 0;
@@ -98,7 +98,7 @@ async function run() {
     console.log(`\n📄 Processando: ${file} (Tipo: ${currentMode.name} | ID: ${docNumber})`);
 
     // Match inicial para encontrar os IDs dos imóveis
-    const targetIds = acompanhamentos.filter(a => {
+    const targetIds = records.filter(a => {
       // 1. Checar campo legado
       const legacyValue = a[currentMode.legacyField];
       if (legacyValue) {
@@ -115,7 +115,7 @@ async function run() {
     // Se não achou pelo legado, precisa buscar no JSON atualizado de cada um
     // Mas para simplificar, vamos buscar no banco quem tem esse número no JSON correspondente
     const { rows: jsonTargets } = await pool.query(
-      `SELECT id FROM acompanhamentos WHERE ${currentMode.field}::text LIKE $1`,
+      `SELECT id FROM terracontrol WHERE ${currentMode.field}::text LIKE $1`,
       [`%${docNumber}%`]
     );
     
@@ -144,10 +144,10 @@ async function run() {
 
     for (const id of allUniqueIds) {
       // BUSCAR O DADO MAIS ATUALIZADO DO BANCO PARA ESTE ID
-      const { rows: [actualTarget] } = await pool.query(`SELECT * FROM acompanhamentos WHERE id = $1`, [id]);
+      const { rows: [actualTarget] } = await pool.query(`SELECT * FROM terracontrol WHERE id = $1`, [id]);
       
       if (currentChoice === '2') {
-        await pool.query('UPDATE acompanhamentos SET car_url = $1 WHERE id = $2', [fileUrl, id]);
+        await pool.query('UPDATE terracontrol SET car_url = $1 WHERE id = $2', [fileUrl, id]);
       } else {
         let items = [];
         try {
@@ -183,7 +183,7 @@ async function run() {
         }
 
         await pool.query(
-          `UPDATE acompanhamentos SET ${currentMode.field} = $1 WHERE id = $2`,
+          `UPDATE terracontrol SET ${currentMode.field} = $1 WHERE id = $2`,
           [JSON.stringify(items), id]
         );
       }

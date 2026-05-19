@@ -1,6 +1,6 @@
 /**
  * seed-documentation-part2.js  —  Parte 2: Seções 7–11
- * Acompanhamentos, Transações, Metas, DRE, Relatórios
+ * TerraControl, Transações, Metas, DRE, Relatórios
  */
 
 const { Pool } = require('pg');
@@ -35,22 +35,22 @@ async function createPage(sectionId, title, content, ordem) {
 }
 
 // ============================================================
-// SEÇÃO 7 — ACOMPANHAMENTOS
+// SEÇÃO 7 — TERRACONTROL
 // ============================================================
-async function seedAcompanhamentos() {
-  const sid = await createSection('Acompanhamentos', 7);
+async function seedTerraControl() {
+  const sid = await createSection('TerraControl', 7);
 
-  await createPage(sid, 'O que são Acompanhamentos', `# O que são Acompanhamentos 🗺️
+  await createPage(sid, 'O que são TerraControl', `# O que são TerraControl 🗺️
 
 ## Para que serve este módulo?
 
-**Acompanhamentos** é o módulo onde você registra e monitora os **imóveis rurais** atendidos pela empresa. Para cada propriedade, o sistema guarda a situação do CAR, do ITR, do Georreferenciamento e os dados ambientais — tudo em um único cadastro.
+**TerraControl** é o módulo onde você registra e monitora os **imóveis rurais** atendidos pela empresa. Para cada propriedade, o sistema guarda a situação do CAR, do ITR, do Georreferenciamento e os dados ambientais — tudo em um único cadastro.
 
 ---
 
-## Quando criar um acompanhamento?
+## Quando criar um TerraControl?
 
-Crie um registro de acompanhamento toda vez que sua empresa começar a trabalhar com um imóvel rural — seja para fazer o CAR, regularizar o georreferenciamento, declarar o ITR ou qualquer serviço relacionado à propriedade.
+Crie um registro de TerraControl toda vez que sua empresa começar a trabalhar com um imóvel rural — seja para fazer o CAR, regularizar o georreferenciamento, declarar o ITR ou qualquer serviço relacionado à propriedade.
 
 ---
 
@@ -67,9 +67,9 @@ graph TD
 
 ---
 
-## Acompanhamento vs. Projeto vs. Serviço
+## TerraControl vs. Projeto vs. Serviço
 
-- Um **imóvel** pode ter vários processos (CAR, geo, ITR) — isso fica no Acompanhamento
+- Um **imóvel** pode ter vários processos (CAR, geo, ITR) — isso fica no TerraControl
 - Um **projeto** é o contrato maior com o cliente — pode envolver vários imóveis
 - Um **serviço** é a atividade específica executada (ex: "Georreferenciamento da Fazenda X")
 
@@ -80,8 +80,8 @@ Os três podem ser vinculados entre si para manter tudo rastreável.
 
 ## Como cadastrar
 
-1. Acesse **Acompanhamentos** no menu lateral
-2. Clique em **"+ Novo Acompanhamento"**
+1. Acesse **TerraControl** no menu lateral
+2. Clique em **"+ Novo TerraControl"**
 3. Preencha os dados do imóvel nas abas do formulário
 4. Salve
 
@@ -150,7 +150,7 @@ O CAR é obrigatório para imóveis rurais e necessário para acessar crédito r
 
 ### Como atualizar
 
-Sempre que o status do CAR mudar (ex: saiu da análise e foi aprovado), abra o acompanhamento, atualize o campo **Status do CAR** e salve. Se receber o número de inscrição, preencha também o campo **Número do CAR** e o link do comprovante.
+Sempre que o status do CAR mudar (ex: saiu da análise e foi aprovado), abra o TerraControl, atualize o campo **Status do CAR** e salve. Se receber o número de inscrição, preencha também o campo **Número do CAR** e o link do comprovante.
 
 ---
 
@@ -185,7 +185,7 @@ Quando você executa o georreferenciamento de um imóvel, há dois marcos import
 
 ## Como atualizar após a certificação
 
-1. Abra o acompanhamento do imóvel
+1. Abra o TerraControl do imóvel
 2. Vá na aba **"Georreferenciamento"**
 3. Preencha o campo **"Certificação"** com o número ou a data do certificado emitido pelo INCRA
 4. Salve
@@ -194,7 +194,7 @@ Quando você executa o georreferenciamento de um imóvel, há dois marcos import
 
 ## Como atualizar após o registro em cartório
 
-1. Abra o acompanhamento
+1. Abra o TerraControl
 2. Na aba **"Georreferenciamento"**, preencha o campo **"Registro"** com a data da averbação
 3. Salve
 
@@ -251,11 +251,11 @@ Esses dados são úteis para:
 Se a área de APP não vegetada for significativa ou a reserva legal for menor do que o exigido por lei, o imóvel pode ter **passivo ambiental**. Isso pode exigir um Programa de Regularização Ambiental (PRA) ou compensação de reserva legal — serviços que você pode registrar e acompanhar no sistema.
 `, 5);
 
-  await createPage(sid, 'Filtrando e exportando acompanhamentos', `# Filtrando e exportando acompanhamentos 🔍
+  await createPage(sid, 'Filtrando e exportando TerraControl', `# Filtrando e exportando TerraControl 🔍
 
 ## Encontrando imóveis específicos
 
-Use os filtros da listagem de Acompanhamentos para encontrar rapidamente o que você procura:
+Use os filtros da listagem de TerraControl para encontrar rapidamente o que você procura:
 
 | Filtro | Opções |
 |--------|--------|
@@ -279,9 +279,9 @@ Com os filtros aplicados, clique em **"Exportar"** para baixar a lista no format
 
 ---
 
-## Relatórios de acompanhamento
+## Relatórios de TerraControl
 
-No módulo **Relatórios** você encontra relatórios prontos específicos para acompanhamentos:
+No módulo **Relatórios** você encontra relatórios prontos específicos para TerraControl:
 
 - **Situação geral do CAR** — todos os imóveis com seu status de CAR
 - **Pendências de geo** — imóveis sem certificação ou sem registro
@@ -293,7 +293,7 @@ No módulo **Relatórios** você encontra relatórios prontos específicos para 
 > 💡 Exporte a lista de pendências de CAR e geo mensalmente e compartilhe com a equipe técnica para que todos saibam o que precisa de atenção.
 `, 6);
 
-  console.log('✅ Seção 7 (Acompanhamentos) criada.');
+  console.log('✅ Seção 7 (TerraControl) criada.');
 }
 
 // ============================================================
@@ -728,7 +728,7 @@ O módulo **Relatórios** reúne relatórios prontos que combinam dados de difer
 
 ---
 
-## Relatórios de Acompanhamentos
+## Relatórios de TerraControl
 
 | Relatório | O que mostra |
 |-----------|-------------|
@@ -762,7 +762,7 @@ Após gerar o relatório, clique em **"Exportar"** e escolha o formato. O downlo
 
 ## Enviando para o cliente
 
-Para enviar um relatório de acompanhamento ao cliente:
+Para enviar um relatório de TerraControl ao cliente:
 
 1. Gere o relatório com o filtro de **cliente** aplicado
 2. Exporte em **PDF**
@@ -793,7 +793,7 @@ Com esses dois relatórios, o contador tem tudo que precisa para a contabilidade
 async function main() {
   try {
     console.log('🚀 Seed Parte 2 — Seções 7 a 11...');
-    await seedAcompanhamentos();
+    await seedTerraControl();
     await seedTransacoes();
     await seedMetas();
     await seedDRE();
