@@ -133,6 +133,13 @@ const TerraControlAdminLogin: React.FC = () => {
             ))}
           </svg>
         </div>
+        {/* Ondas decorativas (mesmas do LoginScreen do tc_user) */}
+        <svg className="absolute inset-0 w-full h-full tc-login-svg-bg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+          <path d="M-200,160 C100,60 350,260 680,140 C980,30 1180,230 1500,120" fill="none" stroke="#48A326" strokeWidth="1.5" className="tc-svg-wave-1" />
+          <path d="M-200,340 C150,240 400,440 750,300 C1060,175 1270,380 1600,260" fill="none" stroke="#0041B1" strokeWidth="1"   className="tc-svg-wave-2" />
+          <path d="M-200,520 C200,420 460,620 820,480 C1130,355 1340,550 1640,440" fill="none" stroke="#48A326" strokeWidth="1.5" className="tc-svg-wave-3" />
+          <path d="M-200,700 C250,600 520,800 890,650 C1160,520 1360,710 1640,610" fill="none" stroke="#0041B1" strokeWidth="1"   className="tc-svg-wave-4" />
+        </svg>
       </div>
 
       <div className="relative z-10 flex flex-col items-center justify-center flex-1 py-10 px-4">
@@ -254,6 +261,10 @@ const TerraControlAdminLogin: React.FC = () => {
         html.dark .tc-float-input:not(:placeholder-shown) ~ .tc-float-label { color: #86CA2D; }
         .tc-error-block { background: rgba(254,226,226,0.80); border: 1px solid rgba(252,165,165,0.60); color: #dc2626; }
         html.dark .tc-error-block { background: rgba(127,29,29,0.50); border-color: rgba(239,68,68,0.40); color: #fca5a5; }
+        .tc-login-svg-bg .tc-svg-wave-1 { opacity: 0.20; }
+        .tc-login-svg-bg .tc-svg-wave-2 { opacity: 0.13; }
+        .tc-login-svg-bg .tc-svg-wave-3 { opacity: 0.13; }
+        .tc-login-svg-bg .tc-svg-wave-4 { opacity: 0.09; }
       `}</style>
 
       <Footer />
