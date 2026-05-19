@@ -11,6 +11,12 @@ export interface ChartDatum {
   color: string
 }
 
+// G6.1 — limite default para charts de ranking por imóvel. Antes era 10
+// (hardcoded), e usuários com muitos imóveis viam só os top 10. Aumentei
+// para 20 — cobre a maioria dos casos sem poluir o gráfico. Quem precisa
+// de mais pode passar `limit` explicitamente nos getters.
+export const CHART_TOP_LIMIT = 20
+
 export const CHART_COLORS: readonly string[] = [
   '#3b82f6', // azul
   '#22c55e', // verde
@@ -69,9 +75,12 @@ export const getGeoRegistroData = (records: TerraControlRecord[]): ChartDatum[] 
   ]
 }
 
-// Top 10 imóveis por área no tipo de cultura informado.
-// TODO (Grupo 6 / features): permitir "ver todos" em vez de cap fixo.
-export const getCulturaData = (records: TerraControlRecord[], tipo: string): ChartDatum[] => {
+// Top N imóveis (default CHART_TOP_LIMIT) por área no tipo de cultura informado.
+export const getCulturaData = (
+  records: TerraControlRecord[],
+  tipo: string,
+  limit: number = CHART_TOP_LIMIT
+): ChartDatum[] => {
   const rows = records
     .map(r => {
       let area = 0
@@ -82,7 +91,7 @@ export const getCulturaData = (records: TerraControlRecord[], tipo: string): Cha
     })
     .filter(item => item.value > 0)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 10)
+    .slice(0, limit)
   return withColors(rows)
 }
 
@@ -92,20 +101,27 @@ export type APPField =
   | 'appNaoVegetada'
   | 'remanescenteFlorestal'
 
-export const getAPPData = (records: TerraControlRecord[], field: APPField): ChartDatum[] => {
+export const getAPPData = (
+  records: TerraControlRecord[],
+  field: APPField,
+  limit: number = CHART_TOP_LIMIT
+): ChartDatum[] => {
   const rows = records
     .map(r => ({ name: r.imovel, value: r[field] || 0 }))
     .filter(item => item.value > 0)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 10)
+    .slice(0, limit)
   return withColors(rows)
 }
 
-export const getReservaLegalData = (records: TerraControlRecord[]): ChartDatum[] => {
+export const getReservaLegalData = (
+  records: TerraControlRecord[],
+  limit: number = CHART_TOP_LIMIT
+): ChartDatum[] => {
   const rows = records
     .map(r => ({ name: r.imovel, value: r.reservaLegal || 0 }))
     .filter(item => item.value > 0)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 10)
+    .slice(0, limit)
   return withColors(rows)
 }

@@ -172,20 +172,20 @@ const TerraControl: React.FC = () => {
   const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
     const filtered = searchTerm
-      ? records.filter(acomp =>
-          (acomp.imovel || '').toLowerCase().includes(lower) ||
-          (acomp.municipio || '').toLowerCase().includes(lower) ||
-          String(acomp.codImovel ?? '').includes(searchTerm)
+      ? records.filter(record =>
+          (record.imovel || '').toLowerCase().includes(lower) ||
+          (record.municipio || '').toLowerCase().includes(lower) ||
+          String(record.codImovel ?? '').includes(searchTerm)
         )
       : [...records]
 
     const direction = sortDirection === 'asc' ? 1 : -1
 
-    const getValue = (acomp: TerraControlRecord, field: SortField): string | number => {
+    const getValue = (record: TerraControlRecord, field: SortField): string | number => {
       if (field === 'saldoReservaLegal') {
-        return (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
+        return (record.reservaLegal || 0) - ((record.areaTotal || 0) * 0.2)
       }
-      return acomp[field as keyof TerraControlRecord] as string | number
+      return record[field as keyof TerraControlRecord] as string | number
     }
 
     filtered.sort((a, b) => {
@@ -247,9 +247,9 @@ const TerraControl: React.FC = () => {
     }
   }, [isModalOpen, isMapModalOpen, isImportModalOpen, isShareModalOpen, isShareSelectionWarningOpen, chartModalOpen, itrDownloadModal])
 
-  const handleEdit = (acomp: TerraControlRecord) => {
-    setEditing(acomp)
-    setForm(acomp)
+  const handleEdit = (record: TerraControlRecord) => {
+    setEditing(record)
+    setForm(record)
     setActiveFormTab('basico')
     setIsModalOpen(true)
   }
@@ -1405,6 +1405,27 @@ const TerraControl: React.FC = () => {
               )}
             </span>
           )}
+          {/* G6.3 — botão textual ao lado do checkbox torna a ação óbvia.
+              Antes só havia o checkbox e o tooltip; muitos usuários nem
+              percebiam que dava pra selecionar tudo. */}
+          {selectedItems.size === 0 ? (
+            <button
+              type="button"
+              onClick={() => setSelectedItems(new Set(sortedRecords.map(r => r.id)))}
+              disabled={sortedRecords.length === 0}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap disabled:text-gray-400 dark:disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+            >
+              {searchTerm ? `Selecionar visíveis (${sortedRecords.length})` : 'Selecionar todos'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSelectedItems(new Set())}
+              className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:underline whitespace-nowrap"
+            >
+              Limpar seleção
+            </button>
+          )}
         </div>
         <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
@@ -1425,7 +1446,7 @@ const TerraControl: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
             <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
             <select
-              id="sort-select-acomp"
+              id="sort-select-record"
               value={sortField}
               onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
               className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
@@ -1499,77 +1520,77 @@ const TerraControl: React.FC = () => {
               {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro cadastrado.'}
             </p>
           </div>
-        ) : visibleRecords.map((acomp) => {
-          const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
-          const hasDocs = !!acomp.carUrl
-            || (acomp.matriculasDados || []).some(m => m.url)
-            || (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
-            || (acomp.ccirDados || []).some(m => m.url)
-          const hasMatriculas = (acomp.matriculasDados || []).length > 0
-          const hasCcir = (acomp.ccirDados || []).length > 0
-          const hasItr = (acomp.itrDados || []).length > 0
-          const hasMatriculasPdfs = (acomp.matriculasDados || []).some(m => m.url)
-          const hasCcirPdfs = (acomp.ccirDados || []).some(m => m.url)
-          const hasItrPdfs = (acomp.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
-          const hasUsoDoSolo = acomp.cultura1 || acomp.cultura2 || acomp.outros
-          const hasApp = acomp.appCodigoFlorestal > 0 || acomp.appVegetada > 0 || acomp.appNaoVegetada > 0 || acomp.remanescenteFlorestal > 0
+        ) : visibleRecords.map((record) => {
+          const saldo = (record.reservaLegal || 0) - ((record.areaTotal || 0) * 0.2)
+          const hasDocs = !!record.carUrl
+            || (record.matriculasDados || []).some(m => m.url)
+            || (record.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+            || (record.ccirDados || []).some(m => m.url)
+          const hasMatriculas = (record.matriculasDados || []).length > 0
+          const hasCcir = (record.ccirDados || []).length > 0
+          const hasItr = (record.itrDados || []).length > 0
+          const hasMatriculasPdfs = (record.matriculasDados || []).some(m => m.url)
+          const hasCcirPdfs = (record.ccirDados || []).some(m => m.url)
+          const hasItrPdfs = (record.itrDados || []).some(m => m.declaracaoUrl || m.reciboUrl || m.url)
+          const hasUsoDoSolo = record.cultura1 || record.cultura2 || record.outros
+          const hasApp = record.appCodigoFlorestal > 0 || record.appVegetada > 0 || record.appNaoVegetada > 0 || record.remanescenteFlorestal > 0
 
           return (
-            <div key={acomp.id} className={`bg-white dark:!bg-[#243040] rounded-2xl shadow-md border overflow-hidden hover:shadow-lg transition-shadow duration-200 ${selectedItems.has(acomp.id) ? 'border-blue-400 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
+            <div key={record.id} className={`bg-white dark:!bg-[#243040] rounded-2xl shadow-md border overflow-hidden hover:shadow-lg transition-shadow duration-200 ${selectedItems.has(record.id) ? 'border-blue-400 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
 
               {/* ── HEADER ───────────────────────────────── */}
               <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-center gap-3">
                 <input
                   type="checkbox"
-                  checked={selectedItems.has(acomp.id)}
-                  onChange={() => handleSelectItem(acomp.id)}
+                  checked={selectedItems.has(record.id)}
+                  onChange={() => handleSelectItem(record.id)}
                   className="rounded border-white/40 bg-white/20 text-blue-600 shrink-0"
                   title="Selecionar registro"
                 />
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
-                    #{formatCodImovel(acomp.codImovel)}
+                    #{formatCodImovel(record.codImovel)}
                   </span>
                   <div className="min-w-0">
-                    <div className="text-white font-bold text-sm leading-tight truncate">{acomp.imovel}</div>
-                    <div className="text-blue-200 text-xs mt-0.5">{acomp.municipio}</div>
+                    <div className="text-white font-bold text-sm leading-tight truncate">{record.imovel}</div>
+                    <div className="text-blue-200 text-xs mt-0.5">{record.municipio}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {acomp.mapaUrl && (
+                  {record.mapaUrl && (
                     <button
-                      onClick={() => { setSelectedMapUrl(acomp.mapaUrl || ''); setSelectedImovel(acomp.imovel); setIsMapModalOpen(true) }}
+                      onClick={() => { setSelectedMapUrl(record.mapaUrl || ''); setSelectedImovel(record.imovel); setIsMapModalOpen(true) }}
                       title="Ver mapa do imóvel"
-                      aria-label={`Ver mapa de ${acomp.imovel}`}
+                      aria-label={`Ver mapa de ${record.imovel}`}
                       className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
                     >
                       <MapIcon className="w-4 h-4 text-white" aria-hidden="true" />
                     </button>
                   )}
                   <button
-                    onClick={() => handleDownloadRegistro(acomp)}
-                    disabled={!hasDocs || isDownloadingRecordZip === acomp.id}
+                    onClick={() => handleDownloadRegistro(record)}
+                    disabled={!hasDocs || isDownloadingRecordZip === record.id}
                     title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
-                    aria-label={hasDocs ? `Baixar documentos de ${acomp.imovel}` : 'Sem documentos'}
+                    aria-label={hasDocs ? `Baixar documentos de ${record.imovel}` : 'Sem documentos'}
                     className={`p-1.5 rounded-lg transition-colors ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
                   >
-                    {isDownloadingRecordZip === acomp.id
+                    {isDownloadingRecordZip === record.id
                       ? <Loader2 className="w-4 h-4 text-white animate-spin" />
                       : <Archive className="w-4 h-4 text-white" />
                     }
                   </button>
                   <button
-                    onClick={() => handleEdit(acomp)}
+                    onClick={() => handleEdit(record)}
                     title="Editar"
-                    aria-label={`Editar ${acomp.imovel}`}
+                    aria-label={`Editar ${record.imovel}`}
                     className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
                   >
                     <Edit className="w-4 h-4 text-white" />
                   </button>
                   <button
-                    onClick={() => handleDelete(acomp.id)}
+                    onClick={() => handleDelete(record.id)}
                     title="Excluir"
-                    aria-label={`Excluir ${acomp.imovel}`}
+                    aria-label={`Excluir ${record.imovel}`}
                     className="p-1.5 bg-white/10 hover:bg-red-500/60 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4 text-white" />
@@ -1590,22 +1611,22 @@ const TerraControl: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">Matrículas</span>
                     <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
-                      {hasMatriculas ? acomp.matriculasDados!.map((mat, i) => (
+                      {hasMatriculas ? record.matriculasDados!.map((mat, i) => (
                         <React.Fragment key={mat.id}>
                           {mat.url
                             ? <a href={mat.url} target="_blank" rel="noopener noreferrer" title={`Baixar matrícula ${mat.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{mat.numero}</a>
                             : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{mat.numero}</span>
                           }
-                          {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          {i < record.matriculasDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
                         </React.Fragment>
-                      )) : <span className="text-xs text-gray-400">{acomp.matriculas || '—'}</span>}
+                      )) : <span className="text-xs text-gray-400">{record.matriculas || '—'}</span>}
                     </div>
                     {hasMatriculas && (
-                      <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
-                        onClick={() => handleDownloadAllMatriculas(acomp)}
+                      <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === record.id}
+                        onClick={() => handleDownloadAllMatriculas(record)}
                         title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Anexe pelo menos um PDF de matrícula para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
-                        {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        {isDownloadingZip === record.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
                     )}
                   </div>
@@ -1614,22 +1635,22 @@ const TerraControl: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">N. INCRA/CCIR</span>
                     <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
-                      {hasCcir ? acomp.ccirDados!.map((item, i) => (
+                      {hasCcir ? record.ccirDados!.map((item, i) => (
                         <React.Fragment key={item.id}>
                           {item.url
                             ? <a href={item.url} target="_blank" rel="noopener noreferrer" title={`Baixar CCIR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</a>
                             : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{item.numero}</span>
                           }
-                          {i < acomp.ccirDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          {i < record.ccirDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
                         </React.Fragment>
-                      )) : <span className="text-xs text-gray-400">{acomp.nIncraCcir || '—'}</span>}
+                      )) : <span className="text-xs text-gray-400">{record.nIncraCcir || '—'}</span>}
                     </div>
                     {hasCcir && (
-                      <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
-                        onClick={() => handleDownloadAllCcir(acomp)}
+                      <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === record.id + 'ccir'}
+                        onClick={() => handleDownloadAllCcir(record)}
                         title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Anexe pelo menos um PDF de CCIR para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
-                        {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        {isDownloadingZip === record.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
                     )}
                   </div>
@@ -1638,13 +1659,13 @@ const TerraControl: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">CAR</span>
                     <div className="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                      {acomp.car ? (
-                        acomp.carUrl
-                          ? <a href={acomp.carUrl} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${acomp.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{acomp.car}</a>
-                          : <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{acomp.car}</span>
+                      {record.car ? (
+                        record.carUrl
+                          ? <a href={record.carUrl} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${record.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{record.car}</a>
+                          : <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{record.car}</span>
                       ) : <span className="text-xs text-gray-400">—</span>}
-                      {acomp.statusCar && (
-                        <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">{acomp.statusCar}</span>
+                      {record.statusCar && (
+                        <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">{record.statusCar}</span>
                       )}
                     </div>
                   </div>
@@ -1653,22 +1674,22 @@ const TerraControl: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500 w-[88px] shrink-0 pt-0.5 leading-tight">ITR</span>
                     <div className="flex-1 flex flex-wrap gap-x-1.5 gap-y-1 min-w-0">
-                      {hasItr ? acomp.itrDados!.map((item, i) => (
+                      {hasItr ? record.itrDados!.map((item, i) => (
                         <React.Fragment key={item.id}>
-                          {item.declaracaoUrl || item.reciboUrl || item.url
-                            ? <button type="button" onClick={() => setItrDownloadModal({ item, imovel: acomp.imovel })} title={`Opções de download ITR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</button>
+                          {item.declaracaoUrl || item.reciboUrl
+                            ? <button type="button" onClick={() => setItrDownloadModal({ item, imovel: record.imovel })} title={`Opções de download ITR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</button>
                             : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{item.numero}</span>
                           }
-                          {i < acomp.itrDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
+                          {i < record.itrDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
                         </React.Fragment>
-                      )) : <span className="text-xs text-gray-400">{acomp.itr || '—'}</span>}
+                      )) : <span className="text-xs text-gray-400">{record.itr || '—'}</span>}
                     </div>
                     {hasItr && (
-                      <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
-                        onClick={() => handleDownloadAllItr(acomp)}
+                      <button type="button" disabled={!hasItrPdfs || isDownloadingZip === record.id + 'itr'}
+                        onClick={() => handleDownloadAllItr(record)}
                         title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Anexe pelo menos um PDF de ITR (declaração ou recibo) para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
-                        {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
+                        {isDownloadingZip === record.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
                     )}
                   </div>
@@ -1682,14 +1703,14 @@ const TerraControl: React.FC = () => {
                   <div className="flex items-center gap-5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 dark:text-gray-400">Certificação</span>
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {acomp.geoCertificacao}
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${record.geoCertificacao === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {record.geoCertificacao}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 dark:text-gray-400">Registro</span>
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${acomp.geoRegistro === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {acomp.geoRegistro}
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${record.geoRegistro === 'SIM' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {record.geoRegistro}
                       </span>
                     </div>
                   </div>
@@ -1701,11 +1722,11 @@ const TerraControl: React.FC = () => {
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
                       <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Total</div>
-                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.areaTotal)}</div>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(record.areaTotal)}</div>
                     </div>
                     <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
                       <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Res. Legal</div>
-                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(acomp.reservaLegal)}</div>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">{formatNumber(record.reservaLegal)}</div>
                     </div>
                     <div className="bg-gray-50 dark:bg-[#1a2a3e] rounded-xl p-2.5 text-center border border-gray-100 dark:border-gray-700/50">
                       <div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Saldo RL</div>
@@ -1721,22 +1742,22 @@ const TerraControl: React.FC = () => {
                   <div className="px-4 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">Uso do Solo</p>
                     <div className="flex flex-wrap gap-2">
-                      {acomp.cultura1 && (
+                      {record.cultura1 && (
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl px-3 py-1.5">
-                          <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">{acomp.cultura1}</div>
-                          <div className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">{formatNumber(acomp.areaCultura1)} ha</div>
+                          <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">{record.cultura1}</div>
+                          <div className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">{formatNumber(record.areaCultura1)} ha</div>
                         </div>
                       )}
-                      {acomp.cultura2 && (
+                      {record.cultura2 && (
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5">
-                          <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">{acomp.cultura2}</div>
-                          <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">{formatNumber(acomp.areaCultura2)} ha</div>
+                          <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">{record.cultura2}</div>
+                          <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">{formatNumber(record.areaCultura2)} ha</div>
                         </div>
                       )}
-                      {acomp.outros && (
+                      {record.outros && (
                         <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-3 py-1.5">
-                          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{acomp.outros}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatNumber(acomp.areaOutros)} ha</div>
+                          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{record.outros}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatNumber(record.areaOutros)} ha</div>
                         </div>
                       )}
                     </div>
@@ -1748,28 +1769,28 @@ const TerraControl: React.FC = () => {
                   <div className="px-4 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2.5">APP / Ambiental (ha)</p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                      {acomp.appCodigoFlorestal > 0 && (
+                      {record.appCodigoFlorestal > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500 dark:text-gray-400">Cód. Florestal</span>
-                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{formatNumber(acomp.appCodigoFlorestal)}</span>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{formatNumber(record.appCodigoFlorestal)}</span>
                         </div>
                       )}
-                      {acomp.appVegetada > 0 && (
+                      {record.appVegetada > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500 dark:text-gray-400">APP Vegetada</span>
-                          <span className="text-xs font-semibold text-green-600 dark:text-green-400">{formatNumber(acomp.appVegetada)}</span>
+                          <span className="text-xs font-semibold text-green-600 dark:text-green-400">{formatNumber(record.appVegetada)}</span>
                         </div>
                       )}
-                      {acomp.appNaoVegetada > 0 && (
+                      {record.appNaoVegetada > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500 dark:text-gray-400">APP Não Veg.</span>
-                          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{formatNumber(acomp.appNaoVegetada)}</span>
+                          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{formatNumber(record.appNaoVegetada)}</span>
                         </div>
                       )}
-                      {acomp.remanescenteFlorestal > 0 && (
+                      {record.remanescenteFlorestal > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500 dark:text-gray-400">Remanescente</span>
-                          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatNumber(acomp.remanescenteFlorestal)}</span>
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatNumber(record.remanescenteFlorestal)}</span>
                         </div>
                       )}
                     </div>
@@ -2258,12 +2279,12 @@ const TerraControl: React.FC = () => {
                               </button>
                             </div>
                             
-                            {(item.declaracaoUrl || item.reciboUrl || item.url) && (
+                            {(item.declaracaoUrl || item.reciboUrl) && (
                               <div className="absolute -bottom-2 left-3 bg-white px-2 flex items-center gap-3 text-[10px] border border-gray-100 rounded-full shadow-sm">
-                                {(item.declaracaoUrl || item.url) && (
+                                {item.declaracaoUrl && (
                                   <div className="flex items-center gap-1 text-blue-600">
                                     <Check className="w-3 h-3" /> Decl.
-                                    <a href={item.declaracaoUrl || item.url} target="_blank" rel="noopener noreferrer" className="hover:underline font-bold inline-flex items-center">
+                                    <a href={item.declaracaoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline font-bold inline-flex items-center">
                                       Ver <ExternalLink className="w-2 h-2 ml-[2px]" />
                                     </a>
                                     <button
@@ -3085,9 +3106,9 @@ const TerraControl: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                {(itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url) && (
+                {(itrDownloadModal.item.declaracaoUrl) && (
                   <a
-                    href={itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url}
+                    href={itrDownloadModal.item.declaracaoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all group"

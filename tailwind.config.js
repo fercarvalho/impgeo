@@ -12,6 +12,13 @@ export default {
       colors: {
         'row-even-dark': '#1f2937', // gray-800 — linha neutra (igual ao card)
         'row-odd-dark':  '#374151', // gray-700 — linha destacada (~40 pts mais clara)
+        // G6.4 — paleta da view pública do TerraControl. Antes esses hex
+        // estavam inline em 6 lugares do TerraControlView.tsx; centralizar
+        // aqui facilita troca futura (ver memory/terracontrol-paleta-historico).
+        'tc-green':      '#48A326',
+        'tc-green-dark': '#3d8920',
+        'tc-blue':       '#0041B1',
+        'tc-blue-dark':  '#003391',
       },
     },
   },

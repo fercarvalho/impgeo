@@ -30,6 +30,7 @@ export {
 export type { ChartDatum, APPField } from './charts'
 export {
   CHART_COLORS,
+  CHART_TOP_LIMIT,
   getTotalImoveisData,
   getAreaTotalData,
   getGeoCertificacaoData,

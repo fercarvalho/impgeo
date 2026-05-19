@@ -78,7 +78,7 @@ export async function downloadAllItrZip(
   imovelName: string,
   transform: UrlTransformer = identity
 ): Promise<void> {
-  const comDocs = (itrs || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
+  const comDocs = (itrs || []).filter(m => m.declaracaoUrl || m.reciboUrl)
   if (comDocs.length === 0) return
 
   const { JSZip, saveAs } = await loadZipLibs()
@@ -87,7 +87,7 @@ export async function downloadAllItrZip(
 
   for (const item of comDocs) {
     const safe = safeFileName(item.numero)
-    const declUrl = item.declaracaoUrl || item.url
+    const declUrl = item.declaracaoUrl
     if (declUrl) {
       promises.push((async () => {
         try {
@@ -120,14 +120,14 @@ export async function downloadSingleItrZip(
   imovelName: string,
   transform: UrlTransformer = identity
 ): Promise<void> {
-  if (!item.declaracaoUrl && !item.reciboUrl && !item.url) return
+  if (!item.declaracaoUrl && !item.reciboUrl) return
 
   const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   const safe = safeFileName(item.numero)
   const promises: Promise<void>[] = []
 
-  const declUrl = item.declaracaoUrl || item.url
+  const declUrl = item.declaracaoUrl
   if (declUrl) {
     promises.push((async () => {
       try {
@@ -181,7 +181,7 @@ export async function downloadRegistroZip(
   transform: UrlTransformer = identity
 ): Promise<{ empty: boolean }> {
   const matriculas = (record.matriculasDados || []).filter(m => m.url)
-  const itrs = (record.itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
+  const itrs = (record.itrDados || []).filter(m => m.declaracaoUrl || m.reciboUrl)
   const ccirs = (record.ccirDados || []).filter(m => m.url)
   const hasCar = !!record.carUrl
 
@@ -217,7 +217,7 @@ export async function downloadRegistroZip(
 
   for (const item of itrs) {
     const safe = safeFileName(item.numero)
-    const declUrl = item.declaracaoUrl || item.url
+    const declUrl = item.declaracaoUrl
     if (declUrl) {
       promises.push((async () => {
         try {

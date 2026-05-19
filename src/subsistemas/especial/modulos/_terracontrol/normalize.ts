@@ -57,10 +57,15 @@ export function normalizeRecord(raw: any): TerraControlRecord {
       }))
       .filter((m: ItrItem) => m.numero.length > 0)
   }
-  itrDados = itrDados.map(item => ({
-    ...item,
-    declaracaoUrl: item.declaracaoUrl || item.url || '',
-  }))
+  // G6.2 — merge `url` legado em `declaracaoUrl` e remove `url` do objeto.
+  // Depois daqui, nenhum consumidor precisa mais ler `item.url` em ITRs.
+  itrDados = itrDados.map(item => {
+    const { url: legacyUrl, ...rest } = item
+    return {
+      ...rest,
+      declaracaoUrl: rest.declaracaoUrl || legacyUrl || '',
+    }
+  })
 
   // CCIR: idem.
   let ccirDados: CcirItem[] = parseJsonbArray<CcirItem>(raw?.ccirDados ?? raw?.ccir_dados)

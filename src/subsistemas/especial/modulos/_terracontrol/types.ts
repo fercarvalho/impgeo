@@ -12,6 +12,11 @@ export interface MatriculaItem {
 export interface ItrItem {
   id: string
   numero: string
+  /**
+   * @deprecated G6.2 — versões antigas guardavam o PDF da declaração em `url`.
+   * O normalize.ts mescla para `declaracaoUrl` e remove `url` do objeto.
+   * Runtime não deve mais ler este campo; mantido aqui só para compat de raw input.
+   */
   url?: string
   declaracaoUrl?: string
   reciboUrl?: string
