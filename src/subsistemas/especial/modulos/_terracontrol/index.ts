@@ -50,3 +50,20 @@ export {
 
 export { useFeedback } from './feedback'
 export type { ToastType } from './feedback'
+
+export { default as PasswordGate } from './PasswordGate'
+
+// Sistema tc_users (login externo do TerraControl) — migration 025/026.
+// Os componentes a seguir são consumidos por TerraControlView.tsx (entry público)
+// e App.tsx (branch de hostname). Ver tc-domains.ts para a detecção de subdomínio.
+export { default as LoginScreen } from './LoginScreen'
+export { default as TcPublicEntry } from './TcPublicEntry'
+export { default as TcLoggedView } from './TcLoggedView'
+export { default as TcMenuUsuario } from './TcMenuUsuario'
+export { default as TcUserProfileModal } from './TcUserProfileModal'
+export { default as TcAlterarSenhaModal } from './TcAlterarSenhaModal'
+export { default as TcAlterarUsernameModal } from './TcAlterarUsernameModal'
+export { default as TcEsqueciSenhaModal } from './TcEsqueciSenhaModal'
+export { default as TcResetarSenhaModal } from './TcResetarSenhaModal'
+export { default as TerraControlAdminLogin } from './TerraControlAdminLogin'
+export { default as TerraControlAdminShell } from './TerraControlAdminShell'

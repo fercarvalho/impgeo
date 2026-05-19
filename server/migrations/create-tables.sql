@@ -231,6 +231,97 @@ CREATE INDEX IF NOT EXISTS idx_share_link_access_logs_accessed_at
 CREATE INDEX IF NOT EXISTS idx_share_link_access_logs_ip_status
     ON share_link_access_logs(ip, status, accessed_at DESC);
 
+-- Auditoria também acompanha tc_users (migration 025)
+ALTER TABLE share_link_access_logs ADD COLUMN IF NOT EXISTS tc_user_id VARCHAR(255);
+
+-- Sistema de usuários externos do TerraControl (migration 025)
+-- Aqui as tabelas tc_* nascem prontas em ambientes novos. Em ambientes
+-- existentes a migration 025 cria via ALTER/CREATE IF NOT EXISTS — mesmo
+-- efeito final.
+
+CREATE TABLE IF NOT EXISTS tc_users (
+    id                       VARCHAR(255) PRIMARY KEY,
+    username                 VARCHAR(255) UNIQUE NOT NULL,
+    password                 VARCHAR(255) NOT NULL,
+    first_name               VARCHAR(255),
+    last_name                VARCHAR(255),
+    email                    VARCHAR(255),
+    email_verified_at        TIMESTAMPTZ,
+    phone                    VARCHAR(50),
+    cpf                      VARCHAR(20),
+    birth_date               DATE,
+    gender                   VARCHAR(50),
+    address                  JSONB,
+    photo_url                TEXT,
+    force_password_change    BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active                BOOLEAN NOT NULL DEFAULT TRUE,
+    created_via              VARCHAR(20) NOT NULL DEFAULT 'direct',
+    created_by_user_id       VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+    last_login               TIMESTAMPTZ,
+    created_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tc_users_email_unique
+    ON tc_users(LOWER(email)) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tc_users_username  ON tc_users(username);
+CREATE INDEX IF NOT EXISTS idx_tc_users_is_active ON tc_users(is_active);
+
+CREATE TABLE IF NOT EXISTS tc_user_record_access (
+    id                  BIGSERIAL PRIMARY KEY,
+    tc_user_id          VARCHAR(255) NOT NULL REFERENCES tc_users(id)    ON DELETE CASCADE,
+    terracontrol_id     VARCHAR(255) NOT NULL REFERENCES terracontrol(id) ON DELETE CASCADE,
+    granted_by_user_id  VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tc_user_id, terracontrol_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tc_user_record_access_tc_user ON tc_user_record_access(tc_user_id);
+CREATE INDEX IF NOT EXISTS idx_tc_user_record_access_record  ON tc_user_record_access(terracontrol_id);
+
+CREATE TABLE IF NOT EXISTS tc_refresh_tokens (
+    id                BIGSERIAL PRIMARY KEY,
+    tc_user_id        VARCHAR(255) NOT NULL REFERENCES tc_users(id) ON DELETE CASCADE,
+    token_hash        VARCHAR(128) NOT NULL UNIQUE,
+    expires_at        TIMESTAMPTZ NOT NULL,
+    revoked           BOOLEAN NOT NULL DEFAULT FALSE,
+    revoked_at        TIMESTAMPTZ,
+    replaced_by       VARCHAR(128),
+    ip                VARCHAR(64),
+    user_agent        TEXT,
+    created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tc_refresh_tokens_user ON tc_refresh_tokens(tc_user_id);
+CREATE INDEX IF NOT EXISTS idx_tc_refresh_tokens_hash ON tc_refresh_tokens(token_hash);
+
+CREATE TABLE IF NOT EXISTS tc_password_reset_tokens (
+    id          VARCHAR(255) PRIMARY KEY,
+    tc_user_id  VARCHAR(255) NOT NULL REFERENCES tc_users(id) ON DELETE CASCADE,
+    token       VARCHAR(255) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used        BOOLEAN DEFAULT FALSE,
+    used_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tc_email_verifications (
+    id          VARCHAR(255) PRIMARY KEY,
+    tc_user_id  VARCHAR(255) NOT NULL REFERENCES tc_users(id) ON DELETE CASCADE,
+    email       VARCHAR(255) NOT NULL,
+    token       VARCHAR(255) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tc_legacy_aliases (
+    share_link_token  VARCHAR(255) PRIMARY KEY,
+    tc_user_id        VARCHAR(255) NOT NULL REFERENCES tc_users(id) ON DELETE CASCADE,
+    redirect_used_at  TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE share_links ADD COLUMN IF NOT EXISTS created_by_user_id    VARCHAR(255);
+ALTER TABLE share_links ADD COLUMN IF NOT EXISTS created_by_tc_user_id VARCHAR(255);
+
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id VARCHAR(255) PRIMARY KEY,

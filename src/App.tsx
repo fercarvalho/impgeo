@@ -50,6 +50,9 @@ const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services
 const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 const TerraControlView = lazy(() => import('@/subsistemas/especial/modulos/TerraControlView'))
+const TcPublicEntry = lazy(() => import('@/subsistemas/especial/modulos/_terracontrol/TcPublicEntry'))
+const TerraControlAdminLogin = lazy(() => import('@/subsistemas/especial/modulos/_terracontrol/TerraControlAdminLogin'))
+const TerraControlAdminShell = lazy(() => import('@/subsistemas/especial/modulos/_terracontrol/TerraControlAdminShell'))
 const AdminPanel = lazy(() => import('@/subsistemas/admin/modulos/Admin'))
 const ActiveSessions = lazy(() => import('@/subsistemas/admin/modulos/ActiveSessions'))
 const AnomalyDashboard = lazy(() => import('@/subsistemas/admin/modulos/AnomalyDashboard'))
@@ -62,6 +65,8 @@ import FeedbackButton from '@/components/FeedbackButton'
 import Footer from '@/components/Footer'
 import VersionModalsManager from '@/components/VersionModalsManager'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { TcAuthProvider } from './contexts/TcAuthContext'
+import { detectTcEntryMode } from '@/subsistemas/especial/tc-domains'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import SubsystemPicker from '@/subsistemas/SubsystemPicker'
@@ -180,10 +185,44 @@ const AppContent: React.FC = () => {
   }, []);
 
   if (viewToken) {
-    // Renderizar visualização pública sem autenticação
-    return <TerraControlView token={viewToken} />;
+    // Renderizar visualização pública sem autenticação (sub-share anônimo gerado por tc_user)
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+        <TerraControlView token={viewToken} />
+      </Suspense>
+    );
   }
 
+  // Branch por hostname (tc-public / tc-admin) ANTES do fluxo impgeo padrão.
+  // terracontrol.viverdepj.com.br      → entry público dos tc_users
+  // admin.terracontrol.viverdepj.com.br → atalho login impgeo → módulo TerraControl
+  const tcMode = detectTcEntryMode(window.location.hostname);
+  if (tcMode === 'tc-public') {
+    return (
+      <TcAuthProvider>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div></div>}>
+          <TcPublicEntry />
+        </Suspense>
+      </TcAuthProvider>
+    );
+  }
+  if (tcMode === 'tc-admin') {
+    // Aguarda hidratação do AuthContext (isLoading) antes de decidir Login vs Shell
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 dark:from-[#0a1a0e] dark:to-[#0a1a3e]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div>
+        </div>
+      );
+    }
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div></div>}>
+        {user ? <TerraControlAdminShell /> : <TerraControlAdminLogin />}
+      </Suspense>
+    );
+  }
+
+  // Fluxo impgeo padrão (Login → Picker → subsistemas)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">

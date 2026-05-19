@@ -32,6 +32,7 @@ import {
   downloadAllCcirZip,
   downloadRegistroZip,
   useFeedback,
+  PasswordGate,
 } from './_terracontrol'
 
 const API_BASE_URL = '/api'
@@ -349,65 +350,21 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   if (requiresPassword) {
+    // Tela de "login" do share link — layout idêntico ao Login.tsx do impgeo
+    // (glassmorphism + spotlight + grid de pontos + ondas SVG), mas com a
+    // paleta verde/azul TerraControl. Extraída pra _terracontrol/PasswordGate.
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-          <div className="bg-gradient-to-r from-tc-green to-tc-blue px-8 py-8 text-center">
-            <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            {shareLinkName ? (
-              <>
-                <h1 className="text-2xl font-bold text-white mb-1">Bem-vindo(a)</h1>
-                <p className="text-lg font-semibold text-blue-100 mb-1">{shareLinkName}</p>
-                <p className="text-blue-200 text-sm">Este link está protegido por senha</p>
-              </>
-            ) : (
-              <>
-                <h1 className="text-2xl font-bold text-white mb-1">Acesso Protegido</h1>
-                <p className="text-blue-100 text-sm">Este link compartilhável está protegido por senha</p>
-              </>
-            )}
-          </div>
-
-          <form onSubmit={handlePasswordSubmit} className="p-8 space-y-4">
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setPasswordError('')
-                }}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  passwordError ? 'border-red-400 bg-red-50' : 'border-gray-200'
-                }`}
-                placeholder="Digite a senha"
-                autoComplete="current-password"
-                autoFocus
-              />
-              {passwordError && (
-                <p className="mt-2 text-sm text-red-600">{passwordError}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingPassword}
-              className="w-full px-4 py-3 bg-gradient-to-r from-tc-green to-tc-blue text-white rounded-xl hover:from-tc-green-dark hover:to-tc-blue-dark font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
-            >
-              {isSubmittingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isSubmittingPassword ? 'Verificando...' : 'Acessar'}
-            </button>
-          </form>
-        </div>
-      </div>
+      <PasswordGate
+        shareLinkName={shareLinkName}
+        password={password}
+        passwordError={passwordError}
+        isSubmitting={isSubmittingPassword}
+        onPasswordChange={(value) => {
+          setPassword(value)
+          setPasswordError('')
+        }}
+        onSubmit={handlePasswordSubmit}
+      />
     )
   }
 

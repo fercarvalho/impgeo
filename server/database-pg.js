@@ -1989,6 +1989,417 @@ class Database {
     }
   }
 
+  // =========================================================================
+  // tc_users — usuários externos do TerraControl (migration 025)
+  // =========================================================================
+
+  // Lista de campos seguros para retornar em SELECT (omite password).
+  static get TC_USER_PUBLIC_FIELDS() {
+    return [
+      'id', 'username', 'first_name', 'last_name', 'email', 'email_verified_at',
+      'phone', 'cpf', 'birth_date', 'gender', 'address', 'photo_url',
+      'force_password_change', 'is_active', 'created_via', 'last_login',
+      'created_at', 'updated_at'
+    ].join(', ');
+  }
+
+  async getTcUserByUsername(username) {
+    try {
+      const result = await this.queryWithRetry(
+        'SELECT * FROM tc_users WHERE username = $1 LIMIT 1',
+        [username]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Erro ao buscar tc_user por username:', error);
+      return null;
+    }
+  }
+
+  async getTcUserById(id) {
+    try {
+      const result = await this.queryWithRetry(
+        'SELECT * FROM tc_users WHERE id = $1 LIMIT 1',
+        [id]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Erro ao buscar tc_user por id:', error);
+      return null;
+    }
+  }
+
+  async getTcUserByEmail(email) {
+    try {
+      const normalized = String(email || '').trim().toLowerCase();
+      if (!normalized) return null;
+      const result = await this.queryWithRetry(
+        'SELECT * FROM tc_users WHERE LOWER(email) = $1 LIMIT 1',
+        [normalized]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Erro ao buscar tc_user por email:', error);
+      return null;
+    }
+  }
+
+  async getAllTcUsers() {
+    try {
+      const result = await this.queryWithRetry(
+        `SELECT ${Database.TC_USER_PUBLIC_FIELDS} FROM tc_users ORDER BY created_at DESC`
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao listar tc_users:', error);
+      return [];
+    }
+  }
+
+  async createTcUser(data) {
+    // Caller é responsável pelo hash da senha (bcrypt.hash); aqui só insere.
+    const id = data.id || this.generateId();
+    try {
+      const result = await this.queryWithRetry(
+        `INSERT INTO tc_users (
+           id, username, password, first_name, last_name, email, phone, cpf,
+           birth_date, gender, address, photo_url, force_password_change,
+           is_active, created_via, created_by_user_id, created_at, updated_at
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8,
+           $9, $10, $11, $12, $13,
+           $14, $15, $16, NOW(), NOW()
+         ) RETURNING *`,
+        [
+          id,
+          data.username,
+          data.password,
+          data.firstName || data.first_name || null,
+          data.lastName  || data.last_name  || null,
+          data.email     || null,
+          data.phone     || null,
+          data.cpf       || null,
+          data.birthDate || data.birth_date || null,
+          data.gender    || null,
+          data.address ? JSON.stringify(data.address) : null,
+          data.photoUrl  || data.photo_url || null,
+          data.forcePasswordChange === undefined ? false : !!data.forcePasswordChange,
+          data.isActive === undefined ? true : !!data.isActive,
+          data.createdVia || 'direct',
+          data.createdByUserId || null
+        ]
+      );
+      return result.rows[0];
+    } catch (error) {
+      throw new Error('Erro ao criar tc_user: ' + error.message);
+    }
+  }
+
+  async updateTcUser(id, updates) {
+    // Caller deve garantir que `password` (se vier) já está hasheado.
+    const allowed = {
+      username: updates.username,
+      password: updates.password,
+      first_name: updates.firstName ?? updates.first_name,
+      last_name:  updates.lastName  ?? updates.last_name,
+      email: updates.email,
+      phone: updates.phone,
+      cpf: updates.cpf,
+      birth_date: updates.birthDate ?? updates.birth_date,
+      gender: updates.gender,
+      address: updates.address !== undefined ? (updates.address ? JSON.stringify(updates.address) : null) : undefined,
+      photo_url: updates.photoUrl ?? updates.photo_url,
+      force_password_change: updates.forcePasswordChange,
+      is_active: updates.isActive,
+      email_verified_at: updates.emailVerifiedAt ?? updates.email_verified_at,
+      last_login: updates.lastLogin ?? updates.last_login,
+    };
+    const sets = [];
+    const params = [];
+    let idx = 1;
+    for (const [col, val] of Object.entries(allowed)) {
+      if (val === undefined) continue;
+      sets.push(`${col} = $${idx++}`);
+      params.push(val);
+    }
+    if (sets.length === 0) return this.getTcUserById(id);
+    sets.push(`updated_at = NOW()`);
+    params.push(id);
+    try {
+      const result = await this.queryWithRetry(
+        `UPDATE tc_users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+        params
+      );
+      if (result.rows.length === 0) throw new Error('tc_user não encontrado');
+      return result.rows[0];
+    } catch (error) {
+      throw new Error('Erro ao atualizar tc_user: ' + error.message);
+    }
+  }
+
+  async setTcUserLastLogin(id) {
+    await this.queryWithRetry('UPDATE tc_users SET last_login = NOW() WHERE id = $1', [id]);
+  }
+
+  async deactivateTcUser(id) {
+    await this.queryWithRetry('UPDATE tc_users SET is_active = FALSE, updated_at = NOW() WHERE id = $1', [id]);
+  }
+
+  async usernameTcUserExists(username) {
+    const r = await this.queryWithRetry('SELECT 1 FROM tc_users WHERE username = $1 LIMIT 1', [username]);
+    return r.rows.length > 0;
+  }
+
+  // =========================================================================
+  // tc_user_record_access — permissão granular por registro
+  // =========================================================================
+
+  async getTcUserRecordIds(tcUserId) {
+    const r = await this.queryWithRetry(
+      'SELECT terracontrol_id FROM tc_user_record_access WHERE tc_user_id = $1',
+      [tcUserId]
+    );
+    return r.rows.map(row => row.terracontrol_id);
+  }
+
+  async getTcUserRecords(tcUserId) {
+    // Retorna os registros completos que o tc_user tem acesso, ordenados por cod_imovel.
+    const r = await this.queryWithRetry(
+      `SELECT tc.* FROM terracontrol tc
+       JOIN tc_user_record_access tura ON tura.terracontrol_id = tc.id
+       WHERE tura.tc_user_id = $1
+       ORDER BY tc.cod_imovel`,
+      [tcUserId]
+    );
+    return r.rows;
+  }
+
+  async setTcUserRecordAccess(tcUserId, recordIds, grantedByUserId = null) {
+    // Substitui completamente o conjunto: apaga os atuais e insere os novos.
+    const ids = Array.isArray(recordIds) ? recordIds.map(String) : [];
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM tc_user_record_access WHERE tc_user_id = $1', [tcUserId]);
+      for (const recordId of ids) {
+        await client.query(
+          `INSERT INTO tc_user_record_access (tc_user_id, terracontrol_id, granted_by_user_id)
+           VALUES ($1, $2, $3) ON CONFLICT (tc_user_id, terracontrol_id) DO NOTHING`,
+          [tcUserId, recordId, grantedByUserId]
+        );
+      }
+      await client.query('COMMIT');
+      return { granted: ids.length };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao definir acesso do tc_user: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  async tcUserHasAccessToRecord(tcUserId, recordId) {
+    const r = await this.queryWithRetry(
+      'SELECT 1 FROM tc_user_record_access WHERE tc_user_id = $1 AND terracontrol_id = $2 LIMIT 1',
+      [tcUserId, String(recordId)]
+    );
+    return r.rows.length > 0;
+  }
+
+  // Para o handler de /api/documents: confirma que o tc_user tem acesso ao
+  // registro que contém o arquivo informado (compara contra car_url e
+  // os campos JSONB matriculas_dados, itr_dados, ccir_dados).
+  async tcUserHasAccessToDocument(tcUserId, fileUrlInDb) {
+    const r = await this.queryWithRetry(
+      `SELECT 1 FROM terracontrol tc
+       JOIN tc_user_record_access tura ON tura.terracontrol_id = tc.id
+       WHERE tura.tc_user_id = $1
+         AND (
+           tc.car_url = $2
+           OR tc.matriculas_dados::text LIKE $3
+           OR tc.itr_dados::text         LIKE $3
+           OR tc.ccir_dados::text        LIKE $3
+         )
+       LIMIT 1`,
+      [tcUserId, fileUrlInDb, `%${fileUrlInDb}%`]
+    );
+    return r.rows.length > 0;
+  }
+
+  // =========================================================================
+  // tc_legacy_aliases — URL antiga /v/<token> → tc_user
+  // =========================================================================
+
+  async getTcLegacyAlias(shareLinkToken) {
+    const r = await this.queryWithRetry(
+      `SELECT tla.share_link_token, tla.tc_user_id, tu.username
+       FROM tc_legacy_aliases tla
+       JOIN tc_users tu ON tu.id = tla.tc_user_id
+       WHERE tla.share_link_token = $1
+       LIMIT 1`,
+      [shareLinkToken]
+    );
+    return r.rows[0] || null;
+  }
+
+  async markTcLegacyAliasUsed(shareLinkToken) {
+    // Best-effort: falha silenciosa não bloqueia o redirect.
+    try {
+      await this.queryWithRetry(
+        'UPDATE tc_legacy_aliases SET redirect_used_at = NOW() WHERE share_link_token = $1',
+        [shareLinkToken]
+      );
+    } catch (e) {
+      console.error('Erro ao marcar legacy alias usado:', e?.message || e);
+    }
+  }
+
+  // =========================================================================
+  // tc_refresh_tokens — sessões tc_user
+  // =========================================================================
+
+  async insertTcRefreshToken({ tcUserId, tokenHash, expiresAt, ip, userAgent }) {
+    const r = await this.queryWithRetry(
+      `INSERT INTO tc_refresh_tokens (tc_user_id, token_hash, expires_at, ip, user_agent)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [tcUserId, tokenHash, expiresAt, ip ? String(ip).slice(0, 64) : null, userAgent ? String(userAgent).slice(0, 2000) : null]
+    );
+    return r.rows[0].id;
+  }
+
+  async getTcRefreshTokenByHash(tokenHash) {
+    const r = await this.queryWithRetry(
+      `SELECT * FROM tc_refresh_tokens
+       WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    );
+    return r.rows[0] || null;
+  }
+
+  async revokeTcRefreshToken(tokenHash, replacedBy = null) {
+    await this.queryWithRetry(
+      `UPDATE tc_refresh_tokens
+       SET revoked = TRUE, revoked_at = NOW(), replaced_by = $2
+       WHERE token_hash = $1`,
+      [tokenHash, replacedBy]
+    );
+  }
+
+  async revokeAllTcRefreshTokens(tcUserId) {
+    await this.queryWithRetry(
+      `UPDATE tc_refresh_tokens
+       SET revoked = TRUE, revoked_at = NOW()
+       WHERE tc_user_id = $1 AND revoked = FALSE`,
+      [tcUserId]
+    );
+  }
+
+  // =========================================================================
+  // tc_password_reset_tokens — reset por email
+  // =========================================================================
+
+  async createTcPasswordResetToken({ tcUserId, ttlMinutes = 60 }) {
+    const id = this.generateId();
+    const token = require('crypto').randomBytes(32).toString('hex');
+    await this.queryWithRetry(
+      'UPDATE tc_password_reset_tokens SET used = TRUE, used_at = NOW() WHERE tc_user_id = $1 AND used = FALSE',
+      [tcUserId]
+    );
+    await this.queryWithRetry(
+      `INSERT INTO tc_password_reset_tokens (id, tc_user_id, token, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '${ttlMinutes} minutes')`,
+      [id, tcUserId, token]
+    );
+    return { id, token };
+  }
+
+  async validateTcPasswordResetToken(token) {
+    const r = await this.queryWithRetry(
+      `SELECT prt.*, tu.username
+       FROM tc_password_reset_tokens prt
+       JOIN tc_users tu ON tu.id = prt.tc_user_id
+       WHERE prt.token = $1 AND prt.used = FALSE AND prt.expires_at > NOW()
+       LIMIT 1`,
+      [token]
+    );
+    return r.rows[0] || null;
+  }
+
+  async useTcPasswordResetToken(token, newPasswordHash) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const sel = await client.query(
+        `SELECT prt.id, prt.tc_user_id FROM tc_password_reset_tokens prt
+         WHERE prt.token = $1 AND prt.used = FALSE AND prt.expires_at > NOW()
+         FOR UPDATE`,
+        [token]
+      );
+      if (sel.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      const { id, tc_user_id } = sel.rows[0];
+      await client.query(
+        'UPDATE tc_users SET password = $1, force_password_change = FALSE, updated_at = NOW() WHERE id = $2',
+        [newPasswordHash, tc_user_id]
+      );
+      await client.query(
+        'UPDATE tc_password_reset_tokens SET used = TRUE, used_at = NOW() WHERE id = $1',
+        [id]
+      );
+      await client.query('COMMIT');
+      return { tcUserId: tc_user_id };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao resetar senha tc_user: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  // =========================================================================
+  // share_links — versão tc_user (sub-share gerado pelo próprio tc_user)
+  // =========================================================================
+
+  async getShareLinksCreatedByTcUser(tcUserId) {
+    const r = await this.queryWithRetry(
+      'SELECT * FROM share_links WHERE created_by_tc_user_id = $1 ORDER BY created_at DESC',
+      [tcUserId]
+    );
+    return r.rows;
+  }
+
+  // =========================================================================
+  // Admin do impgeo gerenciando tc_users (CRUD)
+  // =========================================================================
+
+  async listTcUsersForAdmin() {
+    // Inclui contagem de registros acessíveis por tc_user
+    const r = await this.queryWithRetry(
+      `SELECT ${Database.TC_USER_PUBLIC_FIELDS},
+              (SELECT COUNT(*) FROM tc_user_record_access tura WHERE tura.tc_user_id = tu.id) AS records_count
+       FROM tc_users tu
+       ORDER BY tu.created_at DESC`
+    );
+    return r.rows;
+  }
+
+  // Força reset de senha por admin: gera nova senha temporária, hasheia,
+  // seta force_password_change=TRUE, revoga sessões.
+  async adminResetTcUserPassword(tcUserId, plainPassword) {
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(plainPassword, 10);
+    await this.queryWithRetry(
+      `UPDATE tc_users
+       SET password = $1, force_password_change = TRUE, updated_at = NOW()
+       WHERE id = $2`,
+      [hash, tcUserId]
+    );
+    await this.revokeAllTcRefreshTokens(tcUserId);
+  }
+
   // Métodos para Subcategorias
   async getAllSubcategories() {
     try {

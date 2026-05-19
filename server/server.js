@@ -446,7 +446,9 @@ const publicApiPrefixes = [
   '/avatars',
   '/documents',
   '/auth/validar-token/',
+  '/auth/login-terracontrol-admin',
   '/terracontrol/public',
+  '/tc-auth/',                  // tc_user login/refresh/recuperar/resetar; rotas protegidas usam authenticateTcUser internamente
   '/modelo/',
   '/webhooks/',
   '/documentation/public'
@@ -2287,13 +2289,34 @@ app.post('/api/terracontrol/public/:token/validate-password', sharePasswordLimit
 });
 
 // Rota de Redirecionamento Curto (/v/:token)
+//
+// Fluxos:
+//   1. Token corresponde a um tc_legacy_alias (share_link migrado) →
+//      redireciona para o subdomínio TerraControl com username pré-preenchido,
+//      para que o tc_user faça login formal (substitui o PasswordGate de só-senha).
+//   2. Token é um share_link "vivo" (sub-share criado por tc_user) → fluxo antigo,
+//      redireciona para /?token=<token> em qualquer host.
 app.get('/v/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    // Redirecionar para a página de visualização com o token na query
     const normalizedBase = String(BASE_URL || '').trim().replace(/\/$/, '');
+
+    // Tenta legacy alias primeiro
+    const alias = await db.getTcLegacyAlias(token);
+    if (alias) {
+      // best-effort: marca uso. Não bloqueia o redirect se falhar.
+      db.markTcLegacyAliasUsed(token).catch(() => {});
+      // Em produção: terracontrol.viverdepj.com.br; em dev: BASE_URL ou host original
+      const tcPublicBase = process.env.TC_PUBLIC_BASE_URL
+        || normalizedBase
+        || `${req.protocol}://${req.get('host')}`;
+      return res.redirect(`${tcPublicBase.replace(/\/$/, '')}/?u=${encodeURIComponent(alias.username)}`);
+    }
+
+    // Senão, fluxo antigo de sub-share anônimo
     res.redirect(`${normalizedBase}/?token=${token}`);
   } catch (error) {
+    console.error('Erro em /v/:token:', error);
     res.status(500).send('Erro ao redirecionar');
   }
 });
@@ -2302,12 +2325,14 @@ app.get('/v/:token', async (req, res) => {
 // Antes: express.static aberto a qualquer pessoa que descobrisse o nome do
 // arquivo (pseudo-aleatório mas previsível em log/cache/histórico).
 // Agora: aceita 2 fontes de auth:
-//   1. Sessão autenticada (cookie httpOnly ou Bearer Authorization)
-//   2. Share token público (?token=<share>&password=<senha-opcional>) válido,
+//   1. Sessão autenticada do impgeo (cookie httpOnly ou Bearer Authorization)
+//   2. Sessão do tc_user (Bearer com JWT aud='terracontrol') — verifica se o
+//      documento pertence a algum registro do tc_user_record_access do usuário.
+//   3. Share token público (?token=<share>&password=<senha-opcional>) válido,
 //      desde que o documento esteja referenciado por algum registro do share
 //      (car_url, matriculas_dados[].url, itr_dados[].declaracaoUrl/reciboUrl,
 //      ccir_dados[].url) — confere no DB.
-// Sem nenhuma das duas → 401.
+// Sem nenhuma das três → 401.
 //
 // O middleware geral '/api' pula esta rota graças à entrada '/documents' em
 // publicApiPrefixes — a validação real está aqui dentro, com optionalAuth.
@@ -2335,7 +2360,39 @@ app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
     });
   }
 
-  // Caminho 2: share token público. Documento só é entregue se for referenciado
+  // Caminho 2: JWT do tc_user. Verifica acesso por tc_user_record_access ao
+  // registro que contém esse arquivo. Cache curto (5 min) — se admin revogar
+  // o acesso, o PDF para de aparecer rapidamente.
+  const tcAuthHeader = req.headers['authorization'];
+  if (tcAuthHeader && tcAuthHeader.startsWith('Bearer ')) {
+    const tcTokenStr = tcAuthHeader.split(' ')[1];
+    if (tcTokenStr && tcTokenStr.length > 10) {
+      try {
+        const tcAuth = require('./auth/tc-auth');
+        const payload = tcAuth.verifyAccessToken(tcTokenStr);
+        if (payload && payload.aud === tcAuth.JWT_AUDIENCE) {
+          const fileUrlInDb = `/api/documents/${filename}`;
+          const hasAccess = await db.tcUserHasAccessToDocument(payload.sub, fileUrlInDb);
+          if (!hasAccess) {
+            return res.status(403).json({ success: false, error: 'Documento não disponível para este usuário' });
+          }
+          return res.sendFile(path.join(documentsDir, filename), {
+            maxAge: '5m',
+            headers: { 'Cache-Control': 'private, max-age=300' }
+          }, (err) => {
+            if (err && !res.headersSent) {
+              res.status(err.code === 'ENOENT' ? 404 : 500).end();
+            }
+          });
+        }
+      } catch (_e) {
+        // JWT inválido com aud='terracontrol' → cai pro caminho 3 (share token)
+        // se houver, senão 401.
+      }
+    }
+  }
+
+  // Caminho 3: share token público. Documento só é entregue se for referenciado
   // por algum registro listado em selected_ids do share.
   const shareToken = String(req.query.token || '').trim();
   const sharePassword = String(req.query.password || '').trim();
@@ -2510,6 +2567,319 @@ app.get('/api/terracontrol/public/:token', sharePublicLimiter, async (req, res) 
       success: false,
       error: error.message || 'Erro ao carregar dados'
     });
+  }
+});
+
+// =============================================================================
+// APIs do tc_users (usuários externos do TerraControl) — migration 025/026
+// =============================================================================
+const tcAuth = require('./auth/tc-auth');
+
+function tcRequestContext(req) {
+  return {
+    ip: req.ip || req.headers['x-forwarded-for'] || null,
+    userAgent: req.headers['user-agent'] || null,
+  };
+}
+
+// POST /api/tc-auth/login — login do tc_user externo
+app.post('/api/tc-auth/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Usuário e senha são obrigatórios' });
+    }
+    const ctx = tcRequestContext(req);
+    const result = await tcAuth.loginTcUser(db, { username, password, ...ctx });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, error: result.error });
+    }
+    res.json({
+      success: true,
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      tcUser: result.tcUser,
+      forcePasswordChange: result.forcePasswordChange,
+    });
+  } catch (error) {
+    console.error('Erro em /api/tc-auth/login:', error);
+    res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// POST /api/tc-auth/refresh — rotação de refresh token
+app.post('/api/tc-auth/refresh', async (req, res) => {
+  try {
+    const refreshToken = req.body?.refreshToken;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, error: 'Refresh token obrigatório' });
+    }
+    const ctx = tcRequestContext(req);
+    const result = await tcAuth.rotateTcRefreshToken(db, { refreshToken, ...ctx });
+    res.json({
+      success: true,
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      tcUser: tcAuth.sanitizeTcUser(result.tcUser),
+    });
+  } catch (error) {
+    res.status(401).json({ success: false, error: error.message || 'Falha ao renovar sessão' });
+  }
+});
+
+// POST /api/tc-auth/logout — revoga refresh
+app.post('/api/tc-auth/logout', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const refreshToken = req.body?.refreshToken;
+    await tcAuth.logoutTcUser(db, refreshToken);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro ao fazer logout' });
+  }
+});
+
+// POST /api/tc-auth/recuperar-senha — dispara email com link de reset
+app.post('/api/tc-auth/recuperar-senha', passwordRecoveryLimiter, async (req, res) => {
+  try {
+    const { email, username } = req.body || {};
+    if (!email && !username) {
+      return res.status(400).json({ success: false, error: 'Informe email ou usuário' });
+    }
+    // Resposta sempre genérica (não revela se conta existe)
+    const respGenerica = { success: true, message: 'Se a conta existir, enviaremos um email com instruções.' };
+    let user = null;
+    if (email)    user = await db.getTcUserByEmail(email);
+    if (!user && username) user = await db.getTcUserByUsername(username);
+    if (!user || !user.email || !user.is_active) return res.json(respGenerica);
+
+    const { token: resetToken } = await db.createTcPasswordResetToken({ tcUserId: user.id, ttlMinutes: 60 });
+    const tcPublicBase = process.env.TC_PUBLIC_BASE_URL
+      || (process.env.NODE_ENV === 'production' ? 'https://terracontrol.viverdepj.com.br' : `${req.protocol}://${req.get('host')}`);
+    const resetUrl = `${tcPublicBase.replace(/\/$/, '')}/?reset=${encodeURIComponent(resetToken)}`;
+
+    try {
+      const { enviarEmailTcResetSenha } = require('./services/email');
+      await enviarEmailTcResetSenha({ toEmail: user.email, username: user.username, resetUrl, expiresMinutes: 60 });
+    } catch (emailErr) {
+      console.error('Falha ao enviar email de reset tc_user:', emailErr?.message || emailErr);
+      // não revela falha de email pro cliente
+    }
+    res.json(respGenerica);
+  } catch (error) {
+    console.error('Erro em /api/tc-auth/recuperar-senha:', error);
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// GET /api/tc-auth/validar-token/:token — valida token de reset antes do form
+app.get('/api/tc-auth/validar-token/:token', passwordTokenValidationLimiter, async (req, res) => {
+  try {
+    const row = await db.validateTcPasswordResetToken(req.params.token);
+    if (!row) return res.status(400).json({ success: false, valid: false, error: 'Token inválido ou expirado' });
+    res.json({ success: true, valid: true, username: row.username });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// POST /api/tc-auth/resetar-senha — troca senha com token
+app.post('/api/tc-auth/resetar-senha', passwordResetLimiter, async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body || {};
+    if (!token || !novaSenha) {
+      return res.status(400).json({ success: false, error: 'Token e nova senha são obrigatórios' });
+    }
+    if (String(novaSenha).length < 6) {
+      return res.status(400).json({ success: false, error: 'Senha deve ter pelo menos 6 caracteres' });
+    }
+    const newHash = await bcrypt.hash(String(novaSenha), 10);
+    const result = await db.useTcPasswordResetToken(token, newHash);
+    if (!result) return res.status(400).json({ success: false, error: 'Token inválido ou expirado' });
+    // Revoga todas as sessões ativas (segurança)
+    await db.revokeAllTcRefreshTokens(result.tcUserId);
+    res.json({ success: true, message: 'Senha redefinida com sucesso. Faça login novamente.' });
+  } catch (error) {
+    console.error('Erro em /api/tc-auth/resetar-senha:', error);
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// GET /api/tc-auth/me — perfil completo do tc_user logado
+app.get('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const user = await db.getTcUserById(req.tcUser.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    res.json({ success: true, data: tcAuth.sanitizeTcUser(user) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// PUT /api/tc-auth/me — edita perfil (NÃO inclui senha/username — endpoints próprios)
+app.put('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const allowedFields = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'birthDate', 'gender', 'address', 'photoUrl'];
+    const updates = {};
+    for (const k of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) updates[k] = req.body[k];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: 'Nenhum campo fornecido' });
+    }
+    // Se email mudou e já existe em outro tc_user → conflito
+    if (updates.email) {
+      const existing = await db.getTcUserByEmail(updates.email);
+      if (existing && existing.id !== req.tcUser.id) {
+        return res.status(409).json({ success: false, error: 'Este email já está em uso' });
+      }
+    }
+    const updated = await db.updateTcUser(req.tcUser.id, updates);
+    res.json({ success: true, data: tcAuth.sanitizeTcUser(updated) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro interno' });
+  }
+});
+
+// PUT /api/tc-auth/me/password — troca senha (exige senha atual)
+app.put('/api/tc-auth/me/password', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Senha atual e nova são obrigatórias' });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, error: 'Nova senha deve ter pelo menos 6 caracteres' });
+    }
+    const user = await db.getTcUserById(req.tcUser.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    const ok = await bcrypt.compare(String(currentPassword), user.password);
+    if (!ok) return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
+
+    const newHash = await bcrypt.hash(String(newPassword), 10);
+    await db.updateTcUser(req.tcUser.id, { password: newHash, forcePasswordChange: false });
+    // Revoga sessões antigas (mantém só a atual via novo login após troca)
+    await db.revokeAllTcRefreshTokens(req.tcUser.id);
+    res.json({ success: true, message: 'Senha alterada com sucesso. Faça login novamente.' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro interno' });
+  }
+});
+
+// PUT /api/tc-auth/me/username — troca username (exige senha)
+app.put('/api/tc-auth/me/username', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { password, newUsername } = req.body || {};
+    if (!password || !newUsername) {
+      return res.status(400).json({ success: false, error: 'Senha e novo usuário são obrigatórios' });
+    }
+    const normalized = String(newUsername).trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-_]{2,}$/.test(normalized)) {
+      return res.status(400).json({ success: false, error: 'Usuário inválido: 3+ chars, apenas letras, números, hífens e underline' });
+    }
+    const user = await db.getTcUserById(req.tcUser.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    const ok = await bcrypt.compare(String(password), user.password);
+    if (!ok) return res.status(401).json({ success: false, error: 'Senha incorreta' });
+    if (await db.usernameTcUserExists(normalized) && normalized !== user.username) {
+      return res.status(409).json({ success: false, error: 'Este usuário já está em uso' });
+    }
+    const updated = await db.updateTcUser(req.tcUser.id, { username: normalized });
+    res.json({ success: true, data: tcAuth.sanitizeTcUser(updated) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro interno' });
+  }
+});
+
+// POST /api/tc-auth/me/photo — upload de foto (reusa uploadAvatar do impgeo)
+app.post('/api/tc-auth/me/photo', tcAuth.authenticateTcUser, uploadAvatar.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+    const photoUrl = `/api/avatars/${req.file.filename}`;
+    await db.updateTcUser(req.tcUser.id, { photoUrl });
+    res.json({ success: true, data: { photoUrl } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao salvar foto' });
+  }
+});
+
+// GET /api/tc-auth/me/records — lista registros TerraControl que o tc_user pode ver
+app.get('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const records = await db.getTcUserRecords(req.tcUser.id);
+    res.json({ success: true, data: records });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro ao listar registros' });
+  }
+});
+
+// Sub-share criado pelo tc_user — só pode incluir registros do seu access.
+// Reaproveita a tabela share_links já existente, marcando created_by_tc_user_id.
+app.get('/api/tc-auth/me/share-links', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const links = await db.getShareLinksCreatedByTcUser(req.tcUser.id);
+    res.json({ success: true, data: links });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro ao listar share links' });
+  }
+});
+
+app.post('/api/tc-auth/me/share-links', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { name, expiresAt, password, selectedIds } = req.body || {};
+    if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'Selecione pelo menos um registro' });
+    }
+    // Filtra apenas registros que o tc_user TEM acesso
+    const allowedRecordIds = await db.getTcUserRecordIds(req.tcUser.id);
+    const allowedSet = new Set(allowedRecordIds.map(String));
+    const safeIds = selectedIds.map(String).filter(id => allowedSet.has(id));
+    if (safeIds.length === 0) {
+      return res.status(403).json({ success: false, error: 'Nenhum dos registros selecionados está no seu acesso' });
+    }
+
+    // Token sempre com sufixo aleatório forte (G2.2)
+    let token = '';
+    if (name && name.trim()) {
+      const baseSlug = slugify(name);
+      const suffix = crypto.randomBytes(8).toString('hex');
+      token = baseSlug ? `${baseSlug}-${suffix}` : `view_${suffix}`;
+    } else {
+      token = 'view_' + crypto.randomBytes(32).toString('hex');
+    }
+
+    let expiresAtISO = null;
+    if (expiresAt && String(expiresAt).trim()) {
+      expiresAtISO = new Date(expiresAt).toISOString();
+    }
+    let passwordHash = null;
+    if (password && String(password).trim()) {
+      passwordHash = await bcrypt.hash(String(password), 10);
+    }
+
+    await db.saveShareLink(token, name || null, expiresAtISO, passwordHash, safeIds);
+    // Marca quem criou
+    await db.queryWithRetry(
+      'UPDATE share_links SET created_by_tc_user_id = $1 WHERE token = $2',
+      [req.tcUser.id, token]
+    );
+    res.json({ success: true, token, message: 'Link gerado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao criar share link' });
+  }
+});
+
+app.delete('/api/tc-auth/me/share-links/:token', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    // Confirma que o link pertence ao tc_user antes de apagar
+    const row = await db.queryWithRetry(
+      'SELECT token FROM share_links WHERE token = $1 AND created_by_tc_user_id = $2 LIMIT 1',
+      [req.params.token, req.tcUser.id]
+    );
+    if (row.rows.length === 0) return res.status(404).json({ success: false, error: 'Link não encontrado' });
+    await db.deleteShareLink(req.params.token);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao excluir' });
   }
 });
 
@@ -3182,6 +3552,105 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Login dedicado ao subdomínio admin.terracontrol.viverdepj.com.br.
+// Mesma lógica do /api/auth/login, mas valida ANTES de gerar token que o
+// user tem acesso ao módulo `terracontrol` (via user_module_permissions
+// ou role default). Sem acesso → 403, sem gerar token nem refresh nem session.
+//
+// Por que endpoint separado: garante que credenciais válidas mas sem o módulo
+// nunca produzam token via essa porta. O /api/auth/login normal continua
+// funcionando para qualquer user impgeo (com permissão para outros módulos).
+app.post('/api/auth/login-terracontrol-admin', loginLimiter, async (req, res) => {
+  try {
+    let username, password;
+    try {
+      const parsed = loginSchema.parse(req.body);
+      username = parsed.username;
+      password = parsed.password;
+    } catch (validationError) {
+      return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
+    }
+
+    const user = await db.getUserByUsername(username);
+    if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
+    if (user.is_active === false) {
+      return res.status(403).json({ error: 'Usuário inativo. Contate um administrador.' });
+    }
+
+    // Valida senha (não suportamos firstLogin neste endpoint — primeiro acesso
+    // deve ser feito pelo /api/auth/login do impgeo).
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) return res.status(401).json({ error: 'Credenciais inválidas' });
+
+    // Verifica acesso ao módulo terracontrol — antes de qualquer outra coisa.
+    // Hierarquia: superadmin/admin têm acesso default; user/guest precisam
+    // de entrada em user_module_permissions com module_key='terracontrol'.
+    let hasTerracontrolAccess = false;
+    if (user.role === 'superadmin' || user.role === 'admin') {
+      hasTerracontrolAccess = true;
+    } else if (user.role === 'user') {
+      // role=user tem todos os módulos exceto admin/dre/terracontrol por default,
+      // mas pode ganhar terracontrol via permissão explícita.
+      const perms = await db.getUserModulePermissions(user.id);
+      hasTerracontrolAccess = Array.isArray(perms) && perms.some(p => p.moduleKey === 'terracontrol');
+    } // role=guest nunca tem acesso
+
+    if (!hasTerracontrolAccess) {
+      return res.status(403).json({
+        error: 'Você não tem acesso ao módulo TerraControl. Contate o administrador.'
+      });
+    }
+
+    // Daqui em diante: idêntico ao /api/auth/login (gera token, sessão, cookie).
+    const nowISO = new Date().toISOString();
+    await db.updateUser(user.id, { lastLogin: nowISO });
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, permissoes_legais: user.permissoes_legais || {} },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    const updatedUserProfile = await db.getUserProfileById(user.id);
+    await db.createActivityLog({
+      userId: user.id,
+      username: user.username,
+      action: 'login',
+      moduleKey: 'auth',
+      entityType: 'user',
+      entityId: user.id,
+      details: { role: user.role, via: 'admin.terracontrol' },
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || null
+    });
+
+    let refreshTokenValue = null;
+    try {
+      const { token: rt, tokenId } = await createRefreshToken({
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      refreshTokenValue = rt;
+      await createSession(user.id, tokenId, req);
+    } catch (sessionError) {
+      console.warn('[login-tc-admin] Falha ao criar refresh token/sessão:', sessionError.message);
+    }
+
+    const response = {
+      success: true,
+      token,
+      user: mapUserToClient(updatedUserProfile || user)
+    };
+    if (refreshTokenValue) response.refreshToken = refreshTokenValue;
+
+    setAuthCookies(req, res, token, refreshTokenValue);
+    res.json(response);
+  } catch (error) {
+    console.error('Erro em /api/auth/login-terracontrol-admin:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 app.post('/api/auth/verify', authenticateToken, async (req, res) => {
   try {
     const currentUser = await db.getUserById(req.user.id);
@@ -3681,6 +4150,128 @@ const requireLegalPermission = (tipo) => (req, res, next) => {
   if (role === 'admin' && permissoes_legais && permissoes_legais[tipo] === true) return next();
   return res.status(403).json({ error: 'Sem permissão para esta operação' });
 };
+
+// =============================================================================
+// Admin do impgeo gerenciando tc_users (migration 025/026)
+// =============================================================================
+
+// GET /api/admin/tc-users — lista todos
+app.get('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const list = await db.listTcUsersForAdmin();
+    res.json({ success: true, data: list });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao listar' });
+  }
+});
+
+// POST /api/admin/tc-users — cria novo tc_user com senha temporária + acesso a registros
+app.post('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username, firstName, lastName, email, password, selectedIds } = req.body || {};
+    if (!username || !firstName || !email) {
+      return res.status(400).json({ success: false, error: 'Username, nome e email são obrigatórios' });
+    }
+    if (!/^[a-z0-9][a-z0-9\-_]{2,}$/.test(String(username).trim().toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Username inválido' });
+    }
+    if (await db.usernameTcUserExists(String(username).trim().toLowerCase())) {
+      return res.status(409).json({ success: false, error: 'Este usuário já existe' });
+    }
+    if (email && await db.getTcUserByEmail(email)) {
+      return res.status(409).json({ success: false, error: 'Este email já está em uso' });
+    }
+    // Senha: se vier do body usa; senão gera aleatória de 10 chars.
+    const plainPassword = password && String(password).length >= 6
+      ? String(password)
+      : crypto.randomBytes(6).toString('base64').replace(/[+/=]/g, '').slice(0, 10);
+    const hash = await bcrypt.hash(plainPassword, 10);
+
+    const created = await db.createTcUser({
+      username: String(username).trim().toLowerCase(),
+      password: hash,
+      firstName: String(firstName).trim(),
+      lastName: lastName ? String(lastName).trim() : null,
+      email: String(email).trim().toLowerCase(),
+      forcePasswordChange: true,                // sempre força no 1º login
+      isActive: true,
+      createdVia: 'direct',
+      createdByUserId: req.user.id,
+    });
+
+    if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+      await db.setTcUserRecordAccess(created.id, selectedIds, req.user.id);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: created.id,
+        username: created.username,
+        email: created.email,
+        temporaryPassword: plainPassword,        // mostra UMA vez ao admin
+      },
+    });
+  } catch (error) {
+    console.error('Erro POST /api/admin/tc-users:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao criar' });
+  }
+});
+
+// PUT /api/admin/tc-users/:id — edita campos do tc_user
+app.put('/api/admin/tc-users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive'];
+    const updates = {};
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) updates[k] = req.body[k];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: 'Nenhum campo fornecido' });
+    }
+    const updated = await db.updateTcUser(req.params.id, updates);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao atualizar' });
+  }
+});
+
+// PUT /api/admin/tc-users/:id/password-reset — força reset de senha
+app.put('/api/admin/tc-users/:id/password-reset', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const tcUser = await db.getTcUserById(req.params.id);
+    if (!tcUser) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    const plainPassword = crypto.randomBytes(6).toString('base64').replace(/[+/=]/g, '').slice(0, 10);
+    await db.adminResetTcUserPassword(req.params.id, plainPassword);
+    res.json({ success: true, data: { temporaryPassword: plainPassword } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao resetar senha' });
+  }
+});
+
+// PUT /api/admin/tc-users/:id/access — define quais registros o tc_user vê
+app.put('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { recordIds } = req.body || {};
+    if (!Array.isArray(recordIds)) {
+      return res.status(400).json({ success: false, error: 'recordIds deve ser um array' });
+    }
+    const result = await db.setTcUserRecordAccess(req.params.id, recordIds, req.user.id);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao definir acesso' });
+  }
+});
+
+// PUT /api/admin/tc-users/:id/deactivate — desativa
+app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await db.deactivateTcUser(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao desativar' });
+  }
+});
 
 app.post('/api/auth/reset-first-login', authenticateToken, requireAdmin, async (req, res) => {
   try {

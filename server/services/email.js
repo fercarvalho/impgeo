@@ -173,6 +173,61 @@ async function enviarEmailRecuperacao({
   };
 }
 
+// ============================================================================
+// Templates do TerraControl (paleta verde→azul, identidade própria do subsaas)
+// ============================================================================
+
+function buildTcResetEmailTemplate({ resetUrl, username, expiresMinutes }) {
+  const subject = 'Recuperação de senha — TerraControl';
+  const text = `Olá ${username || ''},\n\n` +
+    `Você solicitou a recuperação de senha do seu acesso ao TerraControl.\n\n` +
+    `Acesse o link abaixo (válido por ${expiresMinutes} minutos):\n${resetUrl}\n\n` +
+    `Se você não solicitou, ignore este email.\n\n— Equipe TerraControl`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Plataforma de gestão territorial</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;color:#374151;">
+              Você solicitou a recuperação de senha do seu acesso ao TerraControl. Clique no botão abaixo para definir uma nova senha:
+            </p>
+            <p style="text-align:center;margin:28px 0;">
+              <a href="${resetUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Definir nova senha</a>
+            </p>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">
+              Este link é válido por <strong>${expiresMinutes} minutos</strong>. Se expirar, solicite novamente a recuperação.
+            </p>
+            <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;">Se você não solicitou esta recuperação, ignore este email — sua senha continua segura.</p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe TerraControl
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailTcResetSenha({ toEmail, username, resetUrl, expiresMinutes = 60 }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  if (!resetUrl) throw new Error('URL de recuperação não informada');
+  const { subject, html, text } = buildTcResetEmailTemplate({ resetUrl, username, expiresMinutes });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
 module.exports = {
-  enviarEmailRecuperacao
+  enviarEmailRecuperacao,
+  enviarEmailTcResetSenha,
 };
