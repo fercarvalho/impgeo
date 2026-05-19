@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search } from 'lucide-react'
+import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
 import JSZip from 'jszip'
@@ -851,7 +851,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-500 font-medium">Carregando dados...</p>
@@ -862,9 +862,9 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
   if (requiresPassword) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-8 text-center">
+          <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] px-8 py-8 text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -912,7 +912,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
             <button
               type="submit"
               disabled={isSubmittingPassword}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white rounded-xl hover:from-[#3d8920] hover:to-[#003391] font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
             >
               {isSubmittingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
               {isSubmittingPassword ? 'Verificando...' : 'Acessar'}
@@ -925,7 +925,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center p-4">
         <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-md border border-gray-100">
           <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <X className="w-8 h-8 text-red-500" />
@@ -945,16 +945,14 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-[#3d8920] to-[#003391] text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-white/15">
-                <ClipboardCheck className="w-5 h-5 text-white" />
-              </div>
+              <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg" />
               <div>
                 <h1 className="text-xl font-bold">TerraControl</h1>
-                <p className="text-blue-200 text-sm">Visualização somente leitura</p>
+                <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5">
@@ -967,16 +965,16 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Mensagem de Boas-vindas */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
+        <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
-              <MapIcon className="w-5 h-5 text-white" />
+              <User className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-bold">
                 Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
               </h2>
-              <p className="text-blue-100 text-sm">Visualização somente leitura dos imóveis (TerraControl)</p>
+              <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
             </div>
           </div>
         </div>
@@ -1202,7 +1200,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
               <div key={acomp.id} className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
                 {/* ── HEADER ───────────────────────────────── */}
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
                       #{formatCodImovel(acomp.codImovel)}
@@ -1389,9 +1387,9 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                           </div>
                         )}
                         {acomp.cultura2 && (
-                          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-1.5">
-                            <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">{acomp.cultura2}</div>
-                            <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">{formatNumber(acomp.areaCultura2)} ha</div>
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-xl px-3 py-1.5">
+                            <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">{acomp.cultura2}</div>
+                            <div className="text-xs text-emerald-500 dark:text-emerald-400 mt-0.5">{formatNumber(acomp.areaCultura2)} ha</div>
                           </div>
                         )}
                         {acomp.outros && (
@@ -1578,7 +1576,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                   href={selectedMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white font-semibold rounded-xl hover:from-[#3d8920] hover:to-[#003391] shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
                   <ExternalLink className="w-5 h-5" />
                   Abrir em nova aba
@@ -1661,10 +1659,10 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                 <button
                   onClick={() => handleDownloadSingleItrZipped(itrDownloadModal.item, itrDownloadModal.imovel)}
                   disabled={isDownloadingSingleZip === itrDownloadModal.item.id}
-                  className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60">
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/60">
                       {isDownloadingSingleZip === itrDownloadModal.item.id ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
@@ -1672,11 +1670,11 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       )}
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-indigo-900 dark:text-indigo-200">Baixar Ambos (ZIP)</div>
-                      <div className="text-xs text-indigo-600 dark:text-indigo-400">Pacote completo do ITR</div>
+                      <div className="font-semibold text-emerald-900 dark:text-emerald-200">Baixar Ambos (ZIP)</div>
+                      <div className="text-xs text-emerald-600 dark:text-emerald-400">Pacote completo do ITR</div>
                     </div>
                   </div>
-                  <Download className="w-5 h-5 text-indigo-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
+                  <Download className="w-5 h-5 text-emerald-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300" />
                 </button>
               </div>
 

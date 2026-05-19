@@ -1805,7 +1805,7 @@ const TerraControl: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">TerraControl</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Gestão de propriedades rurais e cadastros ambientais</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Plataforma de gestão territorial</p>
           </div>
         </div>
         <div className="flex w-full sm:w-auto flex-wrap gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
