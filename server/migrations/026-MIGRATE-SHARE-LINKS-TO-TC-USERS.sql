@@ -16,14 +16,15 @@
 -- IDEMPOTENTE: registra alias em tc_legacy_aliases — re-run pula share_links
 -- que já têm alias.
 --
--- Senha temporária: 'tc123' (hash gerado em runtime via pgcrypto.crypt com
--- gen_salt('bf', 10) — compatível com bcrypt.compare() do bcryptjs no Node).
+-- Senha temporária: 'tc123'. O hash bcrypt foi gerado UMA vez em Node
+-- (bcryptjs.hashSync('tc123', 10)) e está literal abaixo. Isso evita depender
+-- da extensão pgcrypto (que precisa de privilégio de superuser no Postgres).
+-- Todos os tc_users migrados ficam com force_password_change=TRUE e são
+-- forçados a trocar a senha no 1º login — então ter o mesmo hash não é
+-- problema de segurança (a senha é pública por design neste fluxo).
 -- =============================================================================
 
 BEGIN;
-
--- pgcrypto fornece crypt() compatível com bcrypt (algoritmo 'bf').
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ---------------------------------------------------------------------------
 -- Funções auxiliares: slugify em PL/pgSQL (mesma lógica do slugify do server.js)
@@ -78,9 +79,11 @@ DECLARE
     rec_id         TEXT;
     migrated_count INTEGER := 0;
     skipped_count  INTEGER := 0;
-    -- Hash bcrypt do 'tc123' gerado uma vez aqui via pgcrypto. Cost 10 = mesmo
-    -- do impgeo. bcrypt.compare('tc123', hash) no Node valida normalmente.
-    DEFAULT_PASSWORD_HASH TEXT := crypt('tc123', gen_salt('bf', 10));
+    -- Hash bcrypt do 'tc123' pré-gerado em Node (bcryptjs.hashSync('tc123', 10)).
+    -- Literal aqui evita depender da extensão pgcrypto, que requer superuser.
+    -- Todos os tc_users migrados ficam com force_password_change=TRUE — ter o
+    -- mesmo hash não é problema (a senha tc123 é pública por design neste fluxo).
+    DEFAULT_PASSWORD_HASH CONSTANT TEXT := '$2b$10$OIC8GS7m7zUihm1uwtFPdO2uz/RJUyTfPkrskQNEqwyFv5jOHPCpy';
 BEGIN
     FOR sl IN
         SELECT *
