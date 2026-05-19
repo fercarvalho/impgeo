@@ -228,6 +228,8 @@ const TerraControl: React.FC = () => {
   const [itrDownloadModal, setItrDownloadModal] = useState<{ item: ItrItem; imovel: string } | null>(null)
   const [isDownloadingSingleZip, setIsDownloadingSingleZip] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   // Função para converter URL do Google Maps para formato embed
@@ -296,108 +298,32 @@ const TerraControl: React.FC = () => {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
 
-  // Dados de exemplo baseados na imagem
-  const exemploDados: TerraControlRecord[] = [
-    {
-      id: '1',
-      codImovel: 1,
-      imovel: 'Fazenda Jacarezinho',
-      municipio: 'Joaquim Távora',
-      mapaUrl: 'https://www.google.com/maps/d/u/0/viewer?mid=1k5w8dSy80Myferbi0r97qEkRs1mjvg8&ll=-23.49775002923756%2C-49.8515265&z=17',
-      matriculas: '4031, 4183',
-      nIncraCcir: '731.000.003.808-7',
-      car: 'PR-4112803-06020389GGA77AG9000237709GA760A2',
-      statusCar: 'ATIVO - AGUARDANDO ANÁLISE SC',
-      itr: '',
-      geoCertificacao: 'SIM',
-      geoRegistro: 'SIM',
-      areaTotal: 33.26,
-      reservaLegal: 2.35,
-      cultura1: 'Cultura Temporária',
-      areaCultura1: 5.64,
-      cultura2: 'Pasto',
-      areaCultura2: 3.22,
-      outros: 'Horta',
-      areaOutros: 0.83,
-      appCodigoFlorestal: 2.38,
-      appVegetada: 1.44,
-      appNaoVegetada: 0.62,
-      remanescenteFlorestal: 0.68
-    },
-    {
-      id: '2',
-      codImovel: 2,
-      imovel: 'Fazenda Imbu',
-      municipio: 'Ivaí',
-      matriculas: '8105, 957, 8156',
-      nIncraCcir: '706.045.005.095-9',
-      car: 'PR-4112803-06020389GGA77AG9000237709GA760A2',
-      statusCar: 'ATIVO - AGUARDANDO ANÁLISE SC',
-      itr: '',
-      geoCertificacao: 'SIM',
-      geoRegistro: 'SIM',
-      areaTotal: 73.97,
-      reservaLegal: 5.44,
-      cultura1: 'Silvicultura',
-      areaCultura1: 55.85,
-      cultura2: 'Soja',
-      areaCultura2: 66.34,
-      outros: 'Área Arrozeada',
-      areaOutros: 0.03,
-      appCodigoFlorestal: 14.73,
-      appVegetada: 13.68,
-      appNaoVegetada: 1.05,
-      remanescenteFlorestal: 4.35
-    },
-    {
-      id: '3',
-      codImovel: 3,
-      imovel: 'Barro Preto',
-      municipio: 'Tibagi (Ventania)',
-      matriculas: '1192',
-      nIncraCcir: '',
-      car: '',
-      statusCar: 'ATIVO - AGUARDANDO ANÁLISE SC',
-      itr: '',
-      geoCertificacao: 'NÃO',
-      geoRegistro: 'NÃO',
-      areaTotal: 114.24,
-      reservaLegal: 22.62,
-      cultura1: 'Cultura Temporária',
-      areaCultura1: 72.58,
-      cultura2: 'Bertado',
-      areaCultura2: 4.21,
-      outros: 'Servidão',
-      areaOutros: 0.11,
-      appCodigoFlorestal: 11.5,
-      appVegetada: 11.13,
-      appNaoVegetada: 0.57,
-      remanescenteFlorestal: 37.15
-    }
-  ]
-
   useEffect(() => {
     const controller = new AbortController()
-    // Carregar dados da API
     const loadRecords = async () => {
+      setIsLoadingRecords(true)
+      setLoadError(null)
       try {
         const response = await fetch(`${API_BASE_URL}/terracontrol`, { signal: controller.signal })
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
         const result = await response.json()
         if (result.success) {
           const normalized = normalizeRecords(result.data)
           setRecords(normalized)
           setFilteredRecords(normalized)
         } else {
-          // Se não houver dados, usar dados de exemplo
-          setRecords(exemploDados)
-          setFilteredRecords(exemploDados)
+          throw new Error(result.error || 'Resposta inválida da API')
         }
       } catch (error: any) {
         if (error?.name === 'AbortError') return
         console.error('Erro ao carregar TerraControl:', error)
-        // Em caso de erro, usar dados de exemplo
-        setRecords(exemploDados)
-        setFilteredRecords(exemploDados)
+        setLoadError(error?.message || 'Falha ao carregar registros')
+        setRecords([])
+        setFilteredRecords([])
+      } finally {
+        setIsLoadingRecords(false)
       }
     }
     loadRecords()
@@ -2040,11 +1966,22 @@ const TerraControl: React.FC = () => {
 
       {/* Cards */}
       <div className="space-y-4">
-        {sortedRecords.length === 0 ? (
+        {isLoadingRecords ? (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <Loader2 className="h-10 w-10 text-blue-500 mx-auto mb-3 animate-spin" />
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Carregando registros...</p>
+          </div>
+        ) : loadError ? (
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-dashed border-red-200 dark:border-red-800 p-12 text-center">
+            <X className="h-10 w-10 text-red-400 mx-auto mb-3" />
+            <p className="text-red-600 dark:text-red-400 font-semibold mb-1">Não foi possível carregar os registros</p>
+            <p className="text-red-500 dark:text-red-400 text-sm">{loadError}</p>
+          </div>
+        ) : sortedRecords.length === 0 ? (
           <div className="bg-white dark:!bg-[#243040] rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center">
             <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">
-              {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum record cadastrado.'}
+              {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro cadastrado.'}
             </p>
           </div>
         ) : sortedRecords.map((acomp) => {

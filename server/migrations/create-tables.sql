@@ -156,9 +156,14 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 -- TerraControl
+-- cod_imovel é INTEGER auto-gerado via sequence (ver migration 023).
+-- Em ambientes novos, esta seção cria a tabela já com o tipo correto;
+-- ambientes existentes recebem o tipo via migration 023.
+CREATE SEQUENCE IF NOT EXISTS terracontrol_cod_imovel_seq;
+
 CREATE TABLE IF NOT EXISTS terracontrol (
     id VARCHAR(255) PRIMARY KEY,
-    cod_imovel VARCHAR(255),
+    cod_imovel INTEGER NOT NULL DEFAULT nextval('terracontrol_cod_imovel_seq') UNIQUE,
     imovel TEXT,
     municipio VARCHAR(255),
     mapa_url TEXT,
@@ -190,7 +195,9 @@ CREATE TABLE IF NOT EXISTS terracontrol (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_terracontrol_cod_imovel ON terracontrol(cod_imovel);
+-- Índice explícito (redundante com o UNIQUE acima, mantido por compatibilidade
+-- com bancos anteriores à migration 023 que tinham apenas este índice)
+CREATE INDEX IF NOT EXISTS idx_terracontrol_cod_imovel ON terracontrol(cod_imovel);
 
 -- Share Links
 CREATE TABLE IF NOT EXISTS share_links (

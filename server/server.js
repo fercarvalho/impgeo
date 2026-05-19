@@ -1949,8 +1949,8 @@ app.delete('/api/terracontrol', async (req, res) => {
     if (!Array.isArray(ids)) {
       return res.status(400).json({ success: false, error: 'IDs devem ser um array' });
     }
-    await db.deleteMultipleTerraControl(ids);
-    res.json({ success: true, message: `${ids.length} records deletados com sucesso` });
+    const { deletedCount } = await db.deleteMultipleTerraControl(ids);
+    res.json({ success: true, deletedCount, message: `${deletedCount} registro(s) excluído(s)` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -2304,11 +2304,19 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
       }
     }
 
-    // Buscar todos os records (público)
-    const records = await db.getAllTerraControl();
-    const filteredTerraControl = linkSelectedIds.length > 0
-      ? records.filter((item) => linkSelectedIds.includes(String(item.id)))
-      : records;
+    // Recusa share links sem seleção: a UI atual exige selectedIds.length >= 1
+    // ao criar; links antigos com selected_ids NULL representavam "todos os
+    // registros" — comportamento que vaza banco inteiro e foi descontinuado.
+    if (linkSelectedIds.length === 0) {
+      return res.status(410).json({
+        success: false,
+        error: 'Este link não está mais disponível. Solicite um novo link ao administrador.'
+      });
+    }
+
+    // Filtragem feita pelo banco (WHERE id = ANY) em vez de carregar a tabela
+    // inteira e filtrar em JS — evita transitar dados sensíveis pela memória.
+    const filteredTerraControl = await db.getTerraControlByIds(linkSelectedIds);
 
     res.json({
       success: true,

@@ -1626,10 +1626,32 @@ class Database {
     }
   }
 
+  // Busca registros TerraControl filtrados por uma lista de IDs.
+  // Usado pelo endpoint público para evitar carregar a tabela inteira
+  // antes de filtrar em JS (vazamento de dados via memória do processo).
+  async getTerraControlByIds(ids) {
+    try {
+      await this.ensureTerraControlSchema();
+      if (!Array.isArray(ids) || ids.length === 0) return [];
+      const normalizedIds = ids.map(id => String(id));
+      const result = await this.queryWithRetry(
+        'SELECT * FROM terracontrol WHERE id = ANY($1::text[]) ORDER BY cod_imovel',
+        [normalizedIds]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao ler TerraControl por IDs:', error);
+      return [];
+    }
+  }
+
   async saveTerraControl(recordData) {
     try {
       await this.ensureTerraControlSchema();
       const id = this.generateId();
+      // cod_imovel é gerado automaticamente pela SEQUENCE (migration 023):
+      // ao omitir a coluna do INSERT, o DEFAULT nextval() preenche.
+      // RETURNING * traz o valor final para o caller.
       const result = await this.queryWithRetry(
         `INSERT INTO terracontrol (
            id, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
@@ -1687,8 +1709,10 @@ class Database {
   async updateTerraControl(id, updatedData) {
     try {
       await this.ensureTerraControlSchema();
+      // cod_imovel é imutável (identificador estável do imóvel) — não está
+      // no SET. Caller que tentar mudá-lo é silenciosamente ignorado.
       const result = await this.queryWithRetry(
-        `UPDATE terracontrol 
+        `UPDATE terracontrol
          SET imovel = $1,
              municipio = $2,
              mapa_url = $3,
@@ -1780,19 +1804,20 @@ class Database {
   }
 
   async deleteMultipleTerraControl(ids) {
-    const client = await this.pool.connect();
+    // Substitui N round-trips dentro de transação por uma única query atômica.
+    // ANY($1::text[]) é seguro contra SQL injection e ignora IDs inexistentes.
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { deletedCount: 0 };
+    }
     try {
-      await client.query('BEGIN');
-      for (const id of ids) {
-        await client.query('DELETE FROM terracontrol WHERE id = $1', [id]);
-      }
-      await client.query('COMMIT');
-      return true;
+      const normalizedIds = ids.map(id => String(id));
+      const result = await this.queryWithRetry(
+        'DELETE FROM terracontrol WHERE id = ANY($1::text[]) RETURNING id',
+        [normalizedIds]
+      );
+      return { deletedCount: result.rowCount };
     } catch (error) {
-      await client.query('ROLLBACK');
       throw new Error('Erro ao excluir TerraControl: ' + error.message);
-    } finally {
-      client.release();
     }
   }
 
