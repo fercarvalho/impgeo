@@ -282,7 +282,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const updateUser = useCallback((userData: Partial<User>, newToken?: string) => {
-    setUser(prev => (prev ? { ...prev, ...userData } : prev));
+    // Se já há user → merge parcial (uso típico: atualizar foto/nome).
+    // Se prev é null → estabelecendo sessão nova (ex: TerraControlAdminLogin
+    // que chama /api/auth/login-terracontrol-admin manualmente, fora do login()).
+    // Nesse caso, userData precisa vir como User completo do backend.
+    setUser(prev => (prev ? { ...prev, ...userData } : (userData as User)));
     if (newToken) {
       persistToken(newToken);
     }
