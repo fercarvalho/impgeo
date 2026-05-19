@@ -70,6 +70,9 @@ const corsOrigins = process.env.CORS_ORIGINS
 
 // Após a fase 1.3 (subsistemas) o frontend é acessado por múltiplos subdomínios:
 //   *.impgeo.local em dev, *.impgeo.sistemas.viverdepj.com.br em prod.
+// Com o update tc_users (migration 025/026) entraram 2 hosts novos:
+//   terracontrol.viverdepj.com.br (login público tc_user)
+//   admin.terracontrol.viverdepj.com.br (atalho impgeo admin → módulo TerraControl)
 // Origem precisa ser permitida dinamicamente.
 const isAllowedSubsystemOrigin = (origin) => {
   if (!origin) return false;
@@ -77,6 +80,10 @@ const isAllowedSubsystemOrigin = (origin) => {
   if (/^https?:\/\/([a-z0-9-]+\.)?impgeo\.local(?::\d+)?$/.test(origin)) return true;
   // prod: https://(qualquer-coisa.)impgeo.sistemas.viverdepj.com.br
   if (/^https:\/\/([a-z0-9-]+\.)?impgeo\.sistemas\.viverdepj\.com\.br$/.test(origin)) return true;
+  // dev: http(s)://(admin.)?terracontrol.local(:port)
+  if (/^https?:\/\/(admin\.)?terracontrol\.local(?::\d+)?$/.test(origin)) return true;
+  // prod: https://(admin.)?terracontrol.viverdepj.com.br
+  if (/^https:\/\/(admin\.)?terracontrol\.viverdepj\.com\.br$/.test(origin)) return true;
   return false;
 };
 
