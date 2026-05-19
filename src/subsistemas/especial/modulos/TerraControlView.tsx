@@ -431,7 +431,10 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
             </div>
             <div className="flex items-center gap-2.5">
               <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
-              <span className="text-base font-bold text-white">IMPGEO</span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
+                <span className="text-base font-bold text-white">IMPGEO</span>
+              </div>
             </div>
           </div>
         </div>
