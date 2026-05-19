@@ -9,7 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const helmet = require('helmet');
 const hpp = require('hpp');
 const xss = require('xss-clean');
@@ -193,12 +193,16 @@ const passwordResetLimiter = rateLimit({
 // validate-password é o alvo crítico: cada chamada faz bcrypt.compare (custo alto)
 // e pode ser usado para brute force de senha. Limite agressivo por IP+token.
 // Key inclui token para impedir que atacante mude de link e mantenha o pool.
+// ipKeyGenerator normaliza IPv6 (zera bits do host conforme RFC 4291) — é
+// obrigatório em express-rate-limit v8 quando o keyGenerator é customizado.
+// Usar req.ip cru permitiria que um atacante IPv6 trocasse o sufixo /64 a
+// cada requisição e burlasse o rate limit.
 const sharePasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip || 'unknown'}:${req.params?.token || ''}`,
+  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.params?.token || ''}`,
   message: {
     success: false,
     error: 'Muitas tentativas de senha. Aguarde alguns minutos antes de tentar novamente.'
@@ -211,7 +215,7 @@ const sharePublicLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip || 'unknown'}:${req.params?.token || ''}`,
+  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.params?.token || ''}`,
   message: {
     success: false,
     error: 'Muitas requisições. Aguarde alguns minutos.'
@@ -234,129 +238,9 @@ app.use('/api/avatars', express.static(avatarsDir, {
   lastModified: true
 }));
 
-// G2.1 — /api/documents passa a exigir autenticação.
-// Antes: express.static aberto a qualquer pessoa que descobrisse o nome do
-// arquivo (pseudo-aleatório mas previsível em log/cache/histórico).
-// Agora: aceita 2 fontes de auth:
-//   1. Sessão autenticada (cookie httpOnly ou Bearer Authorization)
-//   2. Share token público (?token=<share>&password=<senha-opcional>) válido,
-//      desde que o documento esteja referenciado por algum registro do share
-//      (car_url, matriculas_dados[].url, itr_dados[].declaracaoUrl/reciboUrl,
-//      ccir_dados[].url) — confere no DB.
-// Sem nenhuma das duas → 401.
-//
-// O handler é registrado ANTES do middleware geral de auth (mais abaixo) graças
-// à entrada '/documents' em publicApiPrefixes — isso faz o middleware geral
-// pular essa rota; a validação real está aqui dentro.
-app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
-  const { filename } = req.params;
-
-  // Path traversal: bloqueia '..' ou separadores. Multer já gera nomes
-  // sanitizados, mas a rota é pública e o filename vem do cliente.
-  if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
-    return res.status(400).json({ success: false, error: 'Nome de arquivo inválido' });
-  }
-
-  // Caminho 1: sessão autenticada → libera direto.
-  if (req.user) {
-    return res.sendFile(path.join(documentsDir, filename), {
-      maxAge: '1y',
-      headers: { 'Cache-Control': 'private, max-age=31536000' }
-    }, (err) => {
-      if (err && !res.headersSent) {
-        res.status(err.code === 'ENOENT' ? 404 : 500).end();
-      }
-    });
-  }
-
-  // Caminho 2: share token público. Documento só é entregue se for referenciado
-  // por algum registro listado em selected_ids do share.
-  const shareToken = String(req.query.token || '').trim();
-  const sharePassword = String(req.query.password || '').trim();
-  const ctx = shareAccessContext(req);
-
-  if (!shareToken) {
-    return res.status(401).json({ success: false, error: 'Autenticação requerida' });
-  }
-
-  try {
-    const shareLink = await db.getShareLink(shareToken);
-
-    if (!shareLink) {
-      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
-      return res.status(401).json({ success: false, error: 'Link inválido' });
-    }
-
-    const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
-    const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
-    const linkSelectedIds = Array.isArray(shareLink.selectedIds)
-      ? shareLink.selectedIds
-      : Array.isArray(shareLink.selected_ids)
-        ? shareLink.selected_ids
-        : [];
-
-    if (linkExpiresAt && new Date(linkExpiresAt) < new Date()) {
-      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'expired', document: filename, ...ctx });
-      return res.status(410).json({ success: false, error: 'Link expirou' });
-    }
-
-    if (linkPasswordHash) {
-      const bcrypt = require('bcryptjs');
-      if (!sharePassword) {
-        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_required', document: filename, ...ctx });
-        return res.status(403).json({ success: false, error: 'Senha requerida' });
-      }
-      const ok = await bcrypt.compare(sharePassword, linkPasswordHash);
-      if (!ok) {
-        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_invalid', document: filename, ...ctx });
-        return res.status(401).json({ success: false, error: 'Senha incorreta' });
-      }
-    }
-
-    if (linkSelectedIds.length === 0) {
-      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
-      return res.status(410).json({ success: false, error: 'Link não disponível' });
-    }
-
-    // Confirma que o arquivo solicitado pertence a algum registro do share.
-    // A URL salva no DB tem prefixo "/api/documents/" — montamos e comparamos
-    // contra os campos de documentos. Usa LIKE no JSONB pra cobrir url, carUrl,
-    // declaracaoUrl, reciboUrl simultaneamente.
-    const fileUrlInDb = `/api/documents/${filename}`;
-    const ownsResult = await db.queryWithRetry(
-      `SELECT 1 FROM terracontrol
-       WHERE id = ANY($1::text[])
-         AND (
-           car_url = $2
-           OR matriculas_dados::text LIKE $3
-           OR itr_dados::text         LIKE $3
-           OR ccir_dados::text        LIKE $3
-         )
-       LIMIT 1`,
-      [linkSelectedIds.map(String), fileUrlInDb, `%${fileUrlInDb}%`]
-    );
-
-    if (ownsResult.rows.length === 0) {
-      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
-      return res.status(403).json({ success: false, error: 'Documento não disponível neste link' });
-    }
-
-    db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'success', document: filename, ...ctx });
-    return res.sendFile(path.join(documentsDir, filename), {
-      // Cache curto no caminho público: se admin revogar acesso, navegador
-      // de quem teve a URL não pode segurar o PDF eternamente.
-      maxAge: '5m',
-      headers: { 'Cache-Control': 'private, max-age=300' }
-    }, (err) => {
-      if (err && !res.headersSent) {
-        res.status(err.code === 'ENOENT' ? 404 : 500).end();
-      }
-    });
-  } catch (error) {
-    console.error('Erro ao servir documento via share link:', error);
-    return res.status(500).json({ success: false, error: 'Erro ao servir documento' });
-  }
-});
+// O handler GET /api/documents/:filename foi movido para depois da
+// declaração de optionalAuth (mais abaixo no arquivo) — ele é registrado
+// junto às outras rotas públicas de TerraControl.
 
 function validateEmailFormat(email) {
   if (!email || typeof email !== 'string') return false;
@@ -2407,6 +2291,129 @@ app.get('/v/:token', async (req, res) => {
     res.redirect(`${normalizedBase}/?token=${token}`);
   } catch (error) {
     res.status(500).send('Erro ao redirecionar');
+  }
+});
+
+// G2.1 — /api/documents passa a exigir autenticação.
+// Antes: express.static aberto a qualquer pessoa que descobrisse o nome do
+// arquivo (pseudo-aleatório mas previsível em log/cache/histórico).
+// Agora: aceita 2 fontes de auth:
+//   1. Sessão autenticada (cookie httpOnly ou Bearer Authorization)
+//   2. Share token público (?token=<share>&password=<senha-opcional>) válido,
+//      desde que o documento esteja referenciado por algum registro do share
+//      (car_url, matriculas_dados[].url, itr_dados[].declaracaoUrl/reciboUrl,
+//      ccir_dados[].url) — confere no DB.
+// Sem nenhuma das duas → 401.
+//
+// O middleware geral '/api' pula esta rota graças à entrada '/documents' em
+// publicApiPrefixes — a validação real está aqui dentro, com optionalAuth.
+app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
+  const { filename } = req.params;
+
+  // Path traversal: bloqueia '..' ou separadores. Multer já gera nomes
+  // sanitizados, mas a rota é pública e o filename vem do cliente.
+  if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return res.status(400).json({ success: false, error: 'Nome de arquivo inválido' });
+  }
+
+  // Caminho 1: sessão autenticada → libera direto.
+  if (req.user) {
+    return res.sendFile(path.join(documentsDir, filename), {
+      maxAge: '1y',
+      headers: { 'Cache-Control': 'private, max-age=31536000' }
+    }, (err) => {
+      if (err && !res.headersSent) {
+        res.status(err.code === 'ENOENT' ? 404 : 500).end();
+      }
+    });
+  }
+
+  // Caminho 2: share token público. Documento só é entregue se for referenciado
+  // por algum registro listado em selected_ids do share.
+  const shareToken = String(req.query.token || '').trim();
+  const sharePassword = String(req.query.password || '').trim();
+  const ctx = shareAccessContext(req);
+
+  if (!shareToken) {
+    return res.status(401).json({ success: false, error: 'Autenticação requerida' });
+  }
+
+  try {
+    const shareLink = await db.getShareLink(shareToken);
+
+    if (!shareLink) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(401).json({ success: false, error: 'Link inválido' });
+    }
+
+    const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
+    const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
+    const linkSelectedIds = Array.isArray(shareLink.selectedIds)
+      ? shareLink.selectedIds
+      : Array.isArray(shareLink.selected_ids)
+        ? shareLink.selected_ids
+        : [];
+
+    if (linkExpiresAt && new Date(linkExpiresAt) < new Date()) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'expired', document: filename, ...ctx });
+      return res.status(410).json({ success: false, error: 'Link expirou' });
+    }
+
+    if (linkPasswordHash) {
+      const bcrypt = require('bcryptjs');
+      if (!sharePassword) {
+        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_required', document: filename, ...ctx });
+        return res.status(403).json({ success: false, error: 'Senha requerida' });
+      }
+      const ok = await bcrypt.compare(sharePassword, linkPasswordHash);
+      if (!ok) {
+        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_invalid', document: filename, ...ctx });
+        return res.status(401).json({ success: false, error: 'Senha incorreta' });
+      }
+    }
+
+    if (linkSelectedIds.length === 0) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(410).json({ success: false, error: 'Link não disponível' });
+    }
+
+    // Confirma que o arquivo solicitado pertence a algum registro do share.
+    // A URL salva no DB tem prefixo "/api/documents/" — montamos e comparamos
+    // contra os campos de documentos. Usa LIKE no JSONB pra cobrir url, carUrl,
+    // declaracaoUrl, reciboUrl simultaneamente.
+    const fileUrlInDb = `/api/documents/${filename}`;
+    const ownsResult = await db.queryWithRetry(
+      `SELECT 1 FROM terracontrol
+       WHERE id = ANY($1::text[])
+         AND (
+           car_url = $2
+           OR matriculas_dados::text LIKE $3
+           OR itr_dados::text         LIKE $3
+           OR ccir_dados::text        LIKE $3
+         )
+       LIMIT 1`,
+      [linkSelectedIds.map(String), fileUrlInDb, `%${fileUrlInDb}%`]
+    );
+
+    if (ownsResult.rows.length === 0) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(403).json({ success: false, error: 'Documento não disponível neste link' });
+    }
+
+    db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'success', document: filename, ...ctx });
+    return res.sendFile(path.join(documentsDir, filename), {
+      // Cache curto no caminho público: se admin revogar acesso, navegador
+      // de quem teve a URL não pode segurar o PDF eternamente.
+      maxAge: '5m',
+      headers: { 'Cache-Control': 'private, max-age=300' }
+    }, (err) => {
+      if (err && !res.headersSent) {
+        res.status(err.code === 'ENOENT' ? 404 : 500).end();
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao servir documento via share link:', error);
+    return res.status(500).json({ success: false, error: 'Erro ao servir documento' });
   }
 });
 
