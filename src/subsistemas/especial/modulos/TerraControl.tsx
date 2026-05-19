@@ -33,12 +33,21 @@ import {
   downloadSingleItrZip,
   downloadAllCcirZip,
   downloadRegistroZip,
+  useFeedback,
 } from './_terracontrol'
 
 const API_BASE_URL = '/api'
 
+type FormTab = 'basico' | 'documentos' | 'areas' | 'ambiental'
+
 const TerraControl: React.FC = () => {
   const { token, user } = useAuth()
+  // G4.3 — substitui alert()/window.confirm() nativos por toast/dialog estilizados
+  const { notify, confirm, FeedbackHost } = useFeedback()
+  // G4.4 — qual aba do modal de edição está ativa. Resetada para 'basico' a cada
+  // open de modal (handleNew/handleEdit). Mantém todos os campos montados via
+  // className condicional 'hidden' para não perder dados ao trocar de aba.
+  const [activeFormTab, setActiveFormTab] = useState<FormTab>('basico')
   const [records, setRecords] = useState<TerraControlRecord[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -224,6 +233,7 @@ const TerraControl: React.FC = () => {
   const handleEdit = (acomp: TerraControlRecord) => {
     setEditing(acomp)
     setForm(acomp)
+    setActiveFormTab('basico')
     setIsModalOpen(true)
   }
 
@@ -258,6 +268,7 @@ const TerraControl: React.FC = () => {
       ccirDados: []
     })
     setFormErrors({})
+    setActiveFormTab('basico')
     setIsModalOpen(true)
   }
 
@@ -266,12 +277,12 @@ const TerraControl: React.FC = () => {
     if (!file) return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione apenas arquivos PDF.')
+      notify('Por favor, selecione apenas arquivos PDF.', { type: 'warning' })
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande. O tamanho máximo permitido é 20MB.')
+      notify('O arquivo é muito grande. O tamanho máximo permitido é 20MB.', { type: 'warning' })
       return
     }
 
@@ -292,11 +303,11 @@ const TerraControl: React.FC = () => {
       if (data.success) {
         setForm(prev => ({ ...prev, carUrl: data.url }))
       } else {
-        alert(data.error || 'Erro ao fazer upload do arquivo')
+        notify(data.error || 'Erro ao fazer upload do arquivo', { type: 'error' })
       }
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert('Erro ao enviar o arquivo. Tente novamente.')
+      notify('Erro ao enviar o arquivo. Tente novamente.', { type: 'error' })
     } finally {
       setIsUploadingCar(false)
       if (event.target) event.target.value = ''
@@ -334,12 +345,12 @@ const TerraControl: React.FC = () => {
     if (!file) return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione apenas arquivos PDF.')
+      notify('Por favor, selecione apenas arquivos PDF.', { type: 'warning' })
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande. O tamanho máximo permitido é 20MB.')
+      notify('O arquivo é muito grande. O tamanho máximo permitido é 20MB.', { type: 'warning' })
       return
     }
 
@@ -365,11 +376,11 @@ const TerraControl: React.FC = () => {
           )
         }))
       } else {
-        alert(data.error || 'Erro ao fazer upload do arquivo')
+        notify(data.error || 'Erro ao fazer upload do arquivo', { type: 'error' })
       }
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert('Erro ao enviar o arquivo. Tente novamente.')
+      notify('Erro ao enviar o arquivo. Tente novamente.', { type: 'error' })
     } finally {
       setIsUploadingMatricula(null)
       if (event.target) event.target.value = ''
@@ -413,12 +424,12 @@ const TerraControl: React.FC = () => {
     if (!file) return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione apenas arquivos PDF.')
+      notify('Por favor, selecione apenas arquivos PDF.', { type: 'warning' })
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande. O tamanho máximo permitido é 20MB.')
+      notify('O arquivo é muito grande. O tamanho máximo permitido é 20MB.', { type: 'warning' })
       return
     }
 
@@ -444,11 +455,11 @@ const TerraControl: React.FC = () => {
           )
         }))
       } else {
-        alert(data.error || 'Erro ao fazer upload do arquivo')
+        notify(data.error || 'Erro ao fazer upload do arquivo', { type: 'error' })
       }
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert('Erro ao enviar o arquivo. Tente novamente.')
+      notify('Erro ao enviar o arquivo. Tente novamente.', { type: 'error' })
     } finally {
       setIsUploadingItr(null)
       if (event.target) event.target.value = ''
@@ -460,12 +471,12 @@ const TerraControl: React.FC = () => {
     if (!file) return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione apenas arquivos PDF.')
+      notify('Por favor, selecione apenas arquivos PDF.', { type: 'warning' })
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande. O tamanho máximo permitido é 20MB.')
+      notify('O arquivo é muito grande. O tamanho máximo permitido é 20MB.', { type: 'warning' })
       return
     }
 
@@ -491,11 +502,11 @@ const TerraControl: React.FC = () => {
           )
         }))
       } else {
-        alert(data.error || 'Erro ao fazer upload do arquivo')
+        notify(data.error || 'Erro ao fazer upload do arquivo', { type: 'error' })
       }
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert('Erro ao enviar o arquivo. Tente novamente.')
+      notify('Erro ao enviar o arquivo. Tente novamente.', { type: 'error' })
     } finally {
       setIsUploadingItr(null)
       if (event.target) event.target.value = ''
@@ -533,12 +544,12 @@ const TerraControl: React.FC = () => {
     if (!file) return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Por favor, selecione apenas arquivos PDF.')
+      notify('Por favor, selecione apenas arquivos PDF.', { type: 'warning' })
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande. O tamanho máximo permitido é 20MB.')
+      notify('O arquivo é muito grande. O tamanho máximo permitido é 20MB.', { type: 'warning' })
       return
     }
 
@@ -564,11 +575,11 @@ const TerraControl: React.FC = () => {
           )
         }))
       } else {
-        alert(data.error || 'Erro ao fazer upload do arquivo')
+        notify(data.error || 'Erro ao fazer upload do arquivo', { type: 'error' })
       }
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert('Erro ao enviar o arquivo. Tente novamente.')
+      notify('Erro ao enviar o arquivo. Tente novamente.', { type: 'error' })
     } finally {
       setIsUploadingCcir(null)
       if (event.target) event.target.value = ''
@@ -587,7 +598,12 @@ const TerraControl: React.FC = () => {
   }
 
   const handleSave = async () => {
-    if (!validateForm()) return
+    if (!validateForm()) {
+      // G4.4 — todos os campos obrigatórios estão na aba "Básico"; se a
+      // validação falhou, redireciona o usuário para lá automaticamente.
+      setActiveFormTab('basico')
+      return
+    }
 
     try {
       const recordData = {
@@ -644,7 +660,7 @@ const TerraControl: React.FC = () => {
           setEditing(null)
           setFormErrors({})
         } else {
-          alert('Erro ao atualizar record: ' + (result.error || 'Erro desconhecido'))
+          notify('Erro ao atualizar registro: ' + (result.error || 'Erro desconhecido'), { type: 'error' })
         }
       } else {
         // Criar novo
@@ -668,18 +684,18 @@ const TerraControl: React.FC = () => {
           setEditing(null)
           setFormErrors({})
         } else {
-          alert('Erro ao criar record: ' + (result.error || 'Erro desconhecido'))
+          notify('Erro ao criar registro: ' + (result.error || 'Erro desconhecido'), { type: 'error' })
         }
       }
     } catch (error: any) {
-      console.error('Erro ao salvar record:', error)
+      console.error('Erro ao salvar registro:', error)
       const errorMessage = error?.message || error?.toString() || 'Erro desconhecido ao salvar record'
-      alert(`Erro ao salvar record: ${errorMessage}`)
+      notify(`Erro ao salvar registro: ${errorMessage}`, { type: 'error' })
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este record?')) {
+    if (await confirm('Tem certeza que deseja excluir este registro?', { variant: 'danger', confirmLabel: 'Excluir' })) {
       try {
         const response = await fetch(`${API_BASE_URL}/terracontrol/${id}`, {
           method: 'DELETE'
@@ -688,11 +704,11 @@ const TerraControl: React.FC = () => {
         if (result.success) {
           setRecords(records.filter(a => a.id !== id))
         } else {
-          alert('Erro ao excluir record: ' + result.error)
+          notify('Erro ao excluir registro: ' + result.error, { type: 'error' })
         }
       } catch (error) {
-        console.error('Erro ao excluir record:', error)
-        alert('Erro ao excluir record')
+        console.error('Erro ao excluir registro:', error)
+        notify('Erro ao excluir registro', { type: 'error' })
       }
     }
   }
@@ -742,7 +758,7 @@ const TerraControl: React.FC = () => {
     try {
       const result = await downloadRegistroZip(record)
       if (result.empty) {
-        alert('Nenhum documento disponível para download neste registro.')
+        notify('Nenhum documento disponível para download neste registro.', { type: 'info' })
       }
     } finally {
       setIsDownloadingRecordZip(null)
@@ -780,7 +796,7 @@ const TerraControl: React.FC = () => {
 
     // Validar extensão
     if (!file.name.toLowerCase().endsWith('.xlsx')) {
-      alert('Por favor, selecione um arquivo Excel (.xlsx)')
+      notify('Por favor, selecione um arquivo Excel (.xlsx)', { type: 'warning' })
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -788,7 +804,7 @@ const TerraControl: React.FC = () => {
     // Validar tamanho (10MB)
     const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      alert('O arquivo é muito grande! Tamanho máximo permitido: 10MB')
+      notify('O arquivo é muito grande! Tamanho máximo permitido: 10MB', { type: 'warning' })
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -814,15 +830,15 @@ const TerraControl: React.FC = () => {
         if (data.success) {
           const updated = [...records, ...normalizeRecords(data.data)]
           setRecords(updated)
-          alert(`${data.data.length} records importados com sucesso!`)
+          notify(`${data.data.length} registros importados com sucesso!`, { type: 'success' })
           setIsImportModalOpen(false)
         } else {
-          alert('Erro ao importar: ' + (data.error || data.message || 'Erro desconhecido'))
+          notify('Erro ao importar: ' + (data.error || data.message || 'Erro desconhecido'), { type: 'error' })
         }
       })
       .catch(error => {
         console.error('Erro ao importar:', error)
-        alert('Erro ao importar arquivo: ' + (error.message || 'Verifique se o arquivo está no formato correto e tente novamente'))
+        notify('Erro ao importar arquivo: ' + (error.message || 'Verifique se o arquivo está no formato correto e tente novamente'), { type: 'error' })
       })
       .finally(() => {
         setIsImporting(false)
@@ -872,13 +888,13 @@ const TerraControl: React.FC = () => {
       window.URL.revokeObjectURL(url)
     } catch (error: any) {
       console.error('Erro ao exportar TerraControl selecionados:', error)
-      alert('Erro ao exportar registros selecionados: ' + (error.message || 'Tente novamente'))
+      notify('Erro ao exportar registros selecionados: ' + (error.message || 'Tente novamente'), { type: 'error' })
     }
   }
 
   const generateShareLink = async () => {
     if (!user) {
-      alert('Você precisa estar autenticado para gerar um link compartilhável')
+      notify('Você precisa estar autenticado para gerar um link compartilhável', { type: 'warning' })
       return
     }
 
@@ -893,7 +909,7 @@ const TerraControl: React.FC = () => {
 
   const openShareLinkManager = async () => {
     if (!user) {
-      alert('Você precisa estar autenticado para gerenciar links compartilháveis')
+      notify('Você precisa estar autenticado para gerenciar links compartilháveis', { type: 'warning' })
       return
     }
 
@@ -963,11 +979,11 @@ const TerraControl: React.FC = () => {
         setShareLink(fullLink)
         setLinkCopied(false)
       } else {
-        alert('Erro ao gerar link: ' + (result.error || result.message || 'Erro desconhecido'))
+        notify('Erro ao gerar link: ' + (result.error || result.message || 'Erro desconhecido'), { type: 'error' })
       }
     } catch (error: any) {
       console.error('Erro ao gerar link:', error)
-      alert('Erro ao gerar link compartilhável: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+      notify('Erro ao gerar link compartilhável: ' + (error.message || 'Verifique sua conexão e tente novamente'), { type: 'error' })
     }
   }
 
@@ -1001,18 +1017,18 @@ const TerraControl: React.FC = () => {
         setEditingLinkExpiresAt('')
         setEditingLinkPassword('')
       } else {
-        alert('Erro ao atualizar link: ' + (result.error || result.message || 'Erro desconhecido'))
+        notify('Erro ao atualizar link: ' + (result.error || result.message || 'Erro desconhecido'), { type: 'error' })
       }
     } catch (error: any) {
       console.error('Erro ao atualizar link:', error)
-      alert('Erro ao atualizar link: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+      notify('Erro ao atualizar link: ' + (error.message || 'Verifique sua conexão e tente novamente'), { type: 'error' })
     }
   }
 
   const regenerateShareLinkToken = async (oldToken: string, name: string | null, expiresAt: string | null) => {
     if (!user) return
 
-    if (!window.confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.')) {
+    if (!(await confirm('Tem certeza que deseja regenerar o token deste link? O link antigo deixará de funcionar.', { variant: 'danger', confirmLabel: 'Regenerar' }))) {
       return
     }
 
@@ -1038,18 +1054,18 @@ const TerraControl: React.FC = () => {
         setShareLink(fullLink)
         setLinkCopied(false)
       } else {
-        alert('Erro ao regenerar token: ' + (result.error || result.message || 'Erro desconhecido'))
+        notify('Erro ao regenerar token: ' + (result.error || result.message || 'Erro desconhecido'), { type: 'error' })
       }
     } catch (error: any) {
       console.error('Erro ao regenerar token:', error)
-      alert('Erro ao regenerar token: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+      notify('Erro ao regenerar token: ' + (error.message || 'Verifique sua conexão e tente novamente'), { type: 'error' })
     }
   }
 
   const deleteShareLink = async (tokenToDelete: string) => {
     if (!user) return
 
-    if (!window.confirm('Tem certeza que deseja excluir este link compartilhável?')) {
+    if (!(await confirm('Tem certeza que deseja excluir este link compartilhável?', { variant: 'danger', confirmLabel: 'Excluir' }))) {
       return
     }
 
@@ -1068,11 +1084,11 @@ const TerraControl: React.FC = () => {
           setShareLink('')
         }
       } else {
-        alert('Erro ao excluir link: ' + (result.error || result.message || 'Erro desconhecido'))
+        notify('Erro ao excluir link: ' + (result.error || result.message || 'Erro desconhecido'), { type: 'error' })
       }
     } catch (error: any) {
       console.error('Erro ao excluir link:', error)
-      alert('Erro ao excluir link: ' + (error.message || 'Verifique sua conexão e tente novamente'))
+      notify('Erro ao excluir link: ' + (error.message || 'Verifique sua conexão e tente novamente'), { type: 'error' })
     }
   }
 
@@ -1142,12 +1158,12 @@ const TerraControl: React.FC = () => {
     options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
   ) => {
     if (!data || data.length === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
+      notify('Não há dados disponíveis para exibir o gráfico.', { type: 'info' })
       return
     }
     const total = data.reduce((sum, item) => sum + item.value, 0)
     if (total === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
+      notify('Não há dados disponíveis para exibir o gráfico.', { type: 'info' })
       return
     }
     setChartTitle(title)
@@ -1410,10 +1426,37 @@ const TerraControl: React.FC = () => {
       {/* Cards */}
       <div className="space-y-4">
         {isLoadingRecords ? (
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <Loader2 className="h-10 w-10 text-blue-500 mx-auto mb-3 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400 font-medium">Carregando registros...</p>
-          </div>
+          // Skeleton — 3 placeholders animados imitando a estrutura de um card real
+          // (header gradiente + linhas de dados). Comunica "lista chegando" em vez
+          // de só "algo carregando".
+          <>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+              >
+                <div className="bg-gradient-to-r from-blue-500/40 to-indigo-600/40 dark:from-blue-500/20 dark:to-indigo-600/20 px-4 py-3 flex items-center gap-3">
+                  <div className="h-4 w-10 bg-white/40 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-1/2 bg-white/40 rounded" />
+                    <div className="h-2 w-1/4 bg-white/30 rounded" />
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="h-3 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="grid grid-cols-3 gap-2 pt-2">
+                    <div className="h-10 bg-gray-100 dark:bg-gray-700/50 rounded-xl" />
+                    <div className="h-10 bg-gray-100 dark:bg-gray-700/50 rounded-xl" />
+                    <div className="h-10 bg-gray-100 dark:bg-gray-700/50 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <p className="text-center text-gray-400 dark:text-gray-500 text-xs pt-2 flex items-center justify-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" /> Carregando registros...
+            </p>
+          </>
         ) : loadError ? (
           <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-dashed border-red-200 dark:border-red-800 p-12 text-center">
             <X className="h-10 w-10 text-red-400 mx-auto mb-3" />
@@ -1531,7 +1574,7 @@ const TerraControl: React.FC = () => {
                     {hasMatriculas && (
                       <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
                         onClick={() => handleDownloadAllMatriculas(acomp)}
-                        title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Sem PDFs disponíveis'}
+                        title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Anexe pelo menos um PDF de matrícula para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                         {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
@@ -1555,7 +1598,7 @@ const TerraControl: React.FC = () => {
                     {hasCcir && (
                       <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
                         onClick={() => handleDownloadAllCcir(acomp)}
-                        title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Sem PDFs disponíveis'}
+                        title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Anexe pelo menos um PDF de CCIR para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                         {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
@@ -1594,7 +1637,7 @@ const TerraControl: React.FC = () => {
                     {hasItr && (
                       <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
                         onClick={() => handleDownloadAllItr(acomp)}
-                        title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Sem PDFs disponíveis'}
+                        title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Anexe pelo menos um PDF de ITR (declaração ou recibo) para habilitar este download'}
                         className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                         {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                       </button>
@@ -1723,7 +1766,7 @@ const TerraControl: React.FC = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {editing ? 'Editar TerraControlRecord' : 'Novo TerraControlRecord'}
+                  {editing ? 'Editar registro' : 'Novo registro'}
                 </h2>
                 <button
                   type="button"
@@ -1739,33 +1782,56 @@ const TerraControl: React.FC = () => {
                 </button>
               </div>
 
+              {/* G4.4 — barra de abas. Todos os campos permanecem montados
+                  (hidden via display:none) para não perder dados ao trocar de aba
+                  e para validação ao salvar continuar enxergando o form todo. */}
+              <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4 overflow-x-auto scrollbar-hide">
+                {([
+                  { id: 'basico',     label: 'Básico' },
+                  { id: 'documentos', label: 'Documentos' },
+                  { id: 'areas',      label: 'Áreas e culturas' },
+                  { id: 'ambiental',  label: 'Ambiental' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveFormTab(tab.id)}
+                    className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                      activeFormTab === tab.id
+                        ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-6">
-                {/* Informações Básicas */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* ABA BÁSICO — Informações Básicas */}
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${activeFormTab !== 'basico' ? 'hidden' : ''}`}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Código do Imóvel
                     </label>
                     <input
                       type="text"
                       value={form.codImovel ? String(form.codImovel).padStart(3, '0') : 'Automático'}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-[#1a2a3e] text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     />
-                    <p className="text-gray-400 text-[10px] mt-1 italic">Gerado automaticamente pelo sistema</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-[10px] mt-1 italic">Gerado automaticamente pelo sistema</p>
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Nome do Imóvel *
                     </label>
                     <input
                       type="text"
                       value={form.imovel || ''}
                       onChange={(e) => setForm(prev => ({ ...prev, imovel: e.target.value }))}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.imovel ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${formErrors.imovel ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-[#1a2a3e] dark:text-gray-100`}
                     />
                     {formErrors.imovel && (
                       <p className="text-red-500 text-xs mt-1">{formErrors.imovel}</p>
@@ -1773,16 +1839,14 @@ const TerraControl: React.FC = () => {
                   </div>
 
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Município *
                     </label>
                     <input
                       type="text"
                       value={form.municipio || ''}
                       onChange={(e) => setForm(prev => ({ ...prev, municipio: e.target.value }))}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.municipio ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${formErrors.municipio ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-[#1a2a3e] dark:text-gray-100`}
                     />
                     {formErrors.municipio && (
                       <p className="text-red-500 text-xs mt-1">{formErrors.municipio}</p>
@@ -1790,7 +1854,7 @@ const TerraControl: React.FC = () => {
                   </div>
 
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Link do Google Maps
                     </label>
                     <input
@@ -1798,7 +1862,7 @@ const TerraControl: React.FC = () => {
                       value={form.mapaUrl || ''}
                       onChange={(e) => setForm(prev => ({ ...prev, mapaUrl: e.target.value }))}
                       placeholder="https://www.google.com/maps/d/u/0/viewer?..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Cole o link completo do Google Maps para este imóvel
@@ -1806,13 +1870,13 @@ const TerraControl: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Documentos e Registros */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Documentos e Registros</h3>
+                {/* ABA DOCUMENTOS — Documentos e Registros */}
+                <div className={`pt-4 ${activeFormTab !== 'documentos' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Documentos e Registros</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                        <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Matrículas
                         </label>
                         <button
@@ -1826,7 +1890,7 @@ const TerraControl: React.FC = () => {
                       
                       <div className="space-y-3">
                         {form.matriculasDados?.map((matricula) => (
-                          <div key={matricula.id} className="flex gap-2 items-start bg-gray-50 p-3 rounded-lg border border-gray-100 relative">
+                          <div key={matricula.id} className="flex gap-2 items-start bg-gray-50 dark:bg-[#1a2a3e] p-3 rounded-lg border border-gray-100 dark:border-gray-700 relative">
                             <div className="flex-1">
                               <input
                                 type="text"
@@ -1848,7 +1912,7 @@ const TerraControl: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => document.getElementById(`matFile-${matricula.id}`)?.click()}
-                                className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${matricula.url ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'}`}
+                                className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${matricula.url ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white dark:bg-[#1a2a3e] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                 title={matricula.url ? "Documento anexado. Clique para alterar" : "Anexar PDF da Matrícula"}
                               >
                                 {isUploadingMatricula === matricula.id ? (
@@ -1861,7 +1925,7 @@ const TerraControl: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveMatricula(matricula.id)}
-                                className="px-3 py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors bg-white"
+                                className="px-3 py-2 border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors bg-white dark:bg-[#1a2a3e]"
                                 title="Remover Matrícula"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1891,8 +1955,8 @@ const TerraControl: React.FC = () => {
                         ))}
                         
                         {(!form.matriculasDados || form.matriculasDados.length === 0) && (
-                          <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
-                            <p className="text-sm text-gray-500 mb-2">Nenhuma matrícula adicionada</p>
+                          <div className="text-center py-4 bg-gray-50 dark:bg-[#1a2a3e] border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhuma matrícula adicionada</p>
                             <button
                               type="button"
                               onClick={handleAddMatricula}
@@ -1906,18 +1970,18 @@ const TerraControl: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         N INCRA / CCIR (Cadastro de Imóvel Rural)
                       </label>
                       <div className="space-y-2">
                         {form.ccirDados?.map((ccir) => (
-                          <div key={ccir.id} className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div key={ccir.id} className="flex flex-col gap-1 p-3 bg-gray-50 dark:bg-[#1a2a3e] rounded-lg border border-gray-200 dark:border-gray-700">
                             <div className="flex gap-2 relative">
                               <input
                                 type="text"
                                 value={ccir.numero}
                                 onChange={(e) => handleCcirChange(ccir.id, e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 placeholder="Número do CCIR"
                               />
                               <input 
@@ -1930,7 +1994,7 @@ const TerraControl: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => document.getElementById(`ccirFile-${ccir.id}`)?.click()}
-                                className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${ccir.url ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                                className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${ccir.url ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white dark:bg-[#1a2a3e] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                 title={ccir.url ? "PDF anexado. Clique para alterar" : "Anexar PDF da CCIR"}
                               >
                                 {isUploadingCcir === ccir.id ? (
@@ -1981,8 +2045,8 @@ const TerraControl: React.FC = () => {
                         </button>
 
                         {(!form.ccirDados || form.ccirDados.length === 0) && (
-                          <div className="p-4 border-2 border-dashed border-gray-200 rounded-lg text-center bg-gray-50 bg-opacity-50">
-                            <p className="text-sm text-gray-500 mb-2">Nenhum CCIR adicionado</p>
+                          <div className="p-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center bg-gray-50 dark:bg-[#1a2a3e] bg-opacity-50">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhum CCIR adicionado</p>
                             <button
                               type="button"
                               onClick={handleAddCcir}
@@ -1996,7 +2060,7 @@ const TerraControl: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         CAR (Cadastro Ambiental Rural)
                       </label>
                       <div className="flex gap-2 relative">
@@ -2004,7 +2068,7 @@ const TerraControl: React.FC = () => {
                           type="text"
                           value={form.car || ''}
                           onChange={(e) => setForm(prev => ({ ...prev, car: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="Número do CAR"
                         />
                         <input 
@@ -2017,7 +2081,7 @@ const TerraControl: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => document.getElementById('carFile')?.click()}
-                          className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${form.carUrl ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100'}`}
+                          className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${form.carUrl ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-gray-50 dark:bg-[#1a2a3e] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                           title={form.carUrl ? "Documento anexado. Clique para alterar" : "Anexar PDF do CAR"}
                         >
                           {isUploadingCar ? (
@@ -2048,13 +2112,13 @@ const TerraControl: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Status CAR
                       </label>
                       <select
                         value={form.statusCar || 'ATIVO - AGUARDANDO ANÁLISE SC'}
                         onChange={(e) => setForm(prev => ({ ...prev, statusCar: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option>ATIVO - AGUARDANDO ANÁLISE SC</option>
                         <option>ATIVO</option>
@@ -2065,7 +2129,7 @@ const TerraControl: React.FC = () => {
 
                     <div className="md:col-span-2">
                        <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           ITR
                         </label>
                         <button
@@ -2079,7 +2143,7 @@ const TerraControl: React.FC = () => {
                       
                       <div className="space-y-3">
                         {form.itrDados?.map((item) => (
-                          <div key={item.id} className="flex gap-2 items-start bg-gray-50 p-3 rounded-lg border border-gray-100 relative">
+                          <div key={item.id} className="flex gap-2 items-start bg-gray-50 dark:bg-[#1a2a3e] p-3 rounded-lg border border-gray-100 dark:border-gray-700 relative">
                             <div className="flex-1">
                               <input
                                 type="text"
@@ -2103,7 +2167,7 @@ const TerraControl: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => document.getElementById(`itrDeclaracaoFile-${item.id}`)?.click()}
-                                  className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${item.declaracaoUrl ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'}`}
+                                  className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${item.declaracaoUrl ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' : 'bg-white dark:bg-[#1a2a3e] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                   title={item.declaracaoUrl ? "Declaração anexada. Clique para alterar" : "Anexar Declaração ITR"}
                                 >
                                   {isUploadingItr === item.id + '_declaracao' ? (
@@ -2127,7 +2191,7 @@ const TerraControl: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => document.getElementById(`itrReciboFile-${item.id}`)?.click()}
-                                  className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${item.reciboUrl ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'}`}
+                                  className={`px-3 py-2 border rounded-lg flex items-center justify-center transition-colors ${item.reciboUrl ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-white dark:bg-[#1a2a3e] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                   title={item.reciboUrl ? "Recibo anexado. Clique para alterar" : "Anexar Recibo ITR"}
                                 >
                                   {isUploadingItr === item.id + '_recibo' ? (
@@ -2195,8 +2259,8 @@ const TerraControl: React.FC = () => {
                         ))}
                         
                         {(!form.itrDados || form.itrDados.length === 0) && (
-                          <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
-                            <p className="text-sm text-gray-500 mb-2">Nenhum ITR adicionado</p>
+                          <div className="text-center py-4 bg-gray-50 dark:bg-[#1a2a3e] border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhum ITR adicionado</p>
                             <button
                               type="button"
                               onClick={handleAddItr}
@@ -2211,18 +2275,18 @@ const TerraControl: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Geo Certificação e Registro */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Geo Certificação e Registro</h3>
+                {/* ABA BÁSICO (continuação) — Geo Certificação e Registro */}
+                <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${activeFormTab !== 'basico' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Geo Certificação e Registro</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Geo Certificação
                       </label>
                       <select
                         value={form.geoCertificacao || 'NÃO'}
                         onChange={(e) => setForm(prev => ({ ...prev, geoCertificacao: e.target.value as 'SIM' | 'NÃO' }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
                         <option value="NÃO">NÃO</option>
@@ -2230,13 +2294,13 @@ const TerraControl: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Geo Registro
                       </label>
                       <select
                         value={form.geoRegistro || 'NÃO'}
                         onChange={(e) => setForm(prev => ({ ...prev, geoRegistro: e.target.value as 'SIM' | 'NÃO' }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="SIM">SIM</option>
                         <option value="NÃO">NÃO</option>
@@ -2245,12 +2309,12 @@ const TerraControl: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Áreas */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Áreas (em hectares)</h3>
+                {/* ABA ÁREAS — Áreas (em hectares) */}
+                <div className={`pt-4 ${activeFormTab !== 'areas' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Áreas (em hectares)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Área Total (ha)
                       </label>
                       <input
@@ -2258,12 +2322,12 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.areaTotal || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, areaTotal: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         20% Reserva Legal (ha)
                       </label>
                       <input
@@ -2271,18 +2335,18 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.reservaLegal || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, reservaLegal: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Culturas */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Culturas</h3>
+                {/* ABA ÁREAS (continuação) — Culturas */}
+                <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${activeFormTab !== 'areas' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Culturas</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Cultura 1
                       </label>
                       <input
@@ -2290,12 +2354,12 @@ const TerraControl: React.FC = () => {
                         value={form.cultura1 || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, cultura1: e.target.value }))}
                         placeholder="Ex: Cultura Temporária"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Área Cultura 1 (ha)
                       </label>
                       <input
@@ -2303,12 +2367,12 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.areaCultura1 || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, areaCultura1: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Cultura 2
                       </label>
                       <input
@@ -2316,12 +2380,12 @@ const TerraControl: React.FC = () => {
                         value={form.cultura2 || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, cultura2: e.target.value }))}
                         placeholder="Ex: Pasto"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Área Cultura 2 (ha)
                       </label>
                       <input
@@ -2329,18 +2393,18 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.areaCultura2 || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, areaCultura2: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Outros Usos */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Outros Usos</h3>
+                {/* ABA ÁREAS (continuação) — Outros Usos */}
+                <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${activeFormTab !== 'areas' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Outros Usos</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Outros
                       </label>
                       <input
@@ -2348,12 +2412,12 @@ const TerraControl: React.FC = () => {
                         value={form.outros || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, outros: e.target.value }))}
                         placeholder="Ex: Horta, Servidão"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Área Outros (ha)
                       </label>
                       <input
@@ -2361,18 +2425,18 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.areaOutros || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, areaOutros: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* APP e Remanescente Florestal */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">APP e Remanescente Florestal</h3>
+                {/* ABA AMBIENTAL — APP e Remanescente Florestal */}
+                <div className={`pt-4 ${activeFormTab !== 'ambiental' ? 'hidden' : ''}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">APP e Remanescente Florestal</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         APP Código Florestal (ha)
                       </label>
                       <input
@@ -2380,12 +2444,12 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.appCodigoFlorestal || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, appCodigoFlorestal: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         APP Vegetada (ha)
                       </label>
                       <input
@@ -2393,12 +2457,12 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.appVegetada || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, appVegetada: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         APP Não Vegetada (ha)
                       </label>
                       <input
@@ -2406,12 +2470,12 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.appNaoVegetada || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, appNaoVegetada: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Remanescente Florestal (ha)
                       </label>
                       <input
@@ -2419,7 +2483,7 @@ const TerraControl: React.FC = () => {
                         step="0.01"
                         value={form.remanescenteFlorestal || ''}
                         onChange={(e) => setForm(prev => ({ ...prev, remanescenteFlorestal: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -2427,7 +2491,7 @@ const TerraControl: React.FC = () => {
               </div>
 
               {/* Botões */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => {
@@ -2435,7 +2499,7 @@ const TerraControl: React.FC = () => {
                     setEditing(null)
                     setFormErrors({})
                   }}
-                  className="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
+                  className="flex items-center gap-3 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold"
                 >
                   Cancelar
                 </button>
@@ -3050,6 +3114,10 @@ const TerraControl: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* G4.3 — toasts e dialog de confirmação renderizados em portal lógico
+          (z-index alto, position fixed). Veja src/.../_terracontrol/feedback.tsx. */}
+      <FeedbackHost />
     </div>
   )
 }

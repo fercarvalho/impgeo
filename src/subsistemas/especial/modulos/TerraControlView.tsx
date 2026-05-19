@@ -31,11 +31,14 @@ import {
   downloadSingleItrZip,
   downloadAllCcirZip,
   downloadRegistroZip,
+  useFeedback,
 } from './_terracontrol'
 
 const API_BASE_URL = '/api'
 
 const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
+  // G4.3 — substitui alert()/window.confirm() nativos por toast/dialog estilizados
+  const { notify, FeedbackHost } = useFeedback()
   const [records, setRecords] = useState<TerraControlRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
@@ -207,7 +210,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     try {
       const result = await downloadRegistroZip(record, withShareAuth)
       if (result.empty) {
-        alert('Nenhum documento disponível para download neste registro.')
+        notify('Nenhum documento disponível para download neste registro.', { type: 'info' })
       }
     } finally {
       setIsDownloadingRecordZip(null)
@@ -237,12 +240,12 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     options?: { valueUnit?: string; valueFormat?: 'area' | 'number' }
   ) => {
     if (!data || data.length === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
+      notify('Não há dados disponíveis para exibir o gráfico.', { type: 'info' })
       return
     }
     const total = data.reduce((sum, item) => sum + item.value, 0)
     if (total === 0) {
-      alert('Não há dados disponíveis para exibir o gráfico.')
+      notify('Não há dados disponíveis para exibir o gráfico.', { type: 'info' })
       return
     }
     setChartTitle(title)
@@ -739,7 +742,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       {hasMatriculas && (
                         <button type="button" disabled={!hasMatriculasPdfs || isDownloadingZip === acomp.id}
                           onClick={() => handleDownloadAllMatriculas(acomp)}
-                          title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Sem PDFs disponíveis'}
+                          title={hasMatriculasPdfs ? 'Baixar todas as matrículas (ZIP)' : 'Nenhum PDF de matrícula anexado neste registro'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasMatriculasPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                         </button>
@@ -763,7 +766,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       {hasCcir && (
                         <button type="button" disabled={!hasCcirPdfs || isDownloadingZip === acomp.id + 'ccir'}
                           onClick={() => handleDownloadAllCcir(acomp)}
-                          title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Sem PDFs disponíveis'}
+                          title={hasCcirPdfs ? 'Baixar todos os CCIRs (ZIP)' : 'Nenhum PDF de CCIR anexado neste registro'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasCcirPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id + 'ccir' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                         </button>
@@ -802,7 +805,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       {hasItr && (
                         <button type="button" disabled={!hasItrPdfs || isDownloadingZip === acomp.id + 'itr'}
                           onClick={() => handleDownloadAllItr(acomp)}
-                          title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Sem PDFs disponíveis'}
+                          title={hasItrPdfs ? 'Baixar todos os ITRs (ZIP)' : 'Nenhum PDF de ITR anexado neste registro'}
                           className={`p-1 rounded-full shrink-0 transition-colors ${hasItrPdfs ? 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
                           {isDownloadingZip === acomp.id + 'itr' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" /> : <Download className="w-3.5 h-3.5" />}
                         </button>
@@ -1177,6 +1180,9 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           </div>
         )}
       </Modal>
+
+      {/* G4.3 — toasts renderizados em portal lógico (z-index alto, fixed). */}
+      <FeedbackHost />
     </div>
   )
 }

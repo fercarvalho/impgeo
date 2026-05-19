@@ -973,8 +973,8 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       }
     } else if (type === 'terracontrol') {
       processedData = processTerraControl(worksheet);
-      console.log(`Processados ${processedData.length} records do arquivo`);
-      message = `${processedData.length} records importados com sucesso!`;
+      console.log(`Processados ${processedData.length} registros TerraControl do arquivo`);
+      message = `${processedData.length} registros importados com sucesso!`;
 
       // Salvar records processados no banco de dados
       let savedCount = 0;
@@ -983,10 +983,10 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
           await db.saveTerraControl(record);
           savedCount++;
         } catch (error) {
-          console.error('Erro ao salvar record:', error);
+          console.error('Erro ao salvar registro TerraControl:', error);
         }
       }
-      console.log(`${savedCount} records salvos no banco de dados`);
+      console.log(`${savedCount} registros TerraControl salvos no banco de dados`);
     }
 
     // Limpar o arquivo temporário
@@ -1988,7 +1988,7 @@ app.delete('/api/terracontrol/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await db.deleteTerraControl(id);
-    res.json({ success: true, message: 'TerraControlRecord deletado com sucesso' });
+    res.json({ success: true, message: 'Registro excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

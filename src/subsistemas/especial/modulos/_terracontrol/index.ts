@@ -46,3 +46,6 @@ export {
   downloadAllCcirZip,
   downloadRegistroZip,
 } from './downloads'
+
+export { useFeedback } from './feedback'
+export type { ToastType } from './feedback'
