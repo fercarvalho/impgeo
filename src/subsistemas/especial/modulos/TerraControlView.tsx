@@ -338,7 +338,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-          <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] px-8 py-8 text-center">
+          <div className="bg-gradient-to-r from-[#86CA2D] to-[#1276F5] px-8 py-8 text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -386,7 +386,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
             <button
               type="submit"
               disabled={isSubmittingPassword}
-              className="w-full px-4 py-3 bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white rounded-xl hover:from-[#3d8920] hover:to-[#003391] font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 bg-gradient-to-r from-[#86CA2D] to-[#1276F5] text-white rounded-xl hover:from-[#6BA224] hover:to-[#0E5EC4] font-semibold shadow-md shadow-blue-500/25 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
             >
               {isSubmittingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
               {isSubmittingPassword ? 'Verificando...' : 'Acessar'}
@@ -419,7 +419,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#3d8920] to-[#003391] text-white shadow-lg">
+      <div className="bg-gradient-to-r from-[#6BA224] to-[#0E5EC4] text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -439,7 +439,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Mensagem de Boas-vindas */}
-        <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
+        <div className="bg-gradient-to-r from-[#86CA2D] to-[#1276F5] text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
               <User className="w-5 h-5 text-white" />
@@ -674,7 +674,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
               <div key={acomp.id} className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
                 {/* ── HEADER ───────────────────────────────── */}
-                <div className="bg-gradient-to-r from-[#48A326] to-[#0041B1] px-4 py-3 flex items-center justify-between gap-3">
+                <div className="bg-gradient-to-r from-[#86CA2D] to-[#1276F5] px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
                       #{formatCodImovel(acomp.codImovel)}
@@ -1060,7 +1060,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                   href={selectedMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#48A326] to-[#0041B1] text-white font-semibold rounded-xl hover:from-[#3d8920] hover:to-[#003391] shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#86CA2D] to-[#1276F5] text-white font-semibold rounded-xl hover:from-[#6BA224] hover:to-[#0E5EC4] shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
                   <ExternalLink className="w-5 h-5" />
                   Abrir em nova aba
