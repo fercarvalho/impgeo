@@ -292,6 +292,17 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     return filtered
   }, [records, sortField, sortDirection, searchTerm])
 
+  // G5.4 — paginação incremental client-side (mesmo padrão do componente autenticado).
+  const [visibleCount, setVisibleCount] = useState(30)
+  useEffect(() => {
+    setVisibleCount(30)
+  }, [searchTerm, sortField, sortDirection])
+  const visibleRecords = useMemo(
+    () => sortedRecords.slice(0, visibleCount),
+    [sortedRecords, visibleCount]
+  )
+  const hasMoreToLoad = visibleCount < sortedRecords.length
+
   // Bloquear scroll do body quando o modal de mapa estiver aberto
   useEffect(() => {
     const isAnyModalOpen = isMapModalOpen || !!itrDownloadModal || chartModalOpen
@@ -661,7 +672,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                 {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro disponível'}
               </p>
             </div>
-          ) : sortedRecords.map((acomp) => {
+          ) : visibleRecords.map((acomp) => {
             const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
             const hasDocs = !!acomp.carUrl
               || (acomp.matriculasDados || []).some(m => m.url)
@@ -919,6 +930,22 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
               </div>
             )
           })}
+
+          {/* G5.4 — "Carregar mais" — mesmo padrão do componente autenticado. */}
+          {hasMoreToLoad && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setVisibleCount(count => count + 30)}
+                className="px-6 py-2.5 bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 font-semibold text-sm rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 transition-colors shadow-sm"
+              >
+                Carregar mais {Math.min(30, sortedRecords.length - visibleCount)}
+                <span className="text-gray-400 dark:text-gray-500 font-normal ml-2">
+                  ({visibleCount} de {sortedRecords.length})
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
       </main>

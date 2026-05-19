@@ -50,6 +50,10 @@ const TerraControl: React.FC = () => {
   const [activeFormTab, setActiveFormTab] = useState<FormTab>('basico')
   const [records, setRecords] = useState<TerraControlRecord[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  // G5.4 — paginação incremental client-side. Antes renderizávamos 100% dos
+  // registros de uma vez, o que ficava pesado com 100+ cards. Agora começa em
+  // PAGE_SIZE e o usuário clica em "Carregar mais" para puxar mais 30.
+  const [visibleCount, setVisibleCount] = useState(30)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const [selectedMapUrl, setSelectedMapUrl] = useState<string>('')
@@ -196,6 +200,19 @@ const TerraControl: React.FC = () => {
 
     return filtered
   }, [records, sortField, sortDirection, searchTerm])
+
+  // G5.4 — reset da paginação quando o conjunto exibido muda (busca/sort).
+  // Sem isso, o usuário podia filtrar de "Fazenda" → 3 resultados e ver "Carregar
+  // mais" mesmo só com 3 itens (visibleCount herdado).
+  useEffect(() => {
+    setVisibleCount(30)
+  }, [searchTerm, sortField, sortDirection])
+
+  const visibleRecords = useMemo(
+    () => sortedRecords.slice(0, visibleCount),
+    [sortedRecords, visibleCount]
+  )
+  const hasMoreToLoad = visibleCount < sortedRecords.length
 
   // Bloquear scroll do body quando qualquer modal estiver aberto
   useEffect(() => {
@@ -1368,12 +1385,24 @@ const TerraControl: React.FC = () => {
             type="checkbox"
             onChange={handleSelectAll}
             checked={sortedRecords.length > 0 && sortedRecords.every(a => selectedItems.has(a.id))}
-            title="Selecionar todos"
+            // G5.3 — quando busca está ativa, o checkbox opera apenas sobre o
+            // filtrado visível. Antes só dizia "Selecionar todos" e confundia
+            // o usuário (parecia selecionar todos os 100, marcava só os 10 visíveis).
+            title={
+              searchTerm
+                ? `Selecionar/desmarcar os ${sortedRecords.length} registros visíveis (do filtro "${searchTerm}")`
+                : `Selecionar/desmarcar todos os ${sortedRecords.length} registros`
+            }
             className="rounded border-gray-300 dark:border-gray-600"
           />
           {selectedItems.size > 0 && (
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
               {selectedItems.size} selecionado{selectedItems.size !== 1 ? 's' : ''}
+              {searchTerm && selectedItems.size < records.length && (
+                <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
+                  (de {records.length})
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -1470,7 +1499,7 @@ const TerraControl: React.FC = () => {
               {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum registro cadastrado.'}
             </p>
           </div>
-        ) : sortedRecords.map((acomp) => {
+        ) : visibleRecords.map((acomp) => {
           const saldo = (acomp.reservaLegal || 0) - ((acomp.areaTotal || 0) * 0.2)
           const hasDocs = !!acomp.carUrl
             || (acomp.matriculasDados || []).some(m => m.url)
@@ -1751,6 +1780,22 @@ const TerraControl: React.FC = () => {
             </div>
           )
         })}
+
+        {/* G5.4 — botão "Carregar mais" só aparece quando há sobra após o slice. */}
+        {hasMoreToLoad && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => setVisibleCount(count => count + 30)}
+              className="px-6 py-2.5 bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 font-semibold text-sm rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 transition-colors shadow-sm"
+            >
+              Carregar mais {Math.min(30, sortedRecords.length - visibleCount)}
+              <span className="text-gray-400 dark:text-gray-500 font-normal ml-2">
+                ({visibleCount} de {sortedRecords.length})
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal de Edição/Criação */}

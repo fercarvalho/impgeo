@@ -572,7 +572,7 @@ function processTransactions(worksheet) {
     try {
       // Mapear colunas do Excel para o formato esperado
       const transaction = {
-        id: Date.now() + index,
+        id: crypto.randomUUID(),
         date: row['Data'] || row['date'] || new Date().toISOString().split('T')[0],
         description: row['Descrição'] || row['Descricao'] || row['description'] || row['Description'] || '',
         value: parseFloat(row['Valor'] || row['value'] || row['Value'] || 0),
@@ -602,7 +602,7 @@ function processProducts(worksheet) {
     try {
       // Mapear colunas do Excel para o formato esperado
       const product = {
-        id: Date.now() + index,
+        id: crypto.randomUUID(),
         name: row['Nome'] || row['name'] || row['Name'] || '',
         category: row['Categoria'] || row['category'] || row['Category'] || 'Outros',
         price: parseFloat(row['Preço'] || row['Preco'] || row['price'] || row['Price'] || 0),
@@ -633,7 +633,7 @@ function processClients(worksheet) {
       // Mapear colunas do Excel para o formato esperado
       const documentType = row['Tipo de Documento'] || row['tipo de documento'] || row['Tipo de documento'] || 'cpf';
       const client = {
-        id: Date.now() + index,
+        id: crypto.randomUUID(),
         name: row['Nome'] || row['name'] || row['Name'] || '',
         email: row['Email'] || row['email'] || row['Email'] || '',
         phone: row['Telefone'] || row['phone'] || row['Phone'] || '',
@@ -662,7 +662,7 @@ function processTerraControl(worksheet) {
   data.forEach((row, index) => {
     try {
       const record = {
-        id: Date.now() + index,
+        id: crypto.randomUUID(),
         codImovel: parseInt(row['COD. IMP'] || row['Cod. Imp'] || row['codImovel'] || row['COD IMP'] || 0),
         imovel: row['IMÓVEL'] || row['Imóvel'] || row['imovel'] || row['IMOVEL'] || '',
         municipio: row['MUNICÍPIO'] || row['Município'] || row['municipio'] || row['MUNICIPIO'] || '',
@@ -712,7 +712,7 @@ function processProjects(worksheet) {
       const services = servicesString ? servicesString.split(',').map(s => s.trim()).filter(s => s) : [];
 
       const project = {
-        id: Date.now() + index,
+        id: crypto.randomUUID(),
         name: row['Nome'] || row['name'] || row['Name'] || '',
         description: row['Descrição'] || row['descricao'] || row['description'] || row['Description'] || '',
         client: row['Cliente'] || row['client'] || row['Client'] || '',
@@ -972,21 +972,25 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
         }
       }
     } else if (type === 'terracontrol') {
-      processedData = processTerraControl(worksheet);
-      console.log(`Processados ${processedData.length} registros TerraControl do arquivo`);
-      message = `${processedData.length} registros importados com sucesso!`;
+      const parsedRecords = processTerraControl(worksheet);
+      console.log(`Processados ${parsedRecords.length} registros TerraControl do arquivo`);
 
-      // Salvar records processados no banco de dados
-      let savedCount = 0;
-      for (const record of processedData) {
+      // G5.1 — substitui o array com IDs locais por registros realmente
+      // persistidos no DB (incluindo cod_imovel auto-gerado via sequence e UUID
+      // da PK). O frontend usa esse array para popular a UI sem precisar fazer
+      // re-fetch.
+      const savedRecords = [];
+      for (const record of parsedRecords) {
         try {
-          await db.saveTerraControl(record);
-          savedCount++;
+          const saved = await db.saveTerraControl(record);
+          savedRecords.push(saved);
         } catch (error) {
           console.error('Erro ao salvar registro TerraControl:', error);
         }
       }
-      console.log(`${savedCount} registros TerraControl salvos no banco de dados`);
+      processedData = savedRecords;
+      console.log(`${savedRecords.length} registros TerraControl salvos no banco de dados`);
+      message = `${savedRecords.length} registros importados com sucesso!`;
     }
 
     // Limpar o arquivo temporário
@@ -2319,8 +2323,11 @@ app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
   // Caminho 1: sessão autenticada → libera direto.
   if (req.user) {
     return res.sendFile(path.join(documentsDir, filename), {
-      maxAge: '1y',
-      headers: { 'Cache-Control': 'private, max-age=31536000' }
+      // G5.5 — antes era 1y. Reduzido para 7d: PDF substituído ou registro
+      // deletado fica visível em todos os clientes em até uma semana, em vez
+      // de eternamente no cache do navegador.
+      maxAge: '7d',
+      headers: { 'Cache-Control': 'private, max-age=604800' }
     }, (err) => {
       if (err && !res.headersSent) {
         res.status(err.code === 'ENOENT' ? 404 : 500).end();

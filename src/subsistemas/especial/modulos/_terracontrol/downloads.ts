@@ -5,8 +5,33 @@
 // ?token=&password= em URLs /api/documents/* (G2.1); no componente autenticado,
 // é identidade. O componente fica responsável só pelo estado de "downloading".
 
-import JSZip from 'jszip'
-import { saveAs } from 'file-saver'
+// G5.6 — JSZip + file-saver são pesados (~250KB juntos) e usados apenas quando
+// o usuário clica em algum botão de download. Em vez de subir no chunk inicial
+// do componente, carregamos sob demanda via dynamic import — Vite cria um
+// chunk separado e o navegador só baixa quando a função é chamada.
+//
+// `import type` é elidido pelo TS no build, então não puxa o módulo em runtime —
+// só serve para tipar o resultado do dynamic import.
+import type JSZipType from 'jszip'
+import type { saveAs as saveAsType } from 'file-saver'
+
+type ZipLibs = {
+  JSZip: typeof JSZipType
+  saveAs: typeof saveAsType
+}
+let zipLibsPromise: Promise<ZipLibs> | null = null
+const loadZipLibs = (): Promise<ZipLibs> => {
+  if (!zipLibsPromise) {
+    zipLibsPromise = Promise.all([import('jszip'), import('file-saver')]).then(
+      ([jszipMod, fileSaverMod]) => ({
+        JSZip: jszipMod.default,
+        saveAs: fileSaverMod.saveAs,
+      })
+    )
+  }
+  return zipLibsPromise
+}
+
 import type { CcirItem, ItrItem, MatriculaItem, TerraControlRecord, UrlTransformer } from './types'
 import { getSafeImovelName } from './normalize'
 
@@ -31,6 +56,7 @@ export async function downloadAllMatriculasZip(
   const comUrl = (matriculas || []).filter(m => m.url)
   if (comUrl.length === 0) return
 
+  const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   await Promise.all(
     comUrl.map(async mat => {
@@ -55,6 +81,7 @@ export async function downloadAllItrZip(
   const comDocs = (itrs || []).filter(m => m.declaracaoUrl || m.reciboUrl || m.url)
   if (comDocs.length === 0) return
 
+  const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   const promises: Promise<void>[] = []
 
@@ -95,6 +122,7 @@ export async function downloadSingleItrZip(
 ): Promise<void> {
   if (!item.declaracaoUrl && !item.reciboUrl && !item.url) return
 
+  const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   const safe = safeFileName(item.numero)
   const promises: Promise<void>[] = []
@@ -130,6 +158,7 @@ export async function downloadAllCcirZip(
   const comUrl = (ccirs || []).filter(m => m.url)
   if (comUrl.length === 0) return
 
+  const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   await Promise.all(
     comUrl.map(async mat => {
@@ -160,6 +189,7 @@ export async function downloadRegistroZip(
     return { empty: true }
   }
 
+  const { JSZip, saveAs } = await loadZipLibs()
   const zip = new JSZip()
   const promises: Promise<void>[] = []
 

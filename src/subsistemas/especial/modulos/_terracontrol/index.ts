@@ -19,7 +19,7 @@ export {
   formatNumber,
 } from './normalize'
 
-export { isAllowedMapUrl, convertMapUrlToEmbed } from './mapUrl'
+export { isAllowedMapUrl, isExternalOnlyMapUrl, convertMapUrlToEmbed } from './mapUrl'
 
 export {
   normalizeCulturaName,
