@@ -1953,6 +1953,27 @@ class Database {
     }
   }
 
+  // Auditoria de acesso público (migration 024). Falha silenciosa: nunca
+  // bloquear o fluxo do usuário por causa de log — só registra console.error.
+  async logShareLinkAccess({ token, action, status, ip, userAgent, document }) {
+    try {
+      await this.queryWithRetry(
+        `INSERT INTO share_link_access_logs (token, action, status, ip, user_agent, document)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          String(token || ''),
+          String(action || ''),
+          String(status || ''),
+          ip ? String(ip).slice(0, 64) : null,
+          userAgent ? String(userAgent).slice(0, 2000) : null,
+          document ? String(document).slice(0, 255) : null,
+        ]
+      );
+    } catch (error) {
+      console.error('Falha ao registrar acesso a share link:', error?.message || error);
+    }
+  }
+
   async deleteShareLink(token) {
     try {
       const result = await this.queryWithRetry(

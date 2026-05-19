@@ -212,6 +212,25 @@ CREATE TABLE IF NOT EXISTS share_links (
 
 CREATE INDEX idx_share_links_token ON share_links(token);
 
+-- Auditoria de acesso público a share links do TerraControl (migration 024)
+CREATE TABLE IF NOT EXISTS share_link_access_logs (
+    id           BIGSERIAL    PRIMARY KEY,
+    token        VARCHAR(255) NOT NULL,
+    action       VARCHAR(50)  NOT NULL,
+    status       VARCHAR(50)  NOT NULL,
+    ip           VARCHAR(64),
+    user_agent   TEXT,
+    document     VARCHAR(255),
+    accessed_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_link_access_logs_token
+    ON share_link_access_logs(token);
+CREATE INDEX IF NOT EXISTS idx_share_link_access_logs_accessed_at
+    ON share_link_access_logs(accessed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_share_link_access_logs_ip_status
+    ON share_link_access_logs(ip, status, accessed_at DESC);
+
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id VARCHAR(255) PRIMARY KEY,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -232,26 +232,42 @@ const TerraControl: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
+  // G2.5 — só aceitamos URLs do Google Maps no iframe. Qualquer outra origem
+  // (ou esquema javascript:, data:, etc.) seria um vetor de phishing —
+  // um admin malicioso ou registro adulterado poderia embedar conteúdo arbitrário.
+  // Retorna '' se a URL não for confiável; o componente esconde o iframe.
+  const isAllowedMapUrl = (url: string): boolean => {
+    if (!url || typeof url !== 'string') return false
+    try {
+      const u = new URL(url)
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+      const allowedHosts = ['www.google.com', 'google.com', 'maps.google.com']
+      return allowedHosts.includes(u.hostname)
+    } catch {
+      return false
+    }
+  }
+
   // Função para converter URL do Google Maps para formato embed
   const convertMapUrlToEmbed = (url: string): string => {
-    if (!url) return ''
-    
+    if (!isAllowedMapUrl(url)) return ''
+
     // Se já for uma URL embed, retorna como está
     if (url.includes('/embed')) return url
-    
+
     // Extrai o mid (map ID) da URL
     const midMatch = url.match(/[?&]mid=([^&]+)/)
     if (midMatch) {
       const mid = midMatch[1]
       return `https://www.google.com/maps/d/embed?mid=${mid}`
     }
-    
+
     // Se não encontrar mid, tenta converter edit/viewer para embed
     let embedUrl = url
       .replace('/edit', '/embed')
       .replace('/u/0/viewer', '/embed')
       .replace('/viewer', '/embed')
-    
+
     return embedUrl
   }
 
@@ -3465,19 +3481,29 @@ const TerraControl: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 p-6 overflow-hidden">
-              <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
-                <iframe
-                  src={convertMapUrlToEmbed(selectedMapUrl)}
-                  width="100%"
-                  height="100%"
-                  style={{ minHeight: '500px' }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="w-full h-full"
-                  title={`Mapa do imóvel: ${selectedImovel}`}
-                />
-              </div>
+              {isAllowedMapUrl(selectedMapUrl) ? (
+                <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
+                  <iframe
+                    src={convertMapUrlToEmbed(selectedMapUrl)}
+                    width="100%"
+                    height="100%"
+                    style={{ minHeight: '500px' }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="w-full h-full"
+                    title={`Mapa do imóvel: ${selectedImovel}`}
+                  />
+                </div>
+              ) : (
+                <div className="w-full min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <AlertTriangle className="h-10 w-10 text-yellow-500 mb-3" />
+                  <p className="text-yellow-800 dark:text-yellow-300 font-semibold mb-1">URL de mapa não confiável</p>
+                  <p className="text-yellow-700 dark:text-yellow-400 text-sm max-w-md">
+                    Por segurança, só exibimos mapas hospedados no Google Maps. Use o botão abaixo para abrir o link em uma nova aba e verifique antes de seguir.
+                  </p>
+                </div>
+              )}
               <div className="mt-4 flex justify-end">
                 <a
                   href={selectedMapUrl}

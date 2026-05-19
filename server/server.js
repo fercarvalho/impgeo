@@ -189,6 +189,35 @@ const passwordResetLimiter = rateLimit({
   }
 });
 
+// Rate limiters para endpoints públicos de share link (G2.3).
+// validate-password é o alvo crítico: cada chamada faz bcrypt.compare (custo alto)
+// e pode ser usado para brute force de senha. Limite agressivo por IP+token.
+// Key inclui token para impedir que atacante mude de link e mantenha o pool.
+const sharePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.ip || 'unknown'}:${req.params?.token || ''}`,
+  message: {
+    success: false,
+    error: 'Muitas tentativas de senha. Aguarde alguns minutos antes de tentar novamente.'
+  }
+});
+
+// GET público: limite moderado, evita scraping em massa e DoS leve.
+const sharePublicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.ip || 'unknown'}:${req.params?.token || ''}`,
+  message: {
+    success: false,
+    error: 'Muitas requisições. Aguarde alguns minutos.'
+  }
+});
+
 const avatarsDir = path.join(__dirname, 'uploads', 'avatars');
 if (!fs.existsSync(avatarsDir)) {
   fs.mkdirSync(avatarsDir, { recursive: true });
@@ -205,11 +234,129 @@ app.use('/api/avatars', express.static(avatarsDir, {
   lastModified: true
 }));
 
-app.use('/api/documents', express.static(documentsDir, {
-  maxAge: '1y',
-  etag: true,
-  lastModified: true
-}));
+// G2.1 — /api/documents passa a exigir autenticação.
+// Antes: express.static aberto a qualquer pessoa que descobrisse o nome do
+// arquivo (pseudo-aleatório mas previsível em log/cache/histórico).
+// Agora: aceita 2 fontes de auth:
+//   1. Sessão autenticada (cookie httpOnly ou Bearer Authorization)
+//   2. Share token público (?token=<share>&password=<senha-opcional>) válido,
+//      desde que o documento esteja referenciado por algum registro do share
+//      (car_url, matriculas_dados[].url, itr_dados[].declaracaoUrl/reciboUrl,
+//      ccir_dados[].url) — confere no DB.
+// Sem nenhuma das duas → 401.
+//
+// O handler é registrado ANTES do middleware geral de auth (mais abaixo) graças
+// à entrada '/documents' em publicApiPrefixes — isso faz o middleware geral
+// pular essa rota; a validação real está aqui dentro.
+app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
+  const { filename } = req.params;
+
+  // Path traversal: bloqueia '..' ou separadores. Multer já gera nomes
+  // sanitizados, mas a rota é pública e o filename vem do cliente.
+  if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return res.status(400).json({ success: false, error: 'Nome de arquivo inválido' });
+  }
+
+  // Caminho 1: sessão autenticada → libera direto.
+  if (req.user) {
+    return res.sendFile(path.join(documentsDir, filename), {
+      maxAge: '1y',
+      headers: { 'Cache-Control': 'private, max-age=31536000' }
+    }, (err) => {
+      if (err && !res.headersSent) {
+        res.status(err.code === 'ENOENT' ? 404 : 500).end();
+      }
+    });
+  }
+
+  // Caminho 2: share token público. Documento só é entregue se for referenciado
+  // por algum registro listado em selected_ids do share.
+  const shareToken = String(req.query.token || '').trim();
+  const sharePassword = String(req.query.password || '').trim();
+  const ctx = shareAccessContext(req);
+
+  if (!shareToken) {
+    return res.status(401).json({ success: false, error: 'Autenticação requerida' });
+  }
+
+  try {
+    const shareLink = await db.getShareLink(shareToken);
+
+    if (!shareLink) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(401).json({ success: false, error: 'Link inválido' });
+    }
+
+    const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
+    const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
+    const linkSelectedIds = Array.isArray(shareLink.selectedIds)
+      ? shareLink.selectedIds
+      : Array.isArray(shareLink.selected_ids)
+        ? shareLink.selected_ids
+        : [];
+
+    if (linkExpiresAt && new Date(linkExpiresAt) < new Date()) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'expired', document: filename, ...ctx });
+      return res.status(410).json({ success: false, error: 'Link expirou' });
+    }
+
+    if (linkPasswordHash) {
+      const bcrypt = require('bcryptjs');
+      if (!sharePassword) {
+        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_required', document: filename, ...ctx });
+        return res.status(403).json({ success: false, error: 'Senha requerida' });
+      }
+      const ok = await bcrypt.compare(sharePassword, linkPasswordHash);
+      if (!ok) {
+        db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'password_invalid', document: filename, ...ctx });
+        return res.status(401).json({ success: false, error: 'Senha incorreta' });
+      }
+    }
+
+    if (linkSelectedIds.length === 0) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(410).json({ success: false, error: 'Link não disponível' });
+    }
+
+    // Confirma que o arquivo solicitado pertence a algum registro do share.
+    // A URL salva no DB tem prefixo "/api/documents/" — montamos e comparamos
+    // contra os campos de documentos. Usa LIKE no JSONB pra cobrir url, carUrl,
+    // declaracaoUrl, reciboUrl simultaneamente.
+    const fileUrlInDb = `/api/documents/${filename}`;
+    const ownsResult = await db.queryWithRetry(
+      `SELECT 1 FROM terracontrol
+       WHERE id = ANY($1::text[])
+         AND (
+           car_url = $2
+           OR matriculas_dados::text LIKE $3
+           OR itr_dados::text         LIKE $3
+           OR ccir_dados::text        LIKE $3
+         )
+       LIMIT 1`,
+      [linkSelectedIds.map(String), fileUrlInDb, `%${fileUrlInDb}%`]
+    );
+
+    if (ownsResult.rows.length === 0) {
+      db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'not_found', document: filename, ...ctx });
+      return res.status(403).json({ success: false, error: 'Documento não disponível neste link' });
+    }
+
+    db.logShareLinkAccess({ token: shareToken, action: 'document_download', status: 'success', document: filename, ...ctx });
+    return res.sendFile(path.join(documentsDir, filename), {
+      // Cache curto no caminho público: se admin revogar acesso, navegador
+      // de quem teve a URL não pode segurar o PDF eternamente.
+      maxAge: '5m',
+      headers: { 'Cache-Control': 'private, max-age=300' }
+    }, (err) => {
+      if (err && !res.headersSent) {
+        res.status(err.code === 'ENOENT' ? 404 : 500).end();
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao servir documento via share link:', error);
+    return res.status(500).json({ success: false, error: 'Erro ao servir documento' });
+  }
+});
 
 function validateEmailFormat(email) {
   if (!email || typeof email !== 'string') return false;
@@ -854,6 +1001,26 @@ app.post('/api/terracontrol/upload-car', authenticateToken, uploadDocument.singl
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
     }
+
+    // G2.4 — validar magic bytes %PDF antes de aceitar.
+    // multer só checa mimetype/extensão (cabeçalhos controlados pelo cliente).
+    // Para impedir upload de HTML/JS renomeado para .pdf, lemos os primeiros
+    // 4 bytes e verificamos a assinatura real. Se inválido, removemos o arquivo.
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const header = Buffer.alloc(4);
+      fs.readSync(fd, header, 0, 4, 0);
+      fs.closeSync(fd);
+      if (header.toString('ascii') !== '%PDF') {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        return res.status(400).json({ success: false, error: 'Arquivo enviado não é um PDF válido' });
+      }
+    } catch (sigErr) {
+      console.error('Erro ao validar assinatura PDF:', sigErr);
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(500).json({ success: false, error: 'Falha ao validar o arquivo enviado' });
+    }
+
     const fileUrl = `/api/documents/${req.file.filename}`;
     res.json({ success: true, url: fileUrl });
   } catch (error) {
@@ -1982,19 +2149,16 @@ app.post('/api/terracontrol/generate-share-link', authenticateToken, async (req,
       });
     }
 
-    // Gerar token único para compartilhamento
+    // Gerar token único para compartilhamento.
+    // Política (G2.2): nome → slug + sufixo aleatório SEMPRE (não só em colisão).
+    // Slug puro é enumerável; sufixo com 8 bytes (16 hex chars, 64 bits) torna
+    // impraticável adivinhar — equivalente a UUID parcial. Sem nome, mantém o
+    // 'view_<32bytes>' que já era seguro.
     let token = '';
     if (name && name.trim()) {
       const baseSlug = slugify(name);
-      token = baseSlug;
-
-      // Verificar se o slug já existe
-      const existingLink = await db.getShareLink(token);
-      if (existingLink) {
-        // Se existir, adiciona um sufixo aleatório curto
-        const suffix = require('crypto').randomBytes(3).toString('hex');
-        token = `${baseSlug}-${suffix}`;
-      }
+      const suffix = require('crypto').randomBytes(8).toString('hex');
+      token = baseSlug ? `${baseSlug}-${suffix}` : `view_${suffix}`;
     } else {
       token = 'view_' + require('crypto').randomBytes(32).toString('hex');
     }
@@ -2038,18 +2202,14 @@ app.put('/api/terracontrol/share-links/:token', authenticateToken, async (req, r
     const bcrypt = require('bcryptjs');
 
     if (regenerateToken) {
-      // Gerar novo token personalizado ou aleatório
+      // Mesma política do create (G2.2): sempre sufixo aleatório forte.
       let newToken = '';
       const effectiveName = name !== undefined ? name : (await db.getShareLink(token))?.name;
-      
+
       if (effectiveName && effectiveName.trim()) {
         const baseSlug = slugify(effectiveName);
-        newToken = baseSlug;
-        const existingLink = await db.getShareLink(newToken);
-        if (existingLink && existingLink.token !== token) {
-           const suffix = require('crypto').randomBytes(3).toString('hex');
-           newToken = `${baseSlug}-${suffix}`;
-        }
+        const suffix = require('crypto').randomBytes(8).toString('hex');
+        newToken = baseSlug ? `${baseSlug}-${suffix}` : `view_${suffix}`;
       } else {
         newToken = 'view_' + require('crypto').randomBytes(32).toString('hex');
       }
@@ -2161,32 +2321,39 @@ app.delete('/api/terracontrol/share-links/:token', authenticateToken, async (req
   }
 });
 
-// Rota para validar senha do link compartilhável
-app.post('/api/terracontrol/public/:token/validate-password', async (req, res) => {
+// Helper inline para extrair contexto de request usado em auditoria (G2.6)
+function shareAccessContext(req) {
+  return {
+    ip: req.ip || req.headers['x-forwarded-for'] || null,
+    userAgent: req.headers['user-agent'] || null,
+  };
+}
+
+// Rota para validar senha do link compartilhável (G2.3 rate limit, G2.6 auditoria)
+app.post('/api/terracontrol/public/:token/validate-password', sharePasswordLimiter, async (req, res) => {
+  const { token } = req.params;
+  const ctx = shareAccessContext(req);
   try {
-    const { token } = req.params;
     const { password } = req.body;
     const bcrypt = require('bcryptjs');
 
-    // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);
 
     if (!shareLink) {
+      db.logShareLinkAccess({ token, action: 'password_check', status: 'not_found', ...ctx });
       return res.status(404).json({
         success: false,
         error: 'Link compartilhável não encontrado'
       });
     }
 
-    // Verificar se o link expirou
     const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
     const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
 
     if (linkExpiresAt) {
       const expiresAt = new Date(linkExpiresAt);
-      const now = new Date();
-
-      if (now > expiresAt) {
+      if (new Date() > expiresAt) {
+        db.logShareLinkAccess({ token, action: 'password_check', status: 'expired', ...ctx });
         return res.status(410).json({
           success: false,
           error: 'Este link compartilhável expirou e não está mais disponível'
@@ -2194,7 +2361,6 @@ app.post('/api/terracontrol/public/:token/validate-password', async (req, res) =
       }
     }
 
-    // Verificar se tem senha
     if (!linkPasswordHash) {
       return res.status(400).json({
         success: false,
@@ -2202,7 +2368,6 @@ app.post('/api/terracontrol/public/:token/validate-password', async (req, res) =
       });
     }
 
-    // Validar senha
     if (!password) {
       return res.status(400).json({
         success: false,
@@ -2213,12 +2378,14 @@ app.post('/api/terracontrol/public/:token/validate-password', async (req, res) =
     const isValid = await bcrypt.compare(password, linkPasswordHash);
 
     if (!isValid) {
+      db.logShareLinkAccess({ token, action: 'password_check', status: 'password_invalid', ...ctx });
       return res.status(401).json({
         success: false,
         error: 'Senha incorreta'
       });
     }
 
+    db.logShareLinkAccess({ token, action: 'password_check', status: 'success', ...ctx });
     res.json({
       success: true,
       message: 'Senha válida'
@@ -2243,24 +2410,24 @@ app.get('/v/:token', async (req, res) => {
   }
 });
 
-// Rota pública para visualizar records (sem autenticação)
-app.get('/api/terracontrol/public/:token', async (req, res) => {
+// Rota pública para visualizar records (sem autenticação) — G2.3 rate limit, G2.6 auditoria
+app.get('/api/terracontrol/public/:token', sharePublicLimiter, async (req, res) => {
+  const { token } = req.params;
+  const ctx = shareAccessContext(req);
   try {
-    const { token } = req.params;
     const { password } = req.query;
     const bcrypt = require('bcryptjs');
 
-    // Buscar informações do link compartilhável
     const shareLink = await db.getShareLink(token);
 
     if (!shareLink) {
+      db.logShareLinkAccess({ token, action: 'view', status: 'not_found', ...ctx });
       return res.status(404).json({
         success: false,
         error: 'Link compartilhável não encontrado'
       });
     }
 
-    // Verificar se o link expirou
     const linkExpiresAt = shareLink.expiresAt || shareLink.expires_at;
     const linkPasswordHash = shareLink.passwordHash || shareLink.password_hash;
     const linkSelectedIds = Array.isArray(shareLink.selectedIds)
@@ -2271,9 +2438,8 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
 
     if (linkExpiresAt) {
       const expiresAt = new Date(linkExpiresAt);
-      const now = new Date();
-
-      if (now > expiresAt) {
+      if (new Date() > expiresAt) {
+        db.logShareLinkAccess({ token, action: 'view', status: 'expired', ...ctx });
         return res.status(410).json({
           success: false,
           error: 'Este link compartilhável expirou e não está mais disponível'
@@ -2281,9 +2447,9 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
       }
     }
 
-    // Verificar se tem senha e se foi fornecida
     if (linkPasswordHash) {
       if (!password) {
+        db.logShareLinkAccess({ token, action: 'view', status: 'password_required', ...ctx });
         return res.status(403).json({
           success: false,
           requiresPassword: true,
@@ -2292,9 +2458,9 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
         });
       }
 
-      // Validar senha
       const isValid = await bcrypt.compare(password, linkPasswordHash);
       if (!isValid) {
+        db.logShareLinkAccess({ token, action: 'view', status: 'password_invalid', ...ctx });
         return res.status(401).json({
           success: false,
           requiresPassword: true,
@@ -2308,6 +2474,7 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
     // ao criar; links antigos com selected_ids NULL representavam "todos os
     // registros" — comportamento que vaza banco inteiro e foi descontinuado.
     if (linkSelectedIds.length === 0) {
+      db.logShareLinkAccess({ token, action: 'view', status: 'not_found', ...ctx });
       return res.status(410).json({
         success: false,
         error: 'Este link não está mais disponível. Solicite um novo link ao administrador.'
@@ -2318,6 +2485,7 @@ app.get('/api/terracontrol/public/:token', async (req, res) => {
     // inteira e filtrar em JS — evita transitar dados sensíveis pela memória.
     const filteredTerraControl = await db.getTerraControlByIds(linkSelectedIds);
 
+    db.logShareLinkAccess({ token, action: 'view', status: 'success', ...ctx });
     res.json({
       success: true,
       data: filteredTerraControl,

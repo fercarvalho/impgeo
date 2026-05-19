@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User } from 'lucide-react'
+import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User, AlertTriangle } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
 import JSZip from 'jszip'
@@ -220,7 +220,20 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null)
   const [isDownloadingRecordZip, setIsDownloadingRecordZip] = useState<string | null>(null)
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
+  const [validatedPassword, setValidatedPassword] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
+
+  // G2.1 — após o backend exigir auth em /api/documents, links públicos
+  // precisam passar o share token (e a senha validada, se houver) como query
+  // params. Helper aplicado em todo <a href> e fetch() de PDF.
+  // URLs externas (Google Drive etc.) passam intactas.
+  const withShareAuth = (url?: string): string => {
+    if (!url) return ''
+    if (!url.startsWith('/api/documents/')) return url
+    const params = new URLSearchParams({ token })
+    if (validatedPassword) params.set('password', validatedPassword)
+    return `${url}?${params.toString()}`
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -289,6 +302,9 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         setRecords(normalizeRecords(result.data))
         setShareLinkName(result.shareLinkName)
         setRequiresPassword(false)
+        // Guarda a senha que acabou de funcionar — usada pelo withShareAuth
+        // para autenticar downloads de PDF posteriores. Limpa o campo do form.
+        setValidatedPassword(password.trim())
         setPassword('')
       } else {
         if (result.shareLinkName) setShareLinkName(result.shareLinkName)
@@ -316,7 +332,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       
       const downloadPromises = matriculasComUrl.map(async (mat) => {
         try {
-          const response = await fetch(mat.url!)
+          const response = await fetch(withShareAuth(mat.url))
           const blob = await response.blob()
           const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
           zip.file(`Matricula_${safeName}.pdf`, blob)
@@ -353,7 +369,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         if (declUrl) {
           downloadPromises.push((async () => {
             try {
-              const res = await fetch(declUrl)
+              const res = await fetch(withShareAuth(declUrl))
               const blob = await res.blob()
               zip.file(`Itr_${safeNumero}_Declaracao.pdf`, blob)
             } catch (e) { console.error(`Erro ITR:`, e) }
@@ -362,7 +378,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
         if (item.reciboUrl) {
           downloadPromises.push((async () => {
             try {
-              const res = await fetch(item.reciboUrl!)
+              const res = await fetch(withShareAuth(item.reciboUrl))
               const blob = await res.blob()
               zip.file(`Itr_${safeNumero}_Recibo.pdf`, blob)
             } catch (e) { console.error(`Erro ITR:`, e) }
@@ -395,7 +411,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       if (declUrl) {
         downloadPromises.push((async () => {
           try {
-            const res = await fetch(declUrl)
+            const res = await fetch(withShareAuth(declUrl))
             const blob = await res.blob()
             zip.file(`Itr_${safeNumero}_Declaracao.pdf`, blob)
           } catch (e) { console.error(`Erro:`, e) }
@@ -405,7 +421,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       if (item.reciboUrl) {
         downloadPromises.push((async () => {
           try {
-            const res = await fetch(item.reciboUrl!)
+            const res = await fetch(withShareAuth(item.reciboUrl))
             const blob = await res.blob()
             zip.file(`Itr_${safeNumero}_Recibo.pdf`, blob)
           } catch (e) { console.error(`Erro:`, e) }
@@ -434,7 +450,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
       const downloadPromises = ccirsComUrl.map(async (mat) => {
         try {
-          const response = await fetch(mat.url!)
+          const response = await fetch(withShareAuth(mat.url))
           const blob = await response.blob()
           const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
           zip.file(`Ccir_${safeName}.pdf`, blob)
@@ -479,7 +495,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       if (hasCarUrl) {
         promises.push((async () => {
           try {
-            const response = await fetch(acomp.carUrl!)
+            const response = await fetch(withShareAuth(acomp.carUrl))
             const blob = await response.blob()
             const safeName = (acomp.car || 'CAR').replace(/[^a-z0-9]/gi, '_').toLowerCase()
             zip.folder('CAR')?.file(`CAR_${safeName}.pdf`, blob)
@@ -492,7 +508,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       if (matriculasComUrl.length > 0) {
         const matriculasPromises = matriculasComUrl.map(async (mat) => {
           try {
-            const response = await fetch(mat.url!)
+            const response = await fetch(withShareAuth(mat.url))
             const blob = await response.blob()
             const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
             zip.folder('Matriculas')?.file(`Matricula_${safeName}.pdf`, blob)
@@ -512,7 +528,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           if (declUrl) {
             itemPromises.push((async () => {
               try {
-                const res = await fetch(declUrl)
+                const res = await fetch(withShareAuth(declUrl))
                 const blob = await res.blob()
                 zip.folder('Itr')?.file(`Itr_${safeName}_Declaracao.pdf`, blob)
               } catch (e) { console.error(`Erro ao baixar declaração ${item.numero}:`, e) }
@@ -522,7 +538,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
           if (item.reciboUrl) {
             itemPromises.push((async () => {
               try {
-                const res = await fetch(item.reciboUrl!)
+                const res = await fetch(withShareAuth(item.reciboUrl))
                 const blob = await res.blob()
                 zip.folder('Itr')?.file(`Itr_${safeName}_Recibo.pdf`, blob)
               } catch (e) { console.error(`Erro ao baixar recibo ${item.numero}:`, e) }
@@ -537,7 +553,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       if (ccirComUrl.length > 0) {
         const ccirPromises = ccirComUrl.map(async (mat) => {
           try {
-            const response = await fetch(mat.url!)
+            const response = await fetch(withShareAuth(mat.url))
             const blob = await response.blob()
             const safeName = mat.numero.replace(/[^a-z0-9]/gi, '_').toLowerCase()
             zip.folder('CCIR')?.file(`Ccir_${safeName}.pdf`, blob)
@@ -599,26 +615,40 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     return filtered
   }, [records, sortField, sortDirection, searchTerm])
 
+  // G2.5 — mesma validação aplicada no TerraControl.tsx (admin).
+  // Só renderiza iframe se a URL for confiavelmente Google Maps.
+  const isAllowedMapUrl = (url: string): boolean => {
+    if (!url || typeof url !== 'string') return false
+    try {
+      const u = new URL(url)
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+      const allowedHosts = ['www.google.com', 'google.com', 'maps.google.com']
+      return allowedHosts.includes(u.hostname)
+    } catch {
+      return false
+    }
+  }
+
   // Função para converter URL do Google Maps para formato embed
   const convertMapUrlToEmbed = (url: string): string => {
-    if (!url) return ''
-    
+    if (!isAllowedMapUrl(url)) return ''
+
     // Se já for uma URL embed, retorna como está
     if (url.includes('/embed')) return url
-    
+
     // Extrai o mid (map ID) da URL
     const midMatch = url.match(/[?&]mid=([^&]+)/)
     if (midMatch) {
       const mid = midMatch[1]
       return `https://www.google.com/maps/d/embed?mid=${mid}`
     }
-    
+
     // Se não encontrar mid, tenta converter edit/viewer para embed
     let embedUrl = url
       .replace('/edit', '/embed')
       .replace('/u/0/viewer', '/embed')
       .replace('/viewer', '/embed')
-    
+
     return embedUrl
   }
 
@@ -1252,7 +1282,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                         {hasMatriculas ? acomp.matriculasDados!.map((mat, i) => (
                           <React.Fragment key={mat.id}>
                             {mat.url
-                              ? <a href={mat.url} target="_blank" rel="noopener noreferrer" title={`Baixar matrícula ${mat.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{mat.numero}</a>
+                              ? <a href={withShareAuth(mat.url)} target="_blank" rel="noopener noreferrer" title={`Baixar matrícula ${mat.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{mat.numero}</a>
                               : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{mat.numero}</span>
                             }
                             {i < acomp.matriculasDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
@@ -1276,7 +1306,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                         {hasCcir ? acomp.ccirDados!.map((item, i) => (
                           <React.Fragment key={item.id}>
                             {item.url
-                              ? <a href={item.url} target="_blank" rel="noopener noreferrer" title={`Baixar CCIR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</a>
+                              ? <a href={withShareAuth(item.url)} target="_blank" rel="noopener noreferrer" title={`Baixar CCIR ${item.numero}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap inline-flex items-center gap-0.5"><FileText className="w-3 h-3 shrink-0" />{item.numero}</a>
                               : <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{item.numero}</span>
                             }
                             {i < acomp.ccirDados!.length - 1 && <span className="text-gray-300 text-xs">,</span>}
@@ -1299,7 +1329,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                       <div className="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                         {acomp.car ? (
                           acomp.carUrl
-                            ? <a href={acomp.carUrl} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${acomp.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{acomp.car}</a>
+                            ? <a href={withShareAuth(acomp.carUrl)} target="_blank" rel="noopener noreferrer" title={`Baixar CAR: ${acomp.car}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-0.5 truncate max-w-[180px]"><Download className="w-3 h-3 shrink-0" />{acomp.car}</a>
                             : <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{acomp.car}</span>
                         ) : <span className="text-xs text-gray-400">—</span>}
                         {acomp.statusCar && (
@@ -1558,19 +1588,29 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
               </button>
             </div>
             <div className="flex-1 p-6 overflow-hidden">
-              <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
-                <iframe
-                  src={convertMapUrlToEmbed(selectedMapUrl)}
-                  width="100%"
-                  height="100%"
-                  style={{ minHeight: '500px' }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="w-full h-full"
-                  title={`Mapa do imóvel: ${selectedImovel}`}
-                />
-              </div>
+              {isAllowedMapUrl(selectedMapUrl) ? (
+                <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
+                  <iframe
+                    src={convertMapUrlToEmbed(selectedMapUrl)}
+                    width="100%"
+                    height="100%"
+                    style={{ minHeight: '500px' }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="w-full h-full"
+                    title={`Mapa do imóvel: ${selectedImovel}`}
+                  />
+                </div>
+              ) : (
+                <div className="w-full min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <AlertTriangle className="h-10 w-10 text-yellow-500 mb-3" />
+                  <p className="text-yellow-800 dark:text-yellow-300 font-semibold mb-1">URL de mapa não confiável</p>
+                  <p className="text-yellow-700 dark:text-yellow-400 text-sm max-w-md">
+                    Por segurança, só exibimos mapas hospedados no Google Maps. Use o botão abaixo para abrir o link em uma nova aba e verifique antes de seguir.
+                  </p>
+                </div>
+              )}
               <div className="mt-4 flex justify-end">
                 <a
                   href={selectedMapUrl}
@@ -1618,7 +1658,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
               <div className="space-y-3">
                 {(itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url) && (
                   <a
-                    href={itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url}
+                    href={withShareAuth(itrDownloadModal.item.declaracaoUrl || itrDownloadModal.item.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl transition-all group"
@@ -1638,7 +1678,7 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
                 {itrDownloadModal.item.reciboUrl && (
                   <a
-                    href={itrDownloadModal.item.reciboUrl}
+                    href={withShareAuth(itrDownloadModal.item.reciboUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-xl transition-all group"
