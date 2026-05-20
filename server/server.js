@@ -4227,7 +4227,7 @@ app.get('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asyn
 // POST /api/admin/tc-users — cria novo tc_user com senha temporária + acesso a registros
 app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const { username, firstName, lastName, email, password, selectedIds } = req.body || {};
+    const { username, firstName, lastName, email, password, selectedIds, canShare } = req.body || {};
     if (!username || !firstName || !email) {
       return res.status(400).json({ success: false, error: 'Username, nome e email são obrigatórios' });
     }
@@ -4260,6 +4260,12 @@ app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asy
 
     if (Array.isArray(selectedIds) && selectedIds.length > 0) {
       await db.setTcUserRecordAccess(created.id, selectedIds, req.user.id);
+    }
+
+    // F2.5 — se admin marcou "pode compartilhar" no modal de criação,
+    // aplica via update (createTcUser não tem esse campo por design)
+    if (canShare === true) {
+      await db.updateTcUser(created.id, { canShare: true });
     }
 
     res.json({
@@ -4350,7 +4356,7 @@ app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireTcUsersM
 // Body: { email, selectedIds?: string[] }
 app.post('/api/admin/tc-users/invite', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const { email, selectedIds } = req.body || {};
+    const { email, selectedIds, canShare } = req.body || {};
     if (!email) return res.status(400).json({ success: false, error: 'Email é obrigatório' });
 
     const expiresDays = Number(process.env.TC_INVITE_EXPIRATION_DAYS || 7) || 7;
@@ -4360,6 +4366,11 @@ app.post('/api/admin/tc-users/invite', authenticateToken, requireTcUsersManageme
       selectedIds: Array.isArray(selectedIds) ? selectedIds : [],
       expiresDays,
     });
+
+    // F2.5 — aplica can_share no stub (ou no tc_user existente caso seja reenvio)
+    if (canShare === true && result.tcUserId) {
+      await db.updateTcUser(result.tcUserId, { canShare: true });
+    }
 
     // Monta URL de aceite. TC_PUBLIC_BASE_URL pode estar setado em prod; em dev,
     // fallback baseado em headers.

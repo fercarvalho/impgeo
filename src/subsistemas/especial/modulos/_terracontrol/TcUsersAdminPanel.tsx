@@ -671,6 +671,7 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [canShare, setCanShare] = useState(true)  // F2.5 — pré-selecionado por padrão na criação
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
@@ -743,6 +744,7 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
           body: JSON.stringify({
             email: email.trim().toLowerCase(),
             selectedIds: Array.from(selected),
+            canShare,
           }),
         })
         const data = await res.json()
@@ -768,6 +770,7 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
             email: email.trim().toLowerCase(),
             password: password || undefined,
             selectedIds: Array.from(selected),
+            canShare,
           }),
         })
         const data = await res.json()
@@ -909,6 +912,22 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
             </div>
             )}
           </div>
+
+          {/* F2.5 — Permissão de compartilhamento (pré-marcada por padrão) */}
+          <label className="flex items-start gap-2 p-3 rounded-lg border border-tc-green/30 bg-tc-green/5 dark:bg-tc-green/10 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={canShare}
+              onChange={(e) => setCanShare(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded text-tc-green focus:ring-tc-green"
+            />
+            <div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Pode compartilhar links</span>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                Permite que este usuário gere sub-share links anônimos a partir dos imóveis aos quais tem acesso, para repassar a clientes finais dele. Pode ser alterado depois pelo painel admin.
+              </p>
+            </div>
+          </label>
 
           {/* Seleção de registros */}
           <div>
