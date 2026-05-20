@@ -2157,7 +2157,7 @@ const TerraControl: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         CAR (Cadastro Ambiental Rural)
                       </label>
@@ -2209,7 +2209,7 @@ const TerraControl: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Status CAR
                       </label>
