@@ -146,6 +146,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [lastImportBatch, setLastImportBatch] = useState<string[]>([])
   const [showUndoToast, setShowUndoToast] = useState(false)
   const [undoCountdown, setUndoCountdown] = useState(60)
+  const [undoMaxCountdown, setUndoMaxCountdown] = useState(60)
   const [isUndoing, setIsUndoing] = useState(false)
 
   const [isSyncingAsaas, setIsSyncingAsaas] = useState(false)
@@ -501,6 +502,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       if (j.success) {
         setTransactions(prev => [...j.data, ...prev])
         setIsImportExportOpen(false)
+        // Ativar toast de desfazer com 30 segundos
+        const savedIds: string[] = (j.data ?? []).map((t: { id: string }) => String(t.id))
+        setLastImportBatch(savedIds)
+        setUndoMaxCountdown(30)
+        setUndoCountdown(30)
+        setShowUndoToast(true)
       } else {
         // FIX [L383]: exibir feedback de erro ao usuário
         alert(j.error || 'Erro ao importar arquivo. Verifique o formato e tente novamente.')
@@ -1485,7 +1492,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                               const savedIds: string[] = (result.data ?? []).map((t: { id: string }) => t.id)
                               if (result.data?.length) setTransactions(prev => [...result.data, ...prev])
                               setIsImportExtratoModalOpen(false); setImportType(null); setSelectedBank(null); setExtratoStep(0); setExtratoFile(null); setExtratoPassword(''); setExtratoPreview([])
-                              setLastImportBatch(savedIds); setUndoCountdown(60); setShowUndoToast(true)
+                              setLastImportBatch(savedIds); setUndoMaxCountdown(60); setUndoCountdown(60); setShowUndoToast(true)
                             } else {
                               const errBody = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
                               alert(`Erro ao importar: ${errBody.error || 'Tente novamente.'}`)
@@ -1514,7 +1521,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             <div className="relative flex-shrink-0">
               <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
                 <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
-                <circle cx="18" cy="18" r="15" fill="none" stroke="#4ade80" strokeWidth="3" strokeDasharray={`${(undoCountdown / 60) * 94.2} 94.2`} strokeLinecap="round" />
+                <circle cx="18" cy="18" r="15" fill="none" stroke="#4ade80" strokeWidth="3" strokeDasharray={`${(undoCountdown / undoMaxCountdown) * 94.2} 94.2`} strokeLinecap="round" />
               </svg>
               <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-400">{undoCountdown}</span>
             </div>
