@@ -756,35 +756,38 @@ const TerraControlView: React.FC<Props> = (props) => {
                     {record.mapaUrl && (
                       <button
                         onClick={() => { setSelectedMapUrl(record.mapaUrl || ''); setSelectedImovel(record.imovel); setIsMapModalOpen(true) }}
-                        title="Ver mapa do imóvel"
-                        aria-label={`Ver mapa do imóvel ${record.imovel}`}
-                        className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                        title="Exibir Mapa"
+                        aria-label={`Exibir mapa do imóvel ${record.imovel}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors text-white"
                       >
-                        <MapIcon className="w-4 h-4 text-white" aria-hidden="true" />
+                        <MapIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span className="text-xs font-semibold hidden sm:inline">Exibir Mapa</span>
                       </button>
                     )}
                     <button
                       onClick={() => handleDownloadRegistro(record)}
                       disabled={!hasDocs || isDownloadingRecordZip === record.id}
-                      title={hasDocs ? 'Baixar todos os documentos (ZIP)' : 'Nenhum documento disponível'}
-                      aria-label={hasDocs ? `Baixar todos os documentos de ${record.imovel} em ZIP` : 'Nenhum documento disponível'}
-                      className={`p-1.5 rounded-lg transition-colors ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
+                      title={hasDocs ? 'Baixar Documentos (ZIP)' : 'Nenhum documento disponível'}
+                      aria-label={hasDocs ? `Baixar documentos de ${record.imovel} em ZIP` : 'Nenhum documento disponível'}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-white ${hasDocs ? 'bg-white/20 hover:bg-white/35' : 'bg-white/10 opacity-40 cursor-not-allowed'}`}
                     >
                       {isDownloadingRecordZip === record.id
-                        ? <Loader2 className="w-4 h-4 text-white animate-spin" aria-hidden="true" />
-                        : <Archive className="w-4 h-4 text-white" aria-hidden="true" />
+                        ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" aria-hidden="true" />
+                        : <Archive className="w-4 h-4 shrink-0" aria-hidden="true" />
                       }
+                      <span className="text-xs font-semibold hidden sm:inline">Baixar Documentos</span>
                     </button>
                     {/* Botão "Compartilhar este imóvel" — só aparece em
                         tc_user mode com permissão de compartilhamento */}
                     {mode.kind === 'tcuser' && mode.onShareSingle && (
                       <button
                         onClick={() => mode.onShareSingle?.(String(record.id))}
-                        title={`Compartilhar ${record.imovel}`}
+                        title="Compartilhar este imóvel"
                         aria-label={`Compartilhar ${record.imovel}`}
-                        className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors text-white"
                       >
-                        <Share2 className="w-4 h-4 text-white" aria-hidden="true" />
+                        <Share2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span className="text-xs font-semibold hidden sm:inline">Compartilhar</span>
                       </button>
                     )}
                   </div>
