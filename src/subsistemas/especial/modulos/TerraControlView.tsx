@@ -761,7 +761,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors text-white"
                       >
                         <MapIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span className="text-xs font-semibold hidden sm:inline">Exibir Mapa</span>
+                        <span className="text-xs font-semibold">Exibir Mapa</span>
                       </button>
                     )}
                     <button
@@ -775,7 +775,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                         ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" aria-hidden="true" />
                         : <Archive className="w-4 h-4 shrink-0" aria-hidden="true" />
                       }
-                      <span className="text-xs font-semibold hidden sm:inline">Baixar Documentos</span>
+                      <span className="text-xs font-semibold">Baixar Documentos</span>
                     </button>
                     {/* Botão "Compartilhar este imóvel" — só aparece em
                         tc_user mode com permissão de compartilhamento */}
@@ -787,7 +787,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors text-white"
                       >
                         <Share2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span className="text-xs font-semibold hidden sm:inline">Compartilhar</span>
+                        <span className="text-xs font-semibold">Compartilhar</span>
                       </button>
                     )}
                   </div>
