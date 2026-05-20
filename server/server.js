@@ -2371,32 +2371,44 @@ app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
   // Caminho 2: JWT do tc_user. Verifica acesso por tc_user_record_access ao
   // registro que contém esse arquivo. Cache curto (5 min) — se admin revogar
   // o acesso, o PDF para de aparecer rapidamente.
+  //
+  // Aceita o JWT em DUAS fontes (header pra fetch() programático, query string
+  // pra <a href> / iframe — sem header não dá pra usar Bearer em <a>):
+  //   - Header: Authorization: Bearer <jwt>
+  //   - Query:  ?tcAuth=<jwt>
+  // Header tem precedência sobre query. O JWT na URL é considerado aceitável
+  // porque (a) o access token tem vida curta (15 min) e (b) HTTPS encripta a
+  // URL no transit. Logs de proxy podem capturar, mas o cost-benefit favorece
+  // a UX de downloads diretos via <a>.
+  let tcTokenStr = '';
   const tcAuthHeader = req.headers['authorization'];
   if (tcAuthHeader && tcAuthHeader.startsWith('Bearer ')) {
-    const tcTokenStr = tcAuthHeader.split(' ')[1];
-    if (tcTokenStr && tcTokenStr.length > 10) {
-      try {
-        const tcAuth = require('./auth/tc-auth');
-        const payload = tcAuth.verifyAccessToken(tcTokenStr);
-        if (payload && payload.aud === tcAuth.JWT_AUDIENCE) {
-          const fileUrlInDb = `/api/documents/${filename}`;
-          const hasAccess = await db.tcUserHasAccessToDocument(payload.sub, fileUrlInDb);
-          if (!hasAccess) {
-            return res.status(403).json({ success: false, error: 'Documento não disponível para este usuário' });
-          }
-          return res.sendFile(path.join(documentsDir, filename), {
-            maxAge: '5m',
-            headers: { 'Cache-Control': 'private, max-age=300' }
-          }, (err) => {
-            if (err && !res.headersSent) {
-              res.status(err.code === 'ENOENT' ? 404 : 500).end();
-            }
-          });
+    tcTokenStr = tcAuthHeader.split(' ')[1] || '';
+  } else if (req.query.tcAuth) {
+    tcTokenStr = String(req.query.tcAuth).trim();
+  }
+  if (tcTokenStr && tcTokenStr.length > 10) {
+    try {
+      const tcAuth = require('./auth/tc-auth');
+      const payload = tcAuth.verifyAccessToken(tcTokenStr);
+      if (payload && payload.aud === tcAuth.JWT_AUDIENCE) {
+        const fileUrlInDb = `/api/documents/${filename}`;
+        const hasAccess = await db.tcUserHasAccessToDocument(payload.sub, fileUrlInDb);
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, error: 'Documento não disponível para este usuário' });
         }
-      } catch (_e) {
-        // JWT inválido com aud='terracontrol' → cai pro caminho 3 (share token)
-        // se houver, senão 401.
+        return res.sendFile(path.join(documentsDir, filename), {
+          maxAge: '5m',
+          headers: { 'Cache-Control': 'private, max-age=300' }
+        }, (err) => {
+          if (err && !res.headersSent) {
+            res.status(err.code === 'ENOENT' ? 404 : 500).end();
+          }
+        });
       }
+    } catch (_e) {
+      // JWT inválido com aud='terracontrol' → cai pro caminho 3 (share token)
+      // se houver, senão 401.
     }
   }
 
@@ -4268,7 +4280,7 @@ app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asy
 // PUT /api/admin/tc-users/:id — edita campos do tc_user
 app.put('/api/admin/tc-users/:id', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive'];
+    const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive', 'canShare'];
     const updates = {};
     for (const k of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) updates[k] = req.body[k];

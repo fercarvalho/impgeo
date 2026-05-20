@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User, AlertTriangle } from 'lucide-react'
+import { Map as MapIcon, ExternalLink, Download, FileText, ClipboardCheck, Loader2, Archive, X, Phone, Mail, Globe, Search, User, AlertTriangle, Share2 } from 'lucide-react'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
 // Tipos, normalize, helpers de URL/cultura, builders de gráfico e empacotadores
@@ -37,7 +37,53 @@ import {
 
 const API_BASE_URL = '/api'
 
-const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
+// ---------------------------------------------------------------------------
+// Modos de renderização
+// ---------------------------------------------------------------------------
+// O TerraControlView agora suporta 2 modos de operação:
+//
+//   1. mode={ kind: 'share', token } (default, retrocompat)
+//      Fluxo público anônimo: lê /api/terracontrol/public/:token, abre
+//      PasswordGate se necessário, autentica downloads via query string.
+//
+//   2. mode={ kind: 'tcuser', tcToken, tcUser, headerSlot, onShareBulk, onShareSingle }
+//      Tc_user logado em terracontrol.viverdepj.com.br: lê /api/tc-auth/me/records
+//      com Authorization Bearer, header substituído pelo TcHeader (logo+menu de
+//      usuário), botões opcionais de compartilhamento (bulk no header + por card)
+//      visíveis quando tcUser.canShare === true.
+//
+// Mantemos a assinatura `{ token: string }` como fallback pra compat com chamadas
+// antigas (TerraControlView token=...).
+//
+export type TerraControlViewMode =
+  | { kind: 'share'; token: string }
+  | {
+      kind: 'tcuser'
+      tcToken: string
+      tcUserFirstName?: string | null
+      // Slot opcional para substituir o header padrão (logo+by). Se omitido,
+      // o header padrão é renderizado.
+      headerSlot?: React.ReactNode
+      // Quando definido E tcUser.canShare = true, renderiza botão "Compartilhar"
+      // no topo da página que abre modal de seleção múltipla.
+      onShareBulk?: (recordIds: string[]) => void
+      // Quando definido E tcUser.canShare = true, renderiza botão pequeno
+      // "Compartilhar este imóvel" em cada card.
+      onShareSingle?: (recordId: string) => void
+    }
+
+interface Props {
+  // Modo novo (discriminated union)
+  mode?: TerraControlViewMode
+  // Modo legado (retrocompat — equivale a mode={ kind: 'share', token })
+  token?: string
+}
+
+const TerraControlView: React.FC<Props> = (props) => {
+  // Resolução do modo: novo `mode` tem precedência; senão usa `token` legado.
+  const mode: TerraControlViewMode = props.mode
+    ?? { kind: 'share', token: props.token ?? '' }
+  const isTcUserMode = mode.kind === 'tcuser'
   // G4.3 — substitui alert()/window.confirm() nativos por toast/dialog estilizados
   const { notify, FeedbackHost } = useFeedback()
   const [records, setRecords] = useState<TerraControlRecord[]>([])
@@ -68,13 +114,21 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
   const [searchTerm, setSearchTerm] = useState('')
 
   // G2.1 — após o backend exigir auth em /api/documents, links públicos
-  // precisam passar o share token (e a senha validada, se houver) como query
-  // params. Helper aplicado em todo <a href> e fetch() de PDF.
-  // URLs externas (Google Drive etc.) passam intactas.
+  // precisam passar auth como query params (Authorization header não funciona
+  // em <a href> nem em iframe). Helper aplicado em todo <a href> e fetch() de
+  // PDF. URLs externas (Google Drive etc.) passam intactas.
+  //
+  // Modo 'share' → ?token=<share_token>&password=<password_validada>
+  // Modo 'tcuser' → ?tcAuth=<jwt> (access token, expira em 15min — aceitável
+  //                pra UX de download direto via clique)
   const withShareAuth = (url?: string): string => {
     if (!url) return ''
     if (!url.startsWith('/api/documents/')) return url
-    const params = new URLSearchParams({ token })
+    if (mode.kind === 'tcuser') {
+      const params = new URLSearchParams({ tcAuth: mode.tcToken })
+      return `${url}?${params.toString()}`
+    }
+    const params = new URLSearchParams({ token: mode.token })
     if (validatedPassword) params.set('password', validatedPassword)
     return `${url}?${params.toString()}`
   }
@@ -85,8 +139,27 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     const loadRecords = async () => {
       let aborted = false
       try {
-        // Tentar carregar sem senha primeiro
-        const response = await fetch(`${API_BASE_URL}/terracontrol/public/${token}`, { signal: controller.signal })
+        // Modo tc_user: lê /api/tc-auth/me/records com Authorization Bearer.
+        // Sem PasswordGate — o login já aconteceu.
+        if (mode.kind === 'tcuser') {
+          const response = await fetch(`${API_BASE_URL}/tc-auth/me/records`, {
+            signal: controller.signal,
+            headers: { Authorization: `Bearer ${mode.tcToken}` },
+            credentials: 'include',
+          })
+          const result = await response.json()
+          if (response.ok && result.success) {
+            setRecords(normalizeRecords(result.data || []))
+            setShareLinkName(mode.tcUserFirstName || null)
+            setRequiresPassword(false)
+          } else {
+            setError(result?.error || 'Erro ao carregar registros')
+          }
+          return
+        }
+
+        // Modo share (público anônimo) — tenta sem senha primeiro
+        const response = await fetch(`${API_BASE_URL}/terracontrol/public/${mode.token}`, { signal: controller.signal })
         const result = await response.json()
 
         if (result.success) {
@@ -123,7 +196,8 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
     loadRecords()
 
     return () => { controller.abort() }
-  }, [token])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode.kind, mode.kind === 'share' ? mode.token : mode.tcToken])
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,10 +208,12 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
       return
     }
 
+    // Não deve ser possível, mas blindando: PasswordGate só renderiza em mode 'share'
+    if (mode.kind !== 'share') return
     setIsSubmittingPassword(true)
     try {
       const response = await fetch(
-        `${API_BASE_URL}/terracontrol/public/${token}?password=${encodeURIComponent(password.trim())}`,
+        `${API_BASE_URL}/terracontrol/public/${mode.token}?password=${encodeURIComponent(password.trim())}`,
         { method: 'GET' }
       )
       const result = await response.json()
@@ -389,41 +465,59 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-tc-green-dark to-tc-blue-dark text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg" />
-              <div>
-                <h1 className="text-xl font-bold">TerraControl</h1>
-                <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
+      {/* Header — em modo tc_user, slot customizado (TcHeader com menu de
+          usuário). Em modo share (default), o header impgeo+by padrão. */}
+      {isTcUserMode && mode.kind === 'tcuser' && mode.headerSlot ? (
+        mode.headerSlot
+      ) : (
+        <div className="bg-gradient-to-r from-tc-green-dark to-tc-blue-dark text-white shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg" />
+                <div>
+                  <h1 className="text-xl font-bold">TerraControl</h1>
+                  <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
-                <span className="text-base font-bold text-white">IMPGEO</span>
+              <div className="flex items-center gap-2.5">
+                <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
+                  <span className="text-base font-bold text-white">IMPGEO</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Mensagem de Boas-vindas */}
         <div className="bg-gradient-to-r from-tc-green to-tc-blue text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
-              <User className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold truncate">
+                  Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
+                </h2>
+                <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-bold">
-                Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
-              </h2>
-              <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
-            </div>
+            {/* Botão "Compartilhar" (bulk) — só aparece em tc_user mode com permissão */}
+            {mode.kind === 'tcuser' && mode.onShareBulk && (
+              <button
+                type="button"
+                onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
+                className="flex-shrink-0 inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold backdrop-blur-sm transition"
+              >
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </button>
+            )}
           </div>
         </div>
 
@@ -681,6 +775,18 @@ const TerraControlView: React.FC<{ token: string }> = ({ token }) => {
                         : <Archive className="w-4 h-4 text-white" aria-hidden="true" />
                       }
                     </button>
+                    {/* Botão "Compartilhar este imóvel" — só aparece em
+                        tc_user mode com permissão de compartilhamento */}
+                    {mode.kind === 'tcuser' && mode.onShareSingle && (
+                      <button
+                        onClick={() => mode.onShareSingle?.(String(record.id))}
+                        title={`Compartilhar ${record.imovel}`}
+                        aria-label={`Compartilhar ${record.imovel}`}
+                        className="p-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors"
+                      >
+                        <Share2 className="w-4 h-4 text-white" aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

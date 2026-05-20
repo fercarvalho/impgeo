@@ -184,6 +184,7 @@ function sanitizeTcUser(user) {
     forcePasswordChange: rest.force_password_change,
     isActive: rest.is_active,
     createdVia: rest.created_via,
+    canShare: rest.can_share === true,   // F2.5 — permite gerar sub-share links
     lastLogin: rest.last_login,
     createdAt: rest.created_at,
     updatedAt: rest.updated_at,

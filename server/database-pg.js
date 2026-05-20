@@ -1998,7 +1998,7 @@ class Database {
     return [
       'id', 'username', 'first_name', 'last_name', 'email', 'email_verified_at',
       'phone', 'cpf', 'birth_date', 'gender', 'address', 'photo_url',
-      'force_password_change', 'is_active', 'created_via', 'last_login',
+      'force_password_change', 'is_active', 'can_share', 'created_via', 'last_login',
       'created_at', 'updated_at'
     ].join(', ');
   }
@@ -2111,6 +2111,7 @@ class Database {
       photo_url: updates.photoUrl ?? updates.photo_url,
       force_password_change: updates.forcePasswordChange,
       is_active: updates.isActive,
+      can_share: updates.canShare ?? updates.can_share,
       email_verified_at: updates.emailVerifiedAt ?? updates.email_verified_at,
       last_login: updates.lastLogin ?? updates.last_login,
     };

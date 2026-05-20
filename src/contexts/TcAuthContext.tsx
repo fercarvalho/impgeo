@@ -44,6 +44,7 @@ export interface TcUser {
   photoUrl?: string | null
   forcePasswordChange?: boolean
   isActive?: boolean
+  canShare?: boolean  // F2.5: tc_user pode gerar sub-share links
   createdVia?: string
   lastLogin?: string | null
   createdAt?: string

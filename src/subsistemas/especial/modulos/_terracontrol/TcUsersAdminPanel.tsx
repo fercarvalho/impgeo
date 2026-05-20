@@ -45,6 +45,7 @@ interface TcUserListItem {
   phone: string | null
   is_active: boolean
   force_password_change: boolean
+  can_share: boolean
   created_via: 'direct' | 'invite' | 'migrated'
   last_login: string | null
   created_at: string
@@ -1004,6 +1005,7 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
   const [email, setEmail] = useState(user.email || '')
   const [phone, setPhone] = useState(user.phone || '')
   const [isActive, setIsActive] = useState(user.is_active)
+  const [canShare, setCanShare] = useState(user.can_share === true)
   const [accessIds, setAccessIds] = useState<Set<string>>(new Set())
   const [accessLoaded, setAccessLoaded] = useState(false)
   const [search, setSearch] = useState('')
@@ -1094,6 +1096,7 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
           email: email.trim().toLowerCase() || null,
           phone: phone.trim() || null,
           isActive,
+          canShare,
         }),
       })
       const data = await res.json()
@@ -1197,6 +1200,16 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Usuário ativo <span className="text-xs text-gray-500">(desmarcado = não consegue logar)</span>
                 </span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input type="checkbox" checked={canShare} onChange={(e) => setCanShare(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-tc-green focus:ring-tc-green" />
+                <div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Pode compartilhar links</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Permite que este usuário gere sub-share links anônimos a partir dos imóveis aos quais tem acesso, para repassar a clientes finais dele.
+                  </p>
+                </div>
               </label>
               <div className="pt-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
                 Criado em {fmtDateOnly(user.created_at)} via {createdViaLabel(user.created_via)}.
