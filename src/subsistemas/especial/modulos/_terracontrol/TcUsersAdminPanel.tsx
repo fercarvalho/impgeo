@@ -131,13 +131,23 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
   const [tempPasswordModal, setTempPasswordModal] = useState<{ username: string; password: string } | null>(null)
   const [inviteSentModal, setInviteSentModal] = useState<{ email: string; acceptUrl: string } | null>(null)
 
+  // Helper: monta init com Authorization + cookie. O impgeo aceita ambas as
+  // formas de auth (Bearer no header OU cookie httpOnly) — usamos as duas pra
+  // funcionar mesmo quando sessionStorage não tem o token (sessão restaurada
+  // via cookie ao recarregar a página, por exemplo).
+  const authedInit = (extra: RequestInit = {}): RequestInit => ({
+    ...extra,
+    credentials: 'include',
+    headers: {
+      ...(extra.headers as Record<string, string> | undefined),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
   const fetchList = async () => {
-    if (!token) return
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/tc-users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`${API_BASE_URL}/admin/tc-users`, authedInit())
       const data = await res.json()
       if (res.ok && data.success) {
         setList(Array.isArray(data.data) ? data.data : [])
