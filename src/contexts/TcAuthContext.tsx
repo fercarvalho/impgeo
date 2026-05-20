@@ -48,12 +48,18 @@ export interface TcUser {
   lastLogin?: string | null
   createdAt?: string
   updatedAt?: string
+  requiresProfileCompletion?: boolean  // F2.3
 }
 
 export interface TcLoginResponse {
   success: boolean
   forcePasswordChange?: boolean
   error?: string
+  // F2.2: backend devolve 'code' = 'invite_expired' | 'invite_pending'
+  // junto com o email para a UI oferecer "reenviar convite"
+  code?: 'invite_expired' | 'invite_pending' | string
+  email?: string | null
+  status?: number
 }
 
 interface TcAuthContextType {
@@ -165,7 +171,14 @@ export const TcAuthProvider: React.FC<TcAuthProviderProps> = ({ children }) => {
       })
       const data = await res.json()
       if (!res.ok || !data?.success) {
-        return { success: false, error: data?.error || 'Falha ao autenticar' }
+        // F2.2: propaga code/email/status para a tela de login oferecer reenvio
+        return {
+          success: false,
+          error: data?.error || 'Falha ao autenticar',
+          code: data?.code,
+          email: data?.email ?? null,
+          status: res.status,
+        }
       }
       setTcToken(data.token)
       setTcUser(data.tcUser)

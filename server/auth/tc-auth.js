@@ -101,6 +101,31 @@ async function rotateTcRefreshToken(db, { refreshToken, ip, userAgent }) {
 async function loginTcUser(db, { username, password, ip, userAgent }) {
   const user = await db.getTcUserByUsername(String(username || '').trim());
   if (!user) return { ok: false, status: 401, error: 'Credenciais inválidas' };
+
+  // F2.2: convite pendente que passou do prazo → 423 Locked com email para reenvio
+  if (user.created_via === 'invite' && !user.email_verified_at && user.is_active === false) {
+    const expirationDays = Number(process.env.TC_INVITE_EXPIRATION_DAYS || 7) || 7;
+    const createdAt = new Date(user.created_at);
+    const expiresAt = new Date(createdAt.getTime() + expirationDays * 24 * 60 * 60 * 1000);
+    if (new Date() > expiresAt) {
+      return {
+        ok: false,
+        status: 423,
+        error: 'Seu convite expirou. Solicite um novo email de convite.',
+        code: 'invite_expired',
+        email: user.email || null,
+      };
+    }
+    // Se ainda não expirou mas não aceitou → orientar a clicar no link do email
+    return {
+      ok: false,
+      status: 403,
+      error: 'Você ainda não completou o cadastro. Verifique o email de convite ou peça um novo.',
+      code: 'invite_pending',
+      email: user.email || null,
+    };
+  }
+
   if (!user.is_active) return { ok: false, status: 403, error: 'Usuário inativo. Contate o administrador.' };
 
   const passwordOk = await bcrypt.compare(String(password || ''), user.password);
@@ -123,6 +148,19 @@ async function logoutTcUser(db, refreshToken) {
   if (!refreshToken) return;
   const hash = sha256(refreshToken);
   await db.revokeTcRefreshToken(hash);
+}
+
+// F2.3: dado o tc_user, devolve se ele precisa completar o perfil.
+// Trigger: aceitou convite (email_verified_at populado) MAS ainda não preencheu
+// pelo menos um dos campos essenciais (telefone, CPF, data de nascimento ou
+// endereço com cidade). Cadastros 'direct' e 'migrated' não disparam o modal —
+// só quem passou pelo fluxo de convite por email.
+function computeRequiresProfileCompletion(rest) {
+  if (!rest.email_verified_at) return false;
+  if (rest.created_via !== 'invite') return false;
+  const addr = rest.address || {};
+  const hasAddressCity = !!(addr && typeof addr === 'object' && (addr.city || addr.cidade));
+  return !rest.phone || !rest.cpf || !rest.birth_date || !hasAddressCity;
 }
 
 // Remove campos sensíveis antes de enviar para o cliente.
@@ -149,6 +187,7 @@ function sanitizeTcUser(user) {
     lastLogin: rest.last_login,
     createdAt: rest.created_at,
     updatedAt: rest.updated_at,
+    requiresProfileCompletion: computeRequiresProfileCompletion(rest),
   };
 }
 

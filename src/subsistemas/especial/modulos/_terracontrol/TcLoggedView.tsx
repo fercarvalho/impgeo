@@ -175,11 +175,24 @@ const TcLoggedView: React.FC = () => {
         tcUser={tcUser}
         onEdit={() => { setShowProfile(false); setShowEditPerfil(true) }}
       />
+      {/* Modal normal de edição (acionado pelo menu de usuário) */}
       <TcEditarPerfilModal
-        isOpen={showEditPerfil}
+        isOpen={showEditPerfil && !tcUser.requiresProfileCompletion}
         onClose={() => setShowEditPerfil(false)}
         notify={notify}
       />
+      {/* F2.3: modal obrigatório (não-fechável) — dispara sozinho quando o
+          tc_user veio de convite e ainda não preencheu telefone/CPF/data/cidade.
+          Quando salvar e backend devolver requiresProfileCompletion=false, o
+          isOpen vira false naturalmente (a flag está no tcUser do contexto). */}
+      {tcUser.requiresProfileCompletion && (
+        <TcEditarPerfilModal
+          isOpen={true}
+          required
+          onClose={() => { /* required = sem close */ }}
+          notify={notify}
+        />
+      )}
       <TcAlterarSenhaModal
         isOpen={showPassword}
         mode="normal"

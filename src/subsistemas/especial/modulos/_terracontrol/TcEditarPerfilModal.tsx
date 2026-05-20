@@ -25,6 +25,10 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   notify: NotifyFn
+  // F2.3: modo obrigatório (não-fechável). Usado quando
+  // tcUser.requiresProfileCompletion === true. Esconde X/Cancelar,
+  // bloqueia ESC e click-outside via prop destructive do Modal.
+  required?: boolean
 }
 
 interface Address {
@@ -37,8 +41,8 @@ interface Address {
   state?: string
 }
 
-const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify }) => {
-  const { tcUser, updateTcUser } = useTcAuth()
+const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, required = false }) => {
+  const { tcUser, updateTcUser, refreshTcUser } = useTcAuth()
 
   const initialAddress: Address = useMemo(() => {
     const a = (tcUser?.address as Address | null | undefined) || {}
@@ -147,6 +151,16 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify }) => {
     }
     if (emailChanged) payload.currentPassword = currentPassword
 
+    // F2.3: em modo obrigatório, valida os campos antes de chamar a API
+    // pra não bater no backend só pra ouvir "ainda falta preencher"
+    if (required) {
+      const addrCity = (payload.address?.city || '').trim()
+      if (!payload.phone)     { notify('Informe seu telefone', { type: 'warning' }); return }
+      if (!payload.cpf)       { notify('Informe seu CPF', { type: 'warning' }); return }
+      if (!payload.birthDate) { notify('Informe sua data de nascimento', { type: 'warning' }); return }
+      if (!addrCity)          { notify('Preencha pelo menos cidade no endereço', { type: 'warning' }); return }
+    }
+
     setSubmitting(true)
     try {
       const token = sessionStorage.getItem('tcAuthToken')
@@ -165,6 +179,11 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify }) => {
         updateTcUser(updated)
         notify('Perfil atualizado', { type: 'success' })
         setCurrentPassword('')
+        // F2.3: em modo required, dispara refresh do /me pra atualizar a flag
+        // requiresProfileCompletion. Se ainda faltar algo, o modal continua aberto.
+        if (required) {
+          await refreshTcUser()
+        }
         onClose()
       } else if (res.status === 401) {
         notify('Senha incorreta', { type: 'error' })
@@ -181,14 +200,29 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify }) => {
   if (!tcUser) return null
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} destructive={required}>
       <form onSubmit={handleSubmit} className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-4 text-white flex items-center justify-between">
-          <h2 className="text-lg font-bold">Editar perfil</h2>
-          <button type="button" onClick={onClose} className="text-white/80 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
+          <h2 className="text-lg font-bold">{required ? 'Complete seu cadastro' : 'Editar perfil'}</h2>
+          {!required && (
+            <button type="button" onClick={onClose} className="text-white/80 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
+
+        {required && (
+          <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700/40">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                Como você acessou o TerraControl via convite por email, precisamos que você preencha algumas informações
+                obrigatórias antes de continuar: <strong>telefone, CPF, data de nascimento e cidade do endereço</strong>.
+                Os outros campos são opcionais.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto p-6 space-y-5">
           {/* Dados pessoais */}
@@ -311,14 +345,16 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify }) => {
         </div>
 
         <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#243040] flex justify-end gap-2">
-          <button type="button" onClick={onClose}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:!bg-[#1a2332] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-            Cancelar
-          </button>
+          {!required && (
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:!bg-[#1a2332] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+              Cancelar
+            </button>
+          )}
           <button type="submit" disabled={submitting}
             className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-tc-green to-tc-blue text-white hover:from-tc-green-dark hover:to-tc-blue-dark disabled:opacity-50 flex items-center gap-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Salvar
+            {required ? 'Salvar e continuar' : 'Salvar'}
           </button>
         </div>
       </form>

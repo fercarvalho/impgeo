@@ -2600,7 +2600,12 @@ app.post('/api/tc-auth/login', loginLimiter, async (req, res) => {
     const ctx = tcRequestContext(req);
     const result = await tcAuth.loginTcUser(db, { username, password, ...ctx });
     if (!result.ok) {
-      return res.status(result.status).json({ success: false, error: result.error });
+      // F2.2: encaminha 'code' e 'email' para o frontend disparar reenvio
+      // automaticamente quando for caso de convite expirado/pendente.
+      const payload = { success: false, error: result.error };
+      if (result.code) payload.code = result.code;
+      if (result.email) payload.email = result.email;
+      return res.status(result.status).json(payload);
     }
     res.json({
       success: true,
@@ -4420,6 +4425,79 @@ app.post('/api/tc-auth/accept-invite', async (req, res) => {
       : /username|senha|nome|email/i.test(msg) ? 400
       : 500;
     res.status(status).json({ success: false, error: msg });
+  }
+});
+
+// POST /api/tc-auth/resend-invite — F2.2: convidado pede novo convite
+// Público (mesmo limiter do recuperar-senha pra dificultar enumeração).
+// Body: { email }
+// Sempre responde 200 com mensagem genérica para não vazar quais emails têm
+// convite pendente — mas só gera token novo + envia email se realmente houver
+// stub pendente para esse email.
+app.post('/api/tc-auth/resend-invite', passwordRecoveryLimiter, async (req, res) => {
+  try {
+    const rawEmail = req.body?.email;
+    if (!rawEmail) {
+      return res.status(400).json({ success: false, error: 'Email obrigatório' });
+    }
+    const email = String(rawEmail).trim().toLowerCase();
+
+    const tcUser = await db.getTcUserByEmail(email);
+    // Só reenvia se: o user existe, é convite (created_via='invite'), ainda não
+    // foi verificado, e está inativo. Caso contrário responde 200 genérico —
+    // não queremos diferenciar "email não cadastrado" de "já é ativo" para
+    // dificultar enumeração.
+    if (
+      tcUser
+      && tcUser.created_via === 'invite'
+      && !tcUser.email_verified_at
+      && tcUser.is_active === false
+    ) {
+      const expiresDays = Number(process.env.TC_INVITE_EXPIRATION_DAYS || 7) || 7;
+      // Reaproveita a função do db: ela detecta o stub pendente e gera token novo
+      // (sem mexer em acessos existentes do tc_user)
+      const result = await db.createTcUserInvite({
+        email,
+        invitedByUserId: tcUser.created_by_user_id || null,
+        selectedIds: [],            // não toca em acessos no reenvio
+        expiresDays,
+      });
+
+      const base = process.env.TC_PUBLIC_BASE_URL
+        || (req.headers['x-forwarded-proto'] || 'http') + '://' + (req.headers['x-forwarded-host'] || req.headers.host);
+      const acceptUrl = `${base}/aceitar-convite?token=${result.token}`;
+
+      try {
+        const { enviarEmailTcConvite } = require('./services/email');
+        // Pega nome do convidador para personalizar
+        let inviterName = 'Administrador';
+        if (tcUser.created_by_user_id) {
+          try {
+            const inviter = await db.getUserById(tcUser.created_by_user_id);
+            if (inviter) {
+              const full = [inviter.first_name, inviter.last_name].filter(Boolean).join(' ').trim();
+              inviterName = full || inviter.username || 'Administrador';
+            }
+          } catch { /* mantém default */ }
+        }
+        await enviarEmailTcConvite({ toEmail: email, acceptUrl, invitedByName: inviterName, expiresDays });
+      } catch (emailErr) {
+        console.error('[resend-invite] Falha no email:', emailErr?.message);
+      }
+    }
+
+    // Resposta genérica em todos os casos
+    res.json({
+      success: true,
+      message: 'Se houver convite pendente para este email, um novo link foi enviado.',
+    });
+  } catch (error) {
+    console.error('Erro POST /api/tc-auth/resend-invite:', error);
+    // Mesmo em erro genérico devolvemos 200 pra não permitir enumeração via timing/status
+    res.json({
+      success: true,
+      message: 'Se houver convite pendente para este email, um novo link foi enviado.',
+    });
   }
 });
 

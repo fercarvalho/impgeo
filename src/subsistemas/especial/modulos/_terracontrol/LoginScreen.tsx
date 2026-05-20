@@ -29,6 +29,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showEsqueciSenha, setShowEsqueciSenha] = useState(false)
+  // F2.2: quando o backend devolve 423/403 com code='invite_expired'/'invite_pending',
+  // mostramos um bloco com botão "reenviar convite" baixo do form
+  const [inviteIssue, setInviteIssue] = useState<{ code: string; email: string | null } | null>(null)
+  const [resendingInvite, setResendingInvite] = useState(false)
+  const [resentMessage, setResentMessage] = useState('')
 
   // Decorativos
   const bgDots = useMemo(() => {
@@ -95,6 +100,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
     e.preventDefault()
     if (isSubmitting) return
     setError('')
+    setInviteIssue(null)
+    setResentMessage('')
     if (!username.trim() || !password) {
       setError('Informe usuário e senha.')
       return
@@ -104,6 +111,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
       const result = await login(username.trim(), password)
       if (!result.success) {
         setError(result.error || 'Falha ao autenticar')
+        // F2.2: detectamos casos especiais para oferecer "reenviar convite"
+        if (result.code === 'invite_expired' || result.code === 'invite_pending') {
+          setInviteIssue({ code: result.code, email: result.email ?? null })
+        }
         return
       }
       if (result.forcePasswordChange && onForcePasswordChange) {
@@ -114,6 +125,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
       setError(e?.message || 'Erro de conexão')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleResendInvite = async () => {
+    if (!inviteIssue?.email || resendingInvite) return
+    setResendingInvite(true)
+    setResentMessage('')
+    try {
+      const res = await fetch('/api/tc-auth/resend-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteIssue.email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      // Resposta genérica vinda do backend (proteção contra enumeração)
+      setResentMessage(data?.message || 'Se houver convite pendente para este email, um novo link foi enviado.')
+    } catch {
+      setResentMessage('Não foi possível processar a solicitação agora. Tente novamente em instantes.')
+    } finally {
+      setResendingInvite(false)
     }
   }
 
@@ -224,6 +255,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
             {error && (
               <div role="alert" aria-live="assertive" className="tc-error-block rounded-xl p-3.5">
                 <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            {/* F2.2: bloco "convite expirou/pendente" oferece reenvio */}
+            {inviteIssue && inviteIssue.email && !resentMessage && (
+              <div className="rounded-xl p-3.5 border border-amber-200 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/20">
+                <p className="text-xs text-amber-700 dark:text-amber-300 mb-2 leading-relaxed">
+                  {inviteIssue.code === 'invite_expired'
+                    ? 'Seu convite expirou. Quer receber um novo email de convite?'
+                    : 'Seu convite ainda está pendente. Não recebeu o email? Podemos reenviar.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResendInvite}
+                  disabled={resendingInvite}
+                  className="text-sm font-semibold text-tc-blue hover:underline disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {resendingInvite ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</>) : `Reenviar convite para ${inviteIssue.email}`}
+                </button>
+              </div>
+            )}
+
+            {resentMessage && (
+              <div className="rounded-xl p-3.5 border border-green-200 dark:border-green-700/40 bg-green-50 dark:bg-green-900/20">
+                <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed">{resentMessage}</p>
               </div>
             )}
 
