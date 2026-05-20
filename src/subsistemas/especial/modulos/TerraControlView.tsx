@@ -742,13 +742,13 @@ const TerraControlView: React.FC<Props> = (props) => {
               <div key={record.id} className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
                 {/* ── HEADER ───────────────────────────────── */}
-                <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
+                <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide mt-0.5">
                       #{formatCodImovel(record.codImovel)}
                     </span>
-                    <div className="min-w-0">
-                      <div className="text-white font-bold text-sm leading-tight truncate">{record.imovel}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white font-bold text-sm leading-tight break-words">{record.imovel}</div>
                       <div className="text-blue-200 text-xs mt-0.5">{record.municipio}</div>
                     </div>
                   </div>
