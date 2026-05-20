@@ -752,7 +752,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                       <div className="text-blue-200 text-xs mt-0.5">{record.municipio}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center items-stretch gap-1.5 shrink-0">
                     {record.mapaUrl && (
                       <button
                         onClick={() => { setSelectedMapUrl(record.mapaUrl || ''); setSelectedImovel(record.imovel); setIsMapModalOpen(true) }}
