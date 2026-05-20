@@ -28,7 +28,17 @@ const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOp
               <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
             </div>
           </div>
-          <div className="flex-shrink-0">
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {/* "by IMPGEO" preservado também no header do tc_user logado.
+                Fica antes do avatar/menu — em telas pequenas some pra não
+                competir espaço com a logo + menu (sm:flex). */}
+            <div className="hidden sm:flex items-center gap-2">
+              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
+              <div className="flex flex-col leading-tight">
+                <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
+                <span className="text-base font-bold text-white">IMPGEO</span>
+              </div>
+            </div>
             <TcMenuUsuario
               tcUser={tcUser}
               onOpenProfile={onOpenProfile}
