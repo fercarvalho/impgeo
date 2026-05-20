@@ -1726,7 +1726,7 @@ const TerraControl: React.FC = () => {
                 {/* GEORREFERENCIAMENTO */}
                 <div className="px-4 py-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2 flex items-center gap-1.5">
-                    <ClipboardCheck className="w-3.5 h-3.5" /> Georreferenciamento
+                    <ClipboardCheck className="w-3.5 h-3.5" /> Georreferenciamento / Incra
                   </p>
                   <div className="flex items-center gap-5">
                     <div className="flex items-center gap-2">
@@ -2369,9 +2369,9 @@ const TerraControl: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ABA BÁSICO (continuação) — Geo Certificação e Registro */}
+                {/* ABA BÁSICO (continuação) — Georreferenciamento / Incra */}
                 <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${activeFormTab !== 'basico' ? 'hidden' : ''}`}>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Geo Certificação e Registro</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Georreferenciamento / Incra</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

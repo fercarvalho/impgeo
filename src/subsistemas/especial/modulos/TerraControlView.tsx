@@ -893,7 +893,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                   {/* GEORREFERENCIAMENTO */}
                   <div className="px-4 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-2 flex items-center gap-1.5">
-                      <MapIcon className="w-3.5 h-3.5" /> Georreferenciamento
+                      <MapIcon className="w-3.5 h-3.5" /> Georreferenciamento / Incra
                     </p>
                     <div className="flex items-center gap-5">
                       <div className="flex items-center gap-2">
