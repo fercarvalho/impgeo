@@ -2723,6 +2723,8 @@ app.get('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
 });
 
 // PUT /api/tc-auth/me — edita perfil (NÃO inclui senha/username — endpoints próprios)
+// D2.7: se o campo email for alterado, exigimos currentPassword no payload e
+// validamos contra o hash atual antes de salvar. Outros campos não exigem.
 app.put('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
   try {
     const allowedFields = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'birthDate', 'gender', 'address', 'photoUrl'];
@@ -2733,11 +2735,26 @@ app.put('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ success: false, error: 'Nenhum campo fornecido' });
     }
-    // Se email mudou e já existe em outro tc_user → conflito
-    if (updates.email) {
-      const existing = await db.getTcUserByEmail(updates.email);
-      if (existing && existing.id !== req.tcUser.id) {
-        return res.status(409).json({ success: false, error: 'Este email já está em uso' });
+    // Se email mudou: exige senha atual + checa colisão com outro tc_user
+    if (Object.prototype.hasOwnProperty.call(updates, 'email')) {
+      const tcUserFull = await db.getTcUserById(req.tcUser.id);
+      const currentEmail = (tcUserFull?.email || '').toLowerCase();
+      const newEmail = (updates.email || '').toLowerCase();
+      if (newEmail !== currentEmail) {
+        const { currentPassword } = req.body || {};
+        if (!currentPassword) {
+          return res.status(400).json({ success: false, error: 'Confirme com sua senha atual para alterar o email' });
+        }
+        const passwordOk = await bcrypt.compare(String(currentPassword), tcUserFull.password);
+        if (!passwordOk) {
+          return res.status(401).json({ success: false, error: 'Senha incorreta' });
+        }
+        if (newEmail) {
+          const existing = await db.getTcUserByEmail(newEmail);
+          if (existing && existing.id !== req.tcUser.id) {
+            return res.status(409).json({ success: false, error: 'Este email já está em uso' });
+          }
+        }
       }
     }
     const updated = await db.updateTcUser(req.tcUser.id, updates);
@@ -4253,6 +4270,16 @@ app.put('/api/admin/tc-users/:id/password-reset', authenticateToken, requireAdmi
     res.json({ success: true, data: { temporaryPassword: plainPassword } });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Erro ao resetar senha' });
+  }
+});
+
+// GET /api/admin/tc-users/:id/access — lista os IDs de registros que o tc_user vê
+app.get('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const ids = await db.getTcUserRecordIds(req.params.id);
+    res.json({ success: true, data: ids });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao buscar acesso' });
   }
 });
 

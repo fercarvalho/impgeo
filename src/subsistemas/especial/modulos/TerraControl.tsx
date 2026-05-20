@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -35,6 +35,13 @@ import {
   downloadRegistroZip,
   useFeedback,
 } from './_terracontrol'
+import TcUsersAdminPanel from './_terracontrol/TcUsersAdminPanel'
+
+// Feature flag temporária: a UI antiga de share_links (botões "Gerar Link" e
+// "Gerenciar Links") foi substituída pela aba "Usuários TerraControl" na fase
+// tc_users. Mantemos o código atrás desta flag por enquanto para reverter
+// rápido se aparecer regressão. Deletar quando tiver confiança em produção.
+const SHOW_LEGACY_SHARE_BUTTONS = false
 
 const API_BASE_URL = '/api'
 
@@ -61,6 +68,9 @@ const TerraControl: React.FC = () => {
   const [editing, setEditing] = useState<TerraControlRecord | null>(null)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  // Novo painel "Usuários TerraControl" (substitui share_links na UI admin)
+  const [isTcUsersPanelOpen, setIsTcUsersPanelOpen] = useState(false)
+  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin'
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareModalMode, setShareModalMode] = useState<'create' | 'manage'>('create')
   const [isShareSelectionWarningOpen, setIsShareSelectionWarningOpen] = useState(false)
@@ -1211,20 +1221,35 @@ const TerraControl: React.FC = () => {
           </div>
         </div>
         <div className="flex w-full sm:w-auto flex-wrap gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
-          <button
-            onClick={generateShareLink}
-            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-md shadow-green-500/25 hover:-translate-y-0.5 transition-all duration-200"
-          >
-            <Share2 className="h-4 w-4" />
-            Gerar Link
-          </button>
-          <button
-            onClick={openManageShareLinks}
-            className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:-translate-y-0.5 transition-all duration-200"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Gerenciar Links
-          </button>
+          {/* Novo: aba "Usuários TerraControl" (substitui Gerar/Gerenciar Links) */}
+          {isAdmin && (
+            <button
+              onClick={() => setIsTcUsersPanelOpen(true)}
+              className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-xl hover:from-tc-green-dark hover:to-tc-blue-dark shadow-md shadow-tc-blue/25 hover:-translate-y-0.5 transition-all duration-200"
+            >
+              <Users className="h-4 w-4" />
+              Usuários TerraControl
+            </button>
+          )}
+          {/* Botões antigos de share_links — atrás de feature flag para reverter rápido se preciso */}
+          {SHOW_LEGACY_SHARE_BUTTONS && (
+            <>
+              <button
+                onClick={generateShareLink}
+                className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 shadow-md shadow-green-500/25 hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <Share2 className="h-4 w-4" />
+                Gerar Link
+              </button>
+              <button
+                onClick={openManageShareLinks}
+                className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Gerenciar Links
+              </button>
+            </>
+          )}
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:-translate-y-0.5 transition-all duration-200"
@@ -3180,6 +3205,18 @@ const TerraControl: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Painel de gerenciamento de tc_users (substitui share_links na UI admin) */}
+      {isTcUsersPanelOpen && (
+        <TcUsersAdminPanel
+          isOpen={isTcUsersPanelOpen}
+          onClose={() => setIsTcUsersPanelOpen(false)}
+          token={token || ''}
+          records={records}
+          notify={notify}
+          confirm={confirm}
+        />
+      )}
 
       {/* G4.3 — toasts e dialog de confirmação renderizados em portal lógico
           (z-index alto, position fixed). Veja src/.../_terracontrol/feedback.tsx. */}

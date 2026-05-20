@@ -27,8 +27,10 @@ import {
 } from './index'
 import TcMenuUsuario from './TcMenuUsuario'
 import TcUserProfileModal from './TcUserProfileModal'
+import TcEditarPerfilModal from './TcEditarPerfilModal'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcAlterarUsernameModal from './TcAlterarUsernameModal'
+import { useFeedback } from './feedback'
 
 const TcLoggedView: React.FC = () => {
   const { tcUser, tcToken } = useTcAuth()
@@ -38,8 +40,10 @@ const TcLoggedView: React.FC = () => {
 
   // Modais
   const [showProfile, setShowProfile] = useState(false)
+  const [showEditPerfil, setShowEditPerfil] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showUsername, setShowUsername] = useState(false)
+  const { notify, FeedbackHost } = useFeedback()
 
   useEffect(() => {
     if (!tcToken) return
@@ -169,6 +173,12 @@ const TcLoggedView: React.FC = () => {
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
         tcUser={tcUser}
+        onEdit={() => { setShowProfile(false); setShowEditPerfil(true) }}
+      />
+      <TcEditarPerfilModal
+        isOpen={showEditPerfil}
+        onClose={() => setShowEditPerfil(false)}
+        notify={notify}
       />
       <TcAlterarSenhaModal
         isOpen={showPassword}
@@ -179,6 +189,7 @@ const TcLoggedView: React.FC = () => {
         isOpen={showUsername}
         onClose={() => setShowUsername(false)}
       />
+      <FeedbackHost />
     </div>
   )
 }
