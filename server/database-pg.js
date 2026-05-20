@@ -2375,6 +2375,186 @@ class Database {
   // Admin do impgeo gerenciando tc_users (CRUD)
   // =========================================================================
 
+  // =========================================================================
+  // F2.1 — Convite por email para tc_user
+  // =========================================================================
+
+  // Cria um tc_user "stub" (inativo, sem username/senha definitivos) e um
+  // registro em tc_email_verifications com token + expiração. Atribui acessos
+  // se passados em selectedIds. Tudo em uma única transação — se algo falhar,
+  // nada fica meio-criado.
+  //
+  // Retorna { tcUserId, token, expiresAt } para o caller construir o link
+  // e disparar o email.
+  async createTcUserInvite({ email, invitedByUserId, selectedIds = [], expiresDays = 7 }) {
+    if (!email || typeof email !== 'string') throw new Error('Email é obrigatório');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) throw new Error('Email inválido');
+
+    // Bcrypt de uma senha aleatória inacessível — o convidado vai definir a
+    // dele ao aceitar; isto é só pra satisfazer NOT NULL em tc_users.password.
+    const crypto = require('crypto');
+    const bcrypt = require('bcryptjs');
+    const placeholderPassword = crypto.randomBytes(32).toString('hex');
+    const placeholderHash = await bcrypt.hash(placeholderPassword, 10);
+
+    const tcUserId = crypto.randomUUID();
+    const inviteId = crypto.randomUUID();
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // Username temporário único — convidado vai escolher o real ao aceitar.
+    // Prefixo invite- + hex curto para satisfazer UNIQUE(username) sem colidir
+    // com slugs reais.
+    const tempUsername = `invite-${crypto.randomBytes(6).toString('hex')}`;
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Se já existe tc_user ativo com esse email → conflito
+      const existing = await client.query(
+        'SELECT id, is_active, email_verified_at FROM tc_users WHERE LOWER(email) = $1 LIMIT 1',
+        [normalizedEmail]
+      );
+      if (existing.rows.length > 0) {
+        const u = existing.rows[0];
+        if (u.is_active === true || u.email_verified_at) {
+          throw new Error('Já existe um usuário ativo com este email');
+        }
+        // Existe um invite pendente — vamos reaproveitar (revogar o token
+        // anterior e criar um novo). Isso permite reenviar convite.
+        await client.query(
+          'DELETE FROM tc_email_verifications WHERE tc_user_id = $1',
+          [u.id]
+        );
+        await client.query(
+          `INSERT INTO tc_email_verifications (id, tc_user_id, email, token, expires_at)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [inviteId, u.id, normalizedEmail, token, expiresAt]
+        );
+        // Atualiza acessos se vieram novos
+        if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+          await client.query('DELETE FROM tc_user_record_access WHERE tc_user_id = $1', [u.id]);
+          for (const rid of selectedIds) {
+            await client.query(
+              `INSERT INTO tc_user_record_access (tc_user_id, terracontrol_id, granted_by_user_id)
+               VALUES ($1, $2, $3) ON CONFLICT (tc_user_id, terracontrol_id) DO NOTHING`,
+              [u.id, String(rid), invitedByUserId]
+            );
+          }
+        }
+        await client.query('COMMIT');
+        return { tcUserId: u.id, token, expiresAt, reused: true };
+      }
+
+      // Caso normal: cria stub novo
+      await client.query(
+        `INSERT INTO tc_users (id, username, password, email, is_active, force_password_change, created_via, created_by_user_id)
+         VALUES ($1, $2, $3, $4, FALSE, TRUE, 'invite', $5)`,
+        [tcUserId, tempUsername, placeholderHash, normalizedEmail, invitedByUserId]
+      );
+      await client.query(
+        `INSERT INTO tc_email_verifications (id, tc_user_id, email, token, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [inviteId, tcUserId, normalizedEmail, token, expiresAt]
+      );
+      if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+        for (const rid of selectedIds) {
+          await client.query(
+            `INSERT INTO tc_user_record_access (tc_user_id, terracontrol_id, granted_by_user_id)
+             VALUES ($1, $2, $3) ON CONFLICT (tc_user_id, terracontrol_id) DO NOTHING`,
+            [tcUserId, String(rid), invitedByUserId]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      return { tcUserId, token, expiresAt, reused: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Retorna info pública do convite (sem expor coisas sensíveis). Usado pelo
+  // frontend ANTES do login para mostrar "Olá! Você foi convidado a acessar..."
+  async getTcInviteByToken(token) {
+    const r = await this.queryWithRetry(
+      `SELECT v.id, v.tc_user_id, v.email, v.expires_at, v.verified_at,
+              u.username AS inviter_username,
+              u.first_name AS inviter_first_name,
+              u.last_name AS inviter_last_name
+       FROM tc_email_verifications v
+       JOIN tc_users tu ON tu.id = v.tc_user_id
+       LEFT JOIN users u ON u.id = tu.created_by_user_id
+       WHERE v.token = $1
+       LIMIT 1`,
+      [token]
+    );
+    return r.rows[0] || null;
+  }
+
+  // Aceita o convite: define username/senha/nome do tc_user, ativa, marca
+  // email como verificado, invalida o token. Tudo em transação.
+  async acceptTcInvite({ token, username, password, firstName, lastName }) {
+    const bcrypt = require('bcryptjs');
+    const invite = await this.getTcInviteByToken(token);
+    if (!invite) throw new Error('Convite não encontrado');
+    if (invite.verified_at) throw new Error('Este convite já foi aceito');
+    if (new Date(invite.expires_at) < new Date()) throw new Error('Convite expirado');
+
+    const normalizedUsername = String(username || '').trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9\-_]{2,}$/.test(normalizedUsername)) {
+      throw new Error('Username inválido');
+    }
+    if (!password || String(password).length < 8) {
+      throw new Error('Senha deve ter no mínimo 8 caracteres');
+    }
+    if (!firstName || !String(firstName).trim()) {
+      throw new Error('Nome é obrigatório');
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Verifica colisão de username (que não seja o próprio stub do convite)
+      const collision = await client.query(
+        'SELECT id FROM tc_users WHERE username = $1 AND id <> $2 LIMIT 1',
+        [normalizedUsername, invite.tc_user_id]
+      );
+      if (collision.rows.length > 0) {
+        throw new Error('Este nome de usuário já existe');
+      }
+      const hash = await bcrypt.hash(String(password), 10);
+      await client.query(
+        `UPDATE tc_users
+         SET username = $1,
+             password = $2,
+             first_name = $3,
+             last_name = $4,
+             is_active = TRUE,
+             force_password_change = FALSE,
+             email_verified_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $5`,
+        [normalizedUsername, hash, String(firstName).trim(), lastName ? String(lastName).trim() : null, invite.tc_user_id]
+      );
+      await client.query(
+        'UPDATE tc_email_verifications SET verified_at = NOW() WHERE token = $1',
+        [token]
+      );
+      await client.query('COMMIT');
+      return { tcUserId: invite.tc_user_id, username: normalizedUsername };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   // Retorna true se o usuário impgeo está autorizado a gerenciar tc_users
   // (admin/superadmin OU flag can_manage_tc_users=TRUE). Usado pelo middleware.
   async userCanManageTcUsers(userId) {

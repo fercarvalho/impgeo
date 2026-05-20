@@ -4325,6 +4325,104 @@ app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireTcUsersM
   }
 });
 
+// ===========================================================================
+// F2.1 — Convite por email para tc_user
+// ===========================================================================
+
+// POST /api/admin/tc-users/invite — admin convida tc_user por email
+// Body: { email, selectedIds?: string[] }
+app.post('/api/admin/tc-users/invite', authenticateToken, requireTcUsersManagement, async (req, res) => {
+  try {
+    const { email, selectedIds } = req.body || {};
+    if (!email) return res.status(400).json({ success: false, error: 'Email é obrigatório' });
+
+    const expiresDays = Number(process.env.TC_INVITE_EXPIRATION_DAYS || 7) || 7;
+    const result = await db.createTcUserInvite({
+      email: String(email).trim().toLowerCase(),
+      invitedByUserId: req.user.id,
+      selectedIds: Array.isArray(selectedIds) ? selectedIds : [],
+      expiresDays,
+    });
+
+    // Monta URL de aceite. TC_PUBLIC_BASE_URL pode estar setado em prod; em dev,
+    // fallback baseado em headers.
+    const base = process.env.TC_PUBLIC_BASE_URL
+      || (req.headers['x-forwarded-proto'] || 'http') + '://' + (req.headers['x-forwarded-host'] || req.headers.host);
+    const acceptUrl = `${base}/aceitar-convite?token=${result.token}`;
+
+    // Dispara email (não bloqueia retorno em caso de falha — admin pode reenviar)
+    try {
+      const inviterName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || req.user.username;
+      const { enviarEmailTcConvite } = require('./services/email');
+      await enviarEmailTcConvite({
+        toEmail: String(email).trim().toLowerCase(),
+        acceptUrl,
+        invitedByName: inviterName,
+        expiresDays,
+      });
+    } catch (emailErr) {
+      console.error('[invite] Falha ao enviar email:', emailErr?.message);
+      return res.json({
+        success: true,
+        warning: 'Convite criado mas falhou ao enviar o email. Use o link abaixo manualmente.',
+        data: { acceptUrl, reused: result.reused, expiresAt: result.expiresAt },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { acceptUrl, reused: result.reused, expiresAt: result.expiresAt },
+    });
+  } catch (error) {
+    console.error('Erro POST /api/admin/tc-users/invite:', error);
+    res.status(error.message?.includes('Já existe') ? 409 : 500)
+      .json({ success: false, error: error.message || 'Erro ao criar convite' });
+  }
+});
+
+// GET /api/tc-auth/invite/:token — preview público do convite (sem auth)
+// Retorna info mínima pra UI saber se o convite é válido + email pré-preenchido
+app.get('/api/tc-auth/invite/:token', async (req, res) => {
+  try {
+    const invite = await db.getTcInviteByToken(req.params.token);
+    if (!invite) return res.status(404).json({ success: false, error: 'Convite não encontrado' });
+    if (invite.verified_at) return res.status(410).json({ success: false, error: 'Este convite já foi aceito' });
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({ success: false, error: 'Convite expirado' });
+    }
+    const inviterName = [invite.inviter_first_name, invite.inviter_last_name].filter(Boolean).join(' ').trim()
+      || invite.inviter_username
+      || 'Administrador';
+    res.json({
+      success: true,
+      data: {
+        email: invite.email,
+        invitedByName: inviterName,
+        expiresAt: invite.expires_at,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao consultar convite' });
+  }
+});
+
+// POST /api/tc-auth/accept-invite — convidado finaliza cadastro
+// Body: { token, username, password, firstName, lastName? }
+app.post('/api/tc-auth/accept-invite', async (req, res) => {
+  try {
+    const { token, username, password, firstName, lastName } = req.body || {};
+    if (!token) return res.status(400).json({ success: false, error: 'Token obrigatório' });
+    await db.acceptTcInvite({ token, username, password, firstName, lastName });
+    res.json({ success: true });
+  } catch (error) {
+    const msg = error.message || 'Erro ao aceitar convite';
+    const status = /já foi aceito|expirado|não encontrado/i.test(msg) ? 410
+      : /username|senha|nome|email/i.test(msg) ? 400
+      : 500;
+    res.status(status).json({ success: false, error: msg });
+  }
+});
+
 app.post('/api/auth/reset-first-login', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username } = req.body;

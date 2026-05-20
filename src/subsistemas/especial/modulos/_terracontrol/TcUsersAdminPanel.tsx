@@ -129,6 +129,7 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<TcUserListItem | null>(null)
   const [tempPasswordModal, setTempPasswordModal] = useState<{ username: string; password: string } | null>(null)
+  const [inviteSentModal, setInviteSentModal] = useState<{ email: string; acceptUrl: string } | null>(null)
 
   const fetchList = async () => {
     if (!token) return
@@ -450,6 +451,11 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
             setTempPasswordModal({ username: resp.username, password: resp.temporaryPassword })
             fetchList()
           }}
+          onInvited={(resp) => {
+            setCreateOpen(false)
+            setInviteSentModal({ email: resp.email, acceptUrl: resp.acceptUrl })
+            fetchList()
+          }}
         />
       )}
 
@@ -474,6 +480,16 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
           username={tempPasswordModal.username}
           password={tempPasswordModal.password}
           onClose={() => setTempPasswordModal(null)}
+          notify={notify}
+        />
+      )}
+
+      {/* Modal: convite enviado (F2.1) */}
+      {inviteSentModal && (
+        <InviteSentModal
+          email={inviteSentModal.email}
+          acceptUrl={inviteSentModal.acceptUrl}
+          onClose={() => setInviteSentModal(null)}
           notify={notify}
         />
       )}
@@ -551,8 +567,78 @@ const TempPasswordModal: React.FC<TempPasswordModalProps> = ({ username, passwor
 }
 
 // ===========================================================================
+// Submodal: Convite enviado (F2.1)
+// ===========================================================================
+
+interface InviteSentModalProps {
+  email: string
+  acceptUrl: string
+  onClose: () => void
+  notify: NotifyFn
+}
+
+const InviteSentModal: React.FC<InviteSentModalProps> = ({ email, acceptUrl, onClose, notify }) => {
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(acceptUrl)
+      notify('Link copiado para a área de transferência', { type: 'success' })
+    } catch {
+      notify('Não foi possível copiar — selecione manualmente', { type: 'warning' })
+    }
+  }
+  return (
+    <Modal isOpen={true} onClose={onClose}>
+      <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[92vw] max-w-md p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 rounded-xl bg-tc-green/10 dark:bg-tc-green/20">
+            <Mail className="w-5 h-5 text-tc-green dark:text-tc-green" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Convite enviado</h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Um email com o link de cadastro foi enviado para{' '}
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{email}</span>.
+          O convidado deve clicar no link para escolher usuário e senha. O convite expira em 7 dias.
+        </p>
+        <div className="bg-gray-50 dark:bg-[#243040] border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-4">
+          <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Link de aceite (caso precise reenviar manualmente)</p>
+          <div className="flex items-center gap-2">
+            <div className="font-mono text-[11px] flex-1 select-all text-gray-900 dark:text-gray-100 break-all">
+              {acceptUrl}
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 flex-shrink-0"
+              title="Copiar link"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-tc-green to-tc-blue text-white hover:from-tc-green-dark hover:to-tc-blue-dark"
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ===========================================================================
 // Submodal: Criar tc_user (D2.2)
 // ===========================================================================
+
+interface InviteResponseData {
+  acceptUrl: string
+  reused: boolean
+  expiresAt: string
+  warning?: string
+}
 
 interface CreateProps {
   isOpen: boolean
@@ -561,9 +647,13 @@ interface CreateProps {
   records: TerraControlRecord[]
   notify: NotifyFn
   onCreated: (resp: CreateResponseData) => void
+  onInvited: (resp: InviteResponseData & { email: string }) => void
 }
 
-const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, records, notify, onCreated }) => {
+const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, records, notify, onCreated, onInvited }) => {
+  // F2.1: 'direct' = cadastro direto (username+senha definidos pelo admin),
+  //       'invite' = email enviado, convidado cria o acesso ao clicar no link
+  const [mode, setMode] = useState<'direct' | 'invite'>('direct')
   const [username, setUsername] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -610,41 +700,72 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
-    if (!/^[a-z0-9][a-z0-9\-_]{2,}$/.test(username.trim().toLowerCase())) {
-      notify('Username inválido — use ao menos 3 caracteres: letras minúsculas, números, "-" ou "_"', { type: 'warning' })
-      return
-    }
-    if (!firstName.trim()) { notify('Informe o nome', { type: 'warning' }); return }
+
+    // Validações comuns
     if (!email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
       notify('Informe um email válido', { type: 'warning' }); return
     }
-    if (password && password.length < 6) {
-      notify('Senha deve ter no mínimo 6 caracteres (ou deixe em branco para gerar automaticamente)', { type: 'warning' })
-      return
+
+    // Validações específicas do modo 'direct'
+    if (mode === 'direct') {
+      if (!/^[a-z0-9][a-z0-9\-_]{2,}$/.test(username.trim().toLowerCase())) {
+        notify('Username inválido — use ao menos 3 caracteres: letras minúsculas, números, "-" ou "_"', { type: 'warning' })
+        return
+      }
+      if (!firstName.trim()) { notify('Informe o nome', { type: 'warning' }); return }
+      if (password && password.length < 6) {
+        notify('Senha deve ter no mínimo 6 caracteres (ou deixe em branco para gerar automaticamente)', { type: 'warning' })
+        return
+      }
     }
+
     setSubmitting(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/tc-users`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: username.trim().toLowerCase(),
-          firstName: firstName.trim(),
-          lastName: lastName.trim() || undefined,
-          email: email.trim().toLowerCase(),
-          password: password || undefined,
-          selectedIds: Array.from(selected),
-        }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        notify('Usuário criado', { type: 'success' })
-        onCreated(data.data as CreateResponseData)
+      if (mode === 'invite') {
+        // F2.1: convite por email — convidado define username/senha/nome ao aceitar
+        const res = await fetch(`${API_BASE_URL}/admin/tc-users/invite`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            selectedIds: Array.from(selected),
+          }),
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          if (data.warning) notify(data.warning, { type: 'warning' })
+          else notify('Convite enviado por email', { type: 'success' })
+          onInvited({ ...data.data, email: email.trim().toLowerCase() })
+        } else {
+          notify(data.error || 'Erro ao enviar convite', { type: 'error' })
+        }
       } else {
-        notify(data.error || 'Erro ao criar usuário', { type: 'error' })
+        // Cadastro direto (admin define tudo agora)
+        const res = await fetch(`${API_BASE_URL}/admin/tc-users`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: username.trim().toLowerCase(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim() || undefined,
+            email: email.trim().toLowerCase(),
+            password: password || undefined,
+            selectedIds: Array.from(selected),
+          }),
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          notify('Usuário criado', { type: 'success' })
+          onCreated(data.data as CreateResponseData)
+        } else {
+          notify(data.error || 'Erro ao criar usuário', { type: 'error' })
+        }
       }
     } catch (e: any) {
       notify(e?.message || 'Erro de conexão', { type: 'error' })
@@ -666,22 +787,42 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
         </div>
 
         <div className="flex-1 overflow-auto p-6 space-y-5">
+          {/* Toggle: cadastro direto vs convite por email */}
+          <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-[#243040] rounded-xl">
+            <button type="button" onClick={() => setMode('direct')}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${mode === 'direct'
+                ? 'bg-white dark:bg-[#1a2332] text-tc-blue shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'}`}>
+              Cadastro direto
+              <div className="text-[10px] font-normal opacity-70">Você define usuário e senha agora</div>
+            </button>
+            <button type="button" onClick={() => setMode('invite')}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${mode === 'invite'
+                ? 'bg-white dark:bg-[#1a2332] text-tc-blue shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'}`}>
+              Convidar por email
+              <div className="text-[10px] font-normal opacity-70">Convidado completa o cadastro</div>
+            </button>
+          </div>
+
           {/* Dados básicos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Username *</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                placeholder="ex: cliente-fazenda-sao-joao"
-                className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 font-mono"
-                autoFocus
-                required
-              />
-              <p className="text-[11px] text-gray-500 mt-1">3+ caracteres, minúsculos, "-" ou "_"</p>
-            </div>
-            <div>
+            {mode === 'direct' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Username *</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  placeholder="ex: cliente-fazenda-sao-joao"
+                  className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 font-mono"
+                  autoFocus
+                  required
+                />
+                <p className="text-[11px] text-gray-500 mt-1">3+ caracteres, minúsculos, "-" ou "_"</p>
+              </div>
+            )}
+            <div className={mode === 'invite' ? 'sm:col-span-2' : ''}>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Email *</label>
               <input
                 type="email"
@@ -690,27 +831,38 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
                 placeholder="contato@exemplo.com"
                 className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
                 required
+                autoFocus={mode === 'invite'}
               />
+              {mode === 'invite' && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Vamos enviar um convite para este email. O convidado escolherá usuário, senha e nome ao aceitar.
+                </p>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome *</label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Sobrenome</label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
-              />
-            </div>
+            {mode === 'direct' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome *</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Sobrenome</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              </>
+            )}
+            {mode === 'direct' && (
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 Senha temporária <span className="text-gray-400 font-normal">(opcional — deixe em branco para gerar automaticamente)</span>
@@ -744,6 +896,7 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
                 O usuário será forçado a trocar a senha no primeiro login.
               </p>
             </div>
+            )}
           </div>
 
           {/* Seleção de registros */}
@@ -813,7 +966,7 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
           <button type="submit" disabled={submitting}
             className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-tc-green to-tc-blue text-white hover:from-tc-green-dark hover:to-tc-blue-dark disabled:opacity-50 flex items-center gap-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Criar usuário
+            {mode === 'invite' ? 'Enviar convite' : 'Criar usuário'}
           </button>
         </div>
       </form>

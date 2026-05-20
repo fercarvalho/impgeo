@@ -13,20 +13,36 @@ import LoginScreen from './LoginScreen'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcResetarSenhaModal from './TcResetarSenhaModal'
 import TcLoggedView from './TcLoggedView'
+import TcAcceptInviteScreen from './TcAcceptInviteScreen'
 
 const TcPublicEntry: React.FC = () => {
   const { tcUser, isLoading, forcePasswordChange } = useTcAuth()
   const [resetToken, setResetToken] = useState<string | null>(null)
+  const [inviteToken, setInviteToken] = useState<string | null>(null)
   const [initialUsername, setInitialUsername] = useState<string | undefined>(undefined)
 
-  // Detecta query params: ?u=<username> (vem do redirect /v/legacy) e ?reset=<token>
+  // Detecta query params:
+  //   ?u=<username> → vem do redirect /v/legacy
+  //   ?reset=<token> → fluxo de reset de senha
+  //   /aceitar-convite?token=<token> → F2.1, fluxo de aceite de convite
   useEffect(() => {
     const url = new URL(window.location.href)
     const u = url.searchParams.get('u')
     if (u) setInitialUsername(u)
     const reset = url.searchParams.get('reset')
     if (reset) setResetToken(reset)
+    if (url.pathname.startsWith('/aceitar-convite')) {
+      const t = url.searchParams.get('token')
+      if (t) setInviteToken(t)
+    }
   }, [])
+
+  // Aceite de convite tem prioridade sobre tudo: se tem token na URL, renderiza
+  // a tela específica de aceite — ignora estado de login atual (o convidado
+  // pode estar com sessão antiga de outro tc_user e tudo bem).
+  if (inviteToken) {
+    return <TcAcceptInviteScreen token={inviteToken} />
+  }
 
   if (isLoading) {
     return (

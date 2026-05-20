@@ -227,7 +227,66 @@ async function enviarEmailTcResetSenha({ toEmail, username, resetUrl, expiresMin
   return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
 }
 
+// ============================================================================
+// F2.1 — Convite para tc_user (paleta verde→azul, mesma identidade do reset)
+// ============================================================================
+
+function buildTcConviteEmailTemplate({ acceptUrl, invitedByName, expiresDays }) {
+  const subject = 'Convite para acessar o TerraControl';
+  const text = `Você foi convidado(a) por ${invitedByName || 'um administrador'} para acessar o TerraControl.\n\n` +
+    `Complete seu cadastro pelo link abaixo (válido por ${expiresDays} dias):\n${acceptUrl}\n\n` +
+    `Se você não esperava este convite, ignore este email.\n\n— Equipe TerraControl`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Você foi convidado!</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá!</p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;color:#374151;">
+              <strong>${invitedByName || 'Um administrador'}</strong> convidou você a acessar o TerraControl —
+              a plataforma de gestão territorial onde você poderá consultar seus imóveis rurais cadastrados,
+              baixar matrículas, ITRs, CCIRs e o mapa do CAR.
+            </p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;color:#374151;">
+              Clique no botão abaixo para criar seu acesso (vai escolher um usuário e senha):
+            </p>
+            <p style="text-align:center;margin:28px 0;">
+              <a href="${acceptUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Aceitar convite</a>
+            </p>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">
+              Este convite expira em <strong>${expiresDays} dias</strong>. Após expirar, peça um novo ao administrador.
+            </p>
+            <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;">Se você não esperava este convite, pode ignorar este email com segurança — nenhum acesso é criado até você completar o cadastro.</p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe TerraControl
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailTcConvite({ toEmail, acceptUrl, invitedByName, expiresDays = 7 }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  if (!acceptUrl) throw new Error('URL de aceite do convite não informada');
+  const { subject, html, text } = buildTcConviteEmailTemplate({ acceptUrl, invitedByName, expiresDays });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
 module.exports = {
   enviarEmailRecuperacao,
   enviarEmailTcResetSenha,
+  enviarEmailTcConvite,
 };
