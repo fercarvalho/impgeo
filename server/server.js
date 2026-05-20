@@ -313,6 +313,7 @@ function mapUserToClient(user) {
     address,
     isActive: user.isActive !== undefined ? user.isActive : (user.is_active !== false),
     lastLogin: user.lastLogin || user.last_login || null,
+    canManageTcUsers: (user.canManageTcUsers ?? user.can_manage_tc_users) === true,
     createdAt: user.createdAt || user.created_at || null,
     updatedAt: user.updatedAt || user.updated_at || null,
     modulesAccess,
@@ -4157,6 +4158,23 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+// F2.4 — Autoriza endpoints /api/admin/tc-users/* para:
+//   (a) admin/superadmin impgeo (passa direto), OU
+//   (b) user impgeo com flag can_manage_tc_users=TRUE (permissão delegada).
+// Faz uma query rápida em users para checar a flag — só é chamado em rotas
+// administrativas (baixo volume), então o custo é desprezível.
+const requireTcUsersManagement = async (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  if (req.user.role === 'admin' || req.user.role === 'superadmin') return next();
+  try {
+    const ok = await db.userCanManageTcUsers(req.user.id);
+    if (ok) return next();
+    return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para gerenciar usuários TerraControl.' });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erro ao validar permissão' });
+  }
+};
+
 // Middleware para verificar se o usuário é superadmin
 const requireSuperAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'superadmin') {
@@ -4180,7 +4198,7 @@ const requireLegalPermission = (tipo) => (req, res, next) => {
 // =============================================================================
 
 // GET /api/admin/tc-users — lista todos
-app.get('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const list = await db.listTcUsersForAdmin();
     res.json({ success: true, data: list });
@@ -4190,7 +4208,7 @@ app.get('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res)
 });
 
 // POST /api/admin/tc-users — cria novo tc_user com senha temporária + acesso a registros
-app.post('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const { username, firstName, lastName, email, password, selectedIds } = req.body || {};
     if (!username || !firstName || !email) {
@@ -4243,7 +4261,7 @@ app.post('/api/admin/tc-users', authenticateToken, requireAdmin, async (req, res
 });
 
 // PUT /api/admin/tc-users/:id — edita campos do tc_user
-app.put('/api/admin/tc-users/:id', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/tc-users/:id', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive'];
     const updates = {};
@@ -4261,7 +4279,7 @@ app.put('/api/admin/tc-users/:id', authenticateToken, requireAdmin, async (req, 
 });
 
 // PUT /api/admin/tc-users/:id/password-reset — força reset de senha
-app.put('/api/admin/tc-users/:id/password-reset', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/tc-users/:id/password-reset', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const tcUser = await db.getTcUserById(req.params.id);
     if (!tcUser) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
@@ -4274,7 +4292,7 @@ app.put('/api/admin/tc-users/:id/password-reset', authenticateToken, requireAdmi
 });
 
 // GET /api/admin/tc-users/:id/access — lista os IDs de registros que o tc_user vê
-app.get('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/tc-users/:id/access', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const ids = await db.getTcUserRecordIds(req.params.id);
     res.json({ success: true, data: ids });
@@ -4284,7 +4302,7 @@ app.get('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async
 });
 
 // PUT /api/admin/tc-users/:id/access — define quais registros o tc_user vê
-app.put('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/tc-users/:id/access', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     const { recordIds } = req.body || {};
     if (!Array.isArray(recordIds)) {
@@ -4298,7 +4316,7 @@ app.put('/api/admin/tc-users/:id/access', authenticateToken, requireAdmin, async
 });
 
 // PUT /api/admin/tc-users/:id/deactivate — desativa
-app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
     await db.deactivateTcUser(req.params.id);
     res.json({ success: true });
@@ -4593,6 +4611,7 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       address: parseAddress(user.address),
       position: user.position ?? null,
       isActive: user.is_active !== false,
+      canManageTcUsers: user.can_manage_tc_users === true,
       createdAt: user.created_at || user.createdAt || null,
       updatedAt: user.updated_at || user.updatedAt || null
     }));
@@ -4665,7 +4684,8 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       cpf,
       birthDate,
       gender,
-      address
+      address,
+      canManageTcUsers,  // F2.4 — só superadmin pode alterar
     } = req.body;
 
     // Validar role se fornecido
@@ -4695,6 +4715,13 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (birthDate !== undefined) updateData.birthDate = birthDate;
     if (gender !== undefined) updateData.gender = gender;
     if (address !== undefined) updateData.address = address;
+    if (canManageTcUsers !== undefined) {
+      // Só superadmin pode ligar/desligar a flag de gestão delegada
+      if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Apenas superadmin pode alterar a permissão de gerenciamento de TerraControl' });
+      }
+      updateData.canManageTcUsers = !!canManageTcUsers;
+    }
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -4734,6 +4761,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
         address: parseAddress(safeUser.address),
         position: safeUser.position ?? null,
         isActive: safeUser.is_active !== false,
+        canManageTcUsers: safeUser.can_manage_tc_users === true,
         createdAt: safeUser.created_at || null,
         updatedAt: safeUser.updated_at || null
       }

@@ -2375,6 +2375,19 @@ class Database {
   // Admin do impgeo gerenciando tc_users (CRUD)
   // =========================================================================
 
+  // Retorna true se o usuário impgeo está autorizado a gerenciar tc_users
+  // (admin/superadmin OU flag can_manage_tc_users=TRUE). Usado pelo middleware.
+  async userCanManageTcUsers(userId) {
+    const r = await this.queryWithRetry(
+      `SELECT role, can_manage_tc_users FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (r.rows.length === 0) return false;
+    const u = r.rows[0];
+    if (u.role === 'admin' || u.role === 'superadmin') return true;
+    return u.can_manage_tc_users === true;
+  }
+
   async listTcUsersForAdmin() {
     // Inclui contagem de registros acessíveis por tc_user
     const r = await this.queryWithRetry(
@@ -2608,6 +2621,10 @@ class Database {
             ? JSON.stringify(updatedData.address)
             : updatedData.address
         );
+      }
+      if (updatedData.canManageTcUsers !== undefined) {
+        setClause.push(`can_manage_tc_users = $${paramIndex++}`);
+        values.push(!!updatedData.canManageTcUsers);
       }
 
       setClause.push(`updated_at = $${paramIndex++}`);

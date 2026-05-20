@@ -70,6 +70,7 @@ interface User {
     state?: string;
   };
   isActive?: boolean;
+  canManageTcUsers?: boolean;  // F2.4 — permissão delegada para gerenciar tc_users
   lastLogin?: string;
   createdAt?: string;
   updatedAt?: string;

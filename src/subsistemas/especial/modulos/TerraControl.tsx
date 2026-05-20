@@ -70,7 +70,10 @@ const TerraControl: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   // Novo painel "Usuários TerraControl" (substitui share_links na UI admin)
   const [isTcUsersPanelOpen, setIsTcUsersPanelOpen] = useState(false)
-  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin'
+  // F2.4: superadmin/admin OU usuário com permissão delegada
+  const canManageTcUsers = user?.role === 'superadmin' || user?.role === 'admin' || user?.canManageTcUsers === true
+  // Mantém alias antigo p/ minimizar diff em outros lugares
+  const isAdmin = canManageTcUsers
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareModalMode, setShareModalMode] = useState<'create' | 'manage'>('create')
   const [isShareSelectionWarningOpen, setIsShareSelectionWarningOpen] = useState(false)

@@ -44,6 +44,7 @@ interface User {
   } | null;
   position?: string | null;
   isActive?: boolean;
+  canManageTcUsers?: boolean;  // F2.4 — só superadmin pode editar
   createdAt?: string | null;
   updatedAt?: string | null;
   permissoesLegais?: Record<string, boolean>;
@@ -215,6 +216,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     birthDate: '',
     gender: '',
     position: '',
+    canManageTcUsers: false,  // F2.4 — só superadmin pode alterar (UI condicional)
     address: {
       cep: '',
       street: '',
@@ -392,6 +394,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
       birthDate: user.birthDate || '',
       gender: user.gender || '',
       position: user.position || '',
+      canManageTcUsers: user.canManageTcUsers === true,
       address: {
         cep: user.address?.cep || '',
         street: user.address?.street || '',
@@ -527,6 +530,12 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     if (!editingUser) return;
     clearFeedback();
     try {
+      // F2.4: só inclui o campo se o requester é superadmin (backend também valida)
+      const tcUsersPayload =
+        currentUser?.role === 'superadmin'
+          ? { canManageTcUsers: profileForm.canManageTcUsers }
+          : {};
+
       await updateUser(
         editingUser.id,
         {
@@ -538,6 +547,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
           birthDate: profileForm.birthDate || null,
           gender: profileForm.gender || null,
           position: profileForm.position.trim() || null,
+          ...tcUsersPayload,
           address: {
             cep: profileForm.address.cep.trim(),
             street: profileForm.address.street.trim(),
@@ -1279,6 +1289,31 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                     </div>
                   </fieldset>
                 </div>
+
+                {/* F2.4 — switch de permissão delegada (só superadmin vê e altera) */}
+                {currentUser?.role === 'superadmin' && (
+                  <fieldset className="mt-6">
+                    <legend className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                      <Shield className="h-4 w-4 text-emerald-600" aria-hidden="true" /> Permissões TerraControl
+                    </legend>
+                    <label className="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={profileForm.canManageTcUsers}
+                        onChange={e => setProfileForm({ ...profileForm, canManageTcUsers: e.target.checked })}
+                        className="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-gray-800">Pode gerenciar usuários TerraControl</div>
+                        <div className="text-xs text-gray-600 mt-0.5">
+                          Quando ligado, este usuário (mesmo sem ser admin) pode acessar o painel
+                          "Usuários TerraControl" e cadastrar/editar/desativar tc_users. Útil para
+                          delegar a gestão a um parceiro que só precisa dessa função do sistema.
+                        </div>
+                      </div>
+                    </label>
+                  </fieldset>
+                )}
 
                 {currentUser?.role === 'superadmin' && editingUser.role === 'admin' && (
                   <fieldset className="mt-6">
