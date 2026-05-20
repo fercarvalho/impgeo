@@ -622,6 +622,7 @@ const TerraControl: React.FC = () => {
     if (!form.codImovel || form.codImovel <= 0) errors.codImovel = 'Código do imóvel é obrigatório'
     if (!form.imovel?.trim()) errors.imovel = 'Nome do imóvel é obrigatório'
     if (!form.municipio?.trim()) errors.municipio = 'Município é obrigatório'
+    if (!form.mapaUrl?.trim()) errors.mapaUrl = 'Link do Google Maps é obrigatório'
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -1949,18 +1950,22 @@ const TerraControl: React.FC = () => {
 
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Link do Google Maps
+                      Link do Google Maps *
                     </label>
                     <input
                       type="url"
                       value={form.mapaUrl || ''}
                       onChange={(e) => setForm(prev => ({ ...prev, mapaUrl: e.target.value }))}
                       placeholder="https://www.google.com/maps/d/u/0/viewer?..."
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#1a2a3e] dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${formErrors.mapaUrl ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-[#1a2a3e] dark:text-gray-100`}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Cole o link completo do Google Maps para este imóvel
-                    </p>
+                    {formErrors.mapaUrl ? (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.mapaUrl}</p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cole o link completo do Google Maps para este imóvel
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1969,19 +1974,10 @@ const TerraControl: React.FC = () => {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Documentos e Registros</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                       <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Matrículas
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleAddMatricula}
-                          className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          <Plus className="w-3 h-3" /> Nova Matrícula
-                        </button>
-                      </div>
-                      
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Matrículas
+                      </label>
+
                       <div className="space-y-3">
                         {form.matriculasDados?.map((matricula) => (
                           <div key={matricula.id} className="flex gap-2 items-start bg-gray-50 dark:bg-[#1a2a3e] p-3 rounded-lg border border-gray-100 dark:border-gray-700 relative">
@@ -2047,7 +2043,15 @@ const TerraControl: React.FC = () => {
                             )}
                           </div>
                         ))}
-                        
+
+                        <button
+                          type="button"
+                          onClick={handleAddMatricula}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors font-medium border border-blue-100"
+                        >
+                          <Plus className="w-4 h-4" /> Nova Matrícula
+                        </button>
+
                         {(!form.matriculasDados || form.matriculasDados.length === 0) && (
                           <div className="text-center py-4 bg-gray-50 dark:bg-[#1a2a3e] border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhuma matrícula adicionada</p>
@@ -2222,19 +2226,10 @@ const TerraControl: React.FC = () => {
                     </div>
 
                     <div className="md:col-span-2">
-                       <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          ITR
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleAddItr}
-                          className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          <Plus className="w-3 h-3" /> Novo ITR
-                        </button>
-                      </div>
-                      
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        ITR
+                      </label>
+
                       <div className="space-y-3">
                         {form.itrDados?.map((item) => (
                           <div key={item.id} className="flex gap-2 items-start bg-gray-50 dark:bg-[#1a2a3e] p-3 rounded-lg border border-gray-100 dark:border-gray-700 relative">
@@ -2351,7 +2346,15 @@ const TerraControl: React.FC = () => {
                             )}
                           </div>
                         ))}
-                        
+
+                        <button
+                          type="button"
+                          onClick={handleAddItr}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors font-medium border border-blue-100"
+                        >
+                          <Plus className="w-4 h-4" /> Novo ITR
+                        </button>
+
                         {(!form.itrDados || form.itrDados.length === 0) && (
                           <div className="text-center py-4 bg-gray-50 dark:bg-[#1a2a3e] border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhum ITR adicionado</p>
