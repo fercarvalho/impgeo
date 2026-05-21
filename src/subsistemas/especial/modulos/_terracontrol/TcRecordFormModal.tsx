@@ -456,9 +456,15 @@ const TcRecordFormModal: React.FC<Props> = ({ isOpen, onClose, record, onSaved, 
 
         <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#243040] flex justify-between items-center gap-2">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {isEdit
-              ? 'Editar registro reseta o status para "Pendente aprovação"'
-              : 'Após salvar, seu registro será enviado para análise, você será notificado no sistema e por email com uma proposta By Impgeo para ele.'}
+            {isEdit ? (
+              'Editar registro reseta o status para "Pendente aprovação"'
+            ) : (
+              <>
+                Após salvar, seu registro será enviado para análise.
+                <br />
+                Você será notificado no sistema e por email com uma proposta By Impgeo sobre o registro.
+              </>
+            )}
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={onClose}
