@@ -51,8 +51,8 @@ const TcUserProfileModal: React.FC<Props> = ({ isOpen, onClose, tcUser, onEdit }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
-      <div className="bg-white dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg m-4 overflow-hidden">
-        <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-6 text-white">
+      <div className="bg-white dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-lg m-4 max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-6 text-white flex-shrink-0">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-lg font-bold">Meu perfil</h2>
             <button onClick={onClose} className="text-white/80 hover:text-white">
@@ -74,7 +74,7 @@ const TcUserProfileModal: React.FC<Props> = ({ isOpen, onClose, tcUser, onEdit }
           </div>
         </div>
 
-        <div className="p-6 space-y-3">
+        <div className="p-6 space-y-3 flex-1 overflow-y-auto">
           <Field icon={<UserIcon className="w-4 h-4" />} label="Nome completo" value={fullName} />
           <Field icon={<AtSignIcon />} label="Usuário" value={tcUser.username} />
           <Field icon={<Mail className="w-4 h-4" />} label="Email" value={tcUser.email || '—'} />
@@ -119,7 +119,7 @@ const TcUserProfileModal: React.FC<Props> = ({ isOpen, onClose, tcUser, onEdit }
           </div>
         </div>
 
-        <div className="px-6 pb-6 flex justify-end gap-2">
+        <div className="px-6 pb-6 pt-3 flex justify-end gap-2 flex-shrink-0 border-t border-gray-200 dark:border-gray-700">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold">
             Fechar
           </button>
