@@ -152,6 +152,89 @@ const clearAuthCookies = (req, res) => {
   res.clearCookie('refreshToken', opts);
 };
 
+// === TC AUTH COOKIES =========================================================
+// Cookies do TerraControl ficam em domínio separado (.terracontrol.*) e com
+// NOMES diferentes (tcAccessToken, tcRefreshToken) — assim coexistem com os
+// cookies do impgeo no mesmo browser sem nunca colidirem. O Domain é resolvido
+// dinamicamente pelo Host original (mesmo motivo do impgeo: changeOrigin: false
+// no Vite proxy preserva isso em dev).
+const resolveTcCookieDomain = (req) => {
+  if (process.env.TC_COOKIE_DOMAIN) return process.env.TC_COOKIE_DOMAIN;
+  const hostname = (req.hostname || '').toLowerCase();
+  if (hostname === 'terracontrol.local' || hostname.endsWith('.terracontrol.local')) {
+    return '.terracontrol.local';
+  }
+  if (hostname === 'terracontrol.viverdepj.com.br' || hostname.endsWith('.terracontrol.viverdepj.com.br')) {
+    return '.terracontrol.viverdepj.com.br';
+  }
+  return undefined;
+};
+const getTcCookieOptions = (req) => ({
+  httpOnly: true,
+  secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+  sameSite: 'lax',
+  domain: resolveTcCookieDomain(req),
+  path: '/'
+});
+const setTcAuthCookies = (req, res, accessToken, refreshToken) => {
+  const opts = getTcCookieOptions(req);
+  res.cookie('tcAccessToken', accessToken, { ...opts, maxAge: ACCESS_TOKEN_MAX_AGE });
+  if (refreshToken) {
+    res.cookie('tcRefreshToken', refreshToken, { ...opts, maxAge: REFRESH_TOKEN_MAX_AGE });
+  }
+};
+const clearTcAuthCookies = (req, res) => {
+  const opts = getTcCookieOptions(req);
+  res.clearCookie('tcAccessToken',  opts);
+  res.clearCookie('tcRefreshToken', opts);
+};
+
+// === TC-ADMIN COOKIES ========================================================
+// tc-admin (admin.terracontrol.viverdepj.com.br) faz login via /api/auth/
+// login-terracontrol-admin (auth do impgeo). Como o cookie principal do impgeo
+// tem Domain=.impgeo.*, ele NÃO alcança o origin terracontrol. PR #5 (PWA):
+// emitimos um cookie ADICIONAL específico — `tcAdminAccessToken` /
+// `tcAdminRefreshToken` — com Domain=.terracontrol.*, pra que a sessão
+// persista corretamente em PWA standalone (iOS limpa sessionStorage entre
+// fechamentos do app, mas cookie httpOnly persiste).
+//
+// extractAccessToken (middleware impgeo) lê este cookie como fallback do
+// accessToken principal, então o admin shell continua autenticado normalmente.
+const resolveTcAdminCookieDomain = (req) => {
+  if (process.env.TC_ADMIN_COOKIE_DOMAIN) return process.env.TC_ADMIN_COOKIE_DOMAIN;
+  const hostname = (req.hostname || '').toLowerCase();
+  if (hostname === 'terracontrol.local' || hostname.endsWith('.terracontrol.local')) {
+    return '.terracontrol.local';
+  }
+  if (hostname === 'terracontrol.viverdepj.com.br' || hostname.endsWith('.terracontrol.viverdepj.com.br')) {
+    return '.terracontrol.viverdepj.com.br';
+  }
+  return undefined;
+};
+const getTcAdminCookieOptions = (req) => ({
+  httpOnly: true,
+  secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+  sameSite: 'lax',
+  domain: resolveTcAdminCookieDomain(req),
+  path: '/'
+});
+const setTcAdminAuthCookies = (req, res, accessToken, refreshToken) => {
+  // Só emite quando o request veio do domínio terracontrol — senão o browser
+  // rejeita o Set-Cookie por Domain mismatch e seria gritaria à toa.
+  if (!resolveTcAdminCookieDomain(req)) return;
+  const opts = getTcAdminCookieOptions(req);
+  res.cookie('tcAdminAccessToken', accessToken, { ...opts, maxAge: ACCESS_TOKEN_MAX_AGE });
+  if (refreshToken) {
+    res.cookie('tcAdminRefreshToken', refreshToken, { ...opts, maxAge: REFRESH_TOKEN_MAX_AGE });
+  }
+};
+const clearTcAdminAuthCookies = (req, res) => {
+  if (!resolveTcAdminCookieDomain(req)) return;
+  const opts = getTcAdminCookieOptions(req);
+  res.clearCookie('tcAdminAccessToken',  opts);
+  res.clearCookie('tcAdminRefreshToken', opts);
+};
+
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
@@ -412,7 +495,13 @@ const extractAccessToken = (req) => {
     headerToken !== 'undefined' &&
     headerToken.length > 10;
   if (isValidHeaderToken) return headerToken;
-  return req.cookies && req.cookies.accessToken;
+  if (req.cookies) {
+    // PR #5 (PWA): tcAdminAccessToken existe em admin.terracontrol.* e contém
+    // o mesmo JWT do impgeo (emitido por login-terracontrol-admin). Tratado
+    // como fallback do accessToken padrão.
+    return req.cookies.accessToken || req.cookies.tcAdminAccessToken;
+  }
+  return undefined;
 };
 
 // Middleware de autenticação
@@ -2740,12 +2829,17 @@ app.post('/api/tc-auth/login', loginLimiter, async (req, res) => {
       if (result.email) payload.email = result.email;
       return res.status(result.status).json(payload);
     }
+    // PR #2 (PWA): emite cookies httpOnly em .terracontrol.* além de manter
+    // tokens no body (legacyTokenInBody) por 1 release pra rollback seguro
+    // caso o cliente novo (TcAuthContext + tcApi) tenha algum bug em prod.
+    setTcAuthCookies(req, res, result.accessToken, result.refreshToken);
     res.json({
       success: true,
       token: result.accessToken,
       refreshToken: result.refreshToken,
       tcUser: result.tcUser,
       forcePasswordChange: result.forcePasswordChange,
+      legacyTokenInBody: true,
     });
   } catch (error) {
     console.error('Erro em /api/tc-auth/login:', error);
@@ -2754,32 +2848,38 @@ app.post('/api/tc-auth/login', loginLimiter, async (req, res) => {
 });
 
 // POST /api/tc-auth/refresh — rotação de refresh token
+// PR #2 (PWA): aceita refresh tanto via cookie tcRefreshToken (cliente novo)
+// quanto via body (cliente legado/rollback).
 app.post('/api/tc-auth/refresh', async (req, res) => {
   try {
-    const refreshToken = req.body?.refreshToken;
+    const refreshToken = req.cookies?.tcRefreshToken || req.body?.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'Refresh token obrigatório' });
     }
     const ctx = tcRequestContext(req);
     const result = await tcAuth.rotateTcRefreshToken(db, { refreshToken, ...ctx });
+    setTcAuthCookies(req, res, result.accessToken, result.refreshToken);
     res.json({
       success: true,
       token: result.accessToken,
       refreshToken: result.refreshToken,
       tcUser: tcAuth.sanitizeTcUser(result.tcUser),
+      legacyTokenInBody: true,
     });
   } catch (error) {
     res.status(401).json({ success: false, error: error.message || 'Falha ao renovar sessão' });
   }
 });
 
-// POST /api/tc-auth/logout — revoga refresh
+// POST /api/tc-auth/logout — revoga refresh + limpa cookies httpOnly
 app.post('/api/tc-auth/logout', tcAuth.authenticateTcUser, async (req, res) => {
   try {
-    const refreshToken = req.body?.refreshToken;
+    const refreshToken = req.cookies?.tcRefreshToken || req.body?.refreshToken;
     await tcAuth.logoutTcUser(db, refreshToken);
+    clearTcAuthCookies(req, res);
     res.json({ success: true });
   } catch (error) {
+    clearTcAuthCookies(req, res);
     res.status(500).json({ success: false, error: 'Erro ao fazer logout' });
   }
 });
@@ -4035,6 +4135,9 @@ app.post('/api/auth/login-terracontrol-admin', loginLimiter, async (req, res) =>
     if (refreshTokenValue) response.refreshToken = refreshTokenValue;
 
     setAuthCookies(req, res, token, refreshTokenValue);
+    // PR #5 (PWA): emite cookie adicional com Domain=.terracontrol.* pra que
+    // o tc-admin standalone preserve sessão em iOS PWA.
+    setTcAdminAuthCookies(req, res, token, refreshTokenValue);
     res.json(response);
   } catch (error) {
     console.error('Erro em /api/auth/login-terracontrol-admin:', error);
@@ -5577,8 +5680,13 @@ app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res)
 
 app.post('/api/auth/refresh', async (req, res) => {
   try {
-    // Fase 1.3 — aceita refresh token via cookie httpOnly OU body (compatibilidade)
-    const refreshToken = (req.cookies && req.cookies.refreshToken) || req.body.refreshToken;
+    // Fase 1.3 — aceita refresh token via cookie httpOnly OU body (compatibilidade).
+    // PR #5 (PWA): também aceita tcAdminRefreshToken como fallback (tc-admin
+    // standalone em iOS PWA).
+    const refreshToken =
+      (req.cookies && req.cookies.refreshToken) ||
+      (req.cookies && req.cookies.tcAdminRefreshToken) ||
+      req.body.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'refreshToken é obrigatório' });
     }
@@ -5599,8 +5707,9 @@ app.post('/api/auth/refresh', async (req, res) => {
       { expiresIn: '15m' }
     );
 
-    // Atualiza ambos os cookies (rotação)
+    // Atualiza ambos os cookies (rotação) + o cookie tc-admin quando aplicável.
     setAuthCookies(req, res, accessToken, rotated.token);
+    setTcAdminAuthCookies(req, res, accessToken, rotated.token);
 
     return res.json({ success: true, token: accessToken, refreshToken: rotated.token });
   } catch (error) {
@@ -5623,6 +5732,7 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     }
     // Limpa cookies independentemente de termos achado o refresh token
     clearAuthCookies(req, res);
+    clearTcAdminAuthCookies(req, res);
     await logAudit({
       operation: AUDIT_OPERATIONS.LOGOUT,
       userId: req.user.id,

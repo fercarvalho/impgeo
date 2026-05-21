@@ -38,16 +38,25 @@ function verifyAccessToken(token) {
   return jwt.verify(token, JWT_SECRET, { audience: JWT_AUDIENCE });
 }
 
-// Extrai token Bearer; o frontend tc_user usa header explícito (cookie
-// httpOnly seria complicado dado que vamos rodar em subdomínio diferente).
+// Extrai token TC. Prioridade ALTA pro Bearer header pra cobrir o caso de
+// token recém-rotacionado (cliente já tem o novo, cookie pode ainda estar
+// com o antigo no round-trip atual — mesmo padrão dos endpoints impgeo).
+// Fallback: cookie httpOnly tcAccessToken (PR #2 / PWA). Em PWAs standalone
+// no iOS, cookie httpOnly persiste corretamente; sessionStorage não.
 function extractTcAccessToken(req) {
   const authHeader = req.headers['authorization'];
-  if (!authHeader) return null;
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') return null;
-  const t = parts[1];
-  if (!t || t === 'null' || t === 'undefined' || t.length < 10) return null;
-  return t;
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && parts[0] === 'Bearer') {
+      const t = parts[1];
+      if (t && t !== 'null' && t !== 'undefined' && t.length >= 10) return t;
+    }
+  }
+  const cookieToken = req.cookies?.tcAccessToken;
+  if (cookieToken && cookieToken !== 'null' && cookieToken !== 'undefined' && cookieToken.length >= 10) {
+    return cookieToken;
+  }
+  return null;
 }
 
 // Middleware: popula req.tcUser se JWT tc válido.
