@@ -789,8 +789,8 @@ const TerraControlView: React.FC<Props> = (props) => {
               <div key={record.id} className="bg-white dark:!bg-[#243040] rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
                 {/* ── HEADER ───────────────────────────────── */}
-                <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 py-3 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 py-3 flex flex-col gap-2.5">
+                  <div className="flex items-start gap-2.5 min-w-0">
                     <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide mt-0.5">
                       #{formatCodImovel(record.codImovel)}
                     </span>
@@ -806,7 +806,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center items-stretch gap-1.5 shrink-0">
+                  <div className="flex flex-row flex-wrap items-center gap-1.5">
                     {record.mapaUrl && (
                       <button
                         onClick={() => { setSelectedMapUrl(record.mapaUrl || ''); setSelectedImovel(record.imovel); setIsMapModalOpen(true) }}
