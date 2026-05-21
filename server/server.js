@@ -2844,6 +2844,79 @@ app.post('/api/tc-auth/me/photo', tcAuth.authenticateTcUser, uploadAvatar.single
   }
 });
 
+// ===========================================================================
+// Notificações in-app pra tc_users (espelha /api/notifications do impgeo)
+// ===========================================================================
+
+app.get('/api/tc-auth/notifications', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const onlyUnread = req.query.onlyUnread === 'true';
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const notifs = await db.getTcNotificationsForUser(req.tcUser.id, { onlyUnread, limit });
+    const unreadCount = await db.getUnreadTcNotificationCount(req.tcUser.id);
+    res.json({ success: true, data: notifs, unreadCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/tc-auth/notifications/read-all', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    await db.markAllTcNotificationsAsRead(req.tcUser.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/tc-auth/notifications/clear-all', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const cleared = await db.clearAllTcNotifications(req.tcUser.id);
+    res.json({ success: true, cleared });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/tc-auth/notifications', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const onlyCleared = req.query.onlyCleared === 'true';
+    const deleted = await db.deleteAllTcNotificationsForUser(req.tcUser.id, { onlyCleared });
+    res.json({ success: true, deleted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Rotas com :id depois das literais (read-all, clear-all)
+app.patch('/api/tc-auth/notifications/:id/read', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const updated = await db.markTcNotificationAsRead(req.params.id, req.tcUser.id);
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/tc-auth/notifications/:id/clear', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const updated = await db.clearTcNotification(req.params.id, req.tcUser.id);
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/tc-auth/notifications/:id', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const deleted = await db.deleteTcNotification(req.params.id, req.tcUser.id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Notificação não encontrada' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/tc-auth/me/records — lista registros TerraControl que o tc_user pode ver
 app.get('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) => {
   try {

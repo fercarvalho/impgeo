@@ -8,6 +8,7 @@
 import React from 'react'
 import type { TcUser } from '@/contexts/TcAuthContext'
 import TcMenuUsuario from './TcMenuUsuario'
+import TcNotificationBell from './TcNotificationBell'
 
 interface Props {
   tcUser: TcUser
@@ -42,6 +43,7 @@ const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOp
                 <span className="text-base font-bold text-white">IMPGEO</span>
               </div>
             </div>
+            <TcNotificationBell />
             <TcMenuUsuario
               tcUser={tcUser}
               onOpenProfile={onOpenProfile}

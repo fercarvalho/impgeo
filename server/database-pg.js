@@ -2569,6 +2569,113 @@ class Database {
     return u.can_manage_tc_users === true;
   }
 
+  // =========================================================================
+  // tc_notifications — sistema de notificações in-app pra tc_users
+  // Espelha api das `notifications` do impgeo (migration 018/020) mas com FK
+  // pra tc_users. Consumido pelos endpoints /api/tc-auth/notifications/*.
+  // =========================================================================
+
+  async createTcNotification(notif) {
+    const id = this.generateId();
+    const result = await this.queryWithRetry(
+      `INSERT INTO tc_notifications
+         (id, tc_user_id, notification_type, title, message, related_entity_type, related_entity_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        id,
+        notif.tc_user_id,
+        notif.notification_type,
+        notif.title,
+        notif.message || null,
+        notif.related_entity_type || null,
+        notif.related_entity_id || null,
+      ]
+    );
+    return result.rows[0];
+  }
+
+  async getTcNotificationsForUser(tcUserId, { onlyUnread = false, limit = 50, includeCleared = false } = {}) {
+    const result = await this.queryWithRetry(
+      `SELECT * FROM tc_notifications
+        WHERE tc_user_id = $1
+          AND ($2::BOOLEAN = FALSE OR is_read = FALSE)
+          AND ($3::BOOLEAN = TRUE  OR cleared = FALSE)
+        ORDER BY created_at DESC
+        LIMIT $4`,
+      [tcUserId, onlyUnread, includeCleared, limit]
+    );
+    return result.rows;
+  }
+
+  async getUnreadTcNotificationCount(tcUserId) {
+    const result = await this.queryWithRetry(
+      'SELECT COUNT(*)::INT AS count FROM tc_notifications WHERE tc_user_id = $1 AND is_read = FALSE AND cleared = FALSE',
+      [tcUserId]
+    );
+    return result.rows[0].count;
+  }
+
+  async markTcNotificationAsRead(id, tcUserId) {
+    const result = await this.queryWithRetry(
+      `UPDATE tc_notifications
+          SET is_read = TRUE, read_at = NOW()
+        WHERE id = $1 AND tc_user_id = $2
+        RETURNING *`,
+      [id, tcUserId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async markAllTcNotificationsAsRead(tcUserId) {
+    await this.queryWithRetry(
+      `UPDATE tc_notifications
+          SET is_read = TRUE, read_at = NOW()
+        WHERE tc_user_id = $1 AND is_read = FALSE AND cleared = FALSE`,
+      [tcUserId]
+    );
+  }
+
+  async clearTcNotification(id, tcUserId) {
+    const result = await this.queryWithRetry(
+      `UPDATE tc_notifications
+          SET cleared = TRUE, cleared_at = NOW()
+        WHERE id = $1 AND tc_user_id = $2
+        RETURNING *`,
+      [id, tcUserId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async clearAllTcNotifications(tcUserId) {
+    const result = await this.queryWithRetry(
+      `UPDATE tc_notifications
+          SET cleared = TRUE, cleared_at = NOW()
+        WHERE tc_user_id = $1 AND cleared = FALSE
+        RETURNING id`,
+      [tcUserId]
+    );
+    return result.rows.length;
+  }
+
+  async deleteTcNotification(id, tcUserId) {
+    const result = await this.queryWithRetry(
+      'DELETE FROM tc_notifications WHERE id = $1 AND tc_user_id = $2 RETURNING id',
+      [id, tcUserId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async deleteAllTcNotificationsForUser(tcUserId, { onlyCleared = false } = {}) {
+    const result = await this.queryWithRetry(
+      `DELETE FROM tc_notifications
+        WHERE tc_user_id = $1 AND ($2::BOOLEAN = FALSE OR cleared = TRUE)
+        RETURNING id`,
+      [tcUserId, onlyCleared]
+    );
+    return result.rows.length;
+  }
+
   async listTcUsersForAdmin() {
     // Inclui contagem de registros acessíveis por tc_user
     const r = await this.queryWithRetry(
