@@ -2033,7 +2033,8 @@ class Database {
   // Regra: admin/superadmin (bypass) + users com módulo terracontrol explícito.
   async getImpgeoUsersWithTerraControlAccess() {
     const r = await this.queryWithRetry(
-      `SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email
+      `SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email,
+                       COALESCE(u.tc_email_notifications, FALSE) AS tc_email_notifications
          FROM users u
          LEFT JOIN user_module_permissions ump
            ON ump.user_id = u.id AND ump.module_key = 'terracontrol'
@@ -3865,7 +3866,8 @@ class Database {
           is_active,
           last_login,
           created_at,
-          updated_at
+          updated_at,
+          COALESCE(tc_email_notifications, FALSE) AS tc_email_notifications
         FROM users
         WHERE id = $1
       `,
@@ -3915,9 +3917,31 @@ class Database {
       lastLogin: user.last_login || null,
       createdAt: user.created_at || null,
       updatedAt: user.updated_at || null,
+      tcEmailNotifications: user.tc_email_notifications === true,
       modulesAccess,
       permissionsSource
     };
+  }
+
+  // Atualiza preferências leves do usuário (toggle opt-in de notificações
+  // por email do TerraControl, futuras flags). Endpoint dedicado pra evitar
+  // que esse path use o /api/user/profile que exige senha atual.
+  async updateUserPreferences(userId, prefs) {
+    const sets = [];
+    const params = [];
+    if (Object.prototype.hasOwnProperty.call(prefs, 'tcEmailNotifications')) {
+      params.push(prefs.tcEmailNotifications === true);
+      sets.push(`tc_email_notifications = $${params.length}`);
+    }
+    if (sets.length === 0) {
+      return await this.getUserProfileById(userId);
+    }
+    params.push(userId);
+    await this.queryWithRetry(
+      `UPDATE users SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
+      params
+    );
+    return await this.getUserProfileById(userId);
   }
 
   async criarTokenRecuperacao(userId, ttlMinutes = 60) {

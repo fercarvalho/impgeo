@@ -17,7 +17,12 @@ const mongoSanitize = require('express-mongo-sanitize');
 const sanitizeHtml = require('sanitize-html');
 const { z } = require('zod');
 const Database = require('./database-pg');
-const { enviarEmailRecuperacao } = require('./services/email');
+const {
+  enviarEmailRecuperacao,
+  enviarEmailTcRegistroAprovado,
+  enviarEmailTcRegistroEditado,
+  enviarEmailImpgeoTcRecordCriado,
+} = require('./services/email');
 const { parseExtrato } = require('./services/extratoParser');
 const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
 const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
@@ -1988,10 +1993,16 @@ app.post('/api/terracontrol', async (req, res) => {
   }
 });
 
-app.put('/api/terracontrol/:id', async (req, res) => {
+// Edição genérica de registro pelo admin. Quando o registro pertence a um
+// tc_user (created_by_tc_user_id populado), notifica o dono via sino + email.
+// Edição feita pelo próprio tc_user usa outro endpoint: PUT /api/tc-auth/me/
+// records/:id — esse não dispara notif/email (ele é o ator).
+app.put('/api/terracontrol/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const record = await db.updateTerraControl(id, req.body);
+    const editedByName = req.user?.name || req.user?.username || 'um administrador';
+    dispatchTcRecordEventToOwner(record, 'edited', { editedByName }).catch(() => {});
     res.json({ success: true, data: record });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -2008,6 +2019,84 @@ app.delete('/api/terracontrol/:id', async (req, res) => {
   }
 });
 
+// Helper: notifica o tc_user dono do registro sobre uma ação do admin
+// (aprovação / edição). Dispara o sino in-app via tc_notifications e
+// também um email via SendGrid, ambos fire-and-forget. Erros são logados
+// mas não quebram a request principal — falha de email/notif não deve
+// reverter aprovação ou edição.
+//
+// `event` controla a cópia: 'approved' ou 'edited'.
+async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}) {
+  if (!record) return;
+  const tcUserId = record.created_by_tc_user_id;
+  if (!tcUserId) return; // registro não é de um tc_user — nada a fazer
+
+  let tcUser;
+  try {
+    tcUser = await db.getTcUserById(tcUserId);
+  } catch (e) {
+    console.error('[tc-notif] Falha ao buscar tc_user:', e?.message);
+    return;
+  }
+  if (!tcUser) return;
+
+  const imovel = record.imovel || '';
+  const municipio = record.municipio || '';
+  const codImovel = record.cod_imovel != null ? record.cod_imovel : null;
+  const username = [tcUser.first_name, tcUser.last_name].filter(Boolean).join(' ').trim()
+    || tcUser.username
+    || 'usuário';
+
+  const title = event === 'approved'
+    ? 'Seu registro foi aprovado'
+    : 'Seu registro foi atualizado';
+  const message = event === 'approved'
+    ? `${imovel}${municipio ? ` em ${municipio}` : ''} — agora visível no TerraControl`
+    : `${editedByName || 'Um administrador'} editou ${imovel}${municipio ? ` em ${municipio}` : ''}`;
+
+  // 1) Sino in-app (tc_notifications)
+  try {
+    await db.createTcNotification({
+      tc_user_id: tcUserId,
+      notification_type: event === 'approved' ? 'tc_record_approved' : 'tc_record_edited',
+      title,
+      message,
+      related_entity_type: 'terracontrol',
+      related_entity_id: record.id,
+    });
+  } catch (e) {
+    console.error('[tc-notif] Falha ao gravar notif in-app:', e?.message);
+  }
+
+  // 2) Email (se tc_user tiver email cadastrado)
+  if (!tcUser.email) return;
+  const loginUrl = process.env.TC_PUBLIC_URL || 'https://terracontrol.viverdepj.com.br';
+  try {
+    if (event === 'approved') {
+      await enviarEmailTcRegistroAprovado({
+        toEmail: tcUser.email,
+        username,
+        imovel,
+        municipio,
+        codImovel,
+        loginUrl,
+      });
+    } else {
+      await enviarEmailTcRegistroEditado({
+        toEmail: tcUser.email,
+        username,
+        imovel,
+        municipio,
+        codImovel,
+        editedByName,
+        loginUrl,
+      });
+    }
+  } catch (e) {
+    console.error('[tc-notif] Falha ao enviar email:', e?.message);
+  }
+}
+
 // PATCH /api/admin/terracontrol/:id/approve — admin aprova registro pendente
 // Requer auth impgeo (admin/superadmin OU usuário com módulo terracontrol).
 app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, async (req, res) => {
@@ -2022,6 +2111,9 @@ app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, async (req, 
       }
     }
     const updated = await db.approveTerraControlRecord(req.params.id, req.user.id);
+    // Notif + email pro tc_user dono (fire-and-forget, sem await pra não
+    // atrasar o response). Falha aqui não desfaz a aprovação.
+    dispatchTcRecordEventToOwner(updated, 'approved').catch(() => {});
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Erro ao aprovar' });
@@ -2973,13 +3065,21 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
 
     const created = await db.saveTerraControlAsTcUser(payload, req.tcUser.id);
 
-    // Dispara notificações pra impgeo users (fire-and-forget)
+    // Dispara notificações pra impgeo users (fire-and-forget).
+    // - Sino in-app: TODOS com acesso ao módulo (admin/superadmin ou
+    //   user_module_permissions de 'terracontrol').
+    // - Email: SÓ quem deu opt-in (users.tc_email_notifications = TRUE).
+    //   Padrão é FALSE pra evitar spam — admin liga em "Meu perfil".
     (async () => {
       try {
         const impgeoUsers = await db.getImpgeoUsersWithTerraControlAccess();
         const tcName = [req.tcUser.firstName, req.tcUser.lastName].filter(Boolean).join(' ').trim()
           || req.tcUser.username
           || 'um usuário TerraControl';
+        const adminUrl = process.env.IMPGEO_PUBLIC_URL
+          ? `${process.env.IMPGEO_PUBLIC_URL}/?subsystem=especial&module=terracontrol&record=${created.id}`
+          : undefined;
+        const codImovel = created.cod_imovel != null ? created.cod_imovel : null;
         for (const u of impgeoUsers) {
           await db.createNotification({
             user_id: u.id,
@@ -2989,6 +3089,21 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
             related_entity_type: 'terracontrol',
             related_entity_id: created.id,
           });
+          // Email opt-in (filtro feito aqui, query já trouxe a flag)
+          if (u.tc_email_notifications === true && u.email) {
+            const recipientName = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
+              || u.username
+              || 'usuário';
+            enviarEmailImpgeoTcRecordCriado({
+              toEmail: u.email,
+              recipientName,
+              tcUserName: tcName,
+              imovel: created.imovel,
+              municipio: created.municipio,
+              codImovel,
+              adminUrl,
+            }).catch(e => console.error('[tc-records] Falha ao enviar email:', e?.message));
+          }
         }
       } catch (notifErr) {
         console.error('[tc-records] Falha ao disparar notificações:', notifErr?.message);
@@ -4105,6 +4220,26 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+// Toggle leve de preferências do usuário — sem exigir senha atual (em
+// contraste com PUT /api/user/profile, que altera campos sensíveis).
+// Hoje só atende tcEmailNotifications; ampliar conforme novas prefs.
+app.patch('/api/user/preferences', authenticateToken, async (req, res) => {
+  try {
+    const allowed = ['tcEmailNotifications'];
+    const prefs = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+        prefs[key] = req.body[key];
+      }
+    }
+    const profile = await db.updateUserPreferences(req.user.id, prefs);
+    return res.json({ success: true, data: profile });
+  } catch (error) {
+    console.error('PATCH /api/user/preferences:', error);
+    return res.status(500).json({ success: false, error: 'Erro ao atualizar preferências' });
   }
 });
 

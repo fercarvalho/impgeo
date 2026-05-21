@@ -285,8 +285,189 @@ async function enviarEmailTcConvite({ toEmail, acceptUrl, invitedByName, expires
   return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
 }
 
+// ============================================================================
+// Notificações de eventos sobre registros TerraControl (aprovação / edição)
+// Disparados pelo server.js após uma ação do admin sobre um registro que tem
+// `created_by_tc_user_id`. Usam a mesma paleta verde→azul do reset/convite.
+// ============================================================================
+
+function buildTcRecordCardBlock({ imovel, municipio, codImovel }) {
+  const lines = [
+    imovel ? `<strong>${imovel}</strong>` : null,
+    municipio ? `<span style="color:#6b7280;">${municipio}</span>` : null,
+    codImovel ? `<span style="font-family:monospace;color:#9ca3af;">#${codImovel}</span>` : null,
+  ].filter(Boolean).join(' · ');
+  return `<div style="background:#f9fafb;border-left:4px solid #48A326;padding:14px 16px;border-radius:6px;margin:18px 0;font-size:15px;color:#111827;">${lines || 'Registro TerraControl'}</div>`;
+}
+
+function buildTcRecordCardText({ imovel, municipio, codImovel }) {
+  const parts = [imovel, municipio, codImovel ? `#${codImovel}` : null].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Registro TerraControl';
+}
+
+function buildTcRegistroAprovadoTemplate({ username, imovel, municipio, codImovel, loginUrl }) {
+  const subject = 'Seu registro foi aprovado — TerraControl';
+  const card = buildTcRecordCardBlock({ imovel, municipio, codImovel });
+  const cardText = buildTcRecordCardText({ imovel, municipio, codImovel });
+  const text = `Olá ${username || ''},\n\n` +
+    `Seu registro foi aprovado e já está visível no TerraControl.\n\n` +
+    `Registro: ${cardText}\n\n` +
+    (loginUrl ? `Acesse: ${loginUrl}\n\n` : '') +
+    `— Equipe TerraControl`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Seu registro foi aprovado</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+            <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+              Seu registro foi <strong>aprovado</strong> e já está disponível no TerraControl.
+            </p>
+            ${card}
+            ${loginUrl ? `<p style="text-align:center;margin:24px 0;">
+              <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Acessar TerraControl</a>
+            </p>` : ''}
+            <p style="margin:18px 0 0 0;font-size:13px;color:#6b7280;">Você também recebeu uma notificação no sininho do TerraControl.</p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe TerraControl
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailTcRegistroAprovado({ toEmail, username, imovel, municipio, codImovel, loginUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcRegistroAprovadoTemplate({ username, imovel, municipio, codImovel, loginUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+function buildTcRegistroEditadoTemplate({ username, imovel, municipio, codImovel, editedByName, loginUrl }) {
+  const subject = 'Seu registro foi atualizado — TerraControl';
+  const card = buildTcRecordCardBlock({ imovel, municipio, codImovel });
+  const cardText = buildTcRecordCardText({ imovel, municipio, codImovel });
+  const ator = editedByName || 'um administrador';
+  const text = `Olá ${username || ''},\n\n` +
+    `${ator} atualizou um dos seus registros no TerraControl.\n\n` +
+    `Registro: ${cardText}\n\n` +
+    (loginUrl ? `Acesse: ${loginUrl}\n\n` : '') +
+    `— Equipe TerraControl`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Seu registro foi atualizado</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+            <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+              <strong>${ator}</strong> atualizou um dos seus registros no TerraControl.
+            </p>
+            ${card}
+            ${loginUrl ? `<p style="text-align:center;margin:24px 0;">
+              <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Ver no TerraControl</a>
+            </p>` : ''}
+            <p style="margin:18px 0 0 0;font-size:13px;color:#6b7280;">Você também recebeu uma notificação no sininho do TerraControl.</p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe TerraControl
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailTcRegistroEditado({ toEmail, username, imovel, municipio, codImovel, editedByName, loginUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcRegistroEditadoTemplate({ username, imovel, municipio, codImovel, editedByName, loginUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// ============================================================================
+// Notif pro impgeo user (opt-in) — tc_user cadastrou novo registro
+// ============================================================================
+
+function buildImpgeoTcRecordCriadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, adminUrl }) {
+  const subject = `Novo registro no TerraControl — ${imovel || 'sem nome'}`;
+  const card = buildTcRecordCardBlock({ imovel, municipio, codImovel });
+  const cardText = buildTcRecordCardText({ imovel, municipio, codImovel });
+  const text = `Olá ${recipientName || ''},\n\n` +
+    `${tcUserName} cadastrou um novo registro no TerraControl — aguardando aprovação.\n\n` +
+    `Registro: ${cardText}\n\n` +
+    (adminUrl ? `Acesse para revisar: ${adminUrl}\n\n` : '') +
+    `Você está recebendo esse email porque ativou as notificações por email do TerraControl. Pode desligar a qualquer momento em "Meu perfil" no IMPGEO.\n\n` +
+    `— Equipe IMPGEO`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Novo registro aguardando aprovação</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${recipientName || 'usuário'}</strong>,</p>
+            <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+              <strong>${tcUserName}</strong> cadastrou um novo registro no TerraControl — aguardando sua revisão.
+            </p>
+            ${card}
+            ${adminUrl ? `<p style="text-align:center;margin:24px 0;">
+              <a href="${adminUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#48A326,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Abrir TerraControl</a>
+            </p>` : ''}
+            <p style="margin:18px 0 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+              Você está recebendo este email porque ativou notificações por email do TerraControl. Pode desligar em "Meu perfil" no IMPGEO.
+            </p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe IMPGEO
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailImpgeoTcRecordCriado({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, adminUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildImpgeoTcRecordCriadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, adminUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
 module.exports = {
   enviarEmailRecuperacao,
   enviarEmailTcResetSenha,
   enviarEmailTcConvite,
+  enviarEmailTcRegistroAprovado,
+  enviarEmailTcRegistroEditado,
+  enviarEmailImpgeoTcRecordCriado,
 };

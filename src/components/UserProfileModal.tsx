@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, User, Shield, CheckCircle, XCircle, Calendar, Clock, Edit, Mail, Phone, MapPin, Briefcase, CreditCard } from 'lucide-react';
+import { X, User, Shield, CheckCircle, XCircle, Calendar, Clock, Edit, Mail, Phone, MapPin, Briefcase, CreditCard, Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LazyAvatar from './LazyAvatar';
 import EditarPerfilModal from './EditarPerfilModal';
@@ -45,6 +45,7 @@ interface UserProfileData {
   lastLogin?: string;
   createdAt?: string;
   updatedAt?: string;
+  tcEmailNotifications?: boolean;
 }
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
@@ -53,7 +54,37 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [savingTcPref, setSavingTcPref] = useState(false);
   const mountedRef = useRef(true);
+
+  // Mostra a seção de "notificações por email do TerraControl" só pra quem
+  // tem acesso ao módulo — admin/superadmin ou módulo 'terracontrol' explicito.
+  const hasTcAccess = (() => {
+    if (user?.role === 'admin' || user?.role === 'superadmin') return true;
+    return Array.isArray(user?.modulesAccess)
+      && user!.modulesAccess!.some(m => m.moduleKey === 'terracontrol');
+  })();
+
+  const toggleTcEmailNotifications = async () => {
+    if (!profileData || savingTcPref) return;
+    const next = !(profileData.tcEmailNotifications === true);
+    // Optimistic update
+    setProfileData(prev => prev ? { ...prev, tcEmailNotifications: next } : prev);
+    setSavingTcPref(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/preferences`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tcEmailNotifications: next }),
+      });
+      if (!res.ok) throw new Error('failed');
+    } catch {
+      // Reverte se falhou
+      setProfileData(prev => prev ? { ...prev, tcEmailNotifications: !next } : prev);
+    } finally {
+      if (mountedRef.current) setSavingTcPref(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -384,6 +415,43 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                     )}
                   </div>
                 </div>
+
+                {hasTcAccess && (
+                  <div className="mt-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-3">
+                      <Bell className="w-4 h-4" aria-hidden="true" />
+                      Preferências de notificação
+                    </p>
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={profileData.tcEmailNotifications === true}
+                        onClick={toggleTcEmailNotifications}
+                        disabled={savingTcPref}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
+                          profileData.tcEmailNotifications
+                            ? 'bg-blue-600'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                        } ${savingTcPref ? 'opacity-60 cursor-wait' : ''}`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                            profileData.tcEmailNotifications ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span className="flex-1 text-sm">
+                        <span className="font-medium text-gray-900 dark:text-gray-100 block">
+                          Receber email do TerraControl
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Avisa por email quando um tc_user cadastra um novo registro pra aprovação. O sininho continua avisando independente disso.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
 
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
