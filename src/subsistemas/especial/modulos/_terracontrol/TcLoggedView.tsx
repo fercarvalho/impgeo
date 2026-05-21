@@ -136,6 +136,33 @@ const TcLoggedView: React.FC = () => {
     }
   }, [records, tcToken, notify, confirm])
 
+  // F: exclusão em massa (botão "Excluir N selecionados" na action bar)
+  const handleDeleteSelected = useCallback(async (ids: string[]) => {
+    if (!ids.length) return
+    const ok = await confirm(
+      `Tem certeza que deseja excluir ${ids.length} registro${ids.length > 1 ? 's' : ''}?`,
+      { variant: 'danger', confirmLabel: 'Excluir todos' }
+    )
+    if (!ok) return
+    let okCount = 0
+    let errCount = 0
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/tc-auth/me/records/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${tcToken}` },
+          credentials: 'include',
+        })
+        if (res.ok) okCount++
+        else errCount++
+      } catch { errCount++ }
+    }
+    if (errCount === 0) notify(`${okCount} registro(s) excluído(s)`, { type: 'success' })
+    else if (okCount === 0) notify('Erro ao excluir os registros', { type: 'error' })
+    else notify(`${okCount} excluído(s), ${errCount} falharam`, { type: 'warning' })
+    setRefetchKey(k => k + 1)
+  }, [tcToken, notify, confirm])
+
   if (!tcUser || !tcToken) return null
 
   return (
@@ -159,6 +186,7 @@ const TcLoggedView: React.FC = () => {
           onCreateRecord: handleCreateRecord,
           onEditRecord: tcUser.editRecordsPermission !== 'none' ? handleEditRecord : undefined,
           onDeleteRecord: tcUser.deleteRecordsPermission !== 'none' ? handleDeleteRecord : undefined,
+          onDeleteSelected: tcUser.deleteRecordsPermission !== 'none' ? handleDeleteSelected : undefined,
           canEditRecord,
           canDeleteRecord,
           approvalFilter,

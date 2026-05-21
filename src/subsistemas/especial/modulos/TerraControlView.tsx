@@ -74,6 +74,10 @@ export type TerraControlViewMode =
       onCreateRecord?: () => void
       onEditRecord?: (recordId: string) => void
       onDeleteRecord?: (recordId: string) => void
+      // F: exclusão em massa (chamada pelo botão "Excluir selecionados")
+      // Backend valida permissão linha-a-linha; client filtra pelo canDeleteRecord
+      // antes de mandar a requisição.
+      onDeleteSelected?: (recordIds: string[]) => Promise<void> | void
       // F: filtro de aprovação ('all' = todos | 'approved' = só aprovados)
       approvalFilter?: 'all' | 'approved'
       onChangeApprovalFilter?: (filter: 'all' | 'approved') => void
@@ -122,6 +126,11 @@ const TerraControlView: React.FC<Props> = (props) => {
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
   const [validatedPassword, setValidatedPassword] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
+  // F: seleção de registros (tc_user mode) — usada por exportar PDF,
+  // compartilhar (se vazio: todos) e excluir selecionados.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   // G2.1 — após o backend exigir auth em /api/documents, links públicos
   // precisam passar auth como query params (Authorization header não funciona
@@ -141,6 +150,130 @@ const TerraControlView: React.FC<Props> = (props) => {
     const params = new URLSearchParams({ token: mode.token })
     if (validatedPassword) params.set('password', validatedPassword)
     return `${url}?${params.toString()}`
+  }
+
+  // F: helpers de seleção
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  const clearSelection = () => setSelectedIds(new Set())
+
+  // F: PDF de métricas. Estratégia: jsPDF programático (sem html2canvas) com
+  // título, sumário de métricas calculadas (igual aos cards do topo) e tabela
+  // com os registros — selecionados ou todos (se nenhum marcado).
+  const handleExportPdf = async () => {
+    if (exportingPdf) return
+    setExportingPdf(true)
+    try {
+      // Records a exportar: selecionados OU todos (visíveis filtrados)
+      const targetIds = selectedIds.size > 0 ? selectedIds : null
+      const targetRecords = targetIds
+        ? records.filter(r => targetIds.has(String(r.id)))
+        : sortedRecords
+      if (targetRecords.length === 0) {
+        notify('Nenhum registro para exportar.', { type: 'warning' })
+        return
+      }
+      // Métricas agregadas
+      const totalArea = targetRecords.reduce((s, r) => s + (r.areaTotal || 0), 0)
+      const totalRL   = targetRecords.reduce((s, r) => s + (r.reservaLegal || 0), 0)
+      const comGeoCert = targetRecords.filter(r => r.geoCertificacao === 'SIM').length
+      const comGeoReg  = targetRecords.filter(r => r.geoRegistro === 'SIM').length
+
+      // Lazy import — jsPDF é pesado, só baixa quando exporta
+      const jsPDF = (await import('jspdf')).default
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const margin = 12
+      let y = margin
+
+      // Header
+      doc.setFillColor(72, 163, 38) // tc-green
+      doc.rect(0, 0, pageWidth, 22, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.text('TerraControl — Relatório de Imóveis', margin, 14)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      const dateStr = new Date().toLocaleString('pt-BR')
+      const ownerStr = mode.kind === 'tcuser' && mode.tcUserFirstName ? ` · ${mode.tcUserFirstName}` : ''
+      doc.text(`Gerado em ${dateStr}${ownerStr}`, margin, 19)
+      y = 30
+
+      // Resumo
+      doc.setTextColor(30, 30, 30)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('Resumo', margin, y)
+      y += 6
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      const summaryLines = [
+        `Total de imóveis: ${targetRecords.length}`,
+        `Área total: ${formatNumber(totalArea)} ha`,
+        `Reserva Legal somada: ${formatNumber(totalRL)} ha`,
+        `Com geo certificação: ${comGeoCert} / ${targetRecords.length}`,
+        `Com geo registro: ${comGeoReg} / ${targetRecords.length}`,
+      ]
+      summaryLines.forEach(line => { doc.text(line, margin, y); y += 5.5 })
+      y += 4
+
+      // Lista de registros (tabela simples)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('Registros', margin, y)
+      y += 6
+
+      for (const r of targetRecords) {
+        if (y > 270) { doc.addPage(); y = margin }
+        doc.setFillColor(240, 245, 250)
+        doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(0, 65, 177) // tc-blue
+        doc.text(`#${formatCodImovel(r.codImovel)} · ${r.imovel || ''}`, margin + 1, y + 1)
+        doc.setTextColor(80, 80, 80)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8.5)
+        doc.text(r.municipio || '—', pageWidth - margin - doc.getTextWidth(r.municipio || '—') - 1, y + 1)
+        y += 8
+        doc.setTextColor(40, 40, 40)
+        doc.setFontSize(9)
+        const fields: Array<[string, string]> = [
+          ['CAR', r.car || '—'],
+          ['Status CAR', r.statusCar || '—'],
+          ['Área total', `${formatNumber(r.areaTotal || 0)} ha`],
+          ['Reserva Legal', `${formatNumber(r.reservaLegal || 0)} ha`],
+          ['Cultura 1', r.cultura1 ? `${r.cultura1} (${formatNumber(r.areaCultura1 || 0)} ha)` : '—'],
+          ['Cultura 2', r.cultura2 ? `${r.cultura2} (${formatNumber(r.areaCultura2 || 0)} ha)` : '—'],
+          ['Geo Certificação', r.geoCertificacao || '—'],
+          ['Geo Registro', r.geoRegistro || '—'],
+        ]
+        fields.forEach(([k, v]) => {
+          if (y > 280) { doc.addPage(); y = margin }
+          doc.setFont('helvetica', 'bold')
+          doc.text(k + ':', margin + 4, y)
+          doc.setFont('helvetica', 'normal')
+          doc.text(String(v), margin + 35, y)
+          y += 4.8
+        })
+        y += 3
+      }
+
+      const filenamePrefix = mode.kind === 'tcuser' ? `terracontrol-${mode.tcUserFirstName || 'usuario'}` : 'terracontrol'
+      doc.save(`${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.pdf`)
+      notify('PDF exportado', { type: 'success' })
+    } catch (err: any) {
+      console.error('Erro export PDF:', err)
+      notify(err?.message || 'Erro ao gerar PDF', { type: 'error' })
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   useEffect(() => {
@@ -521,61 +654,129 @@ const TerraControlView: React.FC<Props> = (props) => {
         </div>
 
         {/* F: barra de ações do tc_user — separada do banner, theme-aware */}
-        {mode.kind === 'tcuser' && (mode.onCreateRecord || mode.onShareBulk || mode.onChangeApprovalFilter) && (
-          <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex flex-wrap items-center gap-3">
-            {mode.onCreateRecord && (
-              <button
-                type="button"
-                onClick={() => mode.onCreateRecord?.()}
-                className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-tc-green to-tc-blue hover:from-tc-green-dark hover:to-tc-blue-dark text-white text-sm font-bold shadow-md shadow-tc-blue/25 transition"
-              >
-                <FileText className="w-4 h-4" />
-                Novo registro
-              </button>
-            )}
-            {mode.onShareBulk && (
-              <button
-                type="button"
-                onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
-                className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white dark:!bg-[#1a2332] hover:bg-gray-50 dark:hover:!bg-[#2a3a4d] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold transition"
-              >
-                <Share2 className="w-4 h-4" />
-                Compartilhar
-              </button>
-            )}
+        {mode.kind === 'tcuser' && (mode.onCreateRecord || mode.onShareBulk || mode.onChangeApprovalFilter) && (() => {
+          // Helpers de seleção pra esta render
+          const visibleIds = sortedRecords.map(r => String(r.id))
+          const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+          const someSelected = !allSelected && visibleIds.some(id => selectedIds.has(id))
+          const toggleAll = () => {
+            if (allSelected) clearSelection()
+            else setSelectedIds(new Set(visibleIds))
+          }
+          // Para "Compartilhar": usa selecionados se houver, senão todos visíveis
+          const idsToShare = selectedIds.size > 0 ? Array.from(selectedIds) : visibleIds
+          // Para "Excluir selecionados": filtra pela permissão client-side
+          const deletableSelected = mode.canDeleteRecord
+            ? sortedRecords.filter(r => selectedIds.has(String(r.id)) && mode.canDeleteRecord!(r)).map(r => String(r.id))
+            : []
+          const canBulkDelete = !!mode.onDeleteSelected && deletableSelected.length > 0
 
-            {/* F: toggle de filtro de aprovação — segmented control theme-aware */}
-            {mode.onChangeApprovalFilter && (
-              <div className="ml-auto flex items-center gap-2 text-xs">
-                <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]">Exibir:</span>
-                <div className="inline-flex rounded-lg bg-gray-100 dark:!bg-[#1a2332] p-0.5 border border-gray-200 dark:border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => mode.onChangeApprovalFilter?.('all')}
-                    className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
-                      mode.approvalFilter !== 'approved'
-                        ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => mode.onChangeApprovalFilter?.('approved')}
-                    className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
-                      mode.approvalFilter === 'approved'
-                        ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    Só aprovados
-                  </button>
+          return (
+            <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex flex-wrap items-center gap-3">
+              {/* F: master checkbox "Selecionar todos visíveis" */}
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = someSelected }}
+                  onChange={toggleAll}
+                  className="w-4 h-4 rounded text-tc-blue focus:ring-tc-blue cursor-pointer"
+                />
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  {selectedIds.size > 0
+                    ? `${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}`
+                    : 'Selecionar tudo'}
+                </span>
+              </label>
+
+              <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+
+              {mode.onCreateRecord && (
+                <button
+                  type="button"
+                  onClick={() => mode.onCreateRecord?.()}
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-tc-green to-tc-blue hover:from-tc-green-dark hover:to-tc-blue-dark text-white text-sm font-bold shadow-md shadow-tc-blue/25 transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  Novo registro
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                title={selectedIds.size > 0 ? `Exportar ${selectedIds.size} registro(s) selecionado(s)` : 'Exportar todos os registros visíveis'}
+                className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white dark:!bg-[#1a2332] hover:bg-gray-50 dark:hover:!bg-[#2a3a4d] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold transition disabled:opacity-50"
+              >
+                {exportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Exportar dados
+              </button>
+
+              {mode.onShareBulk && (
+                <button
+                  type="button"
+                  onClick={() => mode.onShareBulk?.(idsToShare)}
+                  title={selectedIds.size > 0 ? `Compartilhar ${selectedIds.size} registro(s) selecionado(s)` : 'Compartilhar todos os registros visíveis'}
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white dark:!bg-[#1a2332] hover:bg-gray-50 dark:hover:!bg-[#2a3a4d] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold transition"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </button>
+              )}
+
+              {/* F: Excluir selecionados — só renderiza se tem permissão e ≥1 selecionado */}
+              {canBulkDelete && (
+                <button
+                  type="button"
+                  disabled={bulkDeleting}
+                  onClick={async () => {
+                    setBulkDeleting(true)
+                    try {
+                      await mode.onDeleteSelected?.(deletableSelected)
+                      clearSelection()
+                    } finally { setBulkDeleting(false) }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-sm font-semibold transition disabled:opacity-50"
+                >
+                  {bulkDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                  Excluir {deletableSelected.length} selecionado{deletableSelected.length > 1 ? 's' : ''}
+                </button>
+              )}
+
+              {/* F: toggle de filtro de aprovação — segmented control theme-aware */}
+              {mode.onChangeApprovalFilter && (
+                <div className="ml-auto flex items-center gap-2 text-xs">
+                  <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]">Exibir:</span>
+                  <div className="inline-flex rounded-lg bg-gray-100 dark:!bg-[#1a2332] p-0.5 border border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => mode.onChangeApprovalFilter?.('all')}
+                      className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
+                        mode.approvalFilter !== 'approved'
+                          ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => mode.onChangeApprovalFilter?.('approved')}
+                      className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
+                        mode.approvalFilter === 'approved'
+                          ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      Só aprovados
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )
+        })()}
 
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -800,6 +1001,16 @@ const TerraControlView: React.FC<Props> = (props) => {
                 {/* ── HEADER ───────────────────────────────── */}
                 <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 py-3 flex flex-col gap-2.5">
                   <div className="flex items-start gap-2.5 min-w-0">
+                    {/* F: checkbox de seleção — só em tc_user mode */}
+                    {mode.kind === 'tcuser' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(String(record.id))}
+                        onChange={() => toggleSelected(String(record.id))}
+                        title="Selecionar registro"
+                        className="mt-0.5 w-4 h-4 rounded border-white/40 bg-white/20 text-tc-blue focus:ring-white/50 cursor-pointer shrink-0"
+                      />
+                    )}
                     <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide mt-0.5">
                       #{formatCodImovel(record.codImovel)}
                     </span>
