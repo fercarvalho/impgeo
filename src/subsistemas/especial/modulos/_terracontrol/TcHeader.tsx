@@ -21,29 +21,27 @@ const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOp
     <div className="bg-gradient-to-r from-tc-green-dark to-tc-blue-dark text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-center justify-between gap-4">
-          {/* Esquerda: logo + "by IMPGEO". Em telas pequenas só a logo
-              (sem o texto) pra não estourar o layout. */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
-              <span className="text-base font-bold text-white">IMPGEO</span>
-            </div>
-          </div>
-
-          {/* Centro: logo TerraControl + título.
-              Em telas pequenas só a logo aparece (economiza espaço entre o
-              "by IMPGEO" e o menu de usuário); em ≥sm aparecem ambos. */}
+          {/* Esquerda: logo TerraControl + título (no lugar onde antes era
+              o "by IMPGEO") */}
           <div className="flex items-center gap-3 min-w-0">
             <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0" />
-            <div className="min-w-0 hidden sm:block">
+            <div className="min-w-0">
               <h1 className="text-xl font-bold leading-tight">TerraControl</h1>
               <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
             </div>
           </div>
 
-          {/* Direita: menu de usuário (avatar + dropdown) */}
-          <div className="flex-shrink-0">
+          {/* Direita: "by IMPGEO" colado à esquerda do menu de usuário.
+              Em telas <sm, o texto "by IMPGEO" some — só a logo IMPGEO
+              continua visível antes do avatar. */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <img src="/imp_logo.png" alt="IMPGEO Logo" className="h-9 w-9 object-contain rounded-lg" />
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-[10px] text-blue-200 font-medium tracking-wider">by</span>
+                <span className="text-base font-bold text-white">IMPGEO</span>
+              </div>
+            </div>
             <TcMenuUsuario
               tcUser={tcUser}
               onOpenProfile={onOpenProfile}
