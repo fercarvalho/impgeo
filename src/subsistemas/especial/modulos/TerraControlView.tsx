@@ -195,11 +195,36 @@ const TerraControlView: React.FC<Props> = (props) => {
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
       const margin = 12
+      const HEADER_HEIGHT = 22
+      const CONTENT_TOP = HEADER_HEIGHT + 8 // y do início do conteúdo após o header
       let y = margin
+
+      // F: cabeçalho do PDF — desenhado no topo de TODA página
+      const dateStr = new Date().toLocaleString('pt-BR')
+      const ownerStr = mode.kind === 'tcuser' && mode.tcUserFirstName ? ` · ${mode.tcUserFirstName}` : ''
+      const drawHeader = () => {
+        doc.setFillColor(72, 163, 38) // tc-green
+        doc.rect(0, 0, pageWidth, HEADER_HEIGHT, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(16)
+        doc.text('TerraControl — Relatório de Métricas', margin, 14)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Gerado em ${dateStr}${ownerStr}`, margin, 19)
+        doc.setTextColor(40, 40, 40)
+      }
+
+      // Adiciona uma nova página E redesenha o header + reposiciona y abaixo dele
+      const addPageWithHeader = () => {
+        doc.addPage()
+        drawHeader()
+        y = CONTENT_TOP
+      }
 
       // Helpers de paginação + estilos
       const ensure = (needed: number) => {
-        if (y + needed > pageHeight - margin) { doc.addPage(); y = margin }
+        if (y + needed > pageHeight - margin) { addPageWithHeader() }
       }
       const sectionTitle = (title: string) => {
         ensure(10)
@@ -300,8 +325,7 @@ const TerraControlView: React.FC<Props> = (props) => {
         // Mostra todos os itens; se passar do pie size, continua abaixo
         rows.forEach((row) => {
           if (legY - pieY > pieSize && legY > pageHeight - margin - 5) {
-            doc.addPage()
-            y = margin
+            addPageWithHeader()
             legY = y + 4
           }
           // Caixinha colorida
@@ -319,20 +343,9 @@ const TerraControlView: React.FC<Props> = (props) => {
         y = Math.max(pieY + pieSize, legY) + 5
       }
 
-      // ── HEADER ────────────────────────────────────────────────────────
-      doc.setFillColor(72, 163, 38) // tc-green
-      doc.rect(0, 0, pageWidth, 22, 'F')
-      doc.setTextColor(255, 255, 255)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(16)
-      doc.text('TerraControl — Relatório de Métricas', margin, 14)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'normal')
-      const dateStr = new Date().toLocaleString('pt-BR')
-      const ownerStr = mode.kind === 'tcuser' && mode.tcUserFirstName ? ` · ${mode.tcUserFirstName}` : ''
-      doc.text(`Gerado em ${dateStr}${ownerStr}`, margin, 19)
-      y = 30
-      doc.setTextColor(40, 40, 40)
+      // ── HEADER (1ª página). drawHeader() já será chamado em cada addPage também
+      drawHeader()
+      y = CONTENT_TOP
 
       // ── SEÇÃO 1: Resumo geral ─────────────────────────────────────────
       sectionTitle('Resumo')
@@ -389,8 +402,7 @@ const TerraControlView: React.FC<Props> = (props) => {
 
       // ── SEÇÃO 6 (condicional): Detalhamento dos registros selecionados ─
       if (selectedRecords.length > 0) {
-        doc.addPage()
-        y = margin
+        addPageWithHeader()
         sectionTitle(`Detalhamento dos ${selectedRecords.length} registro(s) selecionado(s)`)
 
         for (const r of selectedRecords) {
