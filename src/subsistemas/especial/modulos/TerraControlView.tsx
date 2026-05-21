@@ -169,12 +169,15 @@ const TerraControlView: React.FC<Props> = (props) => {
     if (exportingPdf) return
     setExportingPdf(true)
     try {
+      // sortedRecords já reflete a seleção (via effectiveRecords). Quando há
+      // seleção, ele só contém os selecionados — métricas E detalhamento saem
+      // dos mesmos registros. Quando não há, é a lista completa visível.
       const metricsBase = sortedRecords
       if (metricsBase.length === 0) {
         notify('Nenhum registro para exportar.', { type: 'warning' })
         return
       }
-      const selectedRecords = sortedRecords.filter(r => selectedIds.has(String(r.id)))
+      const selectedRecords = selectedIds.size > 0 ? metricsBase : []
 
       const { exportTerraControlPdf } = await import('./_terracontrol/exportPdf')
       const ownerName = mode.kind === 'tcuser' ? (mode.tcUserFirstName || undefined) : undefined
@@ -353,19 +356,27 @@ const TerraControlView: React.FC<Props> = (props) => {
     }
   }
 
+  // F: registros "efetivos" — quando há seleção, todo o dashboard (charts,
+  // totais, lista de cards e PDF) reflete SÓ os selecionados. Quando não há,
+  // usa a base completa (filtrada por search/sort). O master checkbox da
+  // action bar continua trabalhando sobre `sortedRecords` originais pra que
+  // o usuário consiga desfazer a seleção.
+  const effectiveRecords = useMemo(() => {
+    if (selectedIds.size === 0) return records
+    return records.filter(r => selectedIds.has(String(r.id)))
+  }, [records, selectedIds])
+
   // Helpers de cálculo derivados dos registros (G3.6 — memoizados).
-  // Antes recalculavam a cada render mesmo sem o records mudar.
-  const totalImoveisData       = useMemo(() => getTotalImoveisData(records),    [records])
-  const areaTotalData          = useMemo(() => getAreaTotalData(records),       [records])
-  const geoCertificacaoData    = useMemo(() => getGeoCertificacaoData(records), [records])
-  const geoRegistroData        = useMemo(() => getGeoRegistroData(records),     [records])
-  const reservaLegalData       = useMemo(() => getReservaLegalData(records),    [records])
-  // Para builders que tomam um parâmetro (tipo/field), só capturamos `records`
-  // num closure — quem chama passa o argumento. A memoização real fica a cargo
-  // do useMemo do total agregado abaixo.
-  const culturaChartData = (tipo: string)    => getCulturaData(records, tipo)
-  const appChartData     = (field: APPField) => getAPPData(records, field)
-  const areaPorCultura   = (tipo: string)    => getAreaByCulturaType(records, tipo)
+  const totalImoveisData       = useMemo(() => getTotalImoveisData(effectiveRecords),    [effectiveRecords])
+  const areaTotalData          = useMemo(() => getAreaTotalData(effectiveRecords),       [effectiveRecords])
+  const geoCertificacaoData    = useMemo(() => getGeoCertificacaoData(effectiveRecords), [effectiveRecords])
+  const geoRegistroData        = useMemo(() => getGeoRegistroData(effectiveRecords),     [effectiveRecords])
+  const reservaLegalData       = useMemo(() => getReservaLegalData(effectiveRecords),    [effectiveRecords])
+  // Para builders que tomam um parâmetro (tipo/field), só capturamos
+  // `effectiveRecords` num closure — quem chama passa o argumento.
+  const culturaChartData = (tipo: string)    => getCulturaData(effectiveRecords, tipo)
+  const appChartData     = (field: APPField) => getAPPData(effectiveRecords, field)
+  const areaPorCultura   = (tipo: string)    => getAreaByCulturaType(effectiveRecords, tipo)
 
   // Abre o ChartModal com os dados informados. Centralizado aqui porque vários
   // stat cards diferentes chamam a mesma rotina (título + dados + total).
@@ -400,16 +411,19 @@ const TerraControlView: React.FC<Props> = (props) => {
     return record[field as keyof TerraControlRecord] as string | number
   }
 
-  // G3.4 — filter + sort num único useMemo (já era assim na View; mantido).
+  // G3.4 — filter + sort num único useMemo.
+  // F: parte de `effectiveRecords` (já filtrado por seleção), aplicando depois
+  // o filtro de busca e a ordenação. Assim a lista de cards reflete a seleção
+  // automaticamente.
   const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
     const filtered = searchTerm
-      ? records.filter(a =>
+      ? effectiveRecords.filter(a =>
           (a.imovel || '').toLowerCase().includes(lower) ||
           (a.municipio || '').toLowerCase().includes(lower) ||
           String(a.codImovel ?? '').includes(searchTerm)
         )
-      : [...records]
+      : [...effectiveRecords]
 
     const direction = sortDirection === 'asc' ? 1 : -1
 
@@ -426,7 +440,7 @@ const TerraControlView: React.FC<Props> = (props) => {
     })
 
     return filtered
-  }, [records, sortField, sortDirection, searchTerm])
+  }, [effectiveRecords, sortField, sortDirection, searchTerm])
 
   // G5.4 — paginação incremental client-side (mesmo padrão do componente autenticado).
   const [visibleCount, setVisibleCount] = useState(30)
@@ -569,19 +583,22 @@ const TerraControlView: React.FC<Props> = (props) => {
 
         {/* F: barra de ações do tc_user — separada do banner, theme-aware */}
         {mode.kind === 'tcuser' && (mode.onCreateRecord || mode.onShareBulk || mode.onChangeApprovalFilter) && (() => {
-          // Helpers de seleção pra esta render
-          const visibleIds = sortedRecords.map(r => String(r.id))
-          const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
-          const someSelected = !allSelected && visibleIds.some(id => selectedIds.has(id))
+          // Helpers de seleção pra esta render. Trabalha sobre `records` (base
+          // completa) porque sortedRecords agora é filtrado pela seleção — se
+          // usássemos ele, allSelected = true sempre e o usuário não conseguiria
+          // desfazer pela master checkbox.
+          const allIds = records.map(r => String(r.id))
+          const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id))
+          const someSelected = !allSelected && allIds.some(id => selectedIds.has(id))
           const toggleAll = () => {
-            if (allSelected) clearSelection()
-            else setSelectedIds(new Set(visibleIds))
+            if (allSelected || someSelected) clearSelection()
+            else setSelectedIds(new Set(allIds))
           }
-          // Para "Compartilhar": usa selecionados se houver, senão todos visíveis
-          const idsToShare = selectedIds.size > 0 ? Array.from(selectedIds) : visibleIds
+          // Para "Compartilhar": usa selecionados se houver, senão todos
+          const idsToShare = selectedIds.size > 0 ? Array.from(selectedIds) : allIds
           // Para "Excluir selecionados": filtra pela permissão client-side
           const deletableSelected = mode.canDeleteRecord
-            ? sortedRecords.filter(r => selectedIds.has(String(r.id)) && mode.canDeleteRecord!(r)).map(r => String(r.id))
+            ? records.filter(r => selectedIds.has(String(r.id)) && mode.canDeleteRecord!(r)).map(r => String(r.id))
             : []
           const canBulkDelete = !!mode.onDeleteSelected && deletableSelected.length > 0
 
@@ -598,7 +615,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                 />
                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                   {selectedIds.size > 0
-                    ? `${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}`
+                    ? `${selectedIds.size} de ${records.length} — clique para limpar`
                     : 'Selecionar tudo'}
                 </span>
               </label>
@@ -699,33 +716,33 @@ const TerraControlView: React.FC<Props> = (props) => {
             onClick={() => openChart('Distribuição de Imóveis', 'Total de imóveis por município', totalImoveisData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Imóveis</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{records.length}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{effectiveRecords.length}</p>
           </div>
-          <div 
+          <div
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Distribuição de Área Total', 'Área total por município (ha)', areaTotalData)}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Área Total</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(records.reduce((sum, a) => sum + a.areaTotal, 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + a.areaTotal, 0))} ha
             </p>
           </div>
-          <div 
+          <div
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Geo Certificação', 'Distribuição de imóveis com e sem geo certificação', geoCertificacaoData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Certificação</p>
             <p className="text-2xl font-bold text-green-600">
-              {records.filter(a => a.geoCertificacao === 'SIM').length}
+              {effectiveRecords.filter(a => a.geoCertificacao === 'SIM').length}
             </p>
           </div>
-          <div 
+          <div
             className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200"
             onClick={() => openChart('Geo Registro', 'Distribuição de imóveis com e sem geo registro', geoRegistroData, { valueFormat: 'number', valueUnit: '' })}
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Com Geo Registro</p>
             <p className="text-2xl font-bold text-green-600">
-              {records.filter(a => a.geoRegistro === 'SIM').length}
+              {effectiveRecords.filter(a => a.geoRegistro === 'SIM').length}
             </p>
           </div>
         </div>
@@ -796,7 +813,7 @@ const TerraControlView: React.FC<Props> = (props) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Código Florestal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(records.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + (a.appCodigoFlorestal || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -805,7 +822,7 @@ const TerraControlView: React.FC<Props> = (props) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Vegetada</p>
             <p className="text-2xl font-bold text-green-600">
-              {formatNumber(records.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + (a.appVegetada || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -814,7 +831,7 @@ const TerraControlView: React.FC<Props> = (props) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">APP Não Vegetada</p>
             <p className="text-2xl font-bold text-orange-600">
-              {formatNumber(records.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + (a.appNaoVegetada || 0), 0))} ha
             </p>
           </div>
           <div
@@ -823,7 +840,7 @@ const TerraControlView: React.FC<Props> = (props) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">20% Reserva Legal</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(records.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + (a.reservaLegal || 0), 0))} ha
             </p>
           </div>
           <div 
@@ -832,7 +849,7 @@ const TerraControlView: React.FC<Props> = (props) => {
           >
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Remanescente Florestal</p>
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {formatNumber(records.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
+              {formatNumber(effectiveRecords.reduce((sum, a) => sum + (a.remanescenteFlorestal || 0), 0))} ha
             </p>
           </div>
         </div>

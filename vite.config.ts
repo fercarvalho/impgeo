@@ -113,6 +113,7 @@ export default defineConfig({
           !d.includes('vendor-jspdf') &&
           !d.includes('vendor-html2canvas') &&
           !d.includes('vendor-heic2any') &&
+          !d.includes('vendor-recharts') &&
           !d.includes('component-terracontrol') &&
           !d.includes('component-projection') &&
           !d.includes('component-transactions') &&
@@ -128,8 +129,15 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separar node_modules em chunks menores
           if (id.includes('node_modules')) {
-            // React, React DOM e Recharts juntos (recharts depende de react internamente)
-            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler') || id.includes('recharts') || id.includes('victory-vendor')) {
+            // Recharts + victory-vendor: chunk próprio. Antes vinha junto do
+            // vendor-react no caminho crítico, mas é grande (~400KB minified) e
+            // só usado em telas de dashboard. Separado, é lazy junto com o
+            // componente que o importa (TerraControl, Projecao, Reports).
+            if (id.includes('recharts') || id.includes('victory-vendor') || id.includes('d3-')) {
+              return 'vendor-recharts'
+            }
+            // React core. Mantém só o essencial no caminho crítico.
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
               return 'vendor-react'
             }
 
