@@ -505,81 +505,77 @@ const TerraControlView: React.FC<Props> = (props) => {
       )}
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Mensagem de Boas-vindas */}
+        {/* Mensagem de Boas-vindas — banner decorativo limpo, sem botões */}
         <div className="bg-gradient-to-r from-tc-green to-tc-blue text-white rounded-2xl shadow-md shadow-blue-500/20 p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold truncate">
-                  Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
-                </h2>
-                <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
-              </div>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-white" />
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* F: botão "Novo registro" — só em tc_user mode com callback.
-                  Estilo translúcido vidro (combina com a gradient e funciona
-                  em ambos os temas — não depende de bg-white sólido). */}
-              {mode.kind === 'tcuser' && mode.onCreateRecord && (
-                <button
-                  type="button"
-                  onClick={() => mode.onCreateRecord?.()}
-                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/95 hover:bg-white text-tc-blue-dark text-sm font-bold shadow-lg shadow-tc-blue-dark/20 border border-white/30 transition"
-                >
-                  <FileText className="w-4 h-4" />
-                  Novo registro
-                </button>
-              )}
-              {/* Botão "Compartilhar" (bulk) — só em tc_user mode com permissão */}
-              {mode.kind === 'tcuser' && mode.onShareBulk && (
-                <button
-                  type="button"
-                  onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
-                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold backdrop-blur-sm transition"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Compartilhar
-                </button>
-              )}
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold truncate">
+                Bem-vindo(a){shareLinkName ? `, ${shareLinkName}` : ''}
+              </h2>
+              <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
             </div>
           </div>
-          {/* F: toggle de filtro de aprovação no card de boas-vindas.
-              Maior contraste do active state (sombra + texto bold).
-              Funciona em ambos os temas porque vive sobre a gradient verde→azul
-              fixa (não muda com light/dark do app). */}
-          {mode.kind === 'tcuser' && mode.onChangeApprovalFilter && (
-            <div className="mt-4 flex items-center gap-3 text-xs">
-              <span className="text-white/80 font-semibold uppercase tracking-wider text-[10px]">Exibir:</span>
-              <div className="inline-flex rounded-lg bg-black/15 p-1 border border-white/10 backdrop-blur-sm">
-                <button
-                  type="button"
-                  onClick={() => mode.onChangeApprovalFilter?.('all')}
-                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
-                    mode.approvalFilter !== 'approved'
-                      ? 'bg-white text-tc-blue-dark shadow-md'
-                      : 'text-white/90 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => mode.onChangeApprovalFilter?.('approved')}
-                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
-                    mode.approvalFilter === 'approved'
-                      ? 'bg-white text-tc-blue-dark shadow-md'
-                      : 'text-white/90 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  Só aprovados
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* F: barra de ações do tc_user — separada do banner, theme-aware */}
+        {mode.kind === 'tcuser' && (mode.onCreateRecord || mode.onShareBulk || mode.onChangeApprovalFilter) && (
+          <div className="bg-white dark:!bg-[#243040] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex flex-wrap items-center gap-3">
+            {mode.onCreateRecord && (
+              <button
+                type="button"
+                onClick={() => mode.onCreateRecord?.()}
+                className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-tc-green to-tc-blue hover:from-tc-green-dark hover:to-tc-blue-dark text-white text-sm font-bold shadow-md shadow-tc-blue/25 transition"
+              >
+                <FileText className="w-4 h-4" />
+                Novo registro
+              </button>
+            )}
+            {mode.onShareBulk && (
+              <button
+                type="button"
+                onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
+                className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white dark:!bg-[#1a2332] hover:bg-gray-50 dark:hover:!bg-[#2a3a4d] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold transition"
+              >
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </button>
+            )}
+
+            {/* F: toggle de filtro de aprovação — segmented control theme-aware */}
+            {mode.onChangeApprovalFilter && (
+              <div className="ml-auto flex items-center gap-2 text-xs">
+                <span className="text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]">Exibir:</span>
+                <div className="inline-flex rounded-lg bg-gray-100 dark:!bg-[#1a2332] p-0.5 border border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => mode.onChangeApprovalFilter?.('all')}
+                    className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
+                      mode.approvalFilter !== 'approved'
+                        ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => mode.onChangeApprovalFilter?.('approved')}
+                    className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition ${
+                      mode.approvalFilter === 'approved'
+                        ? 'bg-white dark:!bg-[#2a3a4d] text-tc-blue dark:text-tc-blue shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Só aprovados
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
