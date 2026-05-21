@@ -162,107 +162,210 @@ const TerraControlView: React.FC<Props> = (props) => {
   }
   const clearSelection = () => setSelectedIds(new Set())
 
-  // F: PDF de métricas. Estratégia: jsPDF programático (sem html2canvas) com
-  // título, sumário de métricas calculadas (igual aos cards do topo) e tabela
-  // com os registros — selecionados ou todos (se nenhum marcado).
+  // F: PDF de métricas + (opcionalmente) detalhe dos registros selecionados.
+  //
+  // Estrutura:
+  //   1. Header (gradient verde + título + data + nome do tc_user)
+  //   2. Resumo geral (cards do topo: total imóveis, área, RL, geo cert/reg)
+  //   3. Distribuição por município (tabela: município → imóveis, área)
+  //   4. Top imóveis por cultura (5 tipos)
+  //   5. Top imóveis por APP/ambiental (4 fields) e Reserva Legal
+  //   6. [Só com seleção] Detalhamento dos registros selecionados
+  //
+  // SEM seleção: PDF de métricas apenas (sem lista de imóveis).
+  // COM seleção: PDF de métricas + lista detalhada dos selecionados.
+  //
+  // Métricas SEMPRE refletem TODOS os registros visíveis (não os selecionados).
   const handleExportPdf = async () => {
     if (exportingPdf) return
     setExportingPdf(true)
     try {
-      // Records a exportar: selecionados OU todos (visíveis filtrados)
-      const targetIds = selectedIds.size > 0 ? selectedIds : null
-      const targetRecords = targetIds
-        ? records.filter(r => targetIds.has(String(r.id)))
-        : sortedRecords
-      if (targetRecords.length === 0) {
+      // Base de cálculo das métricas: todos os registros (filtrados se houver
+      // searchTerm/approvalFilter). Selecionados afetam só a seção 6.
+      const metricsBase = sortedRecords
+      if (metricsBase.length === 0) {
         notify('Nenhum registro para exportar.', { type: 'warning' })
         return
       }
-      // Métricas agregadas
-      const totalArea = targetRecords.reduce((s, r) => s + (r.areaTotal || 0), 0)
-      const totalRL   = targetRecords.reduce((s, r) => s + (r.reservaLegal || 0), 0)
-      const comGeoCert = targetRecords.filter(r => r.geoCertificacao === 'SIM').length
-      const comGeoReg  = targetRecords.filter(r => r.geoRegistro === 'SIM').length
+      const selectedRecords = sortedRecords.filter(r => selectedIds.has(String(r.id)))
 
-      // Lazy import — jsPDF é pesado, só baixa quando exporta
+      // Lazy import — jsPDF é pesado
       const jsPDF = (await import('jspdf')).default
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
       const margin = 12
       let y = margin
 
-      // Header
+      // Helpers de paginação + estilos
+      const ensure = (needed: number) => {
+        if (y + needed > pageHeight - margin) { doc.addPage(); y = margin }
+      }
+      const sectionTitle = (title: string) => {
+        ensure(10)
+        doc.setFillColor(0, 65, 177) // tc-blue
+        doc.rect(margin, y, pageWidth - margin * 2, 7, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.text(title, margin + 2, y + 5)
+        y += 10
+        doc.setTextColor(40, 40, 40)
+      }
+      const kv = (k: string, v: string, indent = 0) => {
+        ensure(5.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9.5)
+        doc.text(k, margin + indent, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(String(v), margin + indent + 55, y)
+        y += 5.2
+      }
+      // Tabela simples com 2 colunas (nome + valor formatado)
+      const dataTable = (rows: Array<{ name: string; value: number }>, valueLabel: string, formatVal: (v: number) => string) => {
+        if (rows.length === 0) {
+          ensure(5)
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(9)
+          doc.setTextColor(120, 120, 120)
+          doc.text('Sem dados.', margin + 2, y)
+          doc.setTextColor(40, 40, 40)
+          y += 6
+          return
+        }
+        // Header da tabela
+        ensure(6)
+        doc.setFillColor(245, 247, 250)
+        doc.rect(margin, y - 1.5, pageWidth - margin * 2, 5.5, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.setTextColor(80, 80, 80)
+        doc.text('Nome', margin + 2, y + 2.5)
+        doc.text(valueLabel, pageWidth - margin - 4, y + 2.5, { align: 'right' })
+        y += 6
+        doc.setTextColor(40, 40, 40)
+        doc.setFont('helvetica', 'normal')
+        rows.forEach((row, i) => {
+          ensure(5)
+          if (i % 2 === 1) {
+            doc.setFillColor(250, 251, 253)
+            doc.rect(margin, y - 1.5, pageWidth - margin * 2, 5, 'F')
+          }
+          const nm = row.name && row.name.length > 60 ? row.name.slice(0, 57) + '…' : (row.name || '—')
+          doc.text(nm, margin + 2, y + 2)
+          doc.text(formatVal(row.value), pageWidth - margin - 4, y + 2, { align: 'right' })
+          y += 5
+        })
+        y += 3
+      }
+
+      // ── HEADER ────────────────────────────────────────────────────────
       doc.setFillColor(72, 163, 38) // tc-green
       doc.rect(0, 0, pageWidth, 22, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(16)
-      doc.text('TerraControl — Relatório de Imóveis', margin, 14)
+      doc.text('TerraControl — Relatório de Métricas', margin, 14)
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
       const dateStr = new Date().toLocaleString('pt-BR')
       const ownerStr = mode.kind === 'tcuser' && mode.tcUserFirstName ? ` · ${mode.tcUserFirstName}` : ''
       doc.text(`Gerado em ${dateStr}${ownerStr}`, margin, 19)
       y = 30
+      doc.setTextColor(40, 40, 40)
 
-      // Resumo
-      doc.setTextColor(30, 30, 30)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.text('Resumo', margin, y)
-      y += 6
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      const summaryLines = [
-        `Total de imóveis: ${targetRecords.length}`,
-        `Área total: ${formatNumber(totalArea)} ha`,
-        `Reserva Legal somada: ${formatNumber(totalRL)} ha`,
-        `Com geo certificação: ${comGeoCert} / ${targetRecords.length}`,
-        `Com geo registro: ${comGeoReg} / ${targetRecords.length}`,
+      // ── SEÇÃO 1: Resumo geral ─────────────────────────────────────────
+      sectionTitle('Resumo')
+      const totalArea = metricsBase.reduce((s, r) => s + (r.areaTotal || 0), 0)
+      const totalRL   = metricsBase.reduce((s, r) => s + (r.reservaLegal || 0), 0)
+      const comGeoCert = metricsBase.filter(r => r.geoCertificacao === 'SIM').length
+      const comGeoReg  = metricsBase.filter(r => r.geoRegistro === 'SIM').length
+      kv('Total de imóveis', String(metricsBase.length))
+      kv('Área total', `${formatNumber(totalArea)} ha`)
+      kv('Reserva Legal somada', `${formatNumber(totalRL)} ha`)
+      kv('Com geo certificação', `${comGeoCert} / ${metricsBase.length}`)
+      kv('Com geo registro', `${comGeoReg} / ${metricsBase.length}`)
+      y += 2
+
+      // ── SEÇÃO 2: Distribuição por município ───────────────────────────
+      sectionTitle('Distribuição por município (imóveis)')
+      dataTable(getTotalImoveisData(metricsBase), 'Imóveis', v => String(v))
+
+      sectionTitle('Distribuição por município (área total)')
+      dataTable(getAreaTotalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
+
+      // ── SEÇÃO 3: Geo Certificação / Registro ──────────────────────────
+      sectionTitle('Geo Certificação')
+      dataTable(getGeoCertificacaoData(metricsBase), 'Imóveis', v => String(v))
+
+      sectionTitle('Geo Registro')
+      dataTable(getGeoRegistroData(metricsBase), 'Imóveis', v => String(v))
+
+      // ── SEÇÃO 4: Top imóveis por cultura ──────────────────────────────
+      const culturas = ['Silvicultura', 'Cultura Temporária', 'Pasto', 'Banhado', 'Servidão', 'Área Antropizada']
+      culturas.forEach(tipo => {
+        const data = getCulturaData(metricsBase, tipo)
+        if (data.length === 0) return
+        sectionTitle(`Top imóveis — ${tipo}`)
+        dataTable(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
+      })
+
+      // ── SEÇÃO 5: Reserva Legal e APP/Ambiental ────────────────────────
+      sectionTitle('Top imóveis — Reserva Legal')
+      dataTable(getReservaLegalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
+
+      const appFields: Array<{ field: APPField; label: string }> = [
+        { field: 'appCodigoFlorestal',    label: 'APP Código Florestal' },
+        { field: 'appVegetada',           label: 'APP Vegetada' },
+        { field: 'appNaoVegetada',        label: 'APP Não Vegetada' },
+        { field: 'remanescenteFlorestal', label: 'Remanescente Florestal' },
       ]
-      summaryLines.forEach(line => { doc.text(line, margin, y); y += 5.5 })
-      y += 4
+      appFields.forEach(({ field, label }) => {
+        const data = getAPPData(metricsBase, field)
+        if (data.length === 0) return
+        sectionTitle(`Top imóveis — ${label}`)
+        dataTable(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
+      })
 
-      // Lista de registros (tabela simples)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.text('Registros', margin, y)
-      y += 6
+      // ── SEÇÃO 6 (condicional): Detalhamento dos registros selecionados ─
+      if (selectedRecords.length > 0) {
+        doc.addPage()
+        y = margin
+        sectionTitle(`Detalhamento dos ${selectedRecords.length} registro(s) selecionado(s)`)
 
-      for (const r of targetRecords) {
-        if (y > 270) { doc.addPage(); y = margin }
-        doc.setFillColor(240, 245, 250)
-        doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.setTextColor(0, 65, 177) // tc-blue
-        doc.text(`#${formatCodImovel(r.codImovel)} · ${r.imovel || ''}`, margin + 1, y + 1)
-        doc.setTextColor(80, 80, 80)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(8.5)
-        doc.text(r.municipio || '—', pageWidth - margin - doc.getTextWidth(r.municipio || '—') - 1, y + 1)
-        y += 8
-        doc.setTextColor(40, 40, 40)
-        doc.setFontSize(9)
-        const fields: Array<[string, string]> = [
-          ['CAR', r.car || '—'],
-          ['Status CAR', r.statusCar || '—'],
-          ['Área total', `${formatNumber(r.areaTotal || 0)} ha`],
-          ['Reserva Legal', `${formatNumber(r.reservaLegal || 0)} ha`],
-          ['Cultura 1', r.cultura1 ? `${r.cultura1} (${formatNumber(r.areaCultura1 || 0)} ha)` : '—'],
-          ['Cultura 2', r.cultura2 ? `${r.cultura2} (${formatNumber(r.areaCultura2 || 0)} ha)` : '—'],
-          ['Geo Certificação', r.geoCertificacao || '—'],
-          ['Geo Registro', r.geoRegistro || '—'],
-        ]
-        fields.forEach(([k, v]) => {
-          if (y > 280) { doc.addPage(); y = margin }
+        for (const r of selectedRecords) {
+          ensure(40)
+          doc.setFillColor(240, 245, 250)
+          doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
           doc.setFont('helvetica', 'bold')
-          doc.text(k + ':', margin + 4, y)
+          doc.setFontSize(10)
+          doc.setTextColor(0, 65, 177)
+          doc.text(`#${formatCodImovel(r.codImovel)} · ${r.imovel || ''}`, margin + 1, y + 1)
+          doc.setTextColor(80, 80, 80)
           doc.setFont('helvetica', 'normal')
-          doc.text(String(v), margin + 35, y)
-          y += 4.8
-        })
-        y += 3
+          doc.setFontSize(8.5)
+          const muni = r.municipio || '—'
+          doc.text(muni, pageWidth - margin - 1, y + 1, { align: 'right' })
+          y += 8
+          doc.setTextColor(40, 40, 40)
+          const fields: Array<[string, string]> = [
+            ['CAR', r.car || '—'],
+            ['Status CAR', r.statusCar || '—'],
+            ['Área total', `${formatNumber(r.areaTotal || 0)} ha`],
+            ['Reserva Legal', `${formatNumber(r.reservaLegal || 0)} ha`],
+            ['Cultura 1', r.cultura1 ? `${r.cultura1} (${formatNumber(r.areaCultura1 || 0)} ha)` : '—'],
+            ['Cultura 2', r.cultura2 ? `${r.cultura2} (${formatNumber(r.areaCultura2 || 0)} ha)` : '—'],
+            ['Outros', r.outros ? `${r.outros} (${formatNumber(r.areaOutros || 0)} ha)` : '—'],
+            ['APP Cód. Florestal', `${formatNumber(r.appCodigoFlorestal || 0)} ha`],
+            ['APP Vegetada', `${formatNumber(r.appVegetada || 0)} ha`],
+            ['APP Não Vegetada', `${formatNumber(r.appNaoVegetada || 0)} ha`],
+            ['Remanescente Florestal', `${formatNumber(r.remanescenteFlorestal || 0)} ha`],
+            ['Geo Certificação', r.geoCertificacao || '—'],
+            ['Geo Registro', r.geoRegistro || '—'],
+          ]
+          fields.forEach(([k, v]) => kv(k + ':', v, 4))
+          y += 3
+        }
       }
 
       const filenamePrefix = mode.kind === 'tcuser' ? `terracontrol-${mode.tcUserFirstName || 'usuario'}` : 'terracontrol'
