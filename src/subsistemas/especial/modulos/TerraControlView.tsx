@@ -795,15 +795,19 @@ const TerraControlView: React.FC<Props> = (props) => {
                       #{formatCodImovel(record.codImovel)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-white font-bold text-sm leading-tight break-words">{record.imovel}</div>
-                      <div className="text-blue-200 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                        <span>{record.municipio}</span>
-                        {record.approved === false && (
+                      <div className="text-white font-bold text-sm leading-tight break-words">
+                        {record.imovel}
+                        {record.municipio && (
+                          <span className="ml-2 text-blue-200 font-medium text-xs">· {record.municipio}</span>
+                        )}
+                      </div>
+                      {record.approved === false && (
+                        <div className="mt-1">
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[10px] font-bold">
                             <AlertTriangle className="w-2.5 h-2.5" /> Pendente aprovação
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-row flex-wrap items-center gap-1.5">
