@@ -643,7 +643,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                 className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white dark:!bg-[#1a2332] hover:bg-gray-50 dark:hover:!bg-[#2a3a4d] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold transition disabled:opacity-50"
               >
                 {exportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Exportar dados
+                Gerar relatório
               </button>
 
               {mode.onShareBulk && (
