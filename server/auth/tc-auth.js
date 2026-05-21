@@ -185,6 +185,9 @@ function sanitizeTcUser(user) {
     isActive: rest.is_active,
     createdVia: rest.created_via,
     canShare: rest.can_share === true,   // F2.5 — permite gerar sub-share links
+    // F: permissões de manipular registros que o tc_user tem acesso
+    editRecordsPermission: rest.edit_records_permission || 'all',
+    deleteRecordsPermission: rest.delete_records_permission || 'none',
     lastLogin: rest.last_login,
     createdAt: rest.created_at,
     updatedAt: rest.updated_at,

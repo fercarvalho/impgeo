@@ -118,6 +118,15 @@ const NotificationBell: React.FC = () => {
     if (n.notification_type === 'transaction_confirm_needed' && n.related_entity_id) {
       setResolving({ transactionId: n.related_entity_id, description: n.message || '' })
       setOpen(false)
+      return
+    }
+
+    // F: notificação de novo registro criado por tc_user — abre módulo TerraControl
+    if (n.notification_type === 'tc_record_created') {
+      setOpen(false)
+      const params = new URLSearchParams({ subsystem: 'especial', module: 'terracontrol' })
+      if (n.related_entity_id) params.set('record', n.related_entity_id)
+      window.location.href = `/?${params.toString()}`
     }
   }
 

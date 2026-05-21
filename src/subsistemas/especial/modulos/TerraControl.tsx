@@ -96,6 +96,10 @@ const TerraControl: React.FC = () => {
   const [chartTotal, setChartTotal] = useState(0)
   const [chartValueUnit, setChartValueUnit] = useState('ha')
   const [chartValueFormat, setChartValueFormat] = useState<'area' | 'number'>('area')
+  // F: filtro por status de aprovação ('all'|'pendentes'|'aprovados')
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'pendentes' | 'aprovados'>('all')
+  // F: estado do botão "Aprovar" inline por card
+  const [approvingId, setApprovingId] = useState<string | null>(null)
   const [sortField, setSortField] = useState<SortField>('codImovel')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isUploadingCar, setIsUploadingCar] = useState(false)
@@ -184,13 +188,16 @@ const TerraControl: React.FC = () => {
   // share link refetch sobrescrevia o filtro ativo).
   const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
-    const filtered = searchTerm
+    let filtered = searchTerm
       ? records.filter(record =>
           (record.imovel || '').toLowerCase().includes(lower) ||
           (record.municipio || '').toLowerCase().includes(lower) ||
           String(record.codImovel ?? '').includes(searchTerm)
         )
       : [...records]
+    // F: filtro por status de aprovação
+    if (approvalFilter === 'pendentes') filtered = filtered.filter(r => r.approved === false)
+    else if (approvalFilter === 'aprovados') filtered = filtered.filter(r => r.approved !== false)
 
     const direction = sortDirection === 'asc' ? 1 : -1
 
@@ -212,7 +219,7 @@ const TerraControl: React.FC = () => {
     })
 
     return filtered
-  }, [records, sortField, sortDirection, searchTerm])
+  }, [records, sortField, sortDirection, searchTerm, approvalFilter])
 
   // G5.4 — reset da paginação quando o conjunto exibido muda (busca/sort).
   // Sem isso, o usuário podia filtrar de "Fazenda" → 3 resultados e ver "Carregar
@@ -741,6 +748,30 @@ const TerraControl: React.FC = () => {
         console.error('Erro ao excluir registro:', error)
         notify('Erro ao excluir registro', { type: 'error' })
       }
+    }
+  }
+
+  // F: aprovação inline. Marca o registro como approved=TRUE via PATCH admin.
+  const handleApprove = async (id: string) => {
+    setApprovingId(id)
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/terracontrol/${id}/approve`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        notify('Registro aprovado', { type: 'success' })
+        // Atualiza o registro localmente (sem refetch)
+        setRecords(prev => prev.map(r => r.id === id ? { ...r, approved: true, approvedAt: data.data?.approved_at || new Date().toISOString() } : r))
+      } else {
+        notify(data?.error || 'Erro ao aprovar', { type: 'error' })
+      }
+    } catch (e: any) {
+      notify(e?.message || 'Erro de conexão', { type: 'error' })
+    } finally {
+      setApprovingId(null)
     }
   }
 
@@ -1472,6 +1503,19 @@ const TerraControl: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-600" />
+          {/* F: filtro por status de aprovação */}
+          <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Status</span>
+            <select
+              value={approvalFilter}
+              onChange={e => setApprovalFilter(e.target.value as any)}
+              className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+            >
+              <option value="all">Todos</option>
+              <option value="pendentes">Pendentes</option>
+              <option value="aprovados">Aprovados</option>
+            </select>
+          </div>
           <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
             <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
             <select
@@ -1582,7 +1626,31 @@ const TerraControl: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <div className="text-white font-bold text-sm leading-tight truncate">{record.imovel}</div>
-                    <div className="text-blue-200 text-xs mt-0.5">{record.municipio}</div>
+                    <div className="text-blue-200 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>{record.municipio}</span>
+                      {/* F: badge "Pendente aprovação" + botão Aprovar */}
+                      {record.approved === false && (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[10px] font-bold">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Pendente aprovação
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleApprove(record.id) }}
+                            disabled={approvingId === record.id}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold disabled:opacity-50"
+                          >
+                            {approvingId === record.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                            Aprovar
+                          </button>
+                        </>
+                      )}
+                      {/* F: badge "Criado por @tcuser" */}
+                      {record.createdByTcUsername && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-white/15 text-blue-100 text-[10px] font-medium">
+                          Criado por @{record.createdByTcUsername}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">

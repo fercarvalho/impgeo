@@ -1618,7 +1618,18 @@ class Database {
   async getAllTerraControl() {
     try {
       await this.ensureTerraControlSchema();
-      const result = await this.queryWithRetry('SELECT * FROM terracontrol ORDER BY cod_imovel');
+      // F: ownership+approval. LEFT JOIN com tc_users pra trazer username/nome
+      // de quem criou (quando criado por tc_user via /api/tc-auth/me/records).
+      // Quando criado por impgeo, tc_user.* fica null.
+      const result = await this.queryWithRetry(
+        `SELECT tc.*,
+                tu.username   AS created_by_tc_username,
+                tu.first_name AS created_by_tc_first_name,
+                tu.last_name  AS created_by_tc_last_name
+           FROM terracontrol tc
+           LEFT JOIN tc_users tu ON tu.id = tc.created_by_tc_user_id
+          ORDER BY tc.cod_imovel`
+      );
       return result.rows;
     } catch (error) {
       console.error('Erro ao ler TerraControl:', error);
@@ -1652,17 +1663,25 @@ class Database {
       // cod_imovel é gerado automaticamente pela SEQUENCE (migration 023):
       // ao omitir a coluna do INSERT, o DEFAULT nextval() preenche.
       // RETURNING * traz o valor final para o caller.
+      //
+      // F: ownership+approval. Aceita opcionalmente:
+      //   - createdByUserId / createdByTcUserId — quem criou (depende do path)
+      //   - approved — TRUE por default; impgeo cria já aprovado, tc_user
+      //     passa explicitamente FALSE em saveTerraControlAsTcUser.
+      const approved = recordData.approved !== false; // default TRUE
       const result = await this.queryWithRetry(
         `INSERT INTO terracontrol (
            id, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
            geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
            cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,
-           app_nao_vegetada, remanescente_florestal, endereco, status, observacoes, created_at, updated_at
+           app_nao_vegetada, remanescente_florestal, endereco, status, observacoes, created_at, updated_at,
+           created_by_user_id, created_by_tc_user_id, approved, approved_at, approved_by_user_id
          )
          VALUES (
            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+           $33, $34, $35, $36, $37
          )
          RETURNING *`,
         [
@@ -1697,7 +1716,12 @@ class Database {
           recordData.status || recordData.statusCar || null,
           recordData.observacoes || null,
           new Date().toISOString(),
-          new Date().toISOString()
+          new Date().toISOString(),
+          recordData.created_by_user_id || recordData.createdByUserId || null,
+          recordData.created_by_tc_user_id || recordData.createdByTcUserId || null,
+          approved,
+          approved ? (recordData.approved_at || new Date().toISOString()) : null,
+          approved ? (recordData.approved_by_user_id || recordData.approvedByUserId || null) : null,
         ]
       );
       return result.rows[0];
@@ -1801,6 +1825,222 @@ class Database {
     } catch (error) {
       throw new Error('Erro ao excluir TerraControl: ' + error.message);
     }
+  }
+
+  // =========================================================================
+  // F: tc_users criam/editam/deletam seus próprios registros
+  // =========================================================================
+
+  // Tc_user cria registro. Força:
+  //  - created_by_tc_user_id = tcUserId
+  //  - approved = FALSE (admin precisa aprovar)
+  //  - access automático em tc_user_record_access (criador sempre vê)
+  // Tudo em transação — se algo falhar, nada fica meio-criado.
+  async saveTerraControlAsTcUser(recordData, tcUserId) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Reaproveita a query do saveTerraControl mas dentro da transação,
+      // garantindo created_by_tc_user_id + approved=FALSE
+      const id = this.generateId();
+      const result = await client.query(
+        `INSERT INTO terracontrol (
+           id, imovel, municipio, mapa_url, matriculas, matriculas_dados, n_incra_ccir, ccir_dados, car, car_url, status_car, itr, itr_dados,
+           geo_certificacao, geo_registro, area_total, reserva_legal, cultura1, area_cultura1,
+           cultura2, area_cultura2, outros, area_outros, app_codigo_florestal, app_vegetada,
+           app_nao_vegetada, remanescente_florestal, endereco, status, observacoes, created_at, updated_at,
+           created_by_tc_user_id, approved
+         )
+         VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+           $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+           $33, FALSE
+         )
+         RETURNING *`,
+        [
+          id,
+          recordData.imovel || recordData.endereco || null,
+          recordData.municipio || null,
+          recordData.mapa_url || recordData.mapaUrl || null,
+          recordData.matriculas || null,
+          recordData.matriculas_dados ? JSON.stringify(recordData.matriculas_dados) : (recordData.matriculasDados ? JSON.stringify(recordData.matriculasDados) : null),
+          recordData.n_incra_ccir || recordData.nIncraCcir || null,
+          recordData.ccir_dados ? JSON.stringify(recordData.ccir_dados) : (recordData.ccirDados ? JSON.stringify(recordData.ccirDados) : null),
+          recordData.car || null,
+          recordData.car_url || recordData.carUrl || null,
+          recordData.status_car || recordData.statusCar || recordData.status || null,
+          recordData.itr || null,
+          recordData.itr_dados ? JSON.stringify(recordData.itr_dados) : (recordData.itrDados ? JSON.stringify(recordData.itrDados) : null),
+          recordData.geo_certificacao || recordData.geoCertificacao || 'NÃO',
+          recordData.geo_registro || recordData.geoRegistro || 'NÃO',
+          recordData.area_total ?? recordData.areaTotal ?? 0,
+          recordData.reserva_legal ?? recordData.reservaLegal ?? 0,
+          recordData.cultura1 || null,
+          recordData.area_cultura1 ?? recordData.areaCultura1 ?? 0,
+          recordData.cultura2 || null,
+          recordData.area_cultura2 ?? recordData.areaCultura2 ?? 0,
+          recordData.outros || null,
+          recordData.area_outros ?? recordData.areaOutros ?? 0,
+          recordData.app_codigo_florestal ?? recordData.appCodigoFlorestal ?? 0,
+          recordData.app_vegetada ?? recordData.appVegetada ?? 0,
+          recordData.app_nao_vegetada ?? recordData.appNaoVegetada ?? 0,
+          recordData.remanescente_florestal ?? recordData.remanescenteFlorestal ?? 0,
+          recordData.endereco || recordData.imovel || null,
+          recordData.status || recordData.statusCar || null,
+          recordData.observacoes || null,
+          new Date().toISOString(),
+          new Date().toISOString(),
+          tcUserId,
+        ]
+      );
+      const created = result.rows[0];
+
+      // Acesso automático: criador vê o próprio registro
+      await client.query(
+        `INSERT INTO tc_user_record_access (tc_user_id, terracontrol_id, granted_by_user_id)
+         VALUES ($1, $2, NULL)
+         ON CONFLICT (tc_user_id, terracontrol_id) DO NOTHING`,
+        [tcUserId, created.id]
+      );
+
+      await client.query('COMMIT');
+      return created;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao salvar TerraControl (tc_user): ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  // Edição por tc_user. Caller deve validar permissão via tcUserCanEditRecord
+  // ANTES. Se o registro está aprovado, esta operação RESETA approved=FALSE
+  // (item da spec: edição por tc_user força reanálise).
+  async updateTerraControlByTcUser(id, updates) {
+    const updated = await this.updateTerraControl(id, updates);
+    // Reseta aprovação se estiver aprovado
+    if (updated && updated.approved === true) {
+      const r = await this.queryWithRetry(
+        `UPDATE terracontrol
+            SET approved = FALSE,
+                approved_at = NULL,
+                approved_by_user_id = NULL,
+                updated_at = NOW()
+          WHERE id = $1
+        RETURNING *`,
+        [id]
+      );
+      return r.rows[0];
+    }
+    return updated;
+  }
+
+  async deleteTerraControlByTcUser(id) {
+    return this.deleteTerraControl(id);
+  }
+
+  // Aprova registro (admin path). Caller é authenticateToken+requireAdmin OR
+  // módulo terracontrol. approvedByUserId vem de req.user.id.
+  async approveTerraControlRecord(id, approvedByUserId) {
+    const r = await this.queryWithRetry(
+      `UPDATE terracontrol
+          SET approved = TRUE,
+              approved_at = NOW(),
+              approved_by_user_id = $2,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [id, approvedByUserId]
+    );
+    if (r.rows.length === 0) throw new Error('Registro não encontrado');
+    return r.rows[0];
+  }
+
+  async unapproveTerraControlRecord(id) {
+    const r = await this.queryWithRetry(
+      `UPDATE terracontrol
+          SET approved = FALSE,
+              approved_at = NULL,
+              approved_by_user_id = NULL,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [id]
+    );
+    if (r.rows.length === 0) throw new Error('Registro não encontrado');
+    return r.rows[0];
+  }
+
+  // Verifica permissão de EDIÇÃO de registro pelo tc_user.
+  // edit_records_permission:
+  //   'none'     → false sempre
+  //   'created'  → record.created_by_tc_user_id === tcUserId
+  //   'assigned' → record.id in tc_user_record_access (mas NÃO criado por ele)
+  //   'all'      → tc_user tem acesso (assigned OR created)
+  async tcUserCanEditRecord(tcUserId, recordId) {
+    const r = await this.queryWithRetry(
+      `SELECT
+         (SELECT edit_records_permission FROM tc_users WHERE id = $1) AS perm,
+         (SELECT created_by_tc_user_id FROM terracontrol WHERE id = $2) AS creator,
+         EXISTS (
+           SELECT 1 FROM tc_user_record_access
+            WHERE tc_user_id = $1 AND terracontrol_id = $2
+         ) AS has_access`,
+      [tcUserId, recordId]
+    );
+    const row = r.rows[0];
+    if (!row || !row.perm) return false;
+    const isCreator = row.creator === tcUserId;
+    switch (row.perm) {
+      case 'none':     return false;
+      case 'created':  return isCreator;
+      case 'assigned': return row.has_access && !isCreator; // só designados, não os próprios
+      case 'all':      return row.has_access || isCreator;
+      default:         return false;
+    }
+  }
+
+  // Verifica permissão de EXCLUSÃO.
+  // delete_records_permission:
+  //   'none'    → false sempre
+  //   'created' → record.created_by_tc_user_id === tcUserId
+  //   'all'     → tc_user tem acesso (assigned OR created)
+  async tcUserCanDeleteRecord(tcUserId, recordId) {
+    const r = await this.queryWithRetry(
+      `SELECT
+         (SELECT delete_records_permission FROM tc_users WHERE id = $1) AS perm,
+         (SELECT created_by_tc_user_id FROM terracontrol WHERE id = $2) AS creator,
+         EXISTS (
+           SELECT 1 FROM tc_user_record_access
+            WHERE tc_user_id = $1 AND terracontrol_id = $2
+         ) AS has_access`,
+      [tcUserId, recordId]
+    );
+    const row = r.rows[0];
+    if (!row || !row.perm) return false;
+    const isCreator = row.creator === tcUserId;
+    switch (row.perm) {
+      case 'none':    return false;
+      case 'created': return isCreator;
+      case 'all':     return row.has_access || isCreator;
+      default:        return false;
+    }
+  }
+
+  // Lista impgeo users que devem receber notificação de novo registro tc_user.
+  // Regra: admin/superadmin (bypass) + users com módulo terracontrol explícito.
+  async getImpgeoUsersWithTerraControlAccess() {
+    const r = await this.queryWithRetry(
+      `SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, u.email
+         FROM users u
+         LEFT JOIN user_module_permissions ump
+           ON ump.user_id = u.id AND ump.module_key = 'terracontrol'
+        WHERE u.is_active <> FALSE
+          AND (u.role IN ('admin','superadmin') OR ump.user_id IS NOT NULL)`
+    );
+    return r.rows;
   }
 
   async deleteMultipleTerraControl(ids) {
@@ -1998,8 +2238,9 @@ class Database {
     return [
       'id', 'username', 'first_name', 'last_name', 'email', 'email_verified_at',
       'phone', 'cpf', 'birth_date', 'gender', 'address', 'photo_url',
-      'force_password_change', 'is_active', 'can_share', 'created_via', 'last_login',
-      'created_at', 'updated_at'
+      'force_password_change', 'is_active', 'can_share',
+      'edit_records_permission', 'delete_records_permission',
+      'created_via', 'last_login', 'created_at', 'updated_at'
     ].join(', ');
   }
 
@@ -2112,6 +2353,8 @@ class Database {
       force_password_change: updates.forcePasswordChange,
       is_active: updates.isActive,
       can_share: updates.canShare ?? updates.can_share,
+      edit_records_permission: updates.editRecordsPermission ?? updates.edit_records_permission,
+      delete_records_permission: updates.deleteRecordsPermission ?? updates.delete_records_permission,
       email_verified_at: updates.emailVerifiedAt ?? updates.email_verified_at,
       last_login: updates.lastLogin ?? updates.last_login,
     };
@@ -2163,14 +2406,21 @@ class Database {
     return r.rows.map(row => row.terracontrol_id);
   }
 
-  async getTcUserRecords(tcUserId) {
+  async getTcUserRecords(tcUserId, { onlyApproved = false } = {}) {
     // Retorna os registros completos que o tc_user tem acesso, ordenados por cod_imovel.
+    // F: aceita filtro onlyApproved + traz nome do criador via LEFT JOIN.
     const r = await this.queryWithRetry(
-      `SELECT tc.* FROM terracontrol tc
-       JOIN tc_user_record_access tura ON tura.terracontrol_id = tc.id
-       WHERE tura.tc_user_id = $1
-       ORDER BY tc.cod_imovel`,
-      [tcUserId]
+      `SELECT tc.*,
+              tu.username   AS created_by_tc_username,
+              tu.first_name AS created_by_tc_first_name,
+              tu.last_name  AS created_by_tc_last_name
+         FROM terracontrol tc
+         JOIN tc_user_record_access tura ON tura.terracontrol_id = tc.id
+         LEFT JOIN tc_users tu ON tu.id = tc.created_by_tc_user_id
+        WHERE tura.tc_user_id = $1
+          AND ($2::BOOLEAN = FALSE OR tc.approved = TRUE)
+        ORDER BY tc.cod_imovel`,
+      [tcUserId, !!onlyApproved]
     );
     return r.rows;
   }
@@ -2228,32 +2478,10 @@ class Database {
   }
 
   // =========================================================================
-  // tc_legacy_aliases — URL antiga /v/<token> → tc_user
+  // tc_legacy_aliases — REMOVIDO na migration 031 (drop legacy support).
+  // Os métodos getTcLegacyAlias e markTcLegacyAliasUsed foram removidos junto.
+  // O handler /v/:token segue válido pra sub-share links gerados por tc_users.
   // =========================================================================
-
-  async getTcLegacyAlias(shareLinkToken) {
-    const r = await this.queryWithRetry(
-      `SELECT tla.share_link_token, tla.tc_user_id, tu.username
-       FROM tc_legacy_aliases tla
-       JOIN tc_users tu ON tu.id = tla.tc_user_id
-       WHERE tla.share_link_token = $1
-       LIMIT 1`,
-      [shareLinkToken]
-    );
-    return r.rows[0] || null;
-  }
-
-  async markTcLegacyAliasUsed(shareLinkToken) {
-    // Best-effort: falha silenciosa não bloqueia o redirect.
-    try {
-      await this.queryWithRetry(
-        'UPDATE tc_legacy_aliases SET redirect_used_at = NOW() WHERE share_link_token = $1',
-        [shareLinkToken]
-      );
-    } catch (e) {
-      console.error('Erro ao marcar legacy alias usado:', e?.message || e);
-    }
-  }
 
   // =========================================================================
   // tc_refresh_tokens — sessões tc_user

@@ -46,6 +46,8 @@ interface TcUserListItem {
   is_active: boolean
   force_password_change: boolean
   can_share: boolean
+  edit_records_permission?: 'none' | 'created' | 'assigned' | 'all'
+  delete_records_permission?: 'none' | 'created' | 'all'
   created_via: 'direct' | 'invite' | 'migrated'
   last_login: string | null
   created_at: string
@@ -672,6 +674,8 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [canShare, setCanShare] = useState(true)  // F2.5 — pré-selecionado por padrão na criação
+  const [editRecordsPermission, setEditRecordsPermission] = useState<'none' | 'created' | 'assigned' | 'all'>('all')
+  const [deleteRecordsPermission, setDeleteRecordsPermission] = useState<'none' | 'created' | 'all'>('none')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
@@ -745,6 +749,8 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
             email: email.trim().toLowerCase(),
             selectedIds: Array.from(selected),
             canShare,
+            editRecordsPermission,
+            deleteRecordsPermission,
           }),
         })
         const data = await res.json()
@@ -771,6 +777,8 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
             password: password || undefined,
             selectedIds: Array.from(selected),
             canShare,
+            editRecordsPermission,
+            deleteRecordsPermission,
           }),
         })
         const data = await res.json()
@@ -929,6 +937,29 @@ const TcUserCreateModal: React.FC<CreateProps> = ({ isOpen, onClose, token, reco
             </div>
           </label>
 
+          {/* F — Permissões de manipular registros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Permissão de edição</label>
+              <select value={editRecordsPermission} onChange={(e) => setEditRecordsPermission(e.target.value as any)}
+                className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100">
+                <option value="none">Nenhuma — não pode editar</option>
+                <option value="created">Apenas os criados por ele</option>
+                <option value="assigned">Apenas os designados a ele</option>
+                <option value="all">Todos que tem acesso (recomendado)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Permissão de exclusão</label>
+              <select value={deleteRecordsPermission} onChange={(e) => setDeleteRecordsPermission(e.target.value as any)}
+                className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100">
+                <option value="none">Nenhuma (recomendado)</option>
+                <option value="created">Apenas os criados por ele</option>
+                <option value="all">Todos que tem acesso</option>
+              </select>
+            </div>
+          </div>
+
           {/* Seleção de registros */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1025,6 +1056,12 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
   const [phone, setPhone] = useState(user.phone || '')
   const [isActive, setIsActive] = useState(user.is_active)
   const [canShare, setCanShare] = useState(user.can_share === true)
+  const [editRecordsPermission, setEditRecordsPermission] = useState<'none' | 'created' | 'assigned' | 'all'>(
+    (user as any).edit_records_permission || 'all'
+  )
+  const [deleteRecordsPermission, setDeleteRecordsPermission] = useState<'none' | 'created' | 'all'>(
+    (user as any).delete_records_permission || 'none'
+  )
   const [accessIds, setAccessIds] = useState<Set<string>>(new Set())
   const [accessLoaded, setAccessLoaded] = useState(false)
   const [search, setSearch] = useState('')
@@ -1116,6 +1153,8 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
           phone: phone.trim() || null,
           isActive,
           canShare,
+          editRecordsPermission,
+          deleteRecordsPermission,
         }),
       })
       const data = await res.json()
@@ -1230,6 +1269,30 @@ const TcUserEditModal: React.FC<EditProps> = ({ user, onClose, token, records, n
                   </p>
                 </div>
               </label>
+
+              {/* F — Permissões de manipular registros */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Permissão de edição</label>
+                  <select value={editRecordsPermission} onChange={(e) => setEditRecordsPermission(e.target.value as any)}
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100">
+                    <option value="none">Nenhuma — não pode editar</option>
+                    <option value="created">Apenas os criados por ele</option>
+                    <option value="assigned">Apenas os designados a ele</option>
+                    <option value="all">Todos que tem acesso</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Permissão de exclusão</label>
+                  <select value={deleteRecordsPermission} onChange={(e) => setDeleteRecordsPermission(e.target.value as any)}
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100">
+                    <option value="none">Nenhuma</option>
+                    <option value="created">Apenas os criados por ele</option>
+                    <option value="all">Todos que tem acesso</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="pt-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
                 Criado em {fmtDateOnly(user.created_at)} via {createdViaLabel(user.created_via)}.
                 Último login: {fmtDate(user.last_login)}.

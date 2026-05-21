@@ -108,6 +108,19 @@ export function normalizeRecord(raw: any): TerraControlRecord {
     appVegetada: Number(raw?.appVegetada ?? raw?.app_vegetada ?? 0),
     appNaoVegetada: Number(raw?.appNaoVegetada ?? raw?.app_nao_vegetada ?? 0),
     remanescenteFlorestal: Number(raw?.remanescenteFlorestal ?? raw?.remanescente_florestal ?? 0),
+    // F: ownership + approval
+    createdByUserId: raw?.createdByUserId ?? raw?.created_by_user_id ?? null,
+    createdByTcUserId: raw?.createdByTcUserId ?? raw?.created_by_tc_user_id ?? null,
+    createdByTcUsername: raw?.createdByTcUsername ?? raw?.created_by_tc_username ?? null,
+    createdByTcFullName: (() => {
+      const f = raw?.created_by_tc_first_name ?? raw?.createdByTcFirstName ?? ''
+      const l = raw?.created_by_tc_last_name  ?? raw?.createdByTcLastName  ?? ''
+      const full = [f, l].filter(Boolean).join(' ').trim()
+      return full || null
+    })(),
+    approved: raw?.approved !== false,
+    approvedAt: raw?.approvedAt ?? raw?.approved_at ?? null,
+    approvedByUserId: raw?.approvedByUserId ?? raw?.approved_by_user_id ?? null,
   }
 }
 

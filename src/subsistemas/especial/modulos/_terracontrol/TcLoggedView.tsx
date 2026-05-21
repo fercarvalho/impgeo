@@ -6,12 +6,13 @@
 //   - autenticação de downloads (?tcAuth=<jwt> em vez de ?token=)
 //   - botões de gerar sub-share (bulk no header + individual em cada card),
 //     visíveis só quando tcUser.canShare === true
+//   - F: CRUD de registros (criar/editar/excluir) com TcRecordFormModal,
+//     gated por editRecordsPermission / deleteRecordsPermission
 //
 // Esse wrapper cuida dos modais auxiliares (perfil, edição de perfil, mudar
-// senha, mudar username, gerar sub-share) — TerraControlView só renderiza os
-// modais dele (mapa, gráficos, downloads etc.).
+// senha, mudar username, gerar sub-share, criar/editar registro).
 
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useTcAuth } from '@/contexts/TcAuthContext'
 import {
   type TerraControlRecord,
@@ -25,10 +26,11 @@ import TcEditarPerfilModal from './TcEditarPerfilModal'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcAlterarUsernameModal from './TcAlterarUsernameModal'
 import TcSubShareModal from './TcSubShareModal'
+import TcRecordFormModal from './TcRecordFormModal'
 
 const TcLoggedView: React.FC = () => {
   const { tcUser, tcToken } = useTcAuth()
-  const { notify, FeedbackHost } = useFeedback()
+  const { notify, confirm, FeedbackHost } = useFeedback()
 
   // Modais do menu de usuário
   const [showProfile, setShowProfile] = useState(false)
@@ -38,20 +40,26 @@ const TcLoggedView: React.FC = () => {
 
   // Modal de sub-share — controlado por estado com IDs pré-selecionados
   const [shareIds, setShareIds] = useState<string[] | null>(null)
-  // Cache dos records que o tc_user vê — usado pra alimentar o modal de
-  // sub-share (passar a lista completa e pré-selecionados).
-  // Buscamos UMA vez aqui (mesmo endpoint que o TerraControlView vai chamar
-  // internamente). Aceitamos a duplicação de fetch nesse caso porque o backend
-  // tem cache curto e a lista é pequena.
+  // Cache dos records — alimentado pelo fetch local + atualizado quando
+  // tc_user cria/edita/exclui via callbacks
   const [records, setRecords] = useState<TerraControlRecord[]>([])
 
-  // Sincroniza records (carregamos uma vez ao montar — o TerraControlView faz
-  // o mesmo fetch internamente, e está OK que sejam 2 fetches paralelos:
-  // a UI principal nunca volta a buscar, e esse aqui só serve pro modal share)
+  // F: filtro de aprovação (controlado pelo TcLoggedView, refletido pro View)
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'approved'>('all')
+
+  // F: modal de cadastro/edição (undefined = criar; record = editar)
+  const [recordFormOpen, setRecordFormOpen] = useState(false)
+  const [editingRecord, setEditingRecord] = useState<TerraControlRecord | null>(null)
+
+  // Bump pra forçar refetch do TerraControlView quando criamos/editamos
+  const [refetchKey, setRefetchKey] = useState(0)
+
+  // Sincroniza records ao montar (e quando filtro/refetchKey muda).
   React.useEffect(() => {
     if (!tcToken) return
     const ctrl = new AbortController()
-    fetch('/api/tc-auth/me/records', {
+    const qs = approvalFilter === 'approved' ? '?onlyApproved=true' : ''
+    fetch(`/api/tc-auth/me/records${qs}`, {
       headers: { Authorization: `Bearer ${tcToken}` },
       credentials: 'include',
       signal: ctrl.signal,
@@ -62,10 +70,29 @@ const TcLoggedView: React.FC = () => {
       })
       .catch(() => {/* TerraControlView já trata o erro principal */})
     return () => ctrl.abort()
-  }, [tcToken])
+  }, [tcToken, approvalFilter, refetchKey])
 
   // Permissão de compartilhamento — só renderizamos os botões se a flag estiver ligada
   const canShare = tcUser?.canShare === true
+
+  // F: helpers de permissão (espelha tcUserCanEditRecord/Delete do backend).
+  // Backend sempre revalida — esse aqui é só pra esconder/mostrar botão na UI.
+  const canEditRecord = useCallback((record: TerraControlRecord): boolean => {
+    const perm = tcUser?.editRecordsPermission || 'all'
+    if (perm === 'none') return false
+    const isCreator = record.createdByTcUserId === tcUser?.id
+    if (perm === 'created')  return isCreator
+    if (perm === 'assigned') return !isCreator  // assume que está na lista (já filtrou pelo backend)
+    return true // 'all'
+  }, [tcUser])
+
+  const canDeleteRecord = useCallback((record: TerraControlRecord): boolean => {
+    const perm = tcUser?.deleteRecordsPermission || 'none'
+    if (perm === 'none') return false
+    const isCreator = record.createdByTcUserId === tcUser?.id
+    if (perm === 'created') return isCreator
+    return true // 'all'
+  }, [tcUser])
 
   // Callbacks para o TerraControlView
   const handleShareBulk = useMemo(
@@ -76,12 +103,45 @@ const TcLoggedView: React.FC = () => {
     () => canShare ? (id: string) => setShareIds([id]) : undefined,
     [canShare]
   )
+  const handleCreateRecord = useCallback(() => {
+    setEditingRecord(null)
+    setRecordFormOpen(true)
+  }, [])
+  const handleEditRecord = useCallback((id: string) => {
+    const r = records.find(x => String(x.id) === String(id))
+    if (!r) { notify('Registro não encontrado', { type: 'error' }); return }
+    setEditingRecord(r)
+    setRecordFormOpen(true)
+  }, [records, notify])
+  const handleDeleteRecord = useCallback(async (id: string) => {
+    const r = records.find(x => String(x.id) === String(id))
+    if (!r) return
+    const ok = await confirm(`Tem certeza que deseja excluir "${r.imovel}"?`, { variant: 'danger', confirmLabel: 'Excluir' })
+    if (!ok) return
+    try {
+      const res = await fetch(`/api/tc-auth/me/records/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${tcToken}` },
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        notify('Registro excluído', { type: 'success' })
+        setRefetchKey(k => k + 1)
+      } else {
+        notify(data?.error || 'Erro ao excluir', { type: 'error' })
+      }
+    } catch (e: any) {
+      notify(e?.message || 'Erro de conexão', { type: 'error' })
+    }
+  }, [records, tcToken, notify, confirm])
 
   if (!tcUser || !tcToken) return null
 
   return (
     <>
       <TerraControlView
+        key={refetchKey}
         mode={{
           kind: 'tcuser',
           tcToken,
@@ -96,6 +156,13 @@ const TcLoggedView: React.FC = () => {
           ),
           onShareBulk: handleShareBulk,
           onShareSingle: handleShareSingle,
+          onCreateRecord: handleCreateRecord,
+          onEditRecord: tcUser.editRecordsPermission !== 'none' ? handleEditRecord : undefined,
+          onDeleteRecord: tcUser.deleteRecordsPermission !== 'none' ? handleDeleteRecord : undefined,
+          canEditRecord,
+          canDeleteRecord,
+          approvalFilter,
+          onChangeApprovalFilter: setApprovalFilter,
         }}
       />
 
@@ -134,6 +201,21 @@ const TcLoggedView: React.FC = () => {
           records={records}
           initialSelectedIds={shareIds}
           notify={notify}
+        />
+      )}
+
+      {/* F: modal de cadastro/edição de registro */}
+      {recordFormOpen && (
+        <TcRecordFormModal
+          isOpen={recordFormOpen}
+          onClose={() => { setRecordFormOpen(false); setEditingRecord(null) }}
+          record={editingRecord}
+          notify={notify}
+          onSaved={() => {
+            setRecordFormOpen(false)
+            setEditingRecord(null)
+            setRefetchKey(k => k + 1)
+          }}
         />
       )}
 

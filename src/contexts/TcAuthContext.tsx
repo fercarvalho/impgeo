@@ -45,6 +45,8 @@ export interface TcUser {
   forcePasswordChange?: boolean
   isActive?: boolean
   canShare?: boolean  // F2.5: tc_user pode gerar sub-share links
+  editRecordsPermission?: 'none' | 'created' | 'assigned' | 'all'  // F
+  deleteRecordsPermission?: 'none' | 'created' | 'all'             // F
   createdVia?: string
   lastLogin?: string | null
   createdAt?: string

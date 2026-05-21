@@ -57,6 +57,14 @@ export interface TerraControlRecord {
   appVegetada: number
   appNaoVegetada: number
   remanescenteFlorestal: number
+  // F: ownership + approval
+  createdByUserId?: string | null
+  createdByTcUserId?: string | null
+  createdByTcUsername?: string | null
+  createdByTcFullName?: string | null
+  approved: boolean
+  approvedAt?: string | null
+  approvedByUserId?: string | null
 }
 
 // Campos pelos quais a UI ordena a listagem. `saldoReservaLegal` é computado

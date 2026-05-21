@@ -2008,6 +2008,44 @@ app.delete('/api/terracontrol/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/admin/terracontrol/:id/approve — admin aprova registro pendente
+// Requer auth impgeo (admin/superadmin OU usuário com módulo terracontrol).
+app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    // Verifica acesso ao módulo terracontrol — admin/superadmin têm bypass
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'superadmin') {
+      const userModules = Array.isArray(req.user?.modulesAccess) ? req.user.modulesAccess : [];
+      const hasModule = userModules.some(m => (m.moduleKey || m.module_key) === 'terracontrol');
+      if (!hasModule) {
+        return res.status(403).json({ success: false, error: 'Sem acesso ao módulo TerraControl' });
+      }
+    }
+    const updated = await db.approveTerraControlRecord(req.params.id, req.user.id);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao aprovar' });
+  }
+});
+
+// PATCH /api/admin/terracontrol/:id/unapprove — admin revoga aprovação
+app.patch('/api/admin/terracontrol/:id/unapprove', authenticateToken, async (req, res) => {
+  try {
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'superadmin') {
+      const userModules = Array.isArray(req.user?.modulesAccess) ? req.user.modulesAccess : [];
+      const hasModule = userModules.some(m => (m.moduleKey || m.module_key) === 'terracontrol');
+      if (!hasModule) {
+        return res.status(403).json({ success: false, error: 'Sem acesso ao módulo TerraControl' });
+      }
+    }
+    const updated = await db.unapproveTerraControlRecord(req.params.id);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao revogar aprovação' });
+  }
+});
+
 app.delete('/api/terracontrol', async (req, res) => {
   try {
     const { ids } = req.body;
@@ -2298,30 +2336,16 @@ app.post('/api/terracontrol/public/:token/validate-password', sharePasswordLimit
 
 // Rota de Redirecionamento Curto (/v/:token)
 //
-// Fluxos:
-//   1. Token corresponde a um tc_legacy_alias (share_link migrado) →
-//      redireciona para o subdomínio TerraControl com username pré-preenchido,
-//      para que o tc_user faça login formal (substitui o PasswordGate de só-senha).
-//   2. Token é um share_link "vivo" (sub-share criado por tc_user) → fluxo antigo,
-//      redireciona para /?token=<token> em qualquer host.
+// Fluxo único: token é share_link vivo (sub-share criado por tc_user via
+// /api/tc-auth/me/share-links) → redireciona pra /?token=<token>. A SPA detecta
+// e renderiza TerraControlView em modo 'share' (PasswordGate se necessário).
+//
+// Suporte ao tc_legacy_aliases foi REMOVIDO (migration 031). URLs antigas de
+// share_links migrados em 2026-04 não funcionam mais.
 app.get('/v/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const normalizedBase = String(BASE_URL || '').trim().replace(/\/$/, '');
-
-    // Tenta legacy alias primeiro
-    const alias = await db.getTcLegacyAlias(token);
-    if (alias) {
-      // best-effort: marca uso. Não bloqueia o redirect se falhar.
-      db.markTcLegacyAliasUsed(token).catch(() => {});
-      // Em produção: terracontrol.viverdepj.com.br; em dev: BASE_URL ou host original
-      const tcPublicBase = process.env.TC_PUBLIC_BASE_URL
-        || normalizedBase
-        || `${req.protocol}://${req.get('host')}`;
-      return res.redirect(`${tcPublicBase.replace(/\/$/, '')}/?u=${encodeURIComponent(alias.username)}`);
-    }
-
-    // Senão, fluxo antigo de sub-share anônimo
     res.redirect(`${normalizedBase}/?token=${token}`);
   } catch (error) {
     console.error('Erro em /v/:token:', error);
@@ -2574,7 +2598,9 @@ app.get('/api/terracontrol/public/:token', sharePublicLimiter, async (req, res) 
 
     // Filtragem feita pelo banco (WHERE id = ANY) em vez de carregar a tabela
     // inteira e filtrar em JS — evita transitar dados sensíveis pela memória.
-    const filteredTerraControl = await db.getTerraControlByIds(linkSelectedIds);
+    // F: sub-share anônimo NUNCA expõe registros pendentes de aprovação.
+    const allRecords = await db.getTerraControlByIds(linkSelectedIds);
+    const filteredTerraControl = allRecords.filter(r => r.approved !== false);
 
     db.logShareLinkAccess({ token, action: 'view', status: 'success', ...ctx });
     res.json({
@@ -2918,12 +2944,122 @@ app.delete('/api/tc-auth/notifications/:id', tcAuth.authenticateTcUser, async (r
 });
 
 // GET /api/tc-auth/me/records — lista registros TerraControl que o tc_user pode ver
+// Aceita ?onlyApproved=true pra esconder pendentes (default: todos)
 app.get('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) => {
   try {
-    const records = await db.getTcUserRecords(req.tcUser.id);
+    const onlyApproved = req.query.onlyApproved === 'true';
+    const records = await db.getTcUserRecords(req.tcUser.id, { onlyApproved });
     res.json({ success: true, data: records });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Erro ao listar registros' });
+  }
+});
+
+// POST /api/tc-auth/me/records — tc_user cria registro próprio
+// Força created_by_tc_user_id + approved=FALSE + grant em tc_user_record_access.
+// Dispara notificação pra impgeo users com acesso ao módulo TerraControl.
+app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const payload = req.body || {};
+    if (!payload.imovel || !String(payload.imovel).trim()) {
+      return res.status(400).json({ success: false, error: 'Nome do imóvel é obrigatório' });
+    }
+    if (!payload.municipio || !String(payload.municipio).trim()) {
+      return res.status(400).json({ success: false, error: 'Município é obrigatório' });
+    }
+    if (!payload.mapaUrl && !payload.mapa_url) {
+      return res.status(400).json({ success: false, error: 'Link do Google Maps é obrigatório' });
+    }
+
+    const created = await db.saveTerraControlAsTcUser(payload, req.tcUser.id);
+
+    // Dispara notificações pra impgeo users (fire-and-forget)
+    (async () => {
+      try {
+        const impgeoUsers = await db.getImpgeoUsersWithTerraControlAccess();
+        const tcName = [req.tcUser.firstName, req.tcUser.lastName].filter(Boolean).join(' ').trim()
+          || req.tcUser.username
+          || 'um usuário TerraControl';
+        for (const u of impgeoUsers) {
+          await db.createNotification({
+            user_id: u.id,
+            notification_type: 'tc_record_created',
+            title: `${tcName} cadastrou um novo registro`,
+            message: `${created.imovel} em ${created.municipio} — aguardando aprovação`,
+            related_entity_type: 'terracontrol',
+            related_entity_id: created.id,
+          });
+        }
+      } catch (notifErr) {
+        console.error('[tc-records] Falha ao disparar notificações:', notifErr?.message);
+      }
+    })();
+
+    res.json({ success: true, data: created });
+  } catch (error) {
+    console.error('Erro POST /api/tc-auth/me/records:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao criar registro' });
+  }
+});
+
+// PUT /api/tc-auth/me/records/:id — tc_user edita registro
+// Permissão checada server-side via tcUserCanEditRecord.
+// Se registro estava aprovado, edição reseta para pendente automaticamente.
+app.put('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const ok = await db.tcUserCanEditRecord(req.tcUser.id, req.params.id);
+    if (!ok) {
+      return res.status(403).json({ success: false, error: 'Você não tem permissão para editar este registro' });
+    }
+    const updated = await db.updateTerraControlByTcUser(req.params.id, req.body || {});
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Erro PUT /api/tc-auth/me/records/:id:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao atualizar registro' });
+  }
+});
+
+// POST /api/tc-auth/me/upload-car — upload de PDF pro tc_user
+// Espelho do /api/terracontrol/upload-car mas autenticado via tc_user JWT.
+// Mesmo validador de magic bytes %PDF (G2.4).
+app.post('/api/tc-auth/me/upload-car', tcAuth.authenticateTcUser, uploadDocument.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+    }
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const header = Buffer.alloc(4);
+      fs.readSync(fd, header, 0, 4, 0);
+      fs.closeSync(fd);
+      if (header.toString('ascii') !== '%PDF') {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        return res.status(400).json({ success: false, error: 'Arquivo enviado não é um PDF válido' });
+      }
+    } catch (sigErr) {
+      console.error('Erro ao validar assinatura PDF (tc_user):', sigErr);
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(500).json({ success: false, error: 'Falha ao validar o arquivo enviado' });
+    }
+    const fileUrl = `/api/documents/${req.file.filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro no upload' });
+  }
+});
+
+// DELETE /api/tc-auth/me/records/:id — tc_user exclui registro
+app.delete('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const ok = await db.tcUserCanDeleteRecord(req.tcUser.id, req.params.id);
+    if (!ok) {
+      return res.status(403).json({ success: false, error: 'Você não tem permissão para excluir este registro' });
+    }
+    await db.deleteTerraControlByTcUser(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Erro DELETE /api/tc-auth/me/records/:id:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao excluir registro' });
   }
 });
 
@@ -4300,7 +4436,7 @@ app.get('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asyn
 // POST /api/admin/tc-users — cria novo tc_user com senha temporária + acesso a registros
 app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const { username, firstName, lastName, email, password, selectedIds, canShare } = req.body || {};
+    const { username, firstName, lastName, email, password, selectedIds, canShare, editRecordsPermission, deleteRecordsPermission } = req.body || {};
     if (!username || !firstName || !email) {
       return res.status(400).json({ success: false, error: 'Username, nome e email são obrigatórios' });
     }
@@ -4337,8 +4473,17 @@ app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asy
 
     // F2.5 — se admin marcou "pode compartilhar" no modal de criação,
     // aplica via update (createTcUser não tem esse campo por design)
-    if (canShare === true) {
-      await db.updateTcUser(created.id, { canShare: true });
+    // F: idem pras 2 permissões de manipular registros (não-defaults)
+    const postCreate = {};
+    if (canShare === true) postCreate.canShare = true;
+    if (editRecordsPermission && editRecordsPermission !== 'all') {
+      postCreate.editRecordsPermission = editRecordsPermission;
+    }
+    if (deleteRecordsPermission && deleteRecordsPermission !== 'none') {
+      postCreate.deleteRecordsPermission = deleteRecordsPermission;
+    }
+    if (Object.keys(postCreate).length > 0) {
+      await db.updateTcUser(created.id, postCreate);
     }
 
     res.json({
@@ -4359,7 +4504,7 @@ app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asy
 // PUT /api/admin/tc-users/:id — edita campos do tc_user
 app.put('/api/admin/tc-users/:id', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive', 'canShare'];
+    const allowed = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'isActive', 'canShare', 'editRecordsPermission', 'deleteRecordsPermission'];
     const updates = {};
     for (const k of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) updates[k] = req.body[k];
@@ -4429,7 +4574,7 @@ app.put('/api/admin/tc-users/:id/deactivate', authenticateToken, requireTcUsersM
 // Body: { email, selectedIds?: string[] }
 app.post('/api/admin/tc-users/invite', authenticateToken, requireTcUsersManagement, async (req, res) => {
   try {
-    const { email, selectedIds, canShare } = req.body || {};
+    const { email, selectedIds, canShare, editRecordsPermission, deleteRecordsPermission } = req.body || {};
     if (!email) return res.status(400).json({ success: false, error: 'Email é obrigatório' });
 
     const expiresDays = Number(process.env.TC_INVITE_EXPIRATION_DAYS || 7) || 7;
@@ -4440,9 +4585,20 @@ app.post('/api/admin/tc-users/invite', authenticateToken, requireTcUsersManageme
       expiresDays,
     });
 
-    // F2.5 — aplica can_share no stub (ou no tc_user existente caso seja reenvio)
-    if (canShare === true && result.tcUserId) {
-      await db.updateTcUser(result.tcUserId, { canShare: true });
+    // F2.5 — aplica can_share + permissões de manipular registros no stub
+    // (ou no tc_user existente caso seja reenvio de convite)
+    if (result.tcUserId) {
+      const postCreate = {};
+      if (canShare === true) postCreate.canShare = true;
+      if (editRecordsPermission && editRecordsPermission !== 'all') {
+        postCreate.editRecordsPermission = editRecordsPermission;
+      }
+      if (deleteRecordsPermission && deleteRecordsPermission !== 'none') {
+        postCreate.deleteRecordsPermission = deleteRecordsPermission;
+      }
+      if (Object.keys(postCreate).length > 0) {
+        await db.updateTcUser(result.tcUserId, postCreate);
+      }
     }
 
     // Monta URL de aceite. TC_PUBLIC_BASE_URL pode estar setado em prod; em dev,

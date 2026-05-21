@@ -70,6 +70,16 @@ export type TerraControlViewMode =
       // Quando definido E tcUser.canShare = true, renderiza botão pequeno
       // "Compartilhar este imóvel" em cada card.
       onShareSingle?: (recordId: string) => void
+      // F: callbacks de CRUD de registros pelo tc_user
+      onCreateRecord?: () => void
+      onEditRecord?: (recordId: string) => void
+      onDeleteRecord?: (recordId: string) => void
+      // F: filtro de aprovação ('all' = todos | 'approved' = só aprovados)
+      approvalFilter?: 'all' | 'approved'
+      onChangeApprovalFilter?: (filter: 'all' | 'approved') => void
+      // F: pra decidir se renderiza botão editar/excluir por card
+      canEditRecord?: (record: TerraControlRecord) => boolean
+      canDeleteRecord?: (record: TerraControlRecord) => boolean
     }
 
 interface Props {
@@ -141,8 +151,10 @@ const TerraControlView: React.FC<Props> = (props) => {
       try {
         // Modo tc_user: lê /api/tc-auth/me/records com Authorization Bearer.
         // Sem PasswordGate — o login já aconteceu.
+        // F: query string controla filtro de aprovação
         if (mode.kind === 'tcuser') {
-          const response = await fetch(`${API_BASE_URL}/tc-auth/me/records`, {
+          const qs = mode.approvalFilter === 'approved' ? '?onlyApproved=true' : ''
+          const response = await fetch(`${API_BASE_URL}/tc-auth/me/records${qs}`, {
             signal: controller.signal,
             headers: { Authorization: `Bearer ${mode.tcToken}` },
             credentials: 'include',
@@ -197,7 +209,7 @@ const TerraControlView: React.FC<Props> = (props) => {
 
     return () => { controller.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode.kind, mode.kind === 'share' ? mode.token : mode.tcToken])
+  }, [mode.kind, mode.kind === 'share' ? mode.token : mode.tcToken, mode.kind === 'tcuser' ? mode.approvalFilter : null])
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -507,18 +519,53 @@ const TerraControlView: React.FC<Props> = (props) => {
                 <p className="text-blue-100 text-sm">Gerencie seus imóveis de maneira descomplicada</p>
               </div>
             </div>
-            {/* Botão "Compartilhar" (bulk) — só aparece em tc_user mode com permissão */}
-            {mode.kind === 'tcuser' && mode.onShareBulk && (
-              <button
-                type="button"
-                onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
-                className="flex-shrink-0 inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold backdrop-blur-sm transition"
-              >
-                <Share2 className="w-4 h-4" />
-                Compartilhar
-              </button>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* F: botão "Novo registro" — só em tc_user mode com callback */}
+              {mode.kind === 'tcuser' && mode.onCreateRecord && (
+                <button
+                  type="button"
+                  onClick={() => mode.onCreateRecord?.()}
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white text-tc-blue hover:bg-blue-50 text-sm font-bold shadow-md transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  Novo registro
+                </button>
+              )}
+              {/* Botão "Compartilhar" (bulk) — só em tc_user mode com permissão */}
+              {mode.kind === 'tcuser' && mode.onShareBulk && (
+                <button
+                  type="button"
+                  onClick={() => mode.onShareBulk?.(records.map(r => String(r.id)))}
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold backdrop-blur-sm transition"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </button>
+              )}
+            </div>
           </div>
+          {/* F: toggle de filtro de aprovação no card de boas-vindas */}
+          {mode.kind === 'tcuser' && mode.onChangeApprovalFilter && (
+            <div className="mt-4 flex items-center gap-3 text-xs">
+              <span className="text-blue-100 font-semibold uppercase tracking-wider">Exibir:</span>
+              <div className="inline-flex rounded-lg bg-white/10 p-1 border border-white/20">
+                <button
+                  type="button"
+                  onClick={() => mode.onChangeApprovalFilter?.('all')}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition ${mode.approvalFilter !== 'approved' ? 'bg-white text-tc-blue' : 'text-white hover:bg-white/10'}`}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mode.onChangeApprovalFilter?.('approved')}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition ${mode.approvalFilter === 'approved' ? 'bg-white text-tc-blue' : 'text-white hover:bg-white/10'}`}
+                >
+                  Só aprovados
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Estatísticas */}
@@ -749,7 +796,14 @@ const TerraControlView: React.FC<Props> = (props) => {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="text-white font-bold text-sm leading-tight break-words">{record.imovel}</div>
-                      <div className="text-blue-200 text-xs mt-0.5">{record.municipio}</div>
+                      <div className="text-blue-200 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span>{record.municipio}</span>
+                        {record.approved === false && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[10px] font-bold">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Pendente aprovação
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center items-stretch gap-1.5 shrink-0">
@@ -788,6 +842,29 @@ const TerraControlView: React.FC<Props> = (props) => {
                       >
                         <Share2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span className="text-xs font-semibold">Compartilhar</span>
+                      </button>
+                    )}
+                    {/* F: botões Editar / Excluir — só em tc_user mode com permissão */}
+                    {mode.kind === 'tcuser' && mode.onEditRecord && mode.canEditRecord?.(record) && (
+                      <button
+                        onClick={() => mode.onEditRecord?.(String(record.id))}
+                        title="Editar registro"
+                        aria-label={`Editar ${record.imovel}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 hover:bg-white/35 rounded-lg transition-colors text-white"
+                      >
+                        <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span className="text-xs font-semibold">Editar</span>
+                      </button>
+                    )}
+                    {mode.kind === 'tcuser' && mode.onDeleteRecord && mode.canDeleteRecord?.(record) && (
+                      <button
+                        onClick={() => mode.onDeleteRecord?.(String(record.id))}
+                        title="Excluir registro"
+                        aria-label={`Excluir ${record.imovel}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/30 hover:bg-red-500/60 rounded-lg transition-colors text-white"
+                      >
+                        <X className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span className="text-xs font-semibold">Excluir</span>
                       </button>
                     )}
                   </div>
