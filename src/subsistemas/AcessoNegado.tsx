@@ -70,7 +70,7 @@ export default function AcessoNegado({ attemptedSubsystem }: Props) {
         </div>
       </nav>
 
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+      <main className="flex-1 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-lg w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 border-l-4 border-l-rose-500 p-8 sm:p-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 mb-5">
             <ShieldAlert className="h-8 w-8" aria-hidden="true" />

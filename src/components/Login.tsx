@@ -229,7 +229,7 @@ const Login = () => {
       </div>
 
       {/* ─── Conteúdo principal ─── */}
-      <div className="relative z-10 flex flex-col items-center flex-1 py-10 px-4">
+      <div className="relative z-10 flex flex-col items-center flex-1 min-h-screen py-10 px-4">
 
         {/* Card glassmorphism */}
         <div className="imp-login-card-enter imp-login-card w-full max-w-md rounded-3xl p-6 sm:p-8">

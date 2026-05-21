@@ -191,7 +191,7 @@ const TcAcceptInviteScreen: React.FC<Props> = ({ token }) => {
         </svg>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 py-10 px-4">
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 min-h-screen py-10 px-4">
         <div className="tc-login-card w-full max-w-md rounded-3xl p-6 sm:p-8">
           <div className="text-center mb-6">
             <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-auto object-contain mx-auto" />

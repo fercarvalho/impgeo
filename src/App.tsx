@@ -3520,7 +3520,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       {user && <FeedbackButton paginaAtual={activeTab} />}
       <NavigationBar />
       
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36 min-h-screen">
         {activeTab === 'dashboard_financeiro' && hasModuleAccess('dashboard_financeiro') && (
           <>
             {renderDashboard()}
