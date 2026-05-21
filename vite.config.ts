@@ -100,6 +100,29 @@ export default defineConfig({
     }
   },
   build: {
+    // Por padrão, o Vite injeta <link rel="modulepreload"> no index.html para
+    // TODOS os chunks alcançáveis a partir do entry — inclusive os que só são
+    // carregados via lazy()/dynamic import. Isso fazia o browser baixar ~1.2MB
+    // de chunks lazy (vendor-jspdf 388KB, component-terracontrol 445KB,
+    // component-projection 220KB, component-transactions 113KB) já no primeiro
+    // load da página, anulando o lazy loading. Filtramos pra deixar SÓ os deps
+    // realmente necessários no caminho crítico (vendor-react etc).
+    modulePreload: {
+      resolveDependencies: (_filename, deps) => {
+        return deps.filter(d =>
+          !d.includes('vendor-jspdf') &&
+          !d.includes('vendor-html2canvas') &&
+          !d.includes('vendor-heic2any') &&
+          !d.includes('component-terracontrol') &&
+          !d.includes('component-projection') &&
+          !d.includes('component-transactions') &&
+          !d.includes('component-reports') &&
+          !d.includes('component-projects') &&
+          !d.includes('jszip') &&
+          !d.includes('exportPdf')
+        )
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: (id) => {

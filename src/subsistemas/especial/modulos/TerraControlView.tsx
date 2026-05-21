@@ -162,26 +162,13 @@ const TerraControlView: React.FC<Props> = (props) => {
   }
   const clearSelection = () => setSelectedIds(new Set())
 
-  // F: PDF de métricas + (opcionalmente) detalhe dos registros selecionados.
-  //
-  // Estrutura:
-  //   1. Header (gradient verde + título + data + nome do tc_user)
-  //   2. Resumo geral (cards do topo: total imóveis, área, RL, geo cert/reg)
-  //   3. Distribuição por município (tabela: município → imóveis, área)
-  //   4. Top imóveis por cultura (5 tipos)
-  //   5. Top imóveis por APP/ambiental (4 fields) e Reserva Legal
-  //   6. [Só com seleção] Detalhamento dos registros selecionados
-  //
-  // SEM seleção: PDF de métricas apenas (sem lista de imóveis).
-  // COM seleção: PDF de métricas + lista detalhada dos selecionados.
-  //
-  // Métricas SEMPRE refletem TODOS os registros visíveis (não os selecionados).
+  // F: PDF de métricas — toda a lógica vive em ./_terracontrol/exportPdf.ts,
+  // carregada via dynamic import (não infla o chunk inicial do TerraControl).
+  // jspdf entra junto via dependência transitiva e vai pra vendor-jspdf.
   const handleExportPdf = async () => {
     if (exportingPdf) return
     setExportingPdf(true)
     try {
-      // Base de cálculo das métricas: todos os registros (filtrados se houver
-      // searchTerm/approvalFilter). Selecionados afetam só a seção 6.
       const metricsBase = sortedRecords
       if (metricsBase.length === 0) {
         notify('Nenhum registro para exportar.', { type: 'warning' })
@@ -189,259 +176,10 @@ const TerraControlView: React.FC<Props> = (props) => {
       }
       const selectedRecords = sortedRecords.filter(r => selectedIds.has(String(r.id)))
 
-      // Lazy import — jsPDF é pesado
-      const jsPDF = (await import('jspdf')).default
-      const doc = new jsPDF('p', 'mm', 'a4')
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
-      const margin = 12
-      const HEADER_HEIGHT = 22
-      const CONTENT_TOP = HEADER_HEIGHT + 8 // y do início do conteúdo após o header
-      let y = margin
-
-      // F: cabeçalho do PDF — desenhado no topo de TODA página
-      const dateStr = new Date().toLocaleString('pt-BR')
-      const ownerStr = mode.kind === 'tcuser' && mode.tcUserFirstName ? ` · ${mode.tcUserFirstName}` : ''
-      const drawHeader = () => {
-        doc.setFillColor(72, 163, 38) // tc-green
-        doc.rect(0, 0, pageWidth, HEADER_HEIGHT, 'F')
-        doc.setTextColor(255, 255, 255)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(16)
-        doc.text('TerraControl — Relatório de Métricas', margin, 14)
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
-        doc.text(`Gerado em ${dateStr}${ownerStr}`, margin, 19)
-        doc.setTextColor(40, 40, 40)
-      }
-
-      // Adiciona uma nova página E redesenha o header + reposiciona y abaixo dele
-      const addPageWithHeader = () => {
-        doc.addPage()
-        drawHeader()
-        y = CONTENT_TOP
-      }
-
-      // Helpers de paginação + estilos
-      const ensure = (needed: number) => {
-        if (y + needed > pageHeight - margin) { addPageWithHeader() }
-      }
-      const sectionTitle = (title: string) => {
-        ensure(10)
-        doc.setFillColor(0, 65, 177) // tc-blue
-        doc.rect(margin, y, pageWidth - margin * 2, 7, 'F')
-        doc.setTextColor(255, 255, 255)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(11)
-        doc.text(title, margin + 2, y + 5)
-        y += 10
-        doc.setTextColor(40, 40, 40)
-      }
-      const kv = (k: string, v: string, indent = 0) => {
-        ensure(5.5)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(9.5)
-        doc.text(k, margin + indent, y)
-        doc.setFont('helvetica', 'normal')
-        doc.text(String(v), margin + indent + 55, y)
-        y += 5.2
-      }
-      // Pie chart desenhado em canvas — devolve dataURL PNG. Replica o visual
-      // do ChartModal (recharts) sem precisar montar o DOM nem importar lib.
-      const drawPieDataUrl = (data: Array<{ name: string; value: number; color: string }>, size: number): string | null => {
-        const total = data.reduce((s, d) => s + d.value, 0)
-        if (total <= 0) return null
-        const canvas = document.createElement('canvas')
-        // 2x pra retina (qualidade no PDF)
-        const dpi = 2
-        canvas.width = size * dpi
-        canvas.height = size * dpi
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return null
-        ctx.scale(dpi, dpi)
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, size, size)
-        const cx = size / 2
-        const cy = size / 2
-        const r = size * 0.4
-        let start = -Math.PI / 2
-        data.forEach(d => {
-          const slice = (d.value / total) * Math.PI * 2
-          const end = start + slice
-          ctx.beginPath()
-          ctx.moveTo(cx, cy)
-          ctx.arc(cx, cy, r, start, end)
-          ctx.closePath()
-          ctx.fillStyle = d.color || '#3b82f6'
-          ctx.fill()
-          ctx.strokeStyle = '#ffffff'
-          ctx.lineWidth = 1.5
-          ctx.stroke()
-          start = end
-        })
-        return canvas.toDataURL('image/png')
-      }
-
-      // Renderiza um pie chart no PDF na posição corrente + tabela ao lado/abaixo
-      const pieChart = (rows: Array<{ name: string; value: number; color: string }>, valueLabel: string, formatVal: (v: number) => string) => {
-        if (rows.length === 0) {
-          ensure(5)
-          doc.setFont('helvetica', 'italic')
-          doc.setFontSize(9)
-          doc.setTextColor(120, 120, 120)
-          doc.text('Sem dados.', margin + 2, y)
-          doc.setTextColor(40, 40, 40)
-          y += 6
-          return
-        }
-        const total = rows.reduce((s, r) => s + r.value, 0)
-        const pieSize = 55 // mm
-        const dataUrl = drawPieDataUrl(rows, 400)
-
-        // Quebra de página se não couber pie + cabeçalho de tabela
-        ensure(pieSize + 4)
-
-        const pieY = y
-        const pieX = margin
-        if (dataUrl) {
-          doc.addImage(dataUrl, 'PNG', pieX, pieY, pieSize, pieSize)
-        }
-
-        // Legenda + valores ao lado do pie (2 colunas)
-        const legendX = pieX + pieSize + 5
-        const legendW = pageWidth - legendX - margin
-        let legY = pieY + 4
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(8.5)
-        doc.setTextColor(80, 80, 80)
-        doc.text('Item', legendX + 5, legY)
-        doc.text(valueLabel, legendX + legendW - 2, legY, { align: 'right' })
-        doc.text('%', legendX + legendW - 22, legY, { align: 'right' })
-        legY += 4
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(8)
-        doc.setTextColor(40, 40, 40)
-
-        // Mostra todos os itens; se passar do pie size, continua abaixo
-        rows.forEach((row) => {
-          if (legY - pieY > pieSize && legY > pageHeight - margin - 5) {
-            addPageWithHeader()
-            legY = y + 4
-          }
-          // Caixinha colorida
-          doc.setFillColor(row.color || '#3b82f6')
-          doc.rect(legendX, legY - 2.5, 3, 3, 'F')
-          const nm = row.name && row.name.length > 38 ? row.name.slice(0, 36) + '…' : (row.name || '—')
-          doc.text(nm, legendX + 5, legY)
-          const pct = total > 0 ? ((row.value / total) * 100).toFixed(1) + '%' : '—'
-          doc.text(pct, legendX + legendW - 22, legY, { align: 'right' })
-          doc.text(formatVal(row.value), legendX + legendW - 2, legY, { align: 'right' })
-          legY += 4
-        })
-
-        // y final: o maior entre o fim do pie e o fim da legenda
-        y = Math.max(pieY + pieSize, legY) + 5
-      }
-
-      // ── HEADER (1ª página). drawHeader() já será chamado em cada addPage também
-      drawHeader()
-      y = CONTENT_TOP
-
-      // ── SEÇÃO 1: Resumo geral ─────────────────────────────────────────
-      sectionTitle('Resumo')
-      const totalArea = metricsBase.reduce((s, r) => s + (r.areaTotal || 0), 0)
-      const totalRL   = metricsBase.reduce((s, r) => s + (r.reservaLegal || 0), 0)
-      const comGeoCert = metricsBase.filter(r => r.geoCertificacao === 'SIM').length
-      const comGeoReg  = metricsBase.filter(r => r.geoRegistro === 'SIM').length
-      kv('Total de imóveis', String(metricsBase.length))
-      kv('Área total', `${formatNumber(totalArea)} ha`)
-      kv('Reserva Legal somada', `${formatNumber(totalRL)} ha`)
-      kv('Com geo certificação', `${comGeoCert} / ${metricsBase.length}`)
-      kv('Com geo registro', `${comGeoReg} / ${metricsBase.length}`)
-      y += 2
-
-      // ── SEÇÃO 2: Distribuição por município ───────────────────────────
-      sectionTitle('Distribuição por município (imóveis)')
-      pieChart(getTotalImoveisData(metricsBase), 'Imóveis', v => String(v))
-
-      sectionTitle('Distribuição por município (área total)')
-      pieChart(getAreaTotalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
-
-      // ── SEÇÃO 3: Geo Certificação / Registro ──────────────────────────
-      sectionTitle('Geo Certificação')
-      pieChart(getGeoCertificacaoData(metricsBase), 'Imóveis', v => String(v))
-
-      sectionTitle('Geo Registro')
-      pieChart(getGeoRegistroData(metricsBase), 'Imóveis', v => String(v))
-
-      // ── SEÇÃO 4: Top imóveis por cultura ──────────────────────────────
-      const culturas = ['Silvicultura', 'Cultura Temporária', 'Pasto', 'Banhado', 'Servidão', 'Área Antropizada']
-      culturas.forEach(tipo => {
-        const data = getCulturaData(metricsBase, tipo)
-        if (data.length === 0) return
-        sectionTitle(`Top imóveis — ${tipo}`)
-        pieChart(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
-      })
-
-      // ── SEÇÃO 5: Reserva Legal e APP/Ambiental ────────────────────────
-      sectionTitle('Top imóveis — Reserva Legal')
-      pieChart(getReservaLegalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
-
-      const appFields: Array<{ field: APPField; label: string }> = [
-        { field: 'appCodigoFlorestal',    label: 'APP Código Florestal' },
-        { field: 'appVegetada',           label: 'APP Vegetada' },
-        { field: 'appNaoVegetada',        label: 'APP Não Vegetada' },
-        { field: 'remanescenteFlorestal', label: 'Remanescente Florestal' },
-      ]
-      appFields.forEach(({ field, label }) => {
-        const data = getAPPData(metricsBase, field)
-        if (data.length === 0) return
-        sectionTitle(`Top imóveis — ${label}`)
-        pieChart(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
-      })
-
-      // ── SEÇÃO 6 (condicional): Detalhamento dos registros selecionados ─
-      if (selectedRecords.length > 0) {
-        addPageWithHeader()
-        sectionTitle(`Detalhamento dos ${selectedRecords.length} registro(s) selecionado(s)`)
-
-        for (const r of selectedRecords) {
-          ensure(40)
-          doc.setFillColor(240, 245, 250)
-          doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
-          doc.setFont('helvetica', 'bold')
-          doc.setFontSize(10)
-          doc.setTextColor(0, 65, 177)
-          doc.text(`#${formatCodImovel(r.codImovel)} · ${r.imovel || ''}`, margin + 1, y + 1)
-          doc.setTextColor(80, 80, 80)
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(8.5)
-          const muni = r.municipio || '—'
-          doc.text(muni, pageWidth - margin - 1, y + 1, { align: 'right' })
-          y += 8
-          doc.setTextColor(40, 40, 40)
-          const fields: Array<[string, string]> = [
-            ['CAR', r.car || '—'],
-            ['Status CAR', r.statusCar || '—'],
-            ['Área total', `${formatNumber(r.areaTotal || 0)} ha`],
-            ['Reserva Legal', `${formatNumber(r.reservaLegal || 0)} ha`],
-            ['Cultura 1', r.cultura1 ? `${r.cultura1} (${formatNumber(r.areaCultura1 || 0)} ha)` : '—'],
-            ['Cultura 2', r.cultura2 ? `${r.cultura2} (${formatNumber(r.areaCultura2 || 0)} ha)` : '—'],
-            ['Outros', r.outros ? `${r.outros} (${formatNumber(r.areaOutros || 0)} ha)` : '—'],
-            ['APP Cód. Florestal', `${formatNumber(r.appCodigoFlorestal || 0)} ha`],
-            ['APP Vegetada', `${formatNumber(r.appVegetada || 0)} ha`],
-            ['APP Não Vegetada', `${formatNumber(r.appNaoVegetada || 0)} ha`],
-            ['Remanescente Florestal', `${formatNumber(r.remanescenteFlorestal || 0)} ha`],
-            ['Geo Certificação', r.geoCertificacao || '—'],
-            ['Geo Registro', r.geoRegistro || '—'],
-          ]
-          fields.forEach(([k, v]) => kv(k + ':', v, 4))
-          y += 3
-        }
-      }
-
+      const { exportTerraControlPdf } = await import('./_terracontrol/exportPdf')
+      const ownerName = mode.kind === 'tcuser' ? (mode.tcUserFirstName || undefined) : undefined
       const filenamePrefix = mode.kind === 'tcuser' ? `terracontrol-${mode.tcUserFirstName || 'usuario'}` : 'terracontrol'
-      doc.save(`${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.pdf`)
+      await exportTerraControlPdf({ records: metricsBase, selectedRecords, ownerName, filenamePrefix })
       notify('PDF exportado', { type: 'success' })
     } catch (err: any) {
       console.error('Erro export PDF:', err)
@@ -450,6 +188,7 @@ const TerraControlView: React.FC<Props> = (props) => {
       setExportingPdf(false)
     }
   }
+
 
   useEffect(() => {
     const controller = new AbortController()
