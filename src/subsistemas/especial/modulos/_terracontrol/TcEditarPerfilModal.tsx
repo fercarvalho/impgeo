@@ -5,15 +5,16 @@
 //   - tema visual verde→azul do TerraControl
 //   - integra ViaCEP/BrasilAPI no campo CEP (reutiliza utils/cepMask.ts do impgeo)
 //   - exige currentPassword se o email for alterado (D2.7)
+//   - PhotoUpload reaproveitado do impgeo (com ImageCrop + processImage),
+//     chamando endpoint POST /api/tc-auth/me/photo
 //
-// Campos cobertos: firstName, lastName, email, phone, cpf, birthDate, gender,
-// address (com CEP + ruas/bairro/cidade/UF/complemento). photoUrl é editado em
-// fluxo separado (PhotoUpload + endpoint /api/tc-auth/me/photo) — fora do
-// escopo deste modal por ora.
+// Campos cobertos: foto, firstName, lastName, email, phone, cpf, birthDate,
+// gender, address (com CEP + rua/bairro/cidade/UF/complemento).
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { X, Loader2, MapPin, AlertTriangle } from 'lucide-react'
 import Modal from '@/components/Modal'
+import PhotoUpload from '@/components/PhotoUpload'
 import { useTcAuth, type TcUser } from '@/contexts/TcAuthContext'
 import { applyCepMask, fetchAddressByCep, removeCepMask } from '@/utils/cepMask'
 
@@ -71,6 +72,44 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
   const [cepLoading, setCepLoading] = useState(false)
   const [cepError, setCepError] = useState('')
 
+  // Foto: file local (não enviado ainda) + URL persistida (tcUser.photoUrl)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(tcUser?.photoUrl || null)
+  const [photoRemoved, setPhotoRemoved] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  const handlePhotoProcessed = (file: File) => {
+    setPhotoFile(file)
+    setPhotoRemoved(false)
+  }
+  const handlePhotoRemoved = () => {
+    setPhotoFile(null)
+    setPhotoUrl(null)
+    setPhotoRemoved(true)
+  }
+
+  // Sobe a foto local pra /api/tc-auth/me/photo e devolve a URL final.
+  // Reaproveita o uploadAvatar do impgeo (multer + processamento de imagem).
+  const uploadPhoto = async (file: File): Promise<string | null> => {
+    setUploadingPhoto(true)
+    try {
+      const token = sessionStorage.getItem('tcAuthToken')
+      const formData = new FormData()
+      formData.append('photo', file)
+      const res = await fetch('/api/tc-auth/me/photo', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+        body: formData,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) return data.data?.photoUrl ?? null
+      throw new Error(data?.error || 'Erro ao enviar foto')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   // Detecta mudança de email para exigir senha
   const emailChanged = (email || '').trim().toLowerCase() !== (tcUser?.email || '').trim().toLowerCase()
 
@@ -85,6 +124,9 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
     setBirthDate(tcUser.birthDate || '')
     setGender(tcUser.gender || '')
     setAddress(initialAddress)
+    // Só sincroniza a foto se o usuário ainda não selecionou uma nova nem removeu
+    if (!photoFile && !photoRemoved) setPhotoUrl(tcUser.photoUrl || null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tcUser, initialAddress])
 
   // CEP → preenche endereço
@@ -163,6 +205,22 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
 
     setSubmitting(true)
     try {
+      // Se há foto nova selecionada, sobe primeiro pra obter a URL e inclui
+      // no payload do PUT /me (que aceita photoUrl no campo allowed).
+      if (photoFile) {
+        try {
+          const newUrl = await uploadPhoto(photoFile)
+          if (newUrl) payload.photoUrl = newUrl
+        } catch (err: any) {
+          notify(err?.message || 'Erro ao enviar foto', { type: 'error' })
+          setSubmitting(false)
+          return
+        }
+      } else if (photoRemoved) {
+        // Usuário removeu a foto existente sem subir outra → null no DB
+        payload.photoUrl = null
+      }
+
       const token = sessionStorage.getItem('tcAuthToken')
       const res = await fetch('/api/tc-auth/me', {
         method: 'PUT',
@@ -179,6 +237,8 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
         updateTcUser(updated)
         notify('Perfil atualizado', { type: 'success' })
         setCurrentPassword('')
+        setPhotoFile(null)
+        setPhotoRemoved(false)
         // F2.3: em modo required, dispara refresh do /me pra atualizar a flag
         // requiresProfileCompletion. Se ainda faltar algo, o modal continua aberto.
         if (required) {
@@ -225,6 +285,17 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
         )}
 
         <div className="flex-1 overflow-auto p-6 space-y-5">
+          {/* Foto de perfil */}
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Foto de perfil</h3>
+            <PhotoUpload
+              onPhotoProcessed={handlePhotoProcessed}
+              onPhotoRemoved={handlePhotoRemoved}
+              initialPhotoUrl={photoUrl || undefined}
+              disabled={submitting || uploadingPhoto}
+            />
+          </section>
+
           {/* Dados pessoais */}
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Dados pessoais</h3>
