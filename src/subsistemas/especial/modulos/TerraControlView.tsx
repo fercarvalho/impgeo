@@ -221,8 +221,44 @@ const TerraControlView: React.FC<Props> = (props) => {
         doc.text(String(v), margin + indent + 55, y)
         y += 5.2
       }
-      // Tabela simples com 2 colunas (nome + valor formatado)
-      const dataTable = (rows: Array<{ name: string; value: number }>, valueLabel: string, formatVal: (v: number) => string) => {
+      // Pie chart desenhado em canvas — devolve dataURL PNG. Replica o visual
+      // do ChartModal (recharts) sem precisar montar o DOM nem importar lib.
+      const drawPieDataUrl = (data: Array<{ name: string; value: number; color: string }>, size: number): string | null => {
+        const total = data.reduce((s, d) => s + d.value, 0)
+        if (total <= 0) return null
+        const canvas = document.createElement('canvas')
+        // 2x pra retina (qualidade no PDF)
+        const dpi = 2
+        canvas.width = size * dpi
+        canvas.height = size * dpi
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+        ctx.scale(dpi, dpi)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, size, size)
+        const cx = size / 2
+        const cy = size / 2
+        const r = size * 0.4
+        let start = -Math.PI / 2
+        data.forEach(d => {
+          const slice = (d.value / total) * Math.PI * 2
+          const end = start + slice
+          ctx.beginPath()
+          ctx.moveTo(cx, cy)
+          ctx.arc(cx, cy, r, start, end)
+          ctx.closePath()
+          ctx.fillStyle = d.color || '#3b82f6'
+          ctx.fill()
+          ctx.strokeStyle = '#ffffff'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+          start = end
+        })
+        return canvas.toDataURL('image/png')
+      }
+
+      // Renderiza um pie chart no PDF na posição corrente + tabela ao lado/abaixo
+      const pieChart = (rows: Array<{ name: string; value: number; color: string }>, valueLabel: string, formatVal: (v: number) => string) => {
         if (rows.length === 0) {
           ensure(5)
           doc.setFont('helvetica', 'italic')
@@ -233,30 +269,54 @@ const TerraControlView: React.FC<Props> = (props) => {
           y += 6
           return
         }
-        // Header da tabela
-        ensure(6)
-        doc.setFillColor(245, 247, 250)
-        doc.rect(margin, y - 1.5, pageWidth - margin * 2, 5.5, 'F')
+        const total = rows.reduce((s, r) => s + r.value, 0)
+        const pieSize = 55 // mm
+        const dataUrl = drawPieDataUrl(rows, 400)
+
+        // Quebra de página se não couber pie + cabeçalho de tabela
+        ensure(pieSize + 4)
+
+        const pieY = y
+        const pieX = margin
+        if (dataUrl) {
+          doc.addImage(dataUrl, 'PNG', pieX, pieY, pieSize, pieSize)
+        }
+
+        // Legenda + valores ao lado do pie (2 colunas)
+        const legendX = pieX + pieSize + 5
+        const legendW = pageWidth - legendX - margin
+        let legY = pieY + 4
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(9)
+        doc.setFontSize(8.5)
         doc.setTextColor(80, 80, 80)
-        doc.text('Nome', margin + 2, y + 2.5)
-        doc.text(valueLabel, pageWidth - margin - 4, y + 2.5, { align: 'right' })
-        y += 6
-        doc.setTextColor(40, 40, 40)
+        doc.text('Item', legendX + 5, legY)
+        doc.text(valueLabel, legendX + legendW - 2, legY, { align: 'right' })
+        doc.text('%', legendX + legendW - 22, legY, { align: 'right' })
+        legY += 4
         doc.setFont('helvetica', 'normal')
-        rows.forEach((row, i) => {
-          ensure(5)
-          if (i % 2 === 1) {
-            doc.setFillColor(250, 251, 253)
-            doc.rect(margin, y - 1.5, pageWidth - margin * 2, 5, 'F')
+        doc.setFontSize(8)
+        doc.setTextColor(40, 40, 40)
+
+        // Mostra todos os itens; se passar do pie size, continua abaixo
+        rows.forEach((row) => {
+          if (legY - pieY > pieSize && legY > pageHeight - margin - 5) {
+            doc.addPage()
+            y = margin
+            legY = y + 4
           }
-          const nm = row.name && row.name.length > 60 ? row.name.slice(0, 57) + '…' : (row.name || '—')
-          doc.text(nm, margin + 2, y + 2)
-          doc.text(formatVal(row.value), pageWidth - margin - 4, y + 2, { align: 'right' })
-          y += 5
+          // Caixinha colorida
+          doc.setFillColor(row.color || '#3b82f6')
+          doc.rect(legendX, legY - 2.5, 3, 3, 'F')
+          const nm = row.name && row.name.length > 38 ? row.name.slice(0, 36) + '…' : (row.name || '—')
+          doc.text(nm, legendX + 5, legY)
+          const pct = total > 0 ? ((row.value / total) * 100).toFixed(1) + '%' : '—'
+          doc.text(pct, legendX + legendW - 22, legY, { align: 'right' })
+          doc.text(formatVal(row.value), legendX + legendW - 2, legY, { align: 'right' })
+          legY += 4
         })
-        y += 3
+
+        // y final: o maior entre o fim do pie e o fim da legenda
+        y = Math.max(pieY + pieSize, legY) + 5
       }
 
       // ── HEADER ────────────────────────────────────────────────────────
@@ -289,17 +349,17 @@ const TerraControlView: React.FC<Props> = (props) => {
 
       // ── SEÇÃO 2: Distribuição por município ───────────────────────────
       sectionTitle('Distribuição por município (imóveis)')
-      dataTable(getTotalImoveisData(metricsBase), 'Imóveis', v => String(v))
+      pieChart(getTotalImoveisData(metricsBase), 'Imóveis', v => String(v))
 
       sectionTitle('Distribuição por município (área total)')
-      dataTable(getAreaTotalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
+      pieChart(getAreaTotalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
 
       // ── SEÇÃO 3: Geo Certificação / Registro ──────────────────────────
       sectionTitle('Geo Certificação')
-      dataTable(getGeoCertificacaoData(metricsBase), 'Imóveis', v => String(v))
+      pieChart(getGeoCertificacaoData(metricsBase), 'Imóveis', v => String(v))
 
       sectionTitle('Geo Registro')
-      dataTable(getGeoRegistroData(metricsBase), 'Imóveis', v => String(v))
+      pieChart(getGeoRegistroData(metricsBase), 'Imóveis', v => String(v))
 
       // ── SEÇÃO 4: Top imóveis por cultura ──────────────────────────────
       const culturas = ['Silvicultura', 'Cultura Temporária', 'Pasto', 'Banhado', 'Servidão', 'Área Antropizada']
@@ -307,12 +367,12 @@ const TerraControlView: React.FC<Props> = (props) => {
         const data = getCulturaData(metricsBase, tipo)
         if (data.length === 0) return
         sectionTitle(`Top imóveis — ${tipo}`)
-        dataTable(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
+        pieChart(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
       })
 
       // ── SEÇÃO 5: Reserva Legal e APP/Ambiental ────────────────────────
       sectionTitle('Top imóveis — Reserva Legal')
-      dataTable(getReservaLegalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
+      pieChart(getReservaLegalData(metricsBase), 'Área (ha)', v => `${formatNumber(v)} ha`)
 
       const appFields: Array<{ field: APPField; label: string }> = [
         { field: 'appCodigoFlorestal',    label: 'APP Código Florestal' },
@@ -324,7 +384,7 @@ const TerraControlView: React.FC<Props> = (props) => {
         const data = getAPPData(metricsBase, field)
         if (data.length === 0) return
         sectionTitle(`Top imóveis — ${label}`)
-        dataTable(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
+        pieChart(data, 'Área (ha)', v => `${formatNumber(v)} ha`)
       })
 
       // ── SEÇÃO 6 (condicional): Detalhamento dos registros selecionados ─
