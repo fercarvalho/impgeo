@@ -169,10 +169,12 @@ const TerraControlView: React.FC<Props> = (props) => {
     if (exportingPdf) return
     setExportingPdf(true)
     try {
-      // sortedRecords já reflete a seleção (via effectiveRecords). Quando há
-      // seleção, ele só contém os selecionados — métricas E detalhamento saem
-      // dos mesmos registros. Quando não há, é a lista completa visível.
-      const metricsBase = sortedRecords
+      // Métricas e detalhamento do PDF refletem a seleção: se há seleção, só
+      // os selecionados entram; senão, todos os registros do usuário (não a
+      // lista filtrada por busca — exportar com filtro de texto seria pegadinha).
+      const metricsBase = selectedIds.size > 0
+        ? records.filter(r => selectedIds.has(String(r.id)))
+        : records
       if (metricsBase.length === 0) {
         notify('Nenhum registro para exportar.', { type: 'warning' })
         return
@@ -412,18 +414,18 @@ const TerraControlView: React.FC<Props> = (props) => {
   }
 
   // G3.4 — filter + sort num único useMemo.
-  // F: parte de `effectiveRecords` (já filtrado por seleção), aplicando depois
-  // o filtro de busca e a ordenação. Assim a lista de cards reflete a seleção
-  // automaticamente.
+  // A lista de cards usa `records` (todos), independente da seleção, pra que o
+  // usuário possa marcar/desmarcar mais imóveis. Só métricas/gráficos/PDF
+  // refletem a seleção (via effectiveRecords).
   const sortedRecords = useMemo(() => {
     const lower = searchTerm.toLowerCase()
     const filtered = searchTerm
-      ? effectiveRecords.filter(a =>
+      ? records.filter(a =>
           (a.imovel || '').toLowerCase().includes(lower) ||
           (a.municipio || '').toLowerCase().includes(lower) ||
           String(a.codImovel ?? '').includes(searchTerm)
         )
-      : [...effectiveRecords]
+      : [...records]
 
     const direction = sortDirection === 'asc' ? 1 : -1
 
@@ -440,7 +442,7 @@ const TerraControlView: React.FC<Props> = (props) => {
     })
 
     return filtered
-  }, [effectiveRecords, sortField, sortDirection, searchTerm])
+  }, [records, sortField, sortDirection, searchTerm])
 
   // G5.4 — paginação incremental client-side (mesmo padrão do componente autenticado).
   const [visibleCount, setVisibleCount] = useState(30)
