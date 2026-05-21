@@ -2271,6 +2271,29 @@ class Database {
     }
   }
 
+  // Patch leve de preferências do tc_user. Allowlist controlada — não cobre
+  // password/email/role; pra esses tem fluxos próprios. Hoje só atende
+  // emailNotifications.
+  async updateTcUserPreferences(id, prefs) {
+    const sets = [];
+    const params = [];
+    if (Object.prototype.hasOwnProperty.call(prefs, 'emailNotifications')) {
+      params.push(prefs.emailNotifications === true);
+      sets.push(`email_notifications = $${params.length}`);
+    }
+    if (sets.length === 0) {
+      return await this.getTcUserById(id);
+    }
+    params.push(id);
+    const result = await this.queryWithRetry(
+      `UPDATE tc_users SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${params.length}
+       RETURNING *`,
+      params
+    );
+    return result.rows[0] || null;
+  }
+
   async getTcUserByEmail(email) {
     try {
       const normalized = String(email || '').trim().toLowerCase();

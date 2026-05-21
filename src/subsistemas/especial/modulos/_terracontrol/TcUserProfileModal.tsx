@@ -2,10 +2,10 @@
 // Versão MVP: campos exibidos, sem edição inline (que vive em TcEditarPerfilModal — fase futura).
 // Foto, nome, username, email, telefone, CPF, data de nascimento, gênero, endereço.
 
-import React from 'react'
-import { X, User as UserIcon, Mail, Phone, FileText, Calendar, MapPin } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, User as UserIcon, Mail, Phone, FileText, Calendar, MapPin, Bell } from 'lucide-react'
 import Modal from '@/components/Modal'
-import type { TcUser } from '@/contexts/TcAuthContext'
+import { useTcAuth, type TcUser } from '@/contexts/TcAuthContext'
 
 interface Props {
   isOpen: boolean
@@ -15,6 +15,36 @@ interface Props {
 }
 
 const TcUserProfileModal: React.FC<Props> = ({ isOpen, onClose, tcUser, onEdit }) => {
+  const { tcToken, updateTcUser } = useTcAuth()
+  // Default TRUE — se a flag vier undefined (ex: cache antigo de sessionStorage
+  // antes da migration 034), tratamos como ligado pra refletir o default do DB.
+  const emailNotifications = tcUser.emailNotifications !== false
+  const [savingPref, setSavingPref] = useState(false)
+
+  const togglePref = async () => {
+    if (savingPref) return
+    const next = !emailNotifications
+    // Optimistic
+    updateTcUser({ emailNotifications: next })
+    setSavingPref(true)
+    try {
+      const res = await fetch('/api/tc-auth/me/preferences', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tcToken ? { Authorization: `Bearer ${tcToken}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ emailNotifications: next }),
+      })
+      if (!res.ok) throw new Error('failed')
+    } catch {
+      updateTcUser({ emailNotifications: !next })
+    } finally {
+      setSavingPref(false)
+    }
+  }
+
   const fullName = [tcUser.firstName, tcUser.lastName].filter(Boolean).join(' ') || tcUser.username
   const initials = (tcUser.firstName || tcUser.username || '?').slice(0, 1).toUpperCase()
     + (tcUser.lastName ? tcUser.lastName.slice(0, 1).toUpperCase() : '')
@@ -52,6 +82,41 @@ const TcUserProfileModal: React.FC<Props> = ({ isOpen, onClose, tcUser, onEdit }
           <Field icon={<FileText className="w-4 h-4" />} label="CPF" value={tcUser.cpf || '—'} />
           <Field icon={<Calendar className="w-4 h-4" />} label="Data de nascimento" value={formatDate(tcUser.birthDate)} />
           <Field icon={<MapPin className="w-4 h-4" />} label="Endereço" value={formatAddress(tcUser.address)} />
+
+          {/* Toggle opt-out de emails — só de eventos (aprovação/edição).
+              Emails transacionais críticos (reset de senha, convite) NÃO
+              são afetados por essa preferência. */}
+          <div className="mt-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold mb-3 flex items-center gap-2">
+              <Bell className="w-3.5 h-3.5" /> Preferências de notificação
+            </p>
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={emailNotifications}
+                onClick={togglePref}
+                disabled={savingPref}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
+                  emailNotifications ? 'bg-tc-green' : 'bg-gray-300 dark:bg-gray-600'
+                } ${savingPref ? 'opacity-60 cursor-wait' : ''}`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    emailNotifications ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+              <span className="flex-1 text-sm">
+                <span className="font-medium text-gray-900 dark:text-gray-100 block">
+                  Receber emails sobre meus registros
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Avisos por email quando o admin aprova ou edita um registro seu. Você sempre vai receber no sininho aqui dentro, mesmo desligado. Emails de senha e convite não são afetados.
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="px-6 pb-6 flex justify-end gap-2">

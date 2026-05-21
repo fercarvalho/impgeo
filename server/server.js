@@ -2068,8 +2068,11 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
     console.error('[tc-notif] Falha ao gravar notif in-app:', e?.message);
   }
 
-  // 2) Email (se tc_user tiver email cadastrado)
+  // 2) Email — só dispara se tc_user tiver email E não tiver desligado
+  // (opt-out via tc_users.email_notifications). Default DB é TRUE.
+  // NÃO afeta emails transacionais críticos (reset de senha, convite).
   if (!tcUser.email) return;
+  if (tcUser.email_notifications === false) return;
   const loginUrl = process.env.TC_PUBLIC_URL || 'https://terracontrol.viverdepj.com.br';
   try {
     if (event === 'approved') {
@@ -2897,6 +2900,28 @@ app.put('/api/tc-auth/me', tcAuth.authenticateTcUser, async (req, res) => {
     res.json({ success: true, data: tcAuth.sanitizeTcUser(updated) });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Erro interno' });
+  }
+});
+
+// PATCH /api/tc-auth/me/preferences — toggle leve de preferências do tc_user.
+// Hoje só atende emailNotifications (opt-out de emails de eventos do TC).
+// NÃO afeta emails transacionais críticos (reset de senha, convite) — esses
+// sempre disparam.
+app.patch('/api/tc-auth/me/preferences', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const allowed = ['emailNotifications'];
+    const prefs = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+        prefs[key] = req.body[key];
+      }
+    }
+    const updated = await db.updateTcUserPreferences(req.tcUser.id, prefs);
+    if (!updated) return res.status(404).json({ success: false, error: 'tc_user não encontrado' });
+    res.json({ success: true, data: tcAuth.sanitizeTcUser(updated) });
+  } catch (error) {
+    console.error('PATCH /api/tc-auth/me/preferences:', error);
+    res.status(500).json({ success: false, error: 'Erro ao atualizar preferências' });
   }
 });
 

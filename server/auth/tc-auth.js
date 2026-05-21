@@ -188,6 +188,10 @@ function sanitizeTcUser(user) {
     // F: permissões de manipular registros que o tc_user tem acesso
     editRecordsPermission: rest.edit_records_permission || 'all',
     deleteRecordsPermission: rest.delete_records_permission || 'none',
+    // Opt-out de emails de eventos (aprovação/edição). Default TRUE — só
+    // desativa se o usuário explicitamente desligar nas configurações.
+    // NÃO afeta emails transacionais críticos (reset de senha, convite).
+    emailNotifications: rest.email_notifications !== false,
     lastLogin: rest.last_login,
     createdAt: rest.created_at,
     updatedAt: rest.updated_at,

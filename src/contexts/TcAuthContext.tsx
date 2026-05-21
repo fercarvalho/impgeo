@@ -47,6 +47,9 @@ export interface TcUser {
   canShare?: boolean  // F2.5: tc_user pode gerar sub-share links
   editRecordsPermission?: 'none' | 'created' | 'assigned' | 'all'  // F
   deleteRecordsPermission?: 'none' | 'created' | 'all'             // F
+  // Opt-out de emails de eventos (aprovação/edição). Default TRUE no DB.
+  // Não afeta emails transacionais (reset de senha, convite).
+  emailNotifications?: boolean
   createdVia?: string
   lastLogin?: string | null
   createdAt?: string
