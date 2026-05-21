@@ -520,12 +520,14 @@ const TerraControlView: React.FC<Props> = (props) => {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* F: botão "Novo registro" — só em tc_user mode com callback */}
+              {/* F: botão "Novo registro" — só em tc_user mode com callback.
+                  Estilo translúcido vidro (combina com a gradient e funciona
+                  em ambos os temas — não depende de bg-white sólido). */}
               {mode.kind === 'tcuser' && mode.onCreateRecord && (
                 <button
                   type="button"
                   onClick={() => mode.onCreateRecord?.()}
-                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white text-tc-blue hover:bg-blue-50 text-sm font-bold shadow-md transition"
+                  className="inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-white/95 hover:bg-white text-tc-blue-dark text-sm font-bold shadow-lg shadow-tc-blue-dark/20 border border-white/30 transition"
                 >
                   <FileText className="w-4 h-4" />
                   Novo registro
@@ -544,22 +546,33 @@ const TerraControlView: React.FC<Props> = (props) => {
               )}
             </div>
           </div>
-          {/* F: toggle de filtro de aprovação no card de boas-vindas */}
+          {/* F: toggle de filtro de aprovação no card de boas-vindas.
+              Maior contraste do active state (sombra + texto bold).
+              Funciona em ambos os temas porque vive sobre a gradient verde→azul
+              fixa (não muda com light/dark do app). */}
           {mode.kind === 'tcuser' && mode.onChangeApprovalFilter && (
             <div className="mt-4 flex items-center gap-3 text-xs">
-              <span className="text-blue-100 font-semibold uppercase tracking-wider">Exibir:</span>
-              <div className="inline-flex rounded-lg bg-white/10 p-1 border border-white/20">
+              <span className="text-white/80 font-semibold uppercase tracking-wider text-[10px]">Exibir:</span>
+              <div className="inline-flex rounded-lg bg-black/15 p-1 border border-white/10 backdrop-blur-sm">
                 <button
                   type="button"
                   onClick={() => mode.onChangeApprovalFilter?.('all')}
-                  className={`px-3 py-1 rounded-md text-xs font-semibold transition ${mode.approvalFilter !== 'approved' ? 'bg-white text-tc-blue' : 'text-white hover:bg-white/10'}`}
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
+                    mode.approvalFilter !== 'approved'
+                      ? 'bg-white text-tc-blue-dark shadow-md'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
+                  }`}
                 >
                   Todos
                 </button>
                 <button
                   type="button"
                   onClick={() => mode.onChangeApprovalFilter?.('approved')}
-                  className={`px-3 py-1 rounded-md text-xs font-semibold transition ${mode.approvalFilter === 'approved' ? 'bg-white text-tc-blue' : 'text-white hover:bg-white/10'}`}
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
+                    mode.approvalFilter === 'approved'
+                      ? 'bg-white text-tc-blue-dark shadow-md'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
+                  }`}
                 >
                   Só aprovados
                 </button>
