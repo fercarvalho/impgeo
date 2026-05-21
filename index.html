@@ -37,6 +37,32 @@
         } catch (_) { /* storage blocked — default to light */ }
       })();
     </script>
+    <!--
+      PWA bootstrap — inline pra rodar antes do main.tsx.
+      Define __APP_ID__ por hostname e injeta <link rel="manifest"> + meta
+      theme-color do app correto. Hardcoded por host pra zero dependências
+      (precisa rodar antes do beforeinstallprompt do browser).
+    -->
+    <script>
+      (function () {
+        try {
+          var h = location.hostname.toLowerCase();
+          var app = 'impgeo';
+          if (h === 'terracontrol.viverdepj.com.br' || h === 'terracontrol.local') app = 'tc-public';
+          else if (h === 'admin.terracontrol.viverdepj.com.br' || h === 'admin.terracontrol.local') app = 'tc-admin';
+          window.__APP_ID__ = app;
+          var manifestLink = document.createElement('link');
+          manifestLink.rel = 'manifest';
+          manifestLink.href = '/manifests/' + app + '.webmanifest';
+          document.head.appendChild(manifestLink);
+          var themeColor = app === 'impgeo' ? '#1d4ed8' : (app === 'tc-public' ? '#48A326' : '#0041B1');
+          var themeMeta = document.createElement('meta');
+          themeMeta.name = 'theme-color';
+          themeMeta.content = themeColor;
+          document.head.appendChild(themeMeta);
+        } catch (_) { /* sem PWA — segue como web normal */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

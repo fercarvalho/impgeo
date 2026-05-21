@@ -1,16 +1,113 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
 import nodePath from 'node:path'
+import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 
 const __dirname = nodePath.dirname(fileURLToPath(import.meta.url))
+
+// __BUILD_HASH__: short git hash quando disponível, senão Date.now em base36.
+// É usado pelo SW (cache key) e injetado no HTML como window.__BUILD_HASH__
+// pra ser concatenado no register('/sw.js?v=<hash>').
+function resolveBuildHash(): string {
+  if (process.env.BUILD_HASH) return process.env.BUILD_HASH
+  try {
+    const sha = execSync('git rev-parse --short=10 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+    if (sha) return sha
+  } catch { /* fora de git ou git ausente */ }
+  return Date.now().toString(36)
+}
+
+const BUILD_HASH = resolveBuildHash()
+
+// Plugin: substitui __BUILD_HASH__ no sw.js do dist e injeta
+// window.__BUILD_HASH__ no index.html depois do build.
+function pwaBuildHashPlugin(): Plugin {
+  return {
+    name: 'pwa-build-hash',
+    apply: 'build',
+    closeBundle: {
+      sequential: true,
+      handler() {
+        const swPath = nodePath.join(__dirname, 'dist', 'sw.js')
+        try {
+          if (fs.existsSync(swPath)) {
+            const content = fs.readFileSync(swPath, 'utf8').replace(/__BUILD_HASH__/g, BUILD_HASH)
+            fs.writeFileSync(swPath, content)
+          }
+        } catch (err) {
+          console.warn('[pwa-build-hash] não consegui patchear sw.js:', err)
+        }
+        const htmlPath = nodePath.join(__dirname, 'dist', 'index.html')
+        try {
+          if (fs.existsSync(htmlPath)) {
+            let html = fs.readFileSync(htmlPath, 'utf8')
+            const inject = `<script>window.__BUILD_HASH__=${JSON.stringify(BUILD_HASH)};</script>`
+            if (!html.includes('__BUILD_HASH__')) {
+              html = html.replace('</head>', `  ${inject}\n  </head>`)
+              fs.writeFileSync(htmlPath, html)
+            }
+          }
+        } catch (err) {
+          console.warn('[pwa-build-hash] não consegui injetar hash no index.html:', err)
+        }
+      },
+    },
+  }
+}
+
+// Plugin: em dev, aplica os mesmos Cache-Control que a prod (nginx) terá.
+// Garante que sw.js e manifests não cachear no browser local, evitando
+// "funciona em dev, quebra em prod" relacionado a SW staleness.
+function pwaCacheControlDevPlugin(): Plugin {
+  return {
+    name: 'pwa-cache-control-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url || ''
+        if (
+          url === '/sw.js' || url.startsWith('/sw.js?') ||
+          url === '/sw-killswitch.js' || url.startsWith('/sw-killswitch.js?') ||
+          url.startsWith('/manifests/') ||
+          url === '/index.html' || url === '/'
+        ) {
+          res.setHeader('Cache-Control', 'no-store, must-revalidate')
+        } else if (url.startsWith('/assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        } else if (url.startsWith('/icons/')) {
+          res.setHeader('Cache-Control', 'public, max-age=86400')
+        }
+        next()
+      })
+    },
+  }
+}
+
+// HTTPS dev opcional via mkcert. Se ./certs/dev-key.pem e ./certs/dev-cert.pem
+// existem, ativa. Senão segue HTTP normal (SW só ativa em prod no PR #1).
+function resolveDevHttps(): { key: Buffer; cert: Buffer } | undefined {
+  try {
+    const key = nodePath.join(__dirname, 'certs', 'dev-key.pem')
+    const cert = nodePath.join(__dirname, 'certs', 'dev-cert.pem')
+    if (fs.existsSync(key) && fs.existsSync(cert)) {
+      return { key: fs.readFileSync(key), cert: fs.readFileSync(cert) }
+    }
+  } catch { /* sem certs — segue HTTP */ }
+  return undefined
+}
 
 export default defineConfig({
   base: './',
   plugins: [
     react({
       jsxRuntime: 'automatic'
-    })
+    }),
+    pwaBuildHashPlugin(),
+    pwaCacheControlDevPlugin(),
   ],
   resolve: {
     alias: {
@@ -57,6 +154,7 @@ export default defineConfig({
     port: 9000,
     open: true,
     host: '0.0.0.0',
+    https: resolveDevHttps(),
     // Em dev local acessamos apenas via http://localhost:9000.
     // O fluxo de subsistemas funciona via sessionStorage (resolveCurrentSubsystem
     // em manifest.ts faz o fallback quando hostname não é subdomínio real).

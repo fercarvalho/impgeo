@@ -9,8 +9,8 @@
 // O App.tsx checa o hostname antes de decidir o que renderizar — se cair em
 // tc-public ou tc-admin, NÃO entra no fluxo do SubsystemPicker do impgeo.
 
-const TC_PUBLIC_HOSTS = ['terracontrol.viverdepj.com.br', 'terracontrol.local']
-const TC_ADMIN_HOSTS  = ['admin.terracontrol.viverdepj.com.br', 'admin.terracontrol.local']
+export const TC_PUBLIC_HOSTS = ['terracontrol.viverdepj.com.br', 'terracontrol.local']
+export const TC_ADMIN_HOSTS  = ['admin.terracontrol.viverdepj.com.br', 'admin.terracontrol.local']
 
 export type TcEntryMode = 'tc-public' | 'tc-admin' | 'impgeo'
 
