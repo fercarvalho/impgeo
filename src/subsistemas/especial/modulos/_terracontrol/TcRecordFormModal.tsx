@@ -458,7 +458,7 @@ const TcRecordFormModal: React.FC<Props> = ({ isOpen, onClose, record, onSaved, 
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {isEdit
               ? 'Editar registro reseta o status para "Pendente aprovação"'
-              : 'Após salvar, o registro fica pendente até admin aprovar.'}
+              : 'Após salvar, seu registro será enviado para análise, você será notificado no sistema e por email com uma proposta By Impgeo para ele.'}
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={onClose}
