@@ -2,6 +2,31 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { registerSW } from './pwa/registerSW'
+import { setupInstallPrompt } from './pwa/installPrompt'
+import { injectIosMeta } from './pwa/iosMeta'
+import { getCurrentAppId } from './pwa/appId'
+
+// PWA bootstrap. registerSW por padrão pula em dev (skipInDev: true) pra não
+// brigar com HMR do Vite — pra testar localmente, rodar `npm run build && npm run preview`.
+// Ativação por origin:
+//   - PR #3: impgeo ativo
+//   - PR #4: tc-public (em breve)
+//   - PR #5: tc-admin (em breve)
+{
+  const appId = getCurrentAppId()
+  // setupInstallPrompt + injectIosMeta podem rodar em todos os origins — são
+  // só captura de evento e injeção de meta tags. O install prompt do
+  // tc-public é gated internamente em installPrompt.ts (só dispara pós-login).
+  setupInstallPrompt()
+  injectIosMeta()
+  // PR #3/#4/#5: SW ativo em todos os 3 origins. Cada um usa estratégia
+  // diferente (shell+aviso pro impgeo; read-only pra tc-public e tc-admin)
+  // — selecionada dentro do sw.js pelo dispatcher baseado em APP_ID.
+  if (appId === 'impgeo' || appId === 'tc-public' || appId === 'tc-admin') {
+    registerSW().catch((err) => console.error('[pwa] registerSW falhou:', err))
+  }
+}
 
 // Fase 1.3+ (subsistemas) — auth migrou de localStorage/Bearer header para
 // cookie httpOnly compartilhado. Aqui garantimos que toda chamada para o

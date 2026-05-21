@@ -465,8 +465,41 @@ server {
     location /api/documents/ {
         proxy_pass http://localhost:9001;
     }
+
+    # =========================================================================
+    # PWA — Cache-Control headers
+    # =========================================================================
+    # sw.js, sw-killswitch.js, manifests e index.html JAMAIS podem ser
+    # cacheados (no-store). Caso contrário um deploy novo do SW pode ser
+    # ignorado pelo browser que continua usando a versão antiga em cache.
+    # Assets com hash no nome (gerados pelo Vite) PODEM ser cacheados pra
+    # sempre (immutable). Ícones cacheamos por 1 dia.
+    location = /sw.js                 { add_header Cache-Control "no-store, must-revalidate"; try_files $uri =404; }
+    location = /sw-killswitch.js      { add_header Cache-Control "no-store, must-revalidate"; try_files $uri =404; }
+    location ~ ^/manifests/           { add_header Cache-Control "no-store, must-revalidate"; }
+    location = /offline.html          { add_header Cache-Control "no-store, must-revalidate"; }
+    location = /index.html            { add_header Cache-Control "no-store, must-revalidate"; }
+    location ~ ^/assets/              { add_header Cache-Control "public, max-age=31536000, immutable"; }
+    location ~ ^/icons/               { add_header Cache-Control "public, max-age=86400"; }
 }
 ```
+
+> **Importante:** repita o mesmo bloco PWA nos `server { ... }` dos subdomínios
+> `terracontrol.viverdepj.com.br` e `admin.terracontrol.viverdepj.com.br` —
+> cada origin precisa dos headers próprios pra que SW/manifest/cache funcionem.
+
+### Kill switch do Service Worker (emergência)
+
+Se um deploy do SW for ruim (cache poisoning, bug crítico), em vez de tentar
+"desinstalar" do device de cada usuário, troque o registro pra apontar pro
+`sw-killswitch.js` (que limpa caches e se auto-desregistra):
+
+1. Edite [src/pwa/registerSW.ts](src/pwa/registerSW.ts), mudando a URL de
+   `'/sw.js?v=…'` pra `'/sw-killswitch.js'`.
+2. `npm run build` + deploy.
+3. Browsers detectam scriptURL diferente, instalam o kill switch, e na
+   ativação ele limpa todos os caches e se desregistra.
+4. Depois de 24h+ (TTL conservador), reverter o commit e voltar pro `sw.js` normal.
 
 ### Aplicar mudanças no Nginx
 

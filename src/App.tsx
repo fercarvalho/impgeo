@@ -61,6 +61,7 @@ const FAQ = lazy(() => import('@/subsistemas/gestao/modulos/FAQ'))
 import Documentation from '@/subsistemas/gestao/modulos/Documentation'
 const Roadmap = lazy(() => import('@/subsistemas/gestao/modulos/Roadmap'))
 import ImpersonationBanner from '@/components/ImpersonationBanner'
+import OfflineBanner from '@/components/OfflineBanner'
 import FeedbackButton from '@/components/FeedbackButton'
 import Footer from '@/components/Footer'
 import VersionModalsManager from '@/components/VersionModalsManager'
@@ -207,36 +208,52 @@ const AppContent: React.FC = () => {
     );
   }
   if (tcMode === 'tc-admin') {
-    // Aguarda hidratação do AuthContext (isLoading) antes de decidir Login vs Shell
+    // Aguarda hidratação do AuthContext (isLoading) antes de decidir Login vs Shell.
+    // PR #5 (PWA): OfflineBanner em todos os returns do tc-admin.
     if (isLoading) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 dark:from-[#0a1a0e] dark:to-[#0a1a3e]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div>
-        </div>
+        <>
+          <OfflineBanner />
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 dark:from-[#0a1a0e] dark:to-[#0a1a3e]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div>
+          </div>
+        </>
       );
     }
     return (
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div></div>}>
+      <Suspense fallback={
+        <>
+          <OfflineBanner />
+          <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tc-green"></div></div>
+        </>
+      }>
+        <OfflineBanner />
         {user ? <TerraControlAdminShell /> : <TerraControlAdminLogin />}
       </Suspense>
     );
   }
 
-  // Fluxo impgeo padrão (Login → Picker → subsistemas)
+  // Fluxo impgeo padrão (Login → Picker → subsistemas).
+  // OfflineBanner é montado em todos os returns abaixo — PR #3 (PWA).
+  // Não aparece nos branches tc-public/tc-admin (cada um terá o seu nos PRs #4/#5).
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
+      <>
+        <OfflineBanner />
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
+            <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!user) {
     return (
       <>
+        <OfflineBanner />
         <Login />
         {passwordResetToken ? (
           <ResetarSenhaModal
@@ -254,6 +271,7 @@ const AppContent: React.FC = () => {
 
   return (
     <>
+      <OfflineBanner />
       {/* Modais de versionamento aparecem antes de qualquer tela autenticada
           (Picker, AcessoNegado ou AppMain) — o componente apenas dispara fetches
           conforme o role do usuário. */}

@@ -14,6 +14,7 @@ import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcResetarSenhaModal from './TcResetarSenhaModal'
 import TcLoggedView from './TcLoggedView'
 import TcAcceptInviteScreen from './TcAcceptInviteScreen'
+import OfflineBanner from '@/components/OfflineBanner'
 
 const TcPublicEntry: React.FC = () => {
   const { tcUser, isLoading, forcePasswordChange } = useTcAuth()
@@ -41,23 +42,32 @@ const TcPublicEntry: React.FC = () => {
   // a tela específica de aceite — ignora estado de login atual (o convidado
   // pode estar com sessão antiga de outro tc_user e tudo bem).
   if (inviteToken) {
-    return <TcAcceptInviteScreen token={inviteToken} />
+    return (
+      <>
+        <OfflineBanner />
+        <TcAcceptInviteScreen token={inviteToken} />
+      </>
+    )
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 dark:from-[#0a1a0e] dark:to-[#0a1a3e]">
-        <div className="text-center text-gray-500">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-tc-green" />
-          Carregando…
+      <>
+        <OfflineBanner />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 dark:from-[#0a1a0e] dark:to-[#0a1a3e]">
+          <div className="text-center text-gray-500">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-tc-green" />
+            Carregando…
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!tcUser) {
     return (
       <>
+        <OfflineBanner />
         <LoginScreen initialUsername={initialUsername} />
         {resetToken && (
           <TcResetarSenhaModal isOpen onClose={() => setResetToken(null)} token={resetToken} />
@@ -68,6 +78,7 @@ const TcPublicEntry: React.FC = () => {
 
   return (
     <>
+      <OfflineBanner />
       <TcLoggedView />
       {forcePasswordChange && (
         <TcAlterarSenhaModal isOpen mode="forced" />

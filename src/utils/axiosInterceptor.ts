@@ -1,4 +1,5 @@
 import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { attachOfflineInterceptors } from './offlineClient';
 
 const isLocalEnv =
   typeof window !== 'undefined' &&
@@ -69,5 +70,9 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// PR #3 (PWA): SEGUNDO interceptor — não substitui o de refresh acima, só
+// observa erros de rede / 503 sintético do SW pra disparar o OfflineBanner.
+attachOfflineInterceptors(api);
 
 export default api;
