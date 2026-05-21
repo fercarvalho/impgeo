@@ -32,13 +32,13 @@ const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOp
           </div>
 
           {/* Centro: logo TerraControl + título.
-              Em telas pequenas a logo some pra economizar espaço; em ≥sm
-              aparece junto do título centralizado. */}
+              Em telas pequenas só a logo aparece (economiza espaço entre o
+              "by IMPGEO" e o menu de usuário); em ≥sm aparecem ambos. */}
           <div className="flex items-center gap-3 min-w-0">
-            <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0 hidden sm:block" />
-            <div className="min-w-0 text-center sm:text-left">
+            <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0" />
+            <div className="min-w-0 hidden sm:block">
               <h1 className="text-xl font-bold leading-tight">TerraControl</h1>
-              <p className="text-blue-200 text-sm hidden sm:block">Plataforma de gestão territorial</p>
+              <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
             </div>
           </div>
 
