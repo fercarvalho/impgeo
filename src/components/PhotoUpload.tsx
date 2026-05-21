@@ -116,7 +116,12 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
 
     setSelectedFile(file);
     setImageToCrop(file);
-    // A geração da preview é feita pelo useEffect([selectedFile]) com cleanup correto
+    // A geração da preview é feita pelo useEffect([selectedFile]) com cleanup correto.
+    //
+    // UX: processa a imagem AUTOMATICAMENTE ao selecionar — não exige confirmação
+    // extra ("usar sem recortar"). O usuário pode recortar a qualquer momento via
+    // botão "Recortar" que continua disponível enquanto imageToCrop estiver setado.
+    void processAndSetFile(file);
   };
 
   const handleCropComplete = async (croppedFile: File) => {
@@ -130,13 +135,6 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
     blobUrlRef.current = croppedPreviewUrl;
     setPreviewUrl(croppedPreviewUrl);
     await processAndSetFile(croppedFile);
-  };
-
-  const handleSkipCrop = async () => {
-    if (!selectedFile) return;
-    setShowCropModal(false);
-    setImageToCrop(null);
-    await processAndSetFile(selectedFile);
   };
 
   return (
@@ -177,26 +175,15 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
               <img src={previewUrl} alt={selectedFile ? `Foto selecionada: ${selectedFile.name}` : 'Foto selecionada'} className="w-full h-auto max-h-[300px] object-contain" />
               <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 hover:opacity-100 focus-within:opacity-100 focus-within:bg-black/20">
                 {!disabled && imageToCrop ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowCropModal(true)}
-                      className="min-w-[44px] min-h-[44px] bg-white/90 hover:bg-white rounded-full p-2 flex items-center justify-center shadow-lg transition-all"
-                      title="Recortar imagem"
-                      aria-label="Recortar imagem"
-                    >
-                      <Crop className="w-5 h-5 text-blue-600" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSkipCrop}
-                      className="min-w-[44px] min-h-[44px] bg-white/90 hover:bg-white rounded-full p-2 flex items-center justify-center shadow-lg transition-all"
-                      title="Usar imagem sem recortar"
-                      aria-label="Usar imagem sem recortar"
-                    >
-                      <Upload className="w-5 h-5 text-green-600" aria-hidden="true" />
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => setShowCropModal(true)}
+                    className="min-w-[44px] min-h-[44px] bg-white/90 hover:bg-white rounded-full p-2 flex items-center justify-center shadow-lg transition-all"
+                    title="Recortar imagem"
+                    aria-label="Recortar imagem"
+                  >
+                    <Crop className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                  </button>
                 ) : null}
                 {!disabled ? (
                   <button
@@ -227,7 +214,9 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
           </div>
         )}
 
-        {/* Botões de crop visíveis em touch (sem hover disponível) */}
+        {/* Ações em touch (sem hover disponível). Foto já foi processada
+            automaticamente ao selecionar — botão "Recortar" continua disponível
+            pra ajustar, e "Remover" pra descartar. */}
         {previewUrl && !disabled && imageToCrop ? (
           <div className="flex gap-2 sm:hidden">
             <button
@@ -237,14 +226,6 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
             >
               <Crop className="w-4 h-4" aria-hidden="true" />
               Recortar
-            </button>
-            <button
-              type="button"
-              onClick={handleSkipCrop}
-              className="flex-1 px-3 py-2 text-sm text-green-600 hover:text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center gap-1"
-            >
-              <Upload className="w-4 h-4" aria-hidden="true" />
-              Usar sem recortar
             </button>
             <button
               type="button"
