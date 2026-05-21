@@ -129,15 +129,12 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separar node_modules em chunks menores
           if (id.includes('node_modules')) {
-            // Recharts + victory-vendor: chunk próprio. Antes vinha junto do
-            // vendor-react no caminho crítico, mas é grande (~400KB minified) e
-            // só usado em telas de dashboard. Separado, é lazy junto com o
-            // componente que o importa (TerraControl, Projecao, Reports).
-            if (id.includes('recharts') || id.includes('victory-vendor') || id.includes('d3-')) {
-              return 'vendor-recharts'
-            }
-            // React core. Mantém só o essencial no caminho crítico.
-            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+            // React, React DOM e Recharts juntos. Tentamos separar recharts em
+            // chunk próprio, mas ele depende do react-is/scheduler que ficam no
+            // vendor-react e o split causava erro "Cannot read properties of
+            // undefined (reading 'forwardRef')" no boot. O ganho real vem da
+            // otimização do modulePreload abaixo.
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler') || id.includes('recharts') || id.includes('victory-vendor')) {
               return 'vendor-react'
             }
 
