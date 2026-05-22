@@ -191,8 +191,13 @@ const TcLoggedView: React.FC = () => {
                   do conteúdo (não full-bleed). Só visível pro tc_user logado.
                   Esconde sozinho quando ativo/dispensado/denied. */}
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                {/* mb-6 cria a folga entre PushPermissionBanner e o
+                    PwaInstallBanner abaixo (PushPermissionBanner não tem
+                    margem interna; sem este wrapper os 2 ficam grudados). */}
                 <Suspense fallback={null}>
-                  <PushPermissionBanner />
+                  <div className="mb-6">
+                    <PushPermissionBanner />
+                  </div>
                 </Suspense>
                 {/* Banner convidando a instalar o TerraControl como PWA.
                     Texto e estratégia de install adaptam-se ao OS/browser
