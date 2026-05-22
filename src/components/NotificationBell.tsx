@@ -9,6 +9,7 @@ import {
   getActiveSubscriptionEndpoint,
   type PermissionState,
 } from '@/pwa/push'
+import { usePushBridge } from '@/hooks/usePushBridge'
 
 const API_BASE_URL = '/api'
 const POLL_INTERVAL_MS = 30_000
@@ -105,6 +106,14 @@ const NotificationBell: React.FC = () => {
     const t = setInterval(fetchNotifications, POLL_INTERVAL_MS)
     return () => clearInterval(t)
   }, [fetchNotifications])
+
+  // Ponte SW → UI: quando o SW recebe um push, atualiza o sino na hora
+  // (sem esperar o tick de 30s). Ignora payloads do scope tc — esse hook
+  // está montado no sino do impgeo.
+  usePushBridge({
+    scopeFilter: 'impgeo',
+    onPush: () => { fetchNotifications() },
+  })
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {

@@ -3,6 +3,7 @@ import { X, User, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import PhotoUpload from './PhotoUpload';
 import Modal from './Modal';
+import NotificationPreferencesSection from './NotificationPreferencesSection';
 import { validateEmail } from '../utils/validation';
 import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '../utils/phoneMask';
 import { applyCpfMask, removeCpfMask, validateCpfFormat } from '../utils/cpfMask';
@@ -849,6 +850,10 @@ const EditarPerfilModal: React.FC<EditarPerfilModalProps> = ({
               disabled={isSubmitting || isUploadingPhoto}
             />
           </div>
+
+          {/* Notificações — push + email por tipo de evento. Persiste por toggle
+              (não usa o submit do form pai), então não atrapalha o salvar perfil. */}
+          <NotificationPreferencesSection scope="impgeo" />
 
           {/* Botões */}
           <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
