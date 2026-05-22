@@ -236,3 +236,206 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// ─── Web Push handlers ──────────────────────────────────────────────────────
+//
+// Esta seção é independente do dispatcher de cache acima. O SW recebe pushes
+// quando o backend envia via web-push (VAPID), independente do app estar
+// aberto, fechado ou nem instalado (PWA standalone).
+//
+// Payload esperado (montado pelo push-dispatcher.js):
+//   {
+//     id, title, message, type,
+//     related_entity_type, related_entity_id,
+//     scope: 'impgeo' | 'tc',
+//     foreground_show: boolean,  // user pediu OS-notif mesmo com app aberto?
+//     ts
+//   }
+//
+// Regra de foreground:
+//   - Se houver clients visible E foreground_show=false → suprime OS-notif,
+//     manda postMessage pro app atualizar o sino imediatamente.
+//   - Caso contrário → showNotification.
+//
+// Ícone/badge por APP_ID — cada origin tem sua pasta em /icons/<sub>/.
+// Mapeia o APP_ID derivado do scope pro nome do diretório.
+const ICON_DIR_BY_APP = {
+  'impgeo':    'impgeo',
+  'tc-public': 'tc',
+  'tc-admin':  'tc-admin',
+};
+const ICON_DIR = ICON_DIR_BY_APP[APP_ID] || 'impgeo';
+const NOTIF_ICON  = `/icons/${ICON_DIR}/icon-192.png`;
+const NOTIF_BADGE = `/icons/${ICON_DIR}/icon-192.png`;
+
+function buildNotifTag(payload) {
+  // Colapsa notifs sucessivas do mesmo registro num mesmo "slot" do OS.
+  // Sem related_entity, cai num tag por tipo (ainda colapsa duplicatas
+  // próximas em vez de empilhar dezenas).
+  if (payload.related_entity_id && payload.related_entity_type) {
+    return `${payload.type}-${payload.related_entity_type}-${payload.related_entity_id}`.slice(0, 60);
+  }
+  return `${payload.type || 'notif'}-${payload.id || 'noid'}`.slice(0, 60);
+}
+
+// URL a abrir/focar quando o user clica na notif. Dependente do APP_ID
+// (origin) onde o SW está rodando, NÃO do scope do payload — porque o
+// push só chega no origin onde a subscription foi feita, então o user
+// está abrindo o app DESTE origin.
+function buildClickUrl(payload) {
+  // tc_record_created no impgeo: roteamento direto pro módulo TerraControl
+  // (mesmo padrão de NotificationBell.tsx:124-130).
+  if (APP_ID === 'impgeo' && payload.type === 'tc_record_created') {
+    const params = new URLSearchParams({ subsystem: 'especial', module: 'terracontrol' });
+    if (payload.related_entity_id) params.set('record', payload.related_entity_id);
+    return `/?${params.toString()}`;
+  }
+  // Default: home do app — sino vai mostrar a notif quando user logar.
+  return '/';
+}
+
+self.addEventListener('push', (event) => {
+  let payload = null;
+  try {
+    payload = event.data ? event.data.json() : null;
+  } catch {
+    payload = event.data ? { title: 'Nova notificação', message: event.data.text() } : null;
+  }
+  if (!payload) return;
+
+  event.waitUntil((async () => {
+    // Procura clients deste mesmo SW (mesmo origin) que estejam visíveis.
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const hasVisibleClient = allClients.some((c) => c.visibilityState === 'visible' && c.focused);
+
+    // Sempre manda postMessage — quem tiver listener (NotificationBell, etc.)
+    // pode atualizar a UI sem esperar polling. Origin é checado implicitamente
+    // porque o SW só fala com clients do próprio scope.
+    for (const c of allClients) {
+      try {
+        c.postMessage({ type: 'push-notification', payload });
+      } catch { /* cliente fechou no meio — ok */ }
+    }
+
+    // Se há cliente visível e user NÃO pediu mostrar com app aberto → fim.
+    if (hasVisibleClient && !payload.foreground_show) {
+      return;
+    }
+
+    await self.registration.showNotification(payload.title || 'Nova notificação', {
+      body: payload.message || '',
+      icon: NOTIF_ICON,
+      badge: NOTIF_BADGE,
+      tag: buildNotifTag(payload),
+      // renotify=true força beep/buzz mesmo com mesmo tag (notif atualizada).
+      renotify: false,
+      // data acompanha o evento de click.
+      data: {
+        url: buildClickUrl(payload),
+        payload,
+      },
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil((async () => {
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+    // 1. Tenta achar um client deste origin já aberto — foca e manda mensagem
+    //    pra navegar/atualizar (mais leve que abrir aba nova).
+    for (const c of allClients) {
+      try {
+        // Foca o primeiro disponível.
+        await c.focus();
+        c.postMessage({
+          type: 'push-notification-click',
+          payload: event.notification.data && event.notification.data.payload,
+          url: targetUrl,
+        });
+        return;
+      } catch { /* não focável — tenta o próximo */ }
+    }
+
+    // 2. Sem clients abertos → abre janela nova.
+    try {
+      await self.clients.openWindow(targetUrl);
+    } catch { /* navegador bloqueou — paciência */ }
+  })());
+});
+
+// O browser pode invalidar a subscription periodicamente (rotação interna)
+// ou quando o user limpa dados do site. Quando isso acontece, este evento
+// dispara — re-subscrevemos com a VAPID atual e mandamos pro backend.
+//
+// Importante: o re-subscribe roda no contexto do SW, sem cookies do user
+// "ativos" no momento. O endpoint POST /subscribe exige auth — se a sessão
+// expirou, a re-inscrição falha silenciosamente (401) e o user precisa
+// reativar push manualmente. Aceito esse trade-off em vez de tentar refresh
+// de auth no SW.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      // Endpoint VAPID depende do scope. Como o SW não sabe se o user é
+      // impgeo ou tc-user neste origin sem cookies, tentamos primeiro o
+      // do origin (impgeo → /api/push; tc → /api/tc-auth/push). Se 401, fim.
+      const isTcOrigin = APP_ID === 'tc-public';
+      const vapidEndpoint = isTcOrigin
+        ? '/api/tc-auth/push/vapid-public-key'
+        : '/api/push/vapid-public-key';
+      const subscribeEndpoint = isTcOrigin
+        ? '/api/tc-auth/push/subscribe'
+        : '/api/push/subscribe';
+
+      const vapidResp = await fetch(vapidEndpoint, { credentials: 'include' });
+      if (!vapidResp.ok) return;
+      const { publicKey } = await vapidResp.json();
+      if (!publicKey) return;
+
+      const newSub = await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+
+      await fetch(subscribeEndpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: newSub.endpoint,
+          keys: {
+            p256dh: arrayBufferToBase64(newSub.getKey('p256dh')),
+            auth: arrayBufferToBase64(newSub.getKey('auth')),
+          },
+          app_id: APP_ID,
+        }),
+      });
+    } catch {
+      // Falha silenciosa — UI mostrará "permissão concedida mas sem
+      // subscription" se relevante; user pode reativar pelo perfil.
+    }
+  })());
+});
+
+// Helpers VAPID — convertem entre base64url (formato da chave) e Uint8Array
+// (formato exigido pelo pushManager.subscribe).
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+function arrayBufferToBase64(buffer) {
+  if (!buffer) return null;
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  // base64url (sem padding, '+'→'-', '/'→'_'), formato esperado pelo backend.
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}

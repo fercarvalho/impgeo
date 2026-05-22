@@ -38,7 +38,7 @@ function truncate(s, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-function buildPayload(notif, scope) {
+function buildPayload(notif, scope, foregroundShow) {
   return {
     id: notif.id,
     title: truncate(notif.title, MAX_TITLE_LEN),
@@ -47,6 +47,10 @@ function buildPayload(notif, scope) {
     related_entity_type: notif.related_entity_type || null,
     related_entity_id: notif.related_entity_id || null,
     scope,
+    // SW respeita essa flag: se true, mostra OS-level mesmo com app visível;
+    // se false (default), suprime OS-notif quando há cliente visible e só
+    // dispara postMessage pro sino atualizar imediato.
+    foreground_show: !!foregroundShow,
     ts: Date.now(),
   };
 }
@@ -106,7 +110,13 @@ async function send(db, scope, recipientId, notif) {
       return result;
     }
 
-    const payload = buildPayload(notif, scope);
+    // Lê preferência meta de foreground (default = não mostrar OS quando app visível).
+    // Lida silenciosamente com erro — se falhar, vai com default (foregroundShow=false).
+    const foregroundShow = await db.getNotificationPreference(
+      scope, recipientId, '_meta:foreground', 'push'
+    ).catch(() => false);
+
+    const payload = buildPayload(notif, scope, foregroundShow);
 
     const settled = await Promise.allSettled(subs.map(async (s) => {
       try {
