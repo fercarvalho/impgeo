@@ -32,6 +32,8 @@ interface Preference {
 
 interface Props {
   scope: Scope
+  /** Headers extras (ex: Authorization Bearer pro tc). Pro impgeo basta o cookie. */
+  authHeaders?: Record<string, string>
 }
 
 // Labels em pt-BR pros tipos de notificação que o sistema emite hoje.
@@ -63,7 +65,7 @@ function endpointFor(scope: Scope): string {
   return scope === 'tc' ? '/api/tc-auth/notification-preferences' : '/api/notification-preferences'
 }
 
-const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
+const NotificationPreferencesSection: React.FC<Props> = ({ scope, authHeaders }) => {
   const [prefs, setPrefs] = useState<Preference[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -87,7 +89,10 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
   const loadPrefs = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const r = await fetch(endpointFor(scope), { credentials: 'include' })
+      const r = await fetch(endpointFor(scope), {
+        credentials: 'include',
+        headers: authHeaders || {},
+      })
       const j = await r.json()
       if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`)
       setPrefs(j.data || [])
@@ -96,7 +101,7 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
     } finally {
       setLoading(false)
     }
-  }, [scope])
+  }, [scope, authHeaders])
 
   useEffect(() => { loadPrefs(); refreshPush() }, [loadPrefs, refreshPush])
 
@@ -114,7 +119,7 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
       const r = await fetch(endpointFor(scope), {
         method: 'PUT',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}) },
         body: JSON.stringify({ notification_type: type, channel, enabled: nextValue }),
       })
       const j = await r.json()
@@ -149,7 +154,7 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
   const handleEnablePush = async () => {
     if (pushBusy) return
     setPushBusy(true); setPushMessage(null)
-    const r = await requestPermissionAndSubscribe()
+    const r = await requestPermissionAndSubscribe({ authHeaders })
     setPushMessage(r.ok ? 'Notificações ativadas neste dispositivo.' : r.error)
     await refreshPush()
     setPushBusy(false)
@@ -157,7 +162,7 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope }) => {
   const handleDisablePush = async () => {
     if (pushBusy) return
     setPushBusy(true); setPushMessage(null)
-    const r = await unsubscribePush()
+    const r = await unsubscribePush({ authHeaders })
     setPushMessage(r.ok ? 'Notificações desativadas neste dispositivo.' : r.error)
     await refreshPush()
     setPushBusy(false)

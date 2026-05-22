@@ -25,6 +25,14 @@ interface UnsubscribeOk  { ok: true }
 interface UnsubscribeErr { ok: false; error: string }
 type UnsubscribeResult = UnsubscribeOk | UnsubscribeErr
 
+// Headers extras aceitos por requestPermissionAndSubscribe / unsubscribe.
+// Pro impgeo, basta o cookie httpOnly (vazio); pro tc, o TcAuthContext
+// passa { Authorization: 'Bearer ${tcToken}' } como fallback robusto
+// (mesma convenção do TcAuthContext.refreshTcUser).
+export interface PushAuthOpts {
+  authHeaders?: Record<string, string>
+}
+
 const IS_IOS = typeof navigator !== 'undefined'
   && /iPad|iPhone|iPod/.test(navigator.userAgent)
   && !(window as unknown as { MSStream?: unknown }).MSStream
@@ -90,7 +98,7 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer | null): string {
 // Pede permissão (UI gesture do user) e cria/atualiza a subscription no
 // backend. Idempotente: chamar de novo quando já está ativo só renova o
 // last_seen_at.
-export async function requestPermissionAndSubscribe(): Promise<SubscribeResult> {
+export async function requestPermissionAndSubscribe(opts: PushAuthOpts = {}): Promise<SubscribeResult> {
   const state = getCurrentPermissionState()
   if (state === 'unsupported') return { ok: false, error: 'Navegador não suporta notificações push.' }
   if (state === 'pwa-not-installed-ios') {
@@ -111,8 +119,10 @@ export async function requestPermissionAndSubscribe(): Promise<SubscribeResult> 
     const reg = await navigator.serviceWorker.ready
 
     // Busca VAPID public key do backend. credentials:'include' = manda cookies.
+    // authHeaders adiciona o Bearer pro tc (TcAuthContext o passa explicitamente).
     const { vapidKeyUrl, subscribeUrl, appId } = endpointsForCurrentApp()
-    const vapidResp = await fetch(vapidKeyUrl, { credentials: 'include' })
+    const extra = opts.authHeaders || {}
+    const vapidResp = await fetch(vapidKeyUrl, { credentials: 'include', headers: extra })
     if (!vapidResp.ok) {
       return { ok: false, error: `Falha ao buscar chave VAPID (HTTP ${vapidResp.status}). Faça login novamente.` }
     }
@@ -137,7 +147,7 @@ export async function requestPermissionAndSubscribe(): Promise<SubscribeResult> 
     const subscribeResp = await fetch(subscribeUrl, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...extra },
       body: JSON.stringify({
         endpoint: subscription.endpoint,
         keys: {
@@ -161,7 +171,7 @@ export async function requestPermissionAndSubscribe(): Promise<SubscribeResult> 
 // Remove subscription deste dispositivo: backend (DELETE) + browser (unsubscribe).
 // Não revoga a permissão — só desliga o envio. Se o user clicar "ativar" de
 // novo, não vai precisar pedir permissão de novo.
-export async function unsubscribe(): Promise<UnsubscribeResult> {
+export async function unsubscribe(opts: PushAuthOpts = {}): Promise<UnsubscribeResult> {
   try {
     if (!isWebPushSupported()) return { ok: true } // nada pra fazer
     const reg = await navigator.serviceWorker.ready
@@ -169,13 +179,14 @@ export async function unsubscribe(): Promise<UnsubscribeResult> {
     if (!subscription) return { ok: true }
 
     const { subscribeUrl } = endpointsForCurrentApp()
+    const extra = opts.authHeaders || {}
     // Tenta avisar o backend primeiro — mas se falhar, ainda assim faz
     // unsubscribe local pra não deixar o user travado.
     try {
       await fetch(subscribeUrl, {
         method: 'DELETE',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extra },
         body: JSON.stringify({ endpoint: subscription.endpoint }),
       })
     } catch { /* ignorar */ }

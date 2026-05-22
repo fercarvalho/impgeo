@@ -15,6 +15,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { X, Loader2, MapPin, AlertTriangle } from 'lucide-react'
 import Modal from '@/components/Modal'
 import PhotoUpload from '@/components/PhotoUpload'
+import NotificationPreferencesSection from '@/components/NotificationPreferencesSection'
 import { useTcAuth, type TcUser } from '@/contexts/TcAuthContext'
 import { applyCepMask, fetchAddressByCep, removeCepMask } from '@/utils/cepMask'
 
@@ -43,7 +44,15 @@ interface Address {
 }
 
 const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, required = false }) => {
-  const { tcUser, updateTcUser, refreshTcUser } = useTcAuth()
+  const { tcUser, tcToken, updateTcUser, refreshTcUser } = useTcAuth()
+
+  // Headers extras pra que a seção de notificações use Bearer (mesmo padrão
+  // do resto do código tc — cobre o caso de cookie cross-port em dev).
+  const pushAuthHeaders = useMemo<Record<string, string>>(() => {
+    const h: Record<string, string> = {}
+    if (tcToken) h.Authorization = `Bearer ${tcToken}`
+    return h
+  }, [tcToken])
 
   const initialAddress: Address = useMemo(() => {
     const a = (tcUser?.address as Address | null | undefined) || {}
@@ -393,6 +402,10 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
               </div>
             </div>
           </section>
+
+          {/* Notificações — push + email por tipo de evento. Persiste por toggle
+              (não usa o submit do form pai), então não interfere com salvar. */}
+          <NotificationPreferencesSection scope="tc" authHeaders={pushAuthHeaders} />
 
           {/* Confirmação de senha quando email muda */}
           {emailChanged && (
