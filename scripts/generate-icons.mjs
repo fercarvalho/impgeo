@@ -26,7 +26,7 @@ const ROOT = path.resolve(__dirname, '..')
 const PUBLIC_DIR = path.join(ROOT, 'public')
 
 const SOURCES = {
-  impgeo:     path.join(PUBLIC_DIR, 'imp_logo.png'),
+  impgeo:     path.join(PUBLIC_DIR, 'logo_pwa.png'),
   tc:         path.join(PUBLIC_DIR, 'logo_terracontrol.png'),
   // tc-admin reusa logo_terracontrol.png e adiciona badge ADMIN.
   'tc-admin': path.join(PUBLIC_DIR, 'logo_terracontrol.png'),
