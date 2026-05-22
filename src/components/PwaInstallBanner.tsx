@@ -102,13 +102,13 @@ const PwaInstallBanner: React.FC = () => {
 
   const handleClick = async () => {
     if (button.isProgrammatic) {
-      const outcome = await promptInstall()
-      if (outcome === 'dismissed') {
-        // Usuário disse "agora não" no prompt nativo — respeita por 7 dias.
-        dismissNow()
-        setDismissed(true)
-      }
-      // Se 'accepted', o appinstalled vai disparar e o useWasJustInstalled
+      await promptInstall()
+      // Não tratamos 'dismissed' como dispensa permanente — usuário pode ter
+      // clicado em Cancelar por engano. O banner continua aparecendo (com
+      // botão "Preparando…" até o browser re-disparar beforeinstallprompt
+      // na próxima carga da página). Dispensa "definitiva" (7 dias) só
+      // acontece quando o usuário clica explicitamente no X.
+      // Se 'accepted', o appinstalled dispara e o useWasJustInstalled
       // esconde o banner automaticamente.
     } else {
       setShowHowTo(true)
