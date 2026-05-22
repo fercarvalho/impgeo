@@ -18,6 +18,7 @@ const sanitizeHtml = require('sanitize-html');
 const { z } = require('zod');
 const Database = require('./database-pg');
 const push = require('./services/push');
+const pushDispatcher = require('./services/push-dispatcher');
 const {
   enviarEmailRecuperacao,
   enviarEmailTcRegistroAprovado,
@@ -1334,7 +1335,8 @@ async function applyRulesAndPersist(savedTransaction, { actingUserId = null } = 
   // Para o ator (se houver) e fanout para todos admins/superadmins (dedup será via UI)
   const notifiedUserIds = new Set();
   if (actingUserId) {
-    await db.createNotification({ ...notifPayload, user_id: actingUserId });
+    const actorNotif = await db.createNotification({ ...notifPayload, user_id: actingUserId });
+    pushDispatcher.send(db, 'impgeo', actingUserId, actorNotif).catch(() => {});
     notifiedUserIds.add(actingUserId);
   }
   const adminsResult = await db.queryWithRetry(
@@ -1342,7 +1344,8 @@ async function applyRulesAndPersist(savedTransaction, { actingUserId = null } = 
   );
   for (const row of adminsResult.rows) {
     if (notifiedUserIds.has(row.id)) continue;
-    await db.createNotification({ ...notifPayload, user_id: row.id });
+    const adminNotif = await db.createNotification({ ...notifPayload, user_id: row.id });
+    pushDispatcher.send(db, 'impgeo', row.id, adminNotif).catch(() => {});
     notifiedUserIds.add(row.id);
   }
   return { transaction: updated, applied: 'pending', matchedRules: matched };
@@ -1647,7 +1650,8 @@ app.post('/api/transaction-rules/:id/mark-pending-retroactive', requireRulePermi
       };
       const notifiedUserIds = new Set();
       if (req.user?.id) {
-        await db.createNotification({ ...notifPayload, user_id: req.user.id });
+        const actorNotif = await db.createNotification({ ...notifPayload, user_id: req.user.id });
+        pushDispatcher.send(db, 'impgeo', req.user.id, actorNotif).catch(() => {});
         notifiedUserIds.add(req.user.id);
       }
       const adminsResult = await db.queryWithRetry(
@@ -1655,7 +1659,8 @@ app.post('/api/transaction-rules/:id/mark-pending-retroactive', requireRulePermi
       );
       for (const row of adminsResult.rows) {
         if (notifiedUserIds.has(row.id)) continue;
-        await db.createNotification({ ...notifPayload, user_id: row.id });
+        const adminNotif = await db.createNotification({ ...notifPayload, user_id: row.id });
+        pushDispatcher.send(db, 'impgeo', row.id, adminNotif).catch(() => {});
         notifiedUserIds.add(row.id);
       }
     }
@@ -2221,9 +2226,9 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
     ? `${imovel}${municipio ? ` em ${municipio}` : ''} — agora visível no TerraControl`
     : `${editedByName || 'Um administrador'} editou ${imovel}${municipio ? ` em ${municipio}` : ''}`;
 
-  // 1) Sino in-app (tc_notifications)
+  // 1) Sino in-app (tc_notifications) + push pro tc_user dono
   try {
-    await db.createTcNotification({
+    const tcNotif = await db.createTcNotification({
       tc_user_id: tcUserId,
       notification_type: event === 'approved' ? 'tc_record_approved' : 'tc_record_edited',
       title,
@@ -2231,6 +2236,7 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
       related_entity_type: 'terracontrol',
       related_entity_id: record.id,
     });
+    pushDispatcher.send(db, 'tc', tcUserId, tcNotif).catch(() => {});
   } catch (e) {
     console.error('[tc-notif] Falha ao gravar notif in-app:', e?.message);
   }
@@ -3361,7 +3367,7 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
           : undefined;
         const codImovel = created.cod_imovel != null ? created.cod_imovel : null;
         for (const u of impgeoUsers) {
-          await db.createNotification({
+          const userNotif = await db.createNotification({
             user_id: u.id,
             notification_type: 'tc_record_created',
             title: `${tcName} cadastrou um novo registro`,
@@ -3369,6 +3375,7 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
             related_entity_type: 'terracontrol',
             related_entity_id: created.id,
           });
+          pushDispatcher.send(db, 'impgeo', u.id, userNotif).catch(() => {});
           // Email opt-in (filtro feito aqui, query já trouxe a flag)
           if (u.tc_email_notifications === true && u.email) {
             const recipientName = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
