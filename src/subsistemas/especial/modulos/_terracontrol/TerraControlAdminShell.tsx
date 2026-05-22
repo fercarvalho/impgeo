@@ -10,6 +10,11 @@ import React, { Suspense, lazy, useState, useRef, useEffect } from 'react'
 import { LogOut, ExternalLink, ChevronDown, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
+// Banner persistente convidando o user a ativar Web Push neste origin
+// (tc-admin tem subscriptions próprias — uma por origin × device).
+// Lazy: chunk de ~3KB compartilhado com os outros entries via Vite.
+const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'))
+
 // Reaproveita TerraControl.tsx via lazy (mesmo do App.tsx)
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 
@@ -104,6 +109,14 @@ const TerraControlAdminShell: React.FC = () => {
 
       {/* TerraControl puro */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Banner de ativação de Web Push. Esconde sozinho quando o user já
+            ativou, dispensou (7 dias) ou bloqueou. */}
+        <Suspense fallback={null}>
+          <div className="mb-6">
+            <PushPermissionBanner />
+          </div>
+        </Suspense>
+
         <Suspense fallback={
           <div className="text-center text-gray-500 py-20">
             <Loader2 className="w-8 h-8 animate-spin text-tc-green mx-auto mb-2" />
