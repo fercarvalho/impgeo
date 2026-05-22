@@ -122,9 +122,9 @@ const PushPermissionBanner: React.FC = () => {
     <div
       role="region"
       aria-label="Ativar notificações no navegador"
-      className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/30 dark:via-indigo-900/30 dark:to-blue-900/30 border-b border-purple-200 dark:border-purple-800/50"
+      className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/30 dark:via-indigo-900/30 dark:to-blue-900/30 border border-purple-200 dark:border-purple-800/50 rounded-lg shadow-sm"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
+      <div className="px-4 py-2.5 flex items-center gap-3">
         <Bell className="w-5 h-5 text-purple-600 dark:text-purple-300 flex-shrink-0" aria-hidden="true" />
         <div className="flex-1 min-w-0">
           {isIosNotInstalled ? (

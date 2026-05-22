@@ -185,11 +185,15 @@ const TcLoggedView: React.FC = () => {
                 onOpenUsername={() => setShowUsername(true)}
               />
               {/* Banner persistente convidando o user a ativar Web Push.
-                  Só visível pro tc_user logado (TcLoggedView nem renderiza
-                  sem tcUser). Esconde sozinho quando ativo/dispensado/denied. */}
-              <Suspense fallback={null}>
-                <PushPermissionBanner />
-              </Suspense>
+                  Wrapper espelha o max-w-7xl + padding do <main> do
+                  TerraControlView pra ficar no mesmo comprimento do resto
+                  do conteúdo (não full-bleed). Só visível pro tc_user logado.
+                  Esconde sozinho quando ativo/dispensado/denied. */}
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                <Suspense fallback={null}>
+                  <PushPermissionBanner />
+                </Suspense>
+              </div>
             </>
           ),
           onShareBulk: handleShareBulk,

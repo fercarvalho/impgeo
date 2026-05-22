@@ -3526,11 +3526,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36 min-h-screen">
         {/* Banner persistente convidando o user a ativar Web Push neste dispositivo.
-            Margens negativas rompem o padding lateral do main pra ficar full-width
-            visualmente "colado" abaixo do header fixed. Esconde sozinho quando o
-            user já ativou, dispensou ou bloqueou — ver PushPermissionBanner. */}
+            Fica dentro do max-w-7xl do main pra acompanhar a largura do resto
+            do conteúdo. Esconde sozinho quando o user já ativou, dispensou ou
+            bloqueou — ver PushPermissionBanner. */}
         <Suspense fallback={null}>
-          <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 mb-6">
+          <div className="mb-6">
             <PushPermissionBanner />
           </div>
         </Suspense>
