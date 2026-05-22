@@ -17,6 +17,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const sanitizeHtml = require('sanitize-html');
 const { z } = require('zod');
 const Database = require('./database-pg');
+const push = require('./services/push');
 const {
   enviarEmailRecuperacao,
   enviarEmailTcRegistroAprovado,
@@ -32,6 +33,7 @@ const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
 const app = express();
 const port = 9001;
 const db = new Database();
+push.init(process.env);
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -1753,6 +1755,82 @@ app.delete('/api/notifications/:id', async (req, res) => {
   }
 });
 
+// ─── Web Push: subscriptions e preferências (impgeo) ─────────────────────
+// Auth herda do middleware global `authenticateToken` (req.user já populado).
+// Os endpoints `/api/tc-auth/push/*` ficam mais abaixo, no bloco do tc.
+//
+// `app_id` no body diferencia subscription do mesmo user em origins distintos
+// (mesmo user_id pode ter linhas com app_id='impgeo', 'tc-public' e 'tc-admin').
+
+app.get('/api/push/vapid-public-key', async (req, res) => {
+  if (!push.isConfigured()) {
+    return res.status(503).json({ success: false, error: 'Web Push não configurado no servidor' });
+  }
+  res.json({ success: true, publicKey: push.getPublicKey() });
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const { endpoint, keys, app_id } = req.body || {};
+    if (!endpoint || typeof endpoint !== 'string' || endpoint.length < 20) {
+      return res.status(400).json({ success: false, error: 'endpoint inválido' });
+    }
+    if (!keys || typeof keys.p256dh !== 'string' || typeof keys.auth !== 'string') {
+      return res.status(400).json({ success: false, error: 'keys.p256dh e keys.auth são obrigatórios' });
+    }
+    const ALLOWED_APP_IDS = ['impgeo', 'tc-public', 'tc-admin'];
+    if (!ALLOWED_APP_IDS.includes(app_id)) {
+      return res.status(400).json({ success: false, error: 'app_id deve ser impgeo, tc-public ou tc-admin' });
+    }
+    const userAgent = (req.headers['user-agent'] || '').slice(0, 500);
+    const sub = await db.upsertPushSubscription('impgeo', req.user.id, { endpoint, keys }, app_id, userAgent);
+    res.json({ success: true, data: { id: sub.id, endpoint: sub.endpoint, app_id: sub.app_id } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/push/subscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ success: false, error: 'endpoint obrigatório' });
+    }
+    const removed = await db.deletePushSubscriptionByEndpoint('impgeo', req.user.id, endpoint);
+    res.json({ success: true, removed });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/notification-preferences', async (req, res) => {
+  try {
+    const grid = await db.listNotificationPreferences('impgeo', req.user.id);
+    res.json({ success: true, data: grid });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/notification-preferences', async (req, res) => {
+  try {
+    const { notification_type, channel, enabled } = req.body || {};
+    if (!notification_type || typeof notification_type !== 'string' || notification_type.length > 64) {
+      return res.status(400).json({ success: false, error: 'notification_type inválido' });
+    }
+    if (channel !== 'push' && channel !== 'email') {
+      return res.status(400).json({ success: false, error: 'channel deve ser "push" ou "email"' });
+    }
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled deve ser boolean' });
+    }
+    const pref = await db.setNotificationPreference('impgeo', req.user.id, notification_type, channel, enabled);
+    res.json({ success: true, data: pref });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ─── Permissões granulares para regras ────────────────────────────────────
 app.get('/api/user-rule-permissions/me', async (req, res) => {
   try {
@@ -3155,6 +3233,83 @@ app.delete('/api/tc-auth/notifications/:id', tcAuth.authenticateTcUser, async (r
     const deleted = await db.deleteTcNotification(req.params.id, req.tcUser.id);
     if (!deleted) return res.status(404).json({ success: false, error: 'Notificação não encontrada' });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── Web Push: subscriptions e preferências (tc_users) ──────────────────
+// Espelha /api/push/* + /api/notification-preferences mas usa o middleware
+// tcAuth.authenticateTcUser (req.tcUser) e tabelas tc_push_subscriptions /
+// tc_notification_preferences (scope='tc' nos helpers).
+//
+// Notar que app_id default pra tc_user é 'tc-public', mas mantemos a lista
+// completa pra cobrir cenários futuros (tc_user com acesso a admin, etc).
+
+app.get('/api/tc-auth/push/vapid-public-key', tcAuth.authenticateTcUser, async (req, res) => {
+  if (!push.isConfigured()) {
+    return res.status(503).json({ success: false, error: 'Web Push não configurado no servidor' });
+  }
+  res.json({ success: true, publicKey: push.getPublicKey() });
+});
+
+app.post('/api/tc-auth/push/subscribe', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { endpoint, keys, app_id } = req.body || {};
+    if (!endpoint || typeof endpoint !== 'string' || endpoint.length < 20) {
+      return res.status(400).json({ success: false, error: 'endpoint inválido' });
+    }
+    if (!keys || typeof keys.p256dh !== 'string' || typeof keys.auth !== 'string') {
+      return res.status(400).json({ success: false, error: 'keys.p256dh e keys.auth são obrigatórios' });
+    }
+    const ALLOWED_APP_IDS = ['impgeo', 'tc-public', 'tc-admin'];
+    if (!ALLOWED_APP_IDS.includes(app_id)) {
+      return res.status(400).json({ success: false, error: 'app_id deve ser impgeo, tc-public ou tc-admin' });
+    }
+    const userAgent = (req.headers['user-agent'] || '').slice(0, 500);
+    const sub = await db.upsertPushSubscription('tc', req.tcUser.id, { endpoint, keys }, app_id, userAgent);
+    res.json({ success: true, data: { id: sub.id, endpoint: sub.endpoint, app_id: sub.app_id } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/tc-auth/push/subscribe', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ success: false, error: 'endpoint obrigatório' });
+    }
+    const removed = await db.deletePushSubscriptionByEndpoint('tc', req.tcUser.id, endpoint);
+    res.json({ success: true, removed });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/tc-auth/notification-preferences', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const grid = await db.listNotificationPreferences('tc', req.tcUser.id);
+    res.json({ success: true, data: grid });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/tc-auth/notification-preferences', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { notification_type, channel, enabled } = req.body || {};
+    if (!notification_type || typeof notification_type !== 'string' || notification_type.length > 64) {
+      return res.status(400).json({ success: false, error: 'notification_type inválido' });
+    }
+    if (channel !== 'push' && channel !== 'email') {
+      return res.status(400).json({ success: false, error: 'channel deve ser "push" ou "email"' });
+    }
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled deve ser boolean' });
+    }
+    const pref = await db.setNotificationPreference('tc', req.tcUser.id, notification_type, channel, enabled);
+    res.json({ success: true, data: pref });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
