@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext'
 // (tc-admin tem subscriptions próprias — uma por origin × device).
 // Lazy: chunk de ~3KB compartilhado com os outros entries via Vite.
 const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'))
+import PwaInstallBanner from '@/components/PwaInstallBanner'
 
 // Reaproveita TerraControl.tsx via lazy (mesmo do App.tsx)
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
@@ -116,6 +117,11 @@ const TerraControlAdminShell: React.FC = () => {
             <PushPermissionBanner />
           </div>
         </Suspense>
+
+        {/* Banner convidando o admin a instalar o TerraControl Admin como PWA.
+            Estratégia adapta-se ao OS/browser. Esconde sozinho quando já
+            instalado ou dispensado (7 dias). */}
+        <PwaInstallBanner />
 
         <Suspense fallback={
           <div className="text-center text-gray-500 py-20">

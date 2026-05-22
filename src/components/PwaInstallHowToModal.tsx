@@ -22,11 +22,11 @@ interface InstructionConfig {
   footer?: React.ReactNode
 }
 
-function getInstructions(strategy: InstallStrategy): InstructionConfig | null {
+function getInstructions(strategy: InstallStrategy, appName: string): InstructionConfig | null {
   switch (strategy) {
     case 'ios-safari':
       return {
-        title: 'Instalar IMPGEO no iPhone / iPad',
+        title: `Instalar ${appName} no iPhone / iPad`,
         steps: [
           {
             icon: <Share className="w-5 h-5" />,
@@ -38,14 +38,14 @@ function getInstructions(strategy: InstallStrategy): InstructionConfig | null {
           },
           {
             icon: <span className="text-base font-semibold">✓</span>,
-            text: <>Confirme em <strong>"Adicionar"</strong>. O ícone do IMPGEO aparece na sua tela.</>,
+            text: <>Confirme em <strong>"Adicionar"</strong>. O ícone do {appName} aparece na sua tela.</>,
           },
         ],
         footer: 'Depois disso, abra o app sempre pelo ícone — você fica logado mesmo após fechar.',
       }
     case 'macos-safari':
       return {
-        title: 'Instalar IMPGEO no Mac (Safari)',
+        title: `Instalar ${appName} no Mac (Safari)`,
         steps: [
           {
             icon: <span className="text-base font-semibold">📂</span>,
@@ -74,7 +74,7 @@ function getInstructions(strategy: InstallStrategy): InstructionConfig | null {
       }
     case 'android-firefox':
       return {
-        title: 'Instalar IMPGEO no Android (Firefox)',
+        title: `Instalar ${appName} no Android (Firefox)`,
         steps: [
           {
             icon: <Menu className="w-5 h-5" />,
@@ -96,7 +96,7 @@ function getInstructions(strategy: InstallStrategy): InstructionConfig | null {
           },
           {
             icon: <span className="text-base font-semibold">✓</span>,
-            text: <>Abra o IMPGEO no <strong>Chrome</strong>, <strong>Edge</strong> ou <strong>Safari</strong> pra ver o botão de instalar.</>,
+            text: <>Abra o {appName} no <strong>Chrome</strong>, <strong>Edge</strong> ou <strong>Safari</strong> pra ver o botão de instalar.</>,
           },
         ],
       }
@@ -108,12 +108,13 @@ function getInstructions(strategy: InstallStrategy): InstructionConfig | null {
 interface Props {
   isOpen: boolean
   strategy: InstallStrategy
+  appName: string
   onClose: () => void
 }
 
-const PwaInstallHowToModal: React.FC<Props> = ({ isOpen, strategy, onClose }) => {
+const PwaInstallHowToModal: React.FC<Props> = ({ isOpen, strategy, appName, onClose }) => {
   if (!isOpen) return null
-  const config = getInstructions(strategy)
+  const config = getInstructions(strategy, appName)
   if (!config) return null
 
   return (

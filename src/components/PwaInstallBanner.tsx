@@ -21,7 +21,18 @@ import {
   type InstallStrategy,
 } from '@/pwa/installCapabilities'
 import { promptInstall, useCanInstall, useWasJustInstalled } from '@/pwa/installPrompt'
+import { getCurrentAppId } from '@/pwa/appId'
 import PwaInstallHowToModal from './PwaInstallHowToModal'
+
+// Nome humano-amigável usado no banner e no modal de instruções. tc-admin
+// vira "TerraControl" (não "TC Admin") porque é a marca que o usuário
+// reconhece ao decidir instalar — o "TC Admin" continua sendo só o
+// short_name do manifest pra diferenciar o ícone no launcher.
+const APP_HUMAN_NAME: Record<ReturnType<typeof getCurrentAppId>, string> = {
+  'impgeo':    'IMPGEO',
+  'tc-public': 'TerraControl',
+  'tc-admin':  'TerraControl',
+}
 
 const DISMISS_KEY = 'pwa-install-banner-dismissed-at'
 const DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 dias
@@ -75,6 +86,7 @@ const PwaInstallBanner: React.FC = () => {
   const wasJustInstalled = useWasJustInstalled()
   const [dismissed, setDismissed] = useState<boolean>(() => isRecentlyDismissed())
   const [showHowTo, setShowHowTo] = useState(false)
+  const appName = APP_HUMAN_NAME[getCurrentAppId()]
 
   // Atalho silencioso: roda standalone, foi dispensado, ou já instalou agora.
   if (caps.isStandalone || wasJustInstalled || dismissed) return null
@@ -121,7 +133,7 @@ const PwaInstallBanner: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
-            Instale o IMPGEO como aplicativo
+            Instale o {appName} como aplicativo
           </p>
           <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             Acesso rápido pela tela inicial, abre em janela própria e funciona melhor offline.
@@ -152,6 +164,7 @@ const PwaInstallBanner: React.FC = () => {
       <PwaInstallHowToModal
         isOpen={showHowTo}
         strategy={caps.strategy}
+        appName={appName}
         onClose={() => setShowHowTo(false)}
       />
     </>

@@ -24,6 +24,7 @@ import TcHeader from './TcHeader'
 // Lazy: o banner compartilha código com o sino do impgeo; ao usar lazy aqui
 // também, o Vite gera um chunk próprio em vez de duplicar/inchar.
 const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'))
+import PwaInstallBanner from '@/components/PwaInstallBanner'
 import TcUserProfileModal from './TcUserProfileModal'
 import TcEditarPerfilModal from './TcEditarPerfilModal'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
@@ -193,6 +194,13 @@ const TcLoggedView: React.FC = () => {
                 <Suspense fallback={null}>
                   <PushPermissionBanner />
                 </Suspense>
+                {/* Banner convidando a instalar o TerraControl como PWA.
+                    Texto e estratégia de install adaptam-se ao OS/browser
+                    (prompt nativo no Chrome/Edge; modal de instruções em
+                    Safari iOS/macOS). Esconde sozinho quando já instalado
+                    ou dispensado (7 dias). Aparece só pós-login (fica
+                    dentro do TcLoggedView que só renderiza autenticado). */}
+                <PwaInstallBanner />
               </div>
             </>
           ),
