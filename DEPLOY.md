@@ -395,9 +395,32 @@ MAX_SESSIONS_PER_USER=5
 # Alertas de segurança
 ALERT_EMAIL_FROM=naoresponder@impgeo.sistemas.viverdepj.com.br
 ALERT_EMAIL_TO=fernando@viverdepj.com.br
+
+# Web Push (VAPID — gerar com: node server/scripts/generate-vapid.mjs)
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:suporte@viverdepj.com.br
 ```
 
 > ⚠️ **Nunca commite o `.env` no repositório.** Ele está no `.gitignore`.
+
+### Gerar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
+
+Web Push exige um par de chaves VAPID (Voluntary Application Server
+Identification). Gere **uma única vez** e cole no `.env`:
+
+```bash
+cd /var/www/impgeo
+node server/scripts/generate-vapid.mjs
+```
+
+O comando imprime as 3 envs (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+`VAPID_SUBJECT`) — copie e cole no `.env` da VPS, depois reinicie o backend
+com `pm2 restart impgeo-api`.
+
+> ⚠️ **Rotacionar o par invalida todas as subscriptions existentes** — todos
+> os usuários terão que reativar push manualmente. Só rotacione em caso de
+> vazamento da chave privada.
 
 ---
 

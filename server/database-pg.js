@@ -2928,6 +2928,221 @@ class Database {
     return result.rows.length;
   }
 
+  // ===========================================================================
+  // Web Push: subscriptions e preferências de notificação
+  // ===========================================================================
+  // Duas famílias paralelas (scope='impgeo' vs scope='tc'), escolhidas pelo
+  // primeiro parâmetro de cada helper. impgeo → push_subscriptions /
+  // notification_preferences; tc → tc_push_subscriptions /
+  // tc_notification_preferences.
+  //
+  // Os helpers de preferências têm fallback de defaults inline (constante
+  // NOTIFICATION_DEFAULTS abaixo). Idéia: nem todo user precisa ter linha pra
+  // cada (type, channel) — só quando o user toca o toggle a linha aparece.
+  // Mantém a tabela enxuta e permite mudar defaults sem migration.
+  //
+  // Tipos de notificação especiais com prefixo '_meta:' guardam toggles que
+  // não correspondem a um evento (ex: '_meta:foreground' = "mostrar push
+  // OS-level com o app aberto").
+  //
+  // Migration 039 popula a tabela a partir das flags 033/034 antigas; o
+  // código aqui não consulta 033/034 — depende da migração estar aplicada.
+
+  static NOTIFICATION_DEFAULTS = Object.freeze({
+    impgeo: {
+      transaction_confirm_needed: { push: true,  email: false },
+      tc_record_created:          { push: true,  email: false },
+      '_meta:foreground':         { push: false, email: false },
+    },
+    tc: {
+      tc_record_approved: { push: true, email: true },
+      tc_record_edited:   { push: true, email: true },
+      '_meta:foreground': { push: false, email: false },
+    },
+  });
+
+  _pushSubsTable(scope) {
+    return scope === 'tc' ? 'tc_push_subscriptions' : 'push_subscriptions';
+  }
+
+  _pushSubsUserCol(scope) {
+    return scope === 'tc' ? 'tc_user_id' : 'user_id';
+  }
+
+  _prefsTable(scope) {
+    return scope === 'tc' ? 'tc_notification_preferences' : 'notification_preferences';
+  }
+
+  _prefsUserCol(scope) {
+    return scope === 'tc' ? 'tc_user_id' : 'user_id';
+  }
+
+  // Insere uma subscription nova ou atualiza last_seen_at se o endpoint já
+  // existir (mesmo dispositivo re-subscribendo, ou outro user na mesma máquina
+  // — neste caso o user_id também é atualizado, decisão consciente: a
+  // subscription "pertence" ao último usuário logado naquela combinação
+  // browser+origin).
+  async upsertPushSubscription(scope, userId, sub, appId, userAgent) {
+    const table = this._pushSubsTable(scope);
+    const userCol = this._pushSubsUserCol(scope);
+    const id = this.generateId();
+    const result = await this.queryWithRetry(
+      `INSERT INTO ${table} (id, ${userCol}, endpoint, p256dh, auth, app_id, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (endpoint) DO UPDATE
+         SET ${userCol}  = EXCLUDED.${userCol},
+             p256dh      = EXCLUDED.p256dh,
+             auth        = EXCLUDED.auth,
+             app_id      = EXCLUDED.app_id,
+             user_agent  = EXCLUDED.user_agent,
+             failed_count = 0,
+             last_seen_at = NOW()
+       RETURNING *`,
+      [id, userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth, appId, userAgent || null]
+    );
+    return result.rows[0];
+  }
+
+  async listActivePushSubscriptions(scope, userId) {
+    const table = this._pushSubsTable(scope);
+    const userCol = this._pushSubsUserCol(scope);
+    const result = await this.queryWithRetry(
+      `SELECT * FROM ${table} WHERE ${userCol} = $1 ORDER BY last_seen_at DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  async listAllPushSubscriptionsForUser(scope, userId) {
+    return this.listActivePushSubscriptions(scope, userId);
+  }
+
+  async deletePushSubscriptionByEndpoint(scope, userId, endpoint) {
+    const table = this._pushSubsTable(scope);
+    const userCol = this._pushSubsUserCol(scope);
+    const result = await this.queryWithRetry(
+      `DELETE FROM ${table} WHERE ${userCol} = $1 AND endpoint = $2 RETURNING id`,
+      [userId, endpoint]
+    );
+    return result.rows.length > 0;
+  }
+
+  // Remove uma subscription que o push service marcou como inválida (410/404).
+  // Não exige user_id porque o endpoint é único globalmente.
+  async pruneInvalidPushSubscription(scope, endpoint) {
+    const table = this._pushSubsTable(scope);
+    await this.queryWithRetry(
+      `DELETE FROM ${table} WHERE endpoint = $1`,
+      [endpoint]
+    );
+  }
+
+  // Marca uma falha transitória; quando failed_count atinge MAX, remove.
+  // Devolve { removed: boolean, failed_count: number } pra observabilidade.
+  async markPushSubscriptionFailed(scope, endpoint, maxFails = 5) {
+    const table = this._pushSubsTable(scope);
+    const result = await this.queryWithRetry(
+      `UPDATE ${table}
+          SET failed_count = failed_count + 1
+        WHERE endpoint = $1
+        RETURNING failed_count`,
+      [endpoint]
+    );
+    if (result.rows.length === 0) return { removed: false, failed_count: 0 };
+    const count = result.rows[0].failed_count;
+    if (count >= maxFails) {
+      await this.pruneInvalidPushSubscription(scope, endpoint);
+      return { removed: true, failed_count: count };
+    }
+    return { removed: false, failed_count: count };
+  }
+
+  async touchPushSubscriptionLastSeen(scope, endpoint) {
+    const table = this._pushSubsTable(scope);
+    await this.queryWithRetry(
+      `UPDATE ${table}
+          SET last_seen_at = NOW(), failed_count = 0
+        WHERE endpoint = $1`,
+      [endpoint]
+    );
+  }
+
+  // ----- Preferências ------------------------------------------------------
+
+  // Devolve TRUE/FALSE (nunca null). Usa default do mapa se não houver linha.
+  // Default-default = FALSE pra tipos desconhecidos (segurança: não envia push
+  // sem opt-in explícito).
+  async getNotificationPreference(scope, userId, notificationType, channel) {
+    const table = this._prefsTable(scope);
+    const userCol = this._prefsUserCol(scope);
+    const result = await this.queryWithRetry(
+      `SELECT enabled FROM ${table}
+        WHERE ${userCol} = $1 AND notification_type = $2 AND channel = $3`,
+      [userId, notificationType, channel]
+    );
+    if (result.rows.length > 0) return result.rows[0].enabled;
+    const map = Database.NOTIFICATION_DEFAULTS[scope] || {};
+    const forType = map[notificationType];
+    if (forType && typeof forType[channel] === 'boolean') return forType[channel];
+    return false;
+  }
+
+  async setNotificationPreference(scope, userId, notificationType, channel, enabled) {
+    const table = this._prefsTable(scope);
+    const userCol = this._prefsUserCol(scope);
+    const id = this.generateId();
+    const result = await this.queryWithRetry(
+      `INSERT INTO ${table} (id, ${userCol}, notification_type, channel, enabled)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (${userCol}, notification_type, channel) DO UPDATE
+         SET enabled    = EXCLUDED.enabled,
+             updated_at = NOW()
+       RETURNING *`,
+      [id, userId, notificationType, channel, !!enabled]
+    );
+    return result.rows[0];
+  }
+
+  // Devolve o grid completo de preferências do user, com defaults aplicados
+  // para qualquer combinação (type, channel) que não tenha linha explícita.
+  // Útil pra UI desenhar a tabela toda.
+  async listNotificationPreferences(scope, userId) {
+    const table = this._prefsTable(scope);
+    const userCol = this._prefsUserCol(scope);
+    const result = await this.queryWithRetry(
+      `SELECT notification_type, channel, enabled, updated_at
+         FROM ${table} WHERE ${userCol} = $1`,
+      [userId]
+    );
+    const stored = new Map();
+    for (const row of result.rows) {
+      stored.set(`${row.notification_type}:${row.channel}`, row);
+    }
+    const grid = [];
+    const map = Database.NOTIFICATION_DEFAULTS[scope] || {};
+    const types = new Set([
+      ...Object.keys(map),
+      ...result.rows.map(r => r.notification_type),
+    ]);
+    for (const type of types) {
+      for (const channel of ['push', 'email']) {
+        const key = `${type}:${channel}`;
+        const row = stored.get(key);
+        const def = (map[type] && typeof map[type][channel] === 'boolean')
+          ? map[type][channel]
+          : false;
+        grid.push({
+          notification_type: type,
+          channel,
+          enabled: row ? row.enabled : def,
+          is_default: !row,
+          updated_at: row ? row.updated_at : null,
+        });
+      }
+    }
+    return grid;
+  }
+
   async listTcUsersForAdmin() {
     // Inclui contagem de registros acessíveis por tc_user
     const r = await this.queryWithRetry(
