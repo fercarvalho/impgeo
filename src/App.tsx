@@ -66,6 +66,7 @@ import Documentation from '@/subsistemas/gestao/modulos/Documentation'
 const Roadmap = lazy(() => import('@/subsistemas/gestao/modulos/Roadmap'))
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import OfflineBanner from '@/components/OfflineBanner'
+import PwaInstallBanner from '@/components/PwaInstallBanner'
 import FeedbackButton from '@/components/FeedbackButton'
 import Footer from '@/components/Footer'
 import VersionModalsManager from '@/components/VersionModalsManager'
@@ -3534,6 +3535,13 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
             <PushPermissionBanner />
           </div>
         </Suspense>
+
+        {/* Banner convidando o user a instalar o IMPGEO como PWA. Esconde
+            sozinho quando já instalado, dispensado (7 dias) ou quando o
+            browser não suporta install. Botão muda conforme OS/browser
+            (prompt nativo no Chrome/Edge, modal de instruções no iOS Safari
+            e macOS Safari, etc.). */}
+        <PwaInstallBanner />
 
         {activeTab === 'dashboard_financeiro' && hasModuleAccess('dashboard_financeiro') && (
           <>

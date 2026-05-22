@@ -10,6 +10,7 @@
 // preventDefault() imediatamente pra ser usado depois. Por isso capturamos
 // no boot, guardamos, e disponibilizamos via API.
 
+import { useEffect, useState } from 'react'
 import { getCurrentAppId, type AppId } from './appId'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -22,6 +23,7 @@ let isAuthenticated = false
 
 const PWA_INSTALL_EVENT = 'pwa-install-eligible'
 const PWA_INSTALLED_EVENT = 'pwa-installed'
+const PWA_PROMPT_RESOLVED_EVENT = 'pwa-prompt-resolved'
 
 export function setupInstallPrompt(): void {
   if (typeof window === 'undefined') return
@@ -64,6 +66,7 @@ export async function promptInstall(): Promise<'accepted' | 'dismissed' | 'unava
     await deferredPrompt.prompt()
     const choice = await deferredPrompt.userChoice
     deferredPrompt = null
+    window.dispatchEvent(new Event(PWA_PROMPT_RESOLVED_EVENT))
     return choice.outcome
   } catch {
     return 'unavailable'
@@ -73,4 +76,41 @@ export async function promptInstall(): Promise<'accepted' | 'dismissed' | 'unava
 export const PWA_EVENTS = {
   installEligible: PWA_INSTALL_EVENT,
   installed: PWA_INSTALLED_EVENT,
+  promptResolved: PWA_PROMPT_RESOLVED_EVENT,
 } as const
+
+/**
+ * Hook reativo — retorna true quando há um prompt programático disponível
+ * (beforeinstallprompt já capturado E gating de autenticação ok). Re-renderiza
+ * quando o evento chega depois da montagem, quando o app é instalado, ou
+ * quando o usuário confirma/dispensa o prompt.
+ */
+export function useCanInstall(): boolean {
+  const [can, setCan] = useState<boolean>(() => canInstall())
+  useEffect(() => {
+    const refresh = () => setCan(canInstall())
+    window.addEventListener(PWA_INSTALL_EVENT, refresh)
+    window.addEventListener(PWA_INSTALLED_EVENT, refresh)
+    window.addEventListener(PWA_PROMPT_RESOLVED_EVENT, refresh)
+    return () => {
+      window.removeEventListener(PWA_INSTALL_EVENT, refresh)
+      window.removeEventListener(PWA_INSTALLED_EVENT, refresh)
+      window.removeEventListener(PWA_PROMPT_RESOLVED_EVENT, refresh)
+    }
+  }, [])
+  return can
+}
+
+/**
+ * Hook reativo — true quando o appinstalled foi disparado nesta sessão.
+ * Útil pra esconder o banner imediatamente após instalação.
+ */
+export function useWasJustInstalled(): boolean {
+  const [installed, setInstalled] = useState(false)
+  useEffect(() => {
+    const onInstalled = () => setInstalled(true)
+    window.addEventListener(PWA_INSTALLED_EVENT, onInstalled)
+    return () => window.removeEventListener(PWA_INSTALLED_EVENT, onInstalled)
+  }, [])
+  return installed
+}
