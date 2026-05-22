@@ -36,6 +36,10 @@ import ChartModal from '@/components/modals/ChartModal'
 import MenuUsuario from '@/components/MenuUsuario'
 import NotificationBell from '@/components/NotificationBell'
 import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
+// Lazy load para que o Vite gere um chunk próprio (em vez de inflar o chunk
+// component-terracontrol ou index). Banner é pequeno e o lazy não causa
+// flicker — fallback null vira o estado natural "ainda não pediu permissão".
+const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'))
 
 const Reports = lazy(() => import('@/subsistemas/financeiro/modulos/RelatoriosFinanceiro'))
 const TransactionsPage = lazy(() => import('@/subsistemas/financeiro/modulos/Transactions').then(module => ({ default: module.TransactionsPage })))
@@ -3521,6 +3525,16 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       <NavigationBar />
       
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36 min-h-screen">
+        {/* Banner persistente convidando o user a ativar Web Push neste dispositivo.
+            Margens negativas rompem o padding lateral do main pra ficar full-width
+            visualmente "colado" abaixo do header fixed. Esconde sozinho quando o
+            user já ativou, dispensou ou bloqueou — ver PushPermissionBanner. */}
+        <Suspense fallback={null}>
+          <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 mb-6">
+            <PushPermissionBanner />
+          </div>
+        </Suspense>
+
         {activeTab === 'dashboard_financeiro' && hasModuleAccess('dashboard_financeiro') && (
           <>
             {renderDashboard()}

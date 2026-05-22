@@ -12,7 +12,7 @@
 // Esse wrapper cuida dos modais auxiliares (perfil, edição de perfil, mudar
 // senha, mudar username, gerar sub-share, criar/editar registro).
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useTcAuth } from '@/contexts/TcAuthContext'
 import {
   type TerraControlRecord,
@@ -21,6 +21,9 @@ import {
 } from './index'
 import TerraControlView from '../TerraControlView'
 import TcHeader from './TcHeader'
+// Lazy: o banner compartilha código com o sino do impgeo; ao usar lazy aqui
+// também, o Vite gera um chunk próprio em vez de duplicar/inchar.
+const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'))
 import TcUserProfileModal from './TcUserProfileModal'
 import TcEditarPerfilModal from './TcEditarPerfilModal'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
@@ -174,12 +177,20 @@ const TcLoggedView: React.FC = () => {
           tcToken,
           tcUserFirstName: tcUser.firstName,
           headerSlot: (
-            <TcHeader
-              tcUser={tcUser}
-              onOpenProfile={() => setShowProfile(true)}
-              onOpenPassword={() => setShowPassword(true)}
-              onOpenUsername={() => setShowUsername(true)}
-            />
+            <>
+              <TcHeader
+                tcUser={tcUser}
+                onOpenProfile={() => setShowProfile(true)}
+                onOpenPassword={() => setShowPassword(true)}
+                onOpenUsername={() => setShowUsername(true)}
+              />
+              {/* Banner persistente convidando o user a ativar Web Push.
+                  Só visível pro tc_user logado (TcLoggedView nem renderiza
+                  sem tcUser). Esconde sozinho quando ativo/dispensado/denied. */}
+              <Suspense fallback={null}>
+                <PushPermissionBanner />
+              </Suspense>
+            </>
           ),
           onShareBulk: handleShareBulk,
           onShareSingle: handleShareSingle,
