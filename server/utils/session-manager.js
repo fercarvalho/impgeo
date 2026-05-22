@@ -6,6 +6,7 @@
 const { Pool } = require("pg");
 const UAParser = require("ua-parser-js");
 const axios = require("axios");
+const geoip = require("geoip-lite");
 
 const pool = new Pool({
   host: process.env.DB_HOST || "localhost",
@@ -34,6 +35,38 @@ function parseUserAgent(userAgent) {
   };
 }
 
+// Cache em memória: IP → { result, expires }. Evita consultar o mesmo IP em
+// requests sucessivas (login + refresh + reconexão = mesmo IP 5x em 5min).
+const GEO_CACHE = new Map();
+const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const GEO_CACHE_MAX_ENTRIES = 5000;           // teto pra não vazar memória
+
+// Circuit breaker: depois de N erros 429 consecutivos, paramos de tentar HTTP
+// por X minutos. Geoip-lite (offline) continua funcionando.
+let httpFailures = 0;
+let httpDisabledUntil = 0;
+const HTTP_FAILURE_THRESHOLD = 3;
+const HTTP_COOLDOWN_MS = 30 * 60 * 1000; // 30min
+
+function cacheGet(ip) {
+  const entry = GEO_CACHE.get(ip);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    GEO_CACHE.delete(ip);
+    return null;
+  }
+  return entry.result;
+}
+
+function cacheSet(ip, result) {
+  if (GEO_CACHE.size >= GEO_CACHE_MAX_ENTRIES) {
+    // Estratégia ingênua: limpa o mais antigo (primeira chave inserida).
+    const firstKey = GEO_CACHE.keys().next().value;
+    if (firstKey) GEO_CACHE.delete(firstKey);
+  }
+  GEO_CACHE.set(ip, { result, expires: Date.now() + GEO_CACHE_TTL_MS });
+}
+
 async function getGeolocation(ip) {
   // Normaliza IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x)
   if (ip && ip.startsWith("::ffff:")) {
@@ -49,19 +82,48 @@ async function getGeolocation(ip) {
     return { country: "Local", city: "Localhost", latitude: null, longitude: null };
   }
 
-  try {
-    const response = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 3000 });
+  // 1. Cache em memória — resposta mais rápida e zero chamadas externas.
+  const cached = cacheGet(ip);
+  if (cached) return cached;
 
-    return {
-      country: response.data.country_name || null,
-      city: response.data.city || null,
-      latitude: response.data.latitude || null,
-      longitude: response.data.longitude || null,
-    };
-  } catch (error) {
-    console.warn(`[SessionManager] Erro ao obter geolocalização para IP ${ip}:`, error.message);
-    return { country: null, city: null, latitude: null, longitude: null };
+  // 2. Lookup offline com geoip-lite. País/cidade saem instantâneos sem rede.
+  const geoLocal = geoip.lookup(ip);
+  const result = {
+    country: geoLocal?.country || null,
+    city: geoLocal?.city || null,
+    latitude: geoLocal?.ll?.[0] ?? null,
+    longitude: geoLocal?.ll?.[1] ?? null,
+  };
+
+  // 3. Fallback HTTP só se o lookup local não retornou nada útil e o circuit
+  //    breaker estiver fechado. Mantém latitude/longitude mais precisos quando
+  //    o serviço está disponível, mas nunca bloqueia o login se falhar.
+  const httpEnabled = Date.now() >= httpDisabledUntil;
+  if (!result.country && httpEnabled) {
+    try {
+      const response = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 3000 });
+      result.country = response.data.country_name || result.country;
+      result.city = response.data.city || result.city;
+      result.latitude = response.data.latitude ?? result.latitude;
+      result.longitude = response.data.longitude ?? result.longitude;
+      httpFailures = 0; // reset em sucesso
+    } catch (error) {
+      const status = error.response?.status;
+      httpFailures += 1;
+      if (status === 429 || httpFailures >= HTTP_FAILURE_THRESHOLD) {
+        httpDisabledUntil = Date.now() + HTTP_COOLDOWN_MS;
+        // Loga apenas uma vez quando o circuit abre — sem spam por IP.
+        console.warn(
+          `[SessionManager] ipapi.co indisponível (status ${status || error.message}). ` +
+          `Caindo no geoip-lite por ${HTTP_COOLDOWN_MS / 60000}min.`
+        );
+      }
+      // Sem log por IP — geoip-lite cobriu o essencial.
+    }
   }
+
+  cacheSet(ip, result);
+  return result;
 }
 
 async function createSession(userId, refreshTokenId, req) {
