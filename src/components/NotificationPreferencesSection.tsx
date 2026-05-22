@@ -17,6 +17,7 @@ import {
   requestPermissionAndSubscribe,
   unsubscribe as unsubscribePush,
   getActiveSubscriptionEndpoint,
+  getDeniedHelpText,
   type PermissionState,
 } from '@/pwa/push'
 
@@ -247,7 +248,7 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope, authHeaders })
           )}
           {permission === 'denied' && (
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Push bloqueado nas configurações do navegador. Para reativar, abra <strong>Configurações do site</strong>.
+              Push bloqueado. {getDeniedHelpText()}
             </p>
           )}
           {permission === 'pwa-not-installed-ios' && (

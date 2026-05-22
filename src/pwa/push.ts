@@ -199,6 +199,40 @@ export async function unsubscribe(opts: PushAuthOpts = {}): Promise<UnsubscribeR
   }
 }
 
+// Devolve instrução curta sobre como reativar a permissão de notificações
+// quando o user a bloqueou (permission='denied'). Detecta o browser pelo UA
+// e oferece o caminho mais direto.
+//
+// Não é exato (UA sniffing é frágil), mas o pior caso é cair no texto
+// genérico — que ainda funciona. Não usar pra lógica crítica, só UI.
+export function getDeniedHelpText(): string {
+  if (typeof navigator === 'undefined') {
+    return 'Reative em Configurações do site, no seu navegador.'
+  }
+  const ua = navigator.userAgent
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(ua)
+
+  if (/Edg\//.test(ua)) {
+    return 'Edge: clique no cadeado ao lado da URL → "Permissões" → ative Notificações.'
+  }
+  if (/Firefox\//.test(ua)) {
+    return 'Firefox: clique no escudo/cadeado ao lado da URL → "Permissões" → permita Notificações.'
+  }
+  if (/Chrome\//.test(ua) && !/OPR\//.test(ua)) {
+    if (isMobile) {
+      return 'Chrome Android: toque nos 3 pontos no topo → "Configurações do site" → Notificações → Permitir.'
+    }
+    return 'Chrome: clique no cadeado ao lado da URL → "Notificações" → Permitir, e recarregue.'
+  }
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) {
+    if (/iPhone|iPad/.test(ua)) {
+      return 'Safari iOS: abra Ajustes do iOS → Notificações → este app → ative "Permitir notificações".'
+    }
+    return 'Safari Mac: menu Safari → Configurações → Sites → Notificações → permita este site.'
+  }
+  return 'Reative permissão de notificações nas Configurações do site do seu navegador.'
+}
+
 // Retorna o endpoint atualmente ativo neste dispositivo (ou null). Útil pra
 // UI saber se deve mostrar "Ativar" ou "Desativar".
 export async function getActiveSubscriptionEndpoint(): Promise<string | null> {

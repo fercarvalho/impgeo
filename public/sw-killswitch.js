@@ -4,6 +4,14 @@
 // diferente, instala este, ele limpa tudo e se auto-desregistra.
 //
 // Servir com Cache-Control: no-store, must-revalidate (nginx).
+//
+// IMPORTANTE — Web Push: ao se auto-desregistrar via self.registration.unregister(),
+// este SW invalida TODAS as Push Subscriptions deste origin. O backend vai
+// receber 404/410 nos próximos sends e remover as linhas de push_subscriptions
+// / tc_push_subscriptions automaticamente (cleanup via push-dispatcher.js).
+// Usuários precisarão reativar push manualmente pelo sino/perfil após a
+// re-instalação do sw.js normal. Aceito esse custo dado que o killswitch só
+// roda em emergência (SW hijackeado, bug grave em cache).
 
 self.addEventListener('install', () => self.skipWaiting());
 

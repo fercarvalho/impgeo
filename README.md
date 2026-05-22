@@ -82,6 +82,17 @@ O **IMPGEO** é uma plataforma desenvolvida para facilitar a gestão financeira 
 - Middleware de autenticação
 - Hash de senhas com bcryptjs
 
+### 🔔 Notificações in-app + Web Push
+- Sino in-app com polling (30s) — espelhado entre impgeo e terracontrol
+- Web Push OS-level via PWA (desktop + mobile instalado)
+- Preferências granulares por tipo de evento × canal (push, e-mail)
+- Toggle "mostrar com app aberto" (default suprime OS-notif quando app visível)
+- Cleanup automático de subscriptions expiradas (410/404)
+- Multi-device: N subscriptions ativas por usuário
+- Service Worker único (`public/sw.js`) atende os 3 origins via dispatcher por hostname
+- Suporta iOS 16.4+ (exige PWA instalado na tela inicial)
+- Geração de chaves VAPID via `node server/scripts/generate-vapid.mjs` (ver [DEPLOY.md](DEPLOY.md))
+
 ## 🛠️ Stack Tecnológica
 
 ### Frontend

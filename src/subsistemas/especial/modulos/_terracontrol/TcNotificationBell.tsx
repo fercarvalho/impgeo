@@ -17,6 +17,7 @@ import {
   requestPermissionAndSubscribe,
   unsubscribe as unsubscribePush,
   getActiveSubscriptionEndpoint,
+  getDeniedHelpText,
   type PermissionState,
 } from '@/pwa/push'
 import { usePushBridge } from '@/hooks/usePushBridge'
@@ -274,7 +275,7 @@ const TcNotificationBell: React.FC = () => {
                 )}
                 {pushPermission === 'denied' && (
                   <p className="text-[10.5px] text-gray-600 dark:text-gray-400 px-1 py-0.5">
-                    Notificações bloqueadas. Reative em <strong>Configurações do site</strong> no navegador.
+                    Notificações bloqueadas. {getDeniedHelpText()}
                   </p>
                 )}
                 {pushPermission === 'pwa-not-installed-ios' && (
