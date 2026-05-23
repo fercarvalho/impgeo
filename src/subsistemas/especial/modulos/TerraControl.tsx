@@ -36,6 +36,9 @@ import {
   useFeedback,
 } from './_terracontrol'
 import TcUsersAdminPanel from './_terracontrol/TcUsersAdminPanel'
+import TcBudgetEditorModal from './_terracontrol/budgets/TcBudgetEditorModal'
+import TcBudgetHistoryPanel from './_terracontrol/budgets/TcBudgetHistoryPanel'
+import { fetchBudgetByRecord, type BudgetFullPayload } from './_terracontrol/budgets/budgetApi'
 
 // Feature flag temporária: a UI antiga de share_links (botões "Gerar Link" e
 // "Gerenciar Links") foi substituída pela aba "Usuários TerraControl" na fase
@@ -100,6 +103,14 @@ const TerraControl: React.FC = () => {
   const [approvalFilter, setApprovalFilter] = useState<'all' | 'pendentes' | 'aprovados'>('all')
   // F: estado do botão "Aprovar" inline por card
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  // G7 (migration 040) — Orçamentos:
+  //   budgetEditorRecord: registro alvo do modal de criação/revisão (null = fechado)
+  //   budgetEditorPayload: payload completo quando abrindo em modo "revisar"
+  //   budgetHistoryPayload: payload sendo visualizado na timeline
+  const [budgetEditorRecord, setBudgetEditorRecord] = useState<TerraControlRecord | null>(null)
+  const [budgetEditorPayload, setBudgetEditorPayload] = useState<BudgetFullPayload | null>(null)
+  const [budgetHistoryPayload, setBudgetHistoryPayload] = useState<BudgetFullPayload | null>(null)
+  const [loadingBudgetForRecord, setLoadingBudgetForRecord] = useState<string | null>(null)
   const [sortField, setSortField] = useState<SortField>('codImovel')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isUploadingCar, setIsUploadingCar] = useState(false)
@@ -749,6 +760,47 @@ const TerraControl: React.FC = () => {
         notify('Erro ao excluir registro', { type: 'error' })
       }
     }
+  }
+
+  // G7 (migration 040): abre o modal/painel de orçamento. Estratégia:
+  //   - Se record nunca teve orçamento (sem budgetStatus ou só 'locked'): abre editor em modo criação
+  //   - Se já existe budget e está em sent/revision_requested: abre editor em modo revisão
+  //   - Se já está em awaiting_payment/paid/cancelled: abre só o painel de histórico (sem editar)
+  const handleOpenBudget = async (record: TerraControlRecord) => {
+    setLoadingBudgetForRecord(record.id)
+    try {
+      const payload = await fetchBudgetByRecord(token, record.id)
+      if (!payload) {
+        // Sem budget — abre editor em modo criação
+        setBudgetEditorPayload(null)
+        setBudgetEditorRecord(record)
+        return
+      }
+      const status = payload.budget.status
+      if (status === 'sent' || status === 'revision_requested') {
+        setBudgetEditorPayload(payload)
+        setBudgetEditorRecord(record)
+      } else {
+        // awaiting_payment/paid/cancelled → só visualizar histórico
+        setBudgetHistoryPayload(payload)
+      }
+    } catch (e: any) {
+      notify(e?.message || 'Erro ao carregar orçamento', { type: 'error' })
+    } finally {
+      setLoadingBudgetForRecord(null)
+    }
+  }
+
+  // Após salvar o orçamento (criação ou revisão), atualiza state local
+  // do card afetado pra refletir o novo budgetStatus sem refetch global.
+  const handleBudgetSaved = (budget: { id: string; terracontrol_id: string; status: string }) => {
+    setBudgetEditorRecord(null)
+    setBudgetEditorPayload(null)
+    setRecords(prev => prev.map(r =>
+      r.id === budget.terracontrol_id
+        ? { ...r, currentBudgetId: budget.id, budgetStatus: budget.status as TerraControlRecord['budgetStatus'] }
+        : r
+    ))
   }
 
   // F: aprovação inline. Marca o registro como approved=TRUE via PATCH admin.
@@ -1644,6 +1696,39 @@ const TerraControl: React.FC = () => {
                           </button>
                         </>
                       )}
+                      {/* G7 (migration 040): badge de status do orçamento + botão "Gerar/Ver" */}
+                      {(() => {
+                        const bs = record.budgetStatus
+                        const isLoading = loadingBudgetForRecord === record.id
+                        const badgeMap: Record<NonNullable<TerraControlRecord['budgetStatus']>, { text: string; cls: string }> = {
+                          locked:             { text: 'Aguardando orçamento',   cls: 'bg-gray-200 text-gray-800' },
+                          sent:               { text: 'Orçamento enviado',      cls: 'bg-blue-200 text-blue-900' },
+                          revision_requested: { text: 'Revisão solicitada',     cls: 'bg-amber-200 text-amber-900' },
+                          awaiting_payment:   { text: 'Aguardando pagamento',   cls: 'bg-orange-200 text-orange-900' },
+                          paid:               { text: 'Pago',                   cls: 'bg-green-200 text-green-900' },
+                        }
+                        const showCreate = !bs || bs === 'locked'
+                        const showReview = bs === 'sent' || bs === 'revision_requested'
+                        const showHistory = bs === 'awaiting_payment' || bs === 'paid'
+                        return (
+                          <>
+                            {bs && badgeMap[bs] && (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeMap[bs].cls}`}>
+                                {badgeMap[bs].text}
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleOpenBudget(record) }}
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-tc-blue hover:bg-tc-blue-dark text-white text-[10px] font-bold disabled:opacity-50"
+                              title={showCreate ? 'Gerar orçamento' : showReview ? 'Revisar orçamento' : 'Ver histórico do orçamento'}
+                            >
+                              {isLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <FileText className="w-2.5 h-2.5" />}
+                              {showCreate ? 'Gerar orçamento' : showHistory ? 'Histórico' : 'Revisar orçamento'}
+                            </button>
+                          </>
+                        )
+                      })()}
                       {/* F: badge "Criado por @tcuser" */}
                       {record.createdByTcUsername && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-white/15 text-blue-100 text-[10px] font-medium">
@@ -3290,6 +3375,42 @@ const TerraControl: React.FC = () => {
           notify={notify}
           confirm={confirm}
         />
+      )}
+
+      {/* G7 (migration 040): Editor de orçamento (criação ou revisão) */}
+      {budgetEditorRecord && (
+        <TcBudgetEditorModal
+          isOpen={true}
+          onClose={() => { setBudgetEditorRecord(null); setBudgetEditorPayload(null) }}
+          record={{
+            id: budgetEditorRecord.id,
+            imovel: budgetEditorRecord.imovel,
+            municipio: budgetEditorRecord.municipio,
+            cod_imovel: budgetEditorRecord.codImovel,
+            area_total: budgetEditorRecord.areaTotal,
+            reserva_legal: budgetEditorRecord.reservaLegal,
+            created_by_tc_user_id: budgetEditorRecord.createdByTcUserId || null,
+          }}
+          existingBudget={budgetEditorPayload?.budget || null}
+          existingRevision={
+            budgetEditorPayload
+              ? budgetEditorPayload.revisions.find(r => r.revision_number === budgetEditorPayload.budget.current_revision) || null
+              : null
+          }
+          tcUserName={budgetEditorRecord.createdByTcFullName || budgetEditorRecord.createdByTcUsername || null}
+          onSaved={handleBudgetSaved}
+          notify={notify}
+        />
+      )}
+
+      {/* G7: Painel de histórico (modos awaiting_payment/paid/cancelled — readonly) */}
+      {budgetHistoryPayload && (
+        <Modal isOpen={true} onClose={() => setBudgetHistoryPayload(null)}>
+          <TcBudgetHistoryPanel
+            data={budgetHistoryPayload}
+            onClose={() => setBudgetHistoryPayload(null)}
+          />
+        </Modal>
       )}
 
       {/* G4.3 — toasts e dialog de confirmação renderizados em portal lógico

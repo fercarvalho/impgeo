@@ -7,8 +7,10 @@
 //   - Username + dropdown com "Sair" e "Ir para impgeo completo"
 
 import React, { Suspense, lazy, useState, useRef, useEffect } from 'react'
-import { LogOut, ExternalLink, ChevronDown, Loader2 } from 'lucide-react'
+import { LogOut, ExternalLink, ChevronDown, Loader2, Settings, FileText } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useFeedback } from '@/subsistemas/especial/modulos/_terracontrol'
+import TcBudgetSettingsTab from './budgets/TcBudgetSettingsTab'
 
 // Banner persistente convidando o user a ativar Web Push neste origin
 // (tc-admin tem subscriptions próprias — uma por origin × device).
@@ -19,9 +21,13 @@ import PwaInstallBanner from '@/components/PwaInstallBanner'
 // Reaproveita TerraControl.tsx via lazy (mesmo do App.tsx)
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 
+type AdminView = 'records' | 'settings'
+
 const TerraControlAdminShell: React.FC = () => {
   const { user, logout } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [view, setView] = useState<AdminView>('records')
+  const { notify, FeedbackHost } = useFeedback()
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -108,7 +114,37 @@ const TerraControlAdminShell: React.FC = () => {
         </div>
       </div>
 
-      {/* TerraControl puro */}
+      {/* Tabs Registros / Configurações (migration 040) */}
+      <div className="bg-white dark:bg-[#1a2332] border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setView('records')}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              view === 'records'
+                ? 'border-tc-blue text-tc-blue'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Registros
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('settings')}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              view === 'settings'
+                ? 'border-tc-blue text-tc-blue'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            Configurações
+          </button>
+        </div>
+      </div>
+
+      {/* Conteúdo */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Banner de ativação de Web Push. Esconde sozinho quando o user já
             ativou, dispensou (7 dias) ou bloqueou. */}
@@ -123,15 +159,21 @@ const TerraControlAdminShell: React.FC = () => {
             instalado ou dispensado (7 dias). */}
         <PwaInstallBanner />
 
-        <Suspense fallback={
-          <div className="text-center text-gray-500 py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-tc-green mx-auto mb-2" />
-            Carregando módulo TerraControl…
-          </div>
-        }>
-          <TerraControl />
-        </Suspense>
+        {view === 'records' ? (
+          <Suspense fallback={
+            <div className="text-center text-gray-500 py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-tc-green mx-auto mb-2" />
+              Carregando módulo TerraControl…
+            </div>
+          }>
+            <TerraControl />
+          </Suspense>
+        ) : (
+          <TcBudgetSettingsTab notify={notify} />
+        )}
       </main>
+
+      <FeedbackHost />
     </div>
   )
 }

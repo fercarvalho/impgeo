@@ -1,0 +1,187 @@
+// Wrapper fetch para os endpoints de orçamento (admin /api/admin/tc-budgets/*).
+// Mesmo padrão das outras chamadas admin do TerraControl: token via header
+// Authorization Bearer, credentials: 'include' pra cookies (CSRF).
+//
+// Mantém forma simples (sem axios) — projeto não tem cliente HTTP unificado
+// pra TerraControl. Erros viram exceções com a mensagem do backend.
+
+const API_BASE_URL = '/api'
+
+export type BudgetStatus =
+  | 'draft'
+  | 'sent'
+  | 'revision_requested'
+  | 'awaiting_payment'
+  | 'paid'
+  | 'cancelled'
+
+export interface BudgetItem {
+  description: string
+  amount_cents: number
+  // Campos opcionais preparados pra futuro (qty/unit/unitPrice)
+  quantity?: number
+  unit_label?: string
+  unit_amount_cents?: number
+}
+
+export interface Budget {
+  id: string
+  terracontrol_id: string
+  status: BudgetStatus
+  current_revision: number
+  total_amount_cents: number
+  current_pdf_url: string | null
+  abacatepay_charge_id: string | null
+  abacatepay_external_id: string | null
+  abacatepay_br_code: string | null
+  abacatepay_br_code_base64: string | null
+  abacatepay_expires_at: string | null
+  abacatepay_attempt: number
+  paid_at: string | null
+  paid_amount_cents: number | null
+  created_at: string
+  created_by_user_id: string | null
+  updated_at: string
+}
+
+export interface BudgetRevision {
+  id: string
+  budget_id: string
+  revision_number: number
+  content_json: any
+  content_html_snapshot: string | null
+  items: BudgetItem[]
+  total_amount_cents: number
+  pdf_url: string | null
+  created_at: string
+  created_by_user_id: string | null
+}
+
+export interface BudgetRevisionRequest {
+  id: string
+  budget_id: string
+  against_revision_number: number
+  comment: string | null
+  source: 'tc_user' | 'auto_edit'
+  created_at: string
+  created_by_tc_user_id: string | null
+}
+
+export interface BudgetEvent {
+  id: string
+  budget_id: string
+  event_type: string
+  actor_type: 'impgeo' | 'tc' | 'system' | 'abacatepay'
+  actor_id: string | null
+  payload: any
+  created_at: string
+}
+
+export interface BudgetTemplate {
+  id: string
+  name: string
+  content_json: any
+  default_items: BudgetItem[]
+  is_active: boolean
+  updated_at: string
+  updated_by_user_id: string | null
+}
+
+export interface BudgetFullPayload {
+  budget: Budget
+  revisions: BudgetRevision[]
+  requests: BudgetRevisionRequest[]
+  events: BudgetEvent[]
+}
+
+interface ApiOk<T> { success: true; data: T }
+interface ApiErr   { success: false; error: string }
+type ApiResp<T> = ApiOk<T> | ApiErr
+
+async function request<T>(path: string, init: RequestInit, token: string | null): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      ...(init.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  let json: ApiResp<T>
+  try { json = await res.json() }
+  catch { throw new Error(`Resposta inválida do servidor (HTTP ${res.status})`) }
+  if (!res.ok || !json.success) {
+    const errMsg = (json as ApiErr).error || `HTTP ${res.status}`
+    throw new Error(errMsg)
+  }
+  return (json as ApiOk<T>).data
+}
+
+// ─── Template ──────────────────────────────────────────────────────────────
+
+export const fetchTemplate = (token: string | null) =>
+  request<BudgetTemplate | null>('/admin/tc-budgets/template', { method: 'GET' }, token)
+
+export const saveTemplate = (token: string | null, body: {
+  name?: string
+  contentJson: any
+  defaultItems?: BudgetItem[]
+}) => request<BudgetTemplate>('/admin/tc-budgets/template', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+}, token)
+
+// ─── Orçamentos ────────────────────────────────────────────────────────────
+
+export const fetchBudgetByRecord = (token: string | null, terracontrolId: string) =>
+  request<BudgetFullPayload | null>(
+    `/admin/tc-budgets/by-record/${encodeURIComponent(terracontrolId)}`,
+    { method: 'GET' },
+    token
+  )
+
+export const fetchBudget = (token: string | null, budgetId: string) =>
+  request<BudgetFullPayload>(
+    `/admin/tc-budgets/${encodeURIComponent(budgetId)}`,
+    { method: 'GET' },
+    token
+  )
+
+export const sendNewBudget = (token: string | null, body: {
+  terracontrolId: string
+  contentJson: any
+  items: BudgetItem[]
+}) => request<{ budget: Budget; revision: BudgetRevision }>(
+  '/admin/tc-budgets',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  },
+  token
+)
+
+export const reviseBudget = (token: string | null, budgetId: string, body: {
+  contentJson: any
+  items: BudgetItem[]
+}) => request<{ budget: Budget; revision: BudgetRevision }>(
+  `/admin/tc-budgets/${encodeURIComponent(budgetId)}/revise`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  },
+  token
+)
+
+export const cancelBudget = (token: string | null, budgetId: string, reason?: string) =>
+  request<Budget>(
+    `/admin/tc-budgets/${encodeURIComponent(budgetId)}/cancel`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    },
+    token
+  )

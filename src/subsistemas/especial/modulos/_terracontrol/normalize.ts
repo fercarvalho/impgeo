@@ -121,6 +121,9 @@ export function normalizeRecord(raw: any): TerraControlRecord {
     approved: raw?.approved !== false,
     approvedAt: raw?.approvedAt ?? raw?.approved_at ?? null,
     approvedByUserId: raw?.approvedByUserId ?? raw?.approved_by_user_id ?? null,
+    // G7 (migration 040) — opcionais
+    currentBudgetId: raw?.currentBudgetId ?? raw?.current_budget_id ?? null,
+    budgetStatus: raw?.budgetStatus ?? raw?.budget_status ?? null,
   }
 }
 

@@ -65,6 +65,10 @@ export interface TerraControlRecord {
   approved: boolean
   approvedAt?: string | null
   approvedByUserId?: string | null
+  // G7 (migration 040) — vínculo com orçamento ativo. NULL = registro
+  // legado (criado antes da feature) ou nunca teve orçamento.
+  currentBudgetId?: string | null
+  budgetStatus?: 'locked' | 'sent' | 'revision_requested' | 'awaiting_payment' | 'paid' | null
 }
 
 // Campos pelos quais a UI ordena a listagem. `saldoReservaLegal` é computado
