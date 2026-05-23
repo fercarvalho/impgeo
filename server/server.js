@@ -30,6 +30,7 @@ const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
 const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
 const { createSession, revokeSession, revokeAllUserSessions, getAllSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
 const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
+const requireTerraControlAccess = require('./auth/require-terracontrol-access');
 
 const app = express();
 const port = 9001;
@@ -2275,17 +2276,8 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
 
 // PATCH /api/admin/terracontrol/:id/approve — admin aprova registro pendente
 // Requer auth impgeo (admin/superadmin OU usuário com módulo terracontrol).
-app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, async (req, res) => {
+app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, requireTerraControlAccess, async (req, res) => {
   try {
-    // Verifica acesso ao módulo terracontrol — admin/superadmin têm bypass
-    const role = req.user?.role;
-    if (role !== 'admin' && role !== 'superadmin') {
-      const userModules = Array.isArray(req.user?.modulesAccess) ? req.user.modulesAccess : [];
-      const hasModule = userModules.some(m => (m.moduleKey || m.module_key) === 'terracontrol');
-      if (!hasModule) {
-        return res.status(403).json({ success: false, error: 'Sem acesso ao módulo TerraControl' });
-      }
-    }
     const updated = await db.approveTerraControlRecord(req.params.id, req.user.id);
     // Notif + email pro tc_user dono (fire-and-forget, sem await pra não
     // atrasar o response). Falha aqui não desfaz a aprovação.
@@ -2297,16 +2289,8 @@ app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, async (req, 
 });
 
 // PATCH /api/admin/terracontrol/:id/unapprove — admin revoga aprovação
-app.patch('/api/admin/terracontrol/:id/unapprove', authenticateToken, async (req, res) => {
+app.patch('/api/admin/terracontrol/:id/unapprove', authenticateToken, requireTerraControlAccess, async (req, res) => {
   try {
-    const role = req.user?.role;
-    if (role !== 'admin' && role !== 'superadmin') {
-      const userModules = Array.isArray(req.user?.modulesAccess) ? req.user.modulesAccess : [];
-      const hasModule = userModules.some(m => (m.moduleKey || m.module_key) === 'terracontrol');
-      if (!hasModule) {
-        return res.status(403).json({ success: false, error: 'Sem acesso ao módulo TerraControl' });
-      }
-    }
     const updated = await db.unapproveTerraControlRecord(req.params.id);
     res.json({ success: true, data: updated });
   } catch (error) {
