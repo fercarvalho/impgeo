@@ -400,9 +400,34 @@ ALERT_EMAIL_TO=fernando@viverdepj.com.br
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:suporte@viverdepj.com.br
+
+# AbacatePay — pagamento de orçamentos TerraControl (migration 040)
+# A mesma URL base atende DEV e PROD: ambiente é decidido pela natureza
+# da chave (dev key = simulação, prod key = cobrança real).
+ABACATEPAY_API_KEY=
+ABACATEPAY_WEBHOOK_SECRET=
+# ABACATEPAY_BASE_URL=https://api.abacatepay.com   (opcional, default)
+
+# URLs públicas usadas em links dentro de notificações/e-mails de orçamento
+TC_PUBLIC_URL=https://terracontrol.viverdepj.com.br
+IMPGEO_PUBLIC_URL=https://impgeo.sistemas.viverdepj.com.br
 ```
 
 > ⚠️ **Nunca commite o `.env` no repositório.** Ele está no `.gitignore`.
+
+### Configurar AbacatePay (migration 040)
+
+1. Criar conta em https://www.abacatepay.com (já abre em Dev Mode).
+2. **Integração → Criar Chave** com nome `impgeo-dev` → copiar e colar em `ABACATEPAY_API_KEY` no `.env`.
+3. Gerar webhook secret: `openssl rand -base64 32` → colar em `ABACATEPAY_WEBHOOK_SECRET`.
+4. No painel AbacatePay, cadastrar webhook:
+   - **URL:** `https://impgeo.sistemas.viverdepj.com.br/api/webhooks/abacatepay?webhookSecret=<SECRET>` (mesmo valor do passo 3)
+   - **Secret:** o **mesmo** valor do passo 3 (usado pra calcular HMAC do body)
+5. Reiniciar PM2: `pm2 restart impgeo-api`.
+
+**Promover pra produção:** no dashboard alternar Dev Mode → Produção, completar onboarding fiscal, gerar **chave nova** (`impgeo-prod`) + secret novo, cadastrar webhook novo (em modo Produção, não Dev), trocar as 2 envs e `pm2 restart`. Mesma URL de webhook serve — só o secret muda.
+
+> 💡 Anexar PDF no e-mail tem limite 30 MB no SendGrid; orçamento médio fica em ~50–100 KB.
 
 ### Gerar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
 

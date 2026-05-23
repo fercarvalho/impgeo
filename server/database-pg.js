@@ -2950,14 +2950,23 @@ class Database {
 
   static NOTIFICATION_DEFAULTS = Object.freeze({
     impgeo: {
-      transaction_confirm_needed: { push: true,  email: false },
-      tc_record_created:          { push: true,  email: false },
-      '_meta:foreground':         { push: false, email: false },
+      transaction_confirm_needed:     { push: true,  email: false },
+      tc_record_created:              { push: true,  email: false },
+      // G9 (migration 040) — orçamentos: push on por default, email opt-in
+      // (mesmo padrão de tc_record_created — evita spam em times grandes).
+      tc_budget_revision_requested:   { push: true,  email: false },
+      tc_budget_payment_completed:    { push: true,  email: false },
+      '_meta:foreground':             { push: false, email: false },
     },
     tc: {
-      tc_record_approved: { push: true, email: true },
-      tc_record_edited:   { push: true, email: true },
-      '_meta:foreground': { push: false, email: false },
+      tc_record_approved:             { push: true, email: true },
+      tc_record_edited:               { push: true, email: true },
+      // G9 — pro tc_user, todos os eventos de orçamento ligados por default
+      // (cliente está esperando o orçamento ou o status do pagamento).
+      tc_budget_sent:                 { push: true, email: true },
+      tc_budget_revised:              { push: true, email: true },
+      tc_budget_payment_confirmed:    { push: true, email: true },
+      '_meta:foreground':             { push: false, email: false },
     },
   });
 

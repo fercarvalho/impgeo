@@ -56,6 +56,27 @@ const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
     title: 'Seu registro foi atualizado',
     description: 'Quando um administrador edita os dados de um imóvel seu.',
   },
+  // G9 (migration 040) — orçamentos
+  tc_budget_sent: {
+    title: 'Você recebeu um orçamento',
+    description: 'Quando o administrador envia um orçamento para um imóvel seu.',
+  },
+  tc_budget_revised: {
+    title: 'Orçamento revisado',
+    description: 'Quando o administrador reenvia o orçamento com alterações.',
+  },
+  tc_budget_payment_confirmed: {
+    title: 'Pagamento confirmado',
+    description: 'Quando seu pagamento PIX é confirmado e o imóvel é aprovado.',
+  },
+  tc_budget_revision_requested: {
+    title: 'Cliente pediu revisão de orçamento',
+    description: 'Quando um tc_user solicita alterações em um orçamento que você enviou.',
+  },
+  tc_budget_payment_completed: {
+    title: 'Pagamento recebido',
+    description: 'Quando um cliente paga um orçamento e o imóvel é aprovado automaticamente.',
+  },
 }
 
 function labelFor(type: string): { title: string; description?: string } {

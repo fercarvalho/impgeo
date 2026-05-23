@@ -146,6 +146,23 @@ Implementar nonces para scripts inline — requer integração server-side com o
 
 ---
 
+### #8 — Orçamentos TerraControl: limitações do MVP (migration 040)
+
+**Status:** Planejado (baixa/média prioridade)
+
+Itens deixados conscientemente fora do MVP de orçamentos e pagamentos AbacatePay. Schema e arquitetura já estão preparados — só falta UI / lógica.
+
+- **Múltiplos templates ativos.** Hoje 1 template por vez (índice único parcial `idx_tc_budget_templates_only_one_active`). Pra suportar N templates (por tipo de serviço, ex.: "CAR pendente" vs "Imóvel completo"), basta dropar o índice e adicionar UI de seleção no `TcBudgetEditorModal`.
+- **Itens com quantidade × unidade × preço unitário.** Schema (`tc_budget_revisions.items` JSONB) e `normalizeItems` em [server/services/budget-service.js](server/services/budget-service.js) já aceitam os campos opcionais `quantity`, `unit_label`, `unit_amount_cents`. Falta UI no editor + render no PDF.
+- **Cancelamento via tc_user.** Hoje só admin cancela orçamento. Endpoint dedicado pra tc_user seria simétrico ao `request-revision`.
+- **Rollback de approval em refund.** O webhook `transparent.refunded` hoje só grava evento `payment_refunded` em `tc_budget_events`. Admin lida manualmente (UPDATE no terracontrol). Pra automatizar: estender `markPaidFromWebhook` com `markRefundedFromWebhook` que reverte `approved=FALSE` e move budget pra status novo (`refunded`).
+- **Cobrança recorrente.** AbacatePay tem `/subscriptions` mas escopo do MVP é one-shot. Quando entrar, criar `tc_user_subscriptions` separado de `tc_budgets`.
+- **Cartão de crédito.** MVP só PIX Transparent. Arquitetura já prevê fallback pra Checkout hospedado (`POST /v2/checkouts/create` aceita PIX + CARD com parcelamento) — adicionar como segunda opção no `acceptAndStartPayment` com flag tipo `paymentMethod: 'pix' | 'card'`.
+- **Notificação de PIX expirado pro tc_user.** Hoje o front detecta via countdown e mostra "Gerar novo QR Code", mas o backend não envia push/e-mail dizendo "seu PIX expirou". Webhook `transparent.expired` (se existir) ou job cron horário poderia disparar.
+- **Roteamento de notif `tc_record_*`.** No `TcNotificationBell.handleClickNotification`, o ramo `tc_record_*` ainda cai pra lista padrão. Quando criarmos uma tela de visualização de registro, plugar aqui (mesmo padrão do `tc_budget_*`).
+
+---
+
 ## ✅ Resolvidos Recentemente
 
 | Item | Data | Solução |
@@ -158,7 +175,8 @@ Implementar nonces para scripts inline — requer integração server-side com o
 | Sem impersonation | 2026-03-22 | Superadmin pode representar usuários |
 | CORS hardcoded | 2026-03-22 | Movido para CORS_ORIGINS no .env |
 | Sem criptografia em repouso | 2026-03-22 | AES-256-GCM implementado |
+| Sem monetização no TerraControl | 2026-05-23 | Orçamentos + pagamento PIX via AbacatePay (migration 040) |
 
 ---
 
-*Última atualização: 2026-03-22*
+*Última atualização: 2026-05-23*
