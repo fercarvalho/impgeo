@@ -40,6 +40,7 @@ push.init(process.env);
 
 // Serviço de orçamentos TerraControl + dispatcher (migration 040).
 // Injetados como dependências pra facilitar testes e quebra de ciclo.
+const abacatepay = require('./services/abacatepay');
 const budgetService = require('./services/budget-service')(db);
 const budgetDispatcher = require('./services/budget-dispatcher')({
   db,
@@ -256,7 +257,14 @@ const clearTcAdminAuthCookies = (req, res) => {
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
-app.use(express.json());
+// `verify` preserva o buffer original em req.rawBody. Usado pra validar
+// HMAC de webhooks (AbacatePay no /api/webhooks/abacatepay). JSON.parse
+// normal continua funcionando — req.body fica disponível como sempre.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -3670,6 +3678,204 @@ app.delete('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req,
   } catch (error) {
     console.error('Erro DELETE /api/tc-auth/me/records/:id:', error);
     res.status(500).json({ success: false, error: error.message || 'Erro ao excluir registro' });
+  }
+});
+
+// ===========================================================================
+// Orçamentos TerraControl — endpoints tc_user (migration 040)
+// ===========================================================================
+// Ownership: budgetService.getBudgetForTcUser já checa via db.tcUserOwnsBudget.
+// Demais ações fazem o check antes de qualquer escrita.
+
+// GET /api/tc-auth/me/budgets/by-record/:terracontrolId
+// Devolve o orçamento ativo (ou null) do registro indicado, se tc_user é dono.
+app.get('/api/tc-auth/me/budgets/by-record/:terracontrolId', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const budget = await db.getBudgetByTerracontrolId(req.params.terracontrolId);
+    if (!budget) return res.json({ success: true, data: null });
+    const full = await budgetService.getBudgetForTcUser(budget.id, req.tcUser.id);
+    if (!full) return res.status(403).json({ success: false, error: 'Acesso negado' });
+    res.json({ success: true, data: full });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar orçamento' });
+  }
+});
+
+// GET /api/tc-auth/me/budgets/:id — full payload (budget + revisão atual + history)
+app.get('/api/tc-auth/me/budgets/:id', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const full = await budgetService.getBudgetForTcUser(req.params.id, req.tcUser.id);
+    if (!full) return res.status(404).json({ success: false, error: 'Orçamento não encontrado' });
+    res.json({ success: true, data: full });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar orçamento' });
+  }
+});
+
+// POST /api/tc-auth/me/budgets/:id/request-revision
+// Body: { comment }
+app.post('/api/tc-auth/me/budgets/:id/request-revision', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const owns = await db.tcUserOwnsBudget(req.tcUser.id, req.params.id);
+    if (!owns) return res.status(403).json({ success: false, error: 'Acesso negado' });
+    const { comment } = req.body || {};
+    if (!comment || !String(comment).trim()) {
+      return res.status(400).json({ success: false, error: 'Comentário obrigatório (descreva o que precisa ser alterado)' });
+    }
+    const { budget, request } = await budgetService.requestRevision({
+      budgetId: req.params.id,
+      tcUserId: req.tcUser.id,
+      comment: String(comment).trim(),
+      source: 'tc_user',
+    });
+    // Dispatcher pros admins precisa do record pra renderizar texto.
+    (async () => {
+      try {
+        const rows = await db.getTerraControlByIds([budget.terracontrol_id]);
+        const record = rows[0];
+        if (record) {
+          await budgetDispatcher.dispatchTcBudgetEventToAdmins(budget, record, 'revision_requested', {
+            tcUser: req.tcUser, comment, source: 'tc_user',
+          });
+        }
+      } catch (e) {
+        console.error('[tc-budgets request-revision] Falha no dispatch admin:', e?.message);
+      }
+    })();
+    res.json({ success: true, data: { budget, request } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao solicitar revisão' });
+  }
+});
+
+// POST /api/tc-auth/me/budgets/:id/accept — aprova orçamento e cria cobrança PIX
+// Devolve { brCode, brCodeBase64, expiresAt, attempt } pro front mostrar QR.
+app.post('/api/tc-auth/me/budgets/:id/accept', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const owns = await db.tcUserOwnsBudget(req.tcUser.id, req.params.id);
+    if (!owns) return res.status(403).json({ success: false, error: 'Acesso negado' });
+    // tc_user completo do DB (req.tcUser tem só claims do JWT — sem cpf/abacatepay_customer_id)
+    const tcUser = await db.getTcUserById(req.tcUser.id);
+    const { budget, payment } = await budgetService.acceptAndStartPayment({
+      budgetId: req.params.id, tcUser,
+    });
+    res.json({ success: true, data: { budget, payment } });
+  } catch (error) {
+    console.error('[tc-budgets accept] Erro:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao iniciar pagamento' });
+  }
+});
+
+// POST /api/tc-auth/me/budgets/:id/refresh-pix — re-emite QR Code (PIX expirou)
+app.post('/api/tc-auth/me/budgets/:id/refresh-pix', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const owns = await db.tcUserOwnsBudget(req.tcUser.id, req.params.id);
+    if (!owns) return res.status(403).json({ success: false, error: 'Acesso negado' });
+    const tcUser = await db.getTcUserById(req.tcUser.id);
+    const payment = await budgetService.refreshPaymentQrCode({
+      budgetId: req.params.id, tcUser,
+    });
+    res.json({ success: true, data: payment });
+  } catch (error) {
+    console.error('[tc-budgets refresh-pix] Erro:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao regenerar QR Code' });
+  }
+});
+
+// ===========================================================================
+// Webhook AbacatePay — público, validado por HMAC + secret query (migration 040)
+// ===========================================================================
+// Dupla validação:
+//   1) ?webhookSecret= na query (timing-safe contra env)
+//   2) X-Webhook-Signature header HMAC-SHA256 sobre RAW body
+// Idempotência: tc_webhook_events (provider+event_id) bloqueia replay.
+//
+// Retorna 200 só APÓS processamento bem-sucedido — AbacatePay retenta em
+// non-2xx. Erros internos devolvem 500 (provoca retry). Falha de validação
+// devolve 401 (provider sabe parar de tentar).
+app.post('/api/webhooks/abacatepay', async (req, res) => {
+  try {
+    if (!abacatepay.verifyWebhookSecretFromQuery(req)) {
+      console.warn('[webhook abacatepay] webhookSecret inválido');
+      return res.status(401).json({ success: false, error: 'unauthorized' });
+    }
+    const signature = req.headers['x-webhook-signature'];
+    if (!abacatepay.verifyWebhookHmac(req.rawBody, signature, process.env.ABACATEPAY_WEBHOOK_SECRET)) {
+      console.warn('[webhook abacatepay] HMAC inválido');
+      return res.status(401).json({ success: false, error: 'invalid signature' });
+    }
+
+    const payload = req.body || {};
+    const eventType = payload.event;
+    // O `id` do envelope é o event_id pra dedupe (formato 'log_xxx'). Se a
+    // doc mudar, cair pro id interno do data.
+    const eventId = payload.id || payload.data?.id || null;
+    if (!eventType || !eventId) {
+      return res.status(400).json({ success: false, error: 'event/id ausentes' });
+    }
+
+    const { firstSeen } = await db.recordWebhookEvent({
+      provider: 'abacatepay',
+      eventId,
+      eventType,
+      payload,
+    });
+    if (!firstSeen) {
+      return res.json({ success: true, dedupe: true });
+    }
+
+    // Roteamento por event type
+    if (eventType === 'transparent.completed' || eventType === 'billing.paid') {
+      const transparent = payload.data?.transparent || payload.data;
+      const externalId = transparent?.externalId;
+      const amountCents = transparent?.paidAmount || transparent?.amount;
+      if (!externalId) {
+        console.warn('[webhook abacatepay] transparent.completed sem externalId — ignorando');
+        return res.json({ success: true, warning: 'no externalId' });
+      }
+      const result = await budgetService.markPaidFromWebhook({
+        externalId, amountCents, abacatePayload: payload,
+      });
+      if (result.matched && !result.idempotent && result.budget && result.record) {
+        // Dispatch fire-and-forget (não atrasa response pro provider)
+        budgetDispatcher.dispatchTcBudgetEventToOwner(
+          result.budget, result.record, 'payment_completed'
+        ).catch(() => {});
+        budgetDispatcher.dispatchTcBudgetEventToAdmins(
+          result.budget, result.record, 'payment_completed',
+          { tcUser: payload.data?.customer || null }
+        ).catch(() => {});
+      }
+      return res.json({ success: true });
+    }
+
+    if (eventType === 'transparent.refunded' || eventType === 'transparent.disputed') {
+      // MVP: só registra evento via dedupe. Rollback de approval fica em
+      // TECH-DEBT — admin lida manualmente pelo painel.
+      const externalId = payload.data?.transparent?.externalId || payload.data?.externalId;
+      if (externalId) {
+        const budget = await db.getBudgetByExternalId(externalId);
+        if (budget) {
+          await db.appendBudgetEvent({
+            budgetId: budget.id,
+            eventType: eventType === 'transparent.refunded' ? 'payment_refunded' : 'payment_disputed',
+            actorType: 'abacatepay',
+            actorId: null,
+            payload,
+          });
+        }
+      }
+      return res.json({ success: true });
+    }
+
+    // Evento não tratado — registramos pra auditoria e devolvemos 200 pra não
+    // ficar retentando indefinidamente.
+    console.info(`[webhook abacatepay] evento não tratado: ${eventType}`);
+    return res.json({ success: true, unhandled: eventType });
+  } catch (error) {
+    console.error('[webhook abacatepay] erro no processamento:', error);
+    // Retorna 500 pra AbacatePay tentar de novo (dedupe garante segurança)
+    res.status(500).json({ success: false, error: 'processing error' });
   }
 });
 
