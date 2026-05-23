@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users, Settings } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -38,7 +38,12 @@ import {
 import TcUsersAdminPanel from './_terracontrol/TcUsersAdminPanel'
 import TcBudgetEditorModal from './_terracontrol/budgets/TcBudgetEditorModal'
 import TcBudgetHistoryPanel from './_terracontrol/budgets/TcBudgetHistoryPanel'
+import TcBudgetSettingsTab from './_terracontrol/budgets/TcBudgetSettingsTab'
 import { fetchBudgetByRecord, type BudgetFullPayload } from './_terracontrol/budgets/budgetApi'
+
+// G7 (migration 040) — view interna do componente: lista de registros ou
+// aba de configurações do template de orçamento.
+type TcAdminView = 'records' | 'settings'
 
 // Feature flag temporária: a UI antiga de share_links (botões "Gerar Link" e
 // "Gerenciar Links") foi substituída pela aba "Usuários TerraControl" na fase
@@ -111,6 +116,8 @@ const TerraControl: React.FC = () => {
   const [budgetEditorPayload, setBudgetEditorPayload] = useState<BudgetFullPayload | null>(null)
   const [budgetHistoryPayload, setBudgetHistoryPayload] = useState<BudgetFullPayload | null>(null)
   const [loadingBudgetForRecord, setLoadingBudgetForRecord] = useState<string | null>(null)
+  // G7 (migration 040) — aba ativa: lista de registros vs configurações do template
+  const [view, setView] = useState<TcAdminView>('records')
   const [sortField, setSortField] = useState<SortField>('codImovel')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isUploadingCar, setIsUploadingCar] = useState(false)
@@ -1296,6 +1303,46 @@ const TerraControl: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* G7 (migration 040) — tabs Registros / Configurações.
+          Substituem o pattern antigo do TerraControlAdminShell pra funcionar
+          também via subsystem picker (rota App.tsx → activeTab='terracontrol'),
+          não só em admin.terracontrol.*. */}
+      <div className="border-b border-gray-200 dark:border-gray-700 -mt-2">
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setView('records')}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              view === 'records'
+                ? 'border-tc-blue text-tc-blue'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Registros
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('settings')}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              view === 'settings'
+                ? 'border-tc-blue text-tc-blue'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            Configurações
+          </button>
+        </div>
+      </div>
+
+      {view === 'settings' ? (
+        <>
+          <TcBudgetSettingsTab notify={notify} />
+          <FeedbackHost />
+        </>
+      ) : (
+        <>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
@@ -3416,6 +3463,8 @@ const TerraControl: React.FC = () => {
       {/* G4.3 — toasts e dialog de confirmação renderizados em portal lógico
           (z-index alto, position fixed). Veja src/.../_terracontrol/feedback.tsx. */}
       <FeedbackHost />
+        </>
+      )}
     </div>
   )
 }

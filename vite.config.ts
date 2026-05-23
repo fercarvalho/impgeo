@@ -227,6 +227,19 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separar node_modules em chunks menores
           if (id.includes('node_modules')) {
+            // @tiptap/* (rich text editor) — chunk próprio.
+            // PRECISA vir antes do match `react` abaixo (id.includes('react')
+            // é ganancioso e capturaria @tiptap/react pro vendor-react,
+            // criando ciclo: component-terracontrol → vendor-react →
+            // component-terracontrol (G7 adicionou imports de tiptap em
+            // arquivos do _terracontrol/budgets/, que vão pro
+            // component-terracontrol; sem este split, build acusa "Circular
+            // chunk" e o boot quebra com "Cannot read properties of
+            // undefined (reading 'createContext')").
+            if (id.includes('@tiptap') || id.includes('prosemirror')) {
+              return 'vendor-tiptap'
+            }
+
             // React, React DOM e Recharts juntos. Tentamos separar recharts em
             // chunk próprio, mas ele depende do react-is/scheduler que ficam no
             // vendor-react e o split causava erro "Cannot read properties of
