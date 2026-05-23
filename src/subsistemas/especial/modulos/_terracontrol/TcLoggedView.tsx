@@ -31,6 +31,10 @@ import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcAlterarUsernameModal from './TcAlterarUsernameModal'
 import TcSubShareModal from './TcSubShareModal'
 import TcRecordFormModal from './TcRecordFormModal'
+import TcBudgetViewScreen from './tcuser/TcBudgetViewScreen'
+import TcBudgetPaymentScreen from './tcuser/TcBudgetPaymentScreen'
+import TcBudgetPaidScreen from './tcuser/TcBudgetPaidScreen'
+import type { PixPaymentSnapshot } from './tcuser/tcBudgetApi'
 
 const TcLoggedView: React.FC = () => {
   const { tcUser, tcToken } = useTcAuth()
@@ -57,6 +61,15 @@ const TcLoggedView: React.FC = () => {
 
   // Bump pra forçar refetch do TerraControlView quando criamos/editamos
   const [refetchKey, setRefetchKey] = useState(0)
+
+  // G8 (migration 040) — Roteamento local de orçamento.
+  // Quando preenchido, a TcLoggedView troca o render do TerraControlView
+  // pela tela respectiva. Tudo client-side (deep-link via ?budget= no G9).
+  type BudgetView =
+    | { kind: 'view'; budgetId: string }
+    | { kind: 'pay';  budgetId: string; initialPayment?: PixPaymentSnapshot | null }
+    | { kind: 'paid'; budgetId: string; imovel?: string | null; municipio?: string | null }
+  const [budgetView, setBudgetView] = useState<BudgetView | null>(null)
 
   // Sincroniza records ao montar (e quando filtro/refetchKey muda).
   React.useEffect(() => {
@@ -167,7 +180,79 @@ const TcLoggedView: React.FC = () => {
     setRefetchKey(k => k + 1)
   }, [tcToken, notify, confirm])
 
+  // G8: Handler de roteamento vindo do sino de notificações
+  const handleRouteFromNotif = useCallback((route: { kind: 'budget'; id: string } | { kind: 'record'; id: string }) => {
+    if (route.kind === 'budget') setBudgetView({ kind: 'view', budgetId: route.id })
+    // kind='record' fica pro futuro (hoje só fecha o dropdown sem ir pra lugar)
+  }, [])
+
+  // G8: imóveis com orçamento que requer atenção do tc_user (sent ou
+  // awaiting_payment). Banners agregados ficam no topo da lista.
+  const pendingBudgets = useMemo(
+    () => records.filter(r =>
+      (r.budgetStatus === 'sent' || r.budgetStatus === 'awaiting_payment')
+      && r.currentBudgetId
+    ),
+    [records]
+  )
+
   if (!tcUser || !tcToken) return null
+
+  // G8: telas de orçamento substituem o TerraControlView quando ativas
+  if (budgetView) {
+    // Header + tela específica, mantendo identidade visual do TcHeader
+    const headerEl = (
+      <TcHeader
+        tcUser={tcUser}
+        onOpenProfile={() => setShowProfile(true)}
+        onOpenPassword={() => setShowPassword(true)}
+        onOpenUsername={() => setShowUsername(true)}
+        onRouteFromNotif={handleRouteFromNotif}
+      />
+    )
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-[#111827]">
+        {headerEl}
+        <main className="py-4">
+          {budgetView.kind === 'view' && (
+            <TcBudgetViewScreen
+              budgetId={budgetView.budgetId}
+              onBack={() => setBudgetView(null)}
+              onAccepted={(budgetId, payment) => setBudgetView({ kind: 'pay', budgetId, initialPayment: payment })}
+              onResumePayment={(budgetId) => setBudgetView({ kind: 'pay', budgetId })}
+              notify={notify}
+            />
+          )}
+          {budgetView.kind === 'pay' && (
+            <TcBudgetPaymentScreen
+              budgetId={budgetView.budgetId}
+              initialPayment={budgetView.initialPayment || null}
+              onBack={() => setBudgetView({ kind: 'view', budgetId: budgetView.budgetId })}
+              onPaid={() => {
+                const rec = records.find(r => r.currentBudgetId === budgetView.budgetId)
+                setBudgetView({
+                  kind: 'paid',
+                  budgetId: budgetView.budgetId,
+                  imovel: rec?.imovel || null,
+                  municipio: rec?.municipio || null,
+                })
+                setRefetchKey(k => k + 1)
+              }}
+              notify={notify}
+            />
+          )}
+          {budgetView.kind === 'paid' && (
+            <TcBudgetPaidScreen
+              imovel={budgetView.imovel}
+              municipio={budgetView.municipio}
+              onBackToList={() => setBudgetView(null)}
+            />
+          )}
+        </main>
+        <FeedbackHost />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -184,6 +269,7 @@ const TcLoggedView: React.FC = () => {
                 onOpenProfile={() => setShowProfile(true)}
                 onOpenPassword={() => setShowPassword(true)}
                 onOpenUsername={() => setShowUsername(true)}
+                onRouteFromNotif={handleRouteFromNotif}
               />
               {/* Banner persistente convidando o user a ativar Web Push.
                   Wrapper espelha o max-w-7xl + padding do <main> do
@@ -206,6 +292,46 @@ const TcLoggedView: React.FC = () => {
                     ou dispensado (7 dias). Aparece só pós-login (fica
                     dentro do TcLoggedView que só renderiza autenticado). */}
                 <PwaInstallBanner />
+                {/* G8 (migration 040): banners de orçamento pendente.
+                    1 por imóvel com budgetStatus sent ou awaiting_payment.
+                    Click vai pra TcBudgetViewScreen (sent) ou pagamento
+                    (awaiting_payment). */}
+                {pendingBudgets.length > 0 && (
+                  <div className="mb-6 space-y-2">
+                    {pendingBudgets.map(r => {
+                      const isPay = r.budgetStatus === 'awaiting_payment'
+                      const cls = isPay
+                        ? 'border-orange-200 bg-orange-50 dark:bg-orange-900/15 dark:border-orange-900/40'
+                        : 'border-blue-200 bg-blue-50 dark:bg-blue-900/15 dark:border-blue-900/40'
+                      const label = isPay ? 'Pagamento pendente' : 'Orçamento aguardando você'
+                      const btnLabel = isPay ? 'Retomar pagamento' : 'Ver orçamento'
+                      return (
+                        <div key={r.id} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border ${cls}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">{label}</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {r.imovel}{r.municipio ? ` · ${r.municipio}` : ''}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setBudgetView({
+                              kind: isPay ? 'pay' : 'view',
+                              budgetId: r.currentBudgetId!,
+                            })}
+                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold text-white ${
+                              isPay
+                                ? 'bg-orange-500 hover:bg-orange-600'
+                                : 'bg-tc-blue hover:bg-tc-blue-dark'
+                            }`}
+                          >
+                            {btnLabel}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </>
           ),

@@ -40,7 +40,15 @@ interface TcNotification {
   created_at: string
 }
 
-const TcNotificationBell: React.FC = () => {
+interface BellProps {
+  // G8 (migration 040): callback opcional pra rotear o app quando o user
+  // clica numa notificação. O bell já trata read; o resto fica a cargo do
+  // pai (TcLoggedView decide onde abrir). Notif relacionada a orçamento
+  // entrega { kind: 'budget', id }; outras ficam pro futuro.
+  onRoute?: (route: { kind: 'budget'; id: string } | { kind: 'record'; id: string }) => void
+}
+
+const TcNotificationBell: React.FC<BellProps> = ({ onRoute }) => {
   const { tcToken } = useTcAuth()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<TcNotification[]>([])
@@ -193,7 +201,18 @@ const TcNotificationBell: React.FC = () => {
 
   const handleClickNotification = async (n: TcNotification) => {
     if (!n.is_read) await markRead(n.id)
-    // No futuro: roteamento baseado em notification_type (ex: abrir registro X)
+    // G8: roteamento por notification_type. Notif de orçamento abre a view
+    // do orçamento; notif de registro (aprovado/editado) abre... fica pro
+    // futuro (hoje cai pra lista padrão).
+    if (onRoute && n.related_entity_id) {
+      if (n.notification_type.startsWith('tc_budget_')) {
+        onRoute({ kind: 'budget', id: n.related_entity_id })
+        setOpen(false)
+      } else if (n.notification_type.startsWith('tc_record_')) {
+        onRoute({ kind: 'record', id: n.related_entity_id })
+        setOpen(false)
+      }
+    }
   }
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()

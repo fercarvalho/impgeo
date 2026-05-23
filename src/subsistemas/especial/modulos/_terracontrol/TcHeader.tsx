@@ -15,9 +15,12 @@ interface Props {
   onOpenProfile: () => void
   onOpenPassword: () => void
   onOpenUsername: () => void
+  // G8 (migration 040): repassa pro sino notificações de orçamento que precisam
+  // de roteamento (abrir TcBudgetViewScreen).
+  onRouteFromNotif?: (route: { kind: 'budget'; id: string } | { kind: 'record'; id: string }) => void
 }
 
-const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOpenUsername }) => {
+const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOpenUsername, onRouteFromNotif }) => {
   return (
     <div className="bg-gradient-to-r from-tc-green-dark to-tc-blue-dark text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -43,7 +46,7 @@ const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOp
                 <span className="text-base font-bold text-white">IMPGEO</span>
               </div>
             </div>
-            <TcNotificationBell />
+            <TcNotificationBell onRoute={onRouteFromNotif} />
             <TcMenuUsuario
               tcUser={tcUser}
               onOpenProfile={onOpenProfile}

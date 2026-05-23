@@ -285,15 +285,43 @@ const TcRecordFormModal: React.FC<Props> = ({ isOpen, onClose, record, onSaved, 
 
   if (!isOpen) return null
 
+  // G8 (migration 040): edição bloqueada quando registro está em ciclo de
+  // orçamento em estado sensível. Backend também rejeita (defesa em camadas),
+  // mas o banner explica antes do user tentar.
+  const lockedReason: { msg: string; code: string } | null = (() => {
+    if (!isEdit || !record) return null
+    const bs = (record as any).budgetStatus
+    if (bs === 'locked') return {
+      code: 'locked',
+      msg: 'Aguardando envio do orçamento. Você poderá editar o cadastro assim que receber a primeira proposta.',
+    }
+    if (bs === 'awaiting_payment') return {
+      code: 'awaiting_payment',
+      msg: 'Pagamento em andamento — conclua ou cancele o pagamento antes de editar o cadastro.',
+    }
+    if (bs === 'paid') return {
+      code: 'paid',
+      msg: 'Imóvel já foi pago e aprovado. Para alterações, fale com o suporte.',
+    }
+    return null
+  })()
+
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <form onSubmit={(e) => { if (lockedReason) { e.preventDefault(); notify(lockedReason.msg, { type: 'warning' }); return } handleSubmit(e) }} className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-4 text-white flex items-center justify-between">
           <h2 className="text-lg font-bold">{isEdit ? 'Editar registro' : 'Novo registro'}</h2>
           <button type="button" onClick={onClose} className="text-white/80 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {lockedReason && (
+          <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-2">
+            <span className="font-bold shrink-0">⚠</span>
+            <span>{lockedReason.msg}</span>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-gray-700 px-6 bg-gray-50 dark:bg-[#243040]">
