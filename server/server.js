@@ -31,11 +31,25 @@ const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUse
 const { createSession, revokeSession, revokeAllUserSessions, getAllSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
 const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
 const requireTerraControlAccess = require('./auth/require-terracontrol-access');
+const emailService = require('./services/email');
 
 const app = express();
 const port = 9001;
 const db = new Database();
 push.init(process.env);
+
+// Serviço de orçamentos TerraControl + dispatcher (migration 040).
+// Injetados como dependências pra facilitar testes e quebra de ciclo.
+const budgetService = require('./services/budget-service')(db);
+const budgetDispatcher = require('./services/budget-dispatcher')({
+  db,
+  pushDispatcher,
+  emailService,
+  publicUrls: {
+    tcPublic: process.env.TC_PUBLIC_URL,
+    impgeoPublic: process.env.IMPGEO_PUBLIC_URL,
+  },
+});
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2298,6 +2312,140 @@ app.patch('/api/admin/terracontrol/:id/unapprove', authenticateToken, requireTer
   }
 });
 
+// ===========================================================================
+// Orçamentos TerraControl — admin endpoints (migration 040)
+// ===========================================================================
+// Todas exigem authenticateToken + requireTerraControlAccess. Lógica de
+// negócio fica em budgetService; aqui só validação básica e dispatch fire-
+// and-forget de notificações.
+
+// GET /api/admin/tc-budgets/template — template padrão ativo (1 por vez MVP)
+app.get('/api/admin/tc-budgets/template', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const tpl = await budgetService.getTemplate();
+    res.json({ success: true, data: tpl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar template' });
+  }
+});
+
+// PUT /api/admin/tc-budgets/template — upsert do template ativo
+app.put('/api/admin/tc-budgets/template', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const { name, contentJson, defaultItems } = req.body || {};
+    if (!contentJson || typeof contentJson !== 'object') {
+      return res.status(400).json({ success: false, error: 'contentJson (TipTap JSON) é obrigatório' });
+    }
+    const saved = await budgetService.saveTemplate({
+      name,
+      contentJson,
+      defaultItems: Array.isArray(defaultItems) ? defaultItems : [],
+      updatedByUserId: req.user.id,
+    });
+    res.json({ success: true, data: saved });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao salvar template' });
+  }
+});
+
+// GET /api/admin/tc-budgets/by-record/:terracontrolId — orçamento ativo do imóvel
+// Retorna 200 + data:null se não existe (UI usa pra decidir entre "Gerar" / "Ver").
+app.get('/api/admin/tc-budgets/by-record/:terracontrolId', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const budget = await db.getBudgetByTerracontrolId(req.params.terracontrolId);
+    if (!budget) return res.json({ success: true, data: null });
+    const full = await budgetService.getBudgetForAdmin(budget.id);
+    res.json({ success: true, data: full });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar orçamento' });
+  }
+});
+
+// GET /api/admin/tc-budgets/:id — full payload (budget + revisions + requests + events)
+app.get('/api/admin/tc-budgets/:id', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const full = await budgetService.getBudgetForAdmin(req.params.id);
+    if (!full) return res.status(404).json({ success: false, error: 'Orçamento não encontrado' });
+    res.json({ success: true, data: full });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar orçamento' });
+  }
+});
+
+// POST /api/admin/tc-budgets — cria/envia orçamento (status passa direto pra sent)
+// Se já existe budget ativo, ESTE endpoint não é o caminho — use /:id/revise.
+// Body: { terracontrolId, contentJson, items }
+app.post('/api/admin/tc-budgets', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const { terracontrolId, contentJson, items } = req.body || {};
+    if (!terracontrolId) return res.status(400).json({ success: false, error: 'terracontrolId obrigatório' });
+    if (!contentJson || typeof contentJson !== 'object') {
+      return res.status(400).json({ success: false, error: 'contentJson (TipTap JSON) é obrigatório' });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Adicione pelo menos um item ao orçamento' });
+    }
+    const existing = await db.getBudgetByTerracontrolId(terracontrolId);
+    if (existing && existing.current_revision > 0) {
+      return res.status(409).json({
+        success: false,
+        error: `Já existe orçamento ativo para este imóvel (status: ${existing.status}). Use o endpoint de revisão.`,
+      });
+    }
+    const { budget, revision, record } = await budgetService.sendBudget({
+      terracontrolId, actorUserId: req.user.id, contentJson, items,
+    });
+    // Fire-and-forget — notificação não atrasa response
+    budgetDispatcher.dispatchTcBudgetEventToOwner(budget, record, 'sent').catch(() => {});
+    res.json({ success: true, data: { budget, revision } });
+  } catch (error) {
+    console.error('Erro POST /api/admin/tc-budgets:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao enviar orçamento' });
+  }
+});
+
+// POST /api/admin/tc-budgets/:id/revise — cria nova revisão (v2, v3, …)
+// Body: { contentJson, items }
+app.post('/api/admin/tc-budgets/:id/revise', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const { contentJson, items } = req.body || {};
+    if (!contentJson || typeof contentJson !== 'object') {
+      return res.status(400).json({ success: false, error: 'contentJson é obrigatório' });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Adicione pelo menos um item' });
+    }
+    const existing = await db.getBudgetById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Orçamento não encontrado' });
+    const { budget, revision, record } = await budgetService.sendBudget({
+      terracontrolId: existing.terracontrol_id,
+      actorUserId: req.user.id,
+      contentJson,
+      items,
+    });
+    budgetDispatcher.dispatchTcBudgetEventToOwner(budget, record, 'revised', {
+      revisionNumber: revision.revision_number,
+    }).catch(() => {});
+    res.json({ success: true, data: { budget, revision } });
+  } catch (error) {
+    console.error('Erro POST /api/admin/tc-budgets/:id/revise:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao revisar orçamento' });
+  }
+});
+
+// POST /api/admin/tc-budgets/:id/cancel — admin cancela orçamento
+app.post('/api/admin/tc-budgets/:id/cancel', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const cancelled = await budgetService.cancelBudget({
+      budgetId: req.params.id, actorUserId: req.user.id, reason,
+    });
+    res.json({ success: true, data: cancelled });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao cancelar' });
+  }
+});
+
 app.delete('/api/terracontrol', async (req, res) => {
   try {
     const { ids } = req.body;
@@ -2668,6 +2816,26 @@ app.get('/api/documents/:filename', optionalAuth, async (req, res) => {
       const tcAuth = require('./auth/tc-auth');
       const payload = tcAuth.verifyAccessToken(tcTokenStr);
       if (payload && payload.aud === tcAuth.JWT_AUDIENCE) {
+        // PDFs de orçamento (migration 040): nome `budget-<id>-v<N>.pdf`.
+        // Acesso garantido por tcUserOwnsBudget (ownership do registro vinculado),
+        // não pela tabela tc_user_record_access (que é pra docs de matrículas/ITR/CCIR).
+        const budgetMatch = /^budget-([A-Za-z0-9_-]+)-v\d+\.pdf$/.exec(filename);
+        if (budgetMatch) {
+          const budgetId = budgetMatch[1];
+          const ownsBudget = await db.tcUserOwnsBudget(payload.sub, budgetId);
+          if (!ownsBudget) {
+            return res.status(403).json({ success: false, error: 'PDF do orçamento não disponível para este usuário' });
+          }
+          return res.sendFile(path.join(documentsDir, filename), {
+            maxAge: '5m',
+            headers: { 'Cache-Control': 'private, max-age=300' }
+          }, (err) => {
+            if (err && !res.headersSent) {
+              res.status(err.code === 'ENOENT' ? 404 : 500).end();
+            }
+          });
+        }
+        // Demais PDFs (matrícula, ITR, CCIR, CAR) → fluxo normal por ACL
         const fileUrlInDb = `/api/documents/${filename}`;
         const hasAccess = await db.tcUserHasAccessToDocument(payload.sub, fileUrlInDb);
         if (!hasAccess) {

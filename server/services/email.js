@@ -463,6 +463,311 @@ async function enviarEmailImpgeoTcRecordCriado({ toEmail, recipientName, tcUserN
   return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
 }
 
+// ============================================================================
+// Orçamentos (migration 040) — 5 templates
+// ============================================================================
+// Formatação BRL pra usar tanto em texto quanto HTML.
+function formatBRL(cents) {
+  const value = (Number(cents) || 0) / 100;
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents, revisionNumber }) {
+  const lines = [
+    imovel ? `<strong>${imovel}</strong>` : null,
+    municipio ? `<span style="color:#6b7280;">${municipio}</span>` : null,
+    codImovel ? `<span style="font-family:monospace;color:#9ca3af;">#${codImovel}</span>` : null,
+  ].filter(Boolean).join(' · ');
+  const total = totalCents != null
+    ? `<div style="margin-top:10px;font-size:18px;color:#48A326;font-weight:700;">Total: ${formatBRL(totalCents)}</div>`
+    : '';
+  const rev = revisionNumber && revisionNumber > 1
+    ? `<div style="margin-top:6px;font-size:12px;color:#6b7280;">Revisão v${revisionNumber}</div>`
+    : '';
+  return `<div style="background:#f9fafb;border-left:4px solid #48A326;padding:14px 16px;border-radius:6px;margin:18px 0;font-size:15px;color:#111827;">${lines || 'Orçamento TerraControl'}${total}${rev}</div>`;
+}
+
+function buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents, revisionNumber }) {
+  const head = [imovel, municipio, codImovel ? `#${codImovel}` : null].filter(Boolean).join(' · ');
+  const lines = [head || 'Orçamento TerraControl'];
+  if (totalCents != null) lines.push(`Total: ${formatBRL(totalCents)}`);
+  if (revisionNumber && revisionNumber > 1) lines.push(`Revisão v${revisionNumber}`);
+  return lines.join('\n');
+}
+
+function buildBaseEmailShell({ headerTitle, headerSubtitle, bodyHtml, ctaLabel, ctaUrl, footerNote, palette = 'green' }) {
+  // palette 'green' = gradiente verde→azul TC (default); 'orange' = aviso (revisão)
+  const grad = palette === 'orange'
+    ? 'background:linear-gradient(to right,#F59E0B,#0041B1);'
+    : 'background:linear-gradient(to right,#48A326,#0041B1);';
+  return `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;${grad}color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">${headerSubtitle || headerTitle}</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            ${bodyHtml}
+            ${ctaUrl ? `<p style="text-align:center;margin:24px 0;">
+              <a href="${ctaUrl}" style="display:inline-block;padding:14px 28px;${grad}color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">${ctaLabel || 'Abrir TerraControl'}</a>
+            </p>` : ''}
+            ${footerNote ? `<p style="margin:18px 0 0 0;font-size:13px;color:#6b7280;">${footerNote}</p>` : ''}
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe TerraControl
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+}
+
+// ─── tc_user: orçamento enviado (v1) ────────────────────────────────────────
+
+function buildTcOrcamentoEnviadoTemplate({ username, imovel, municipio, codImovel, totalCents, viewUrl }) {
+  const subject = 'Você recebeu um orçamento — TerraControl';
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents });
+  const text = `Olá ${username || ''},\n\n` +
+    `Você recebeu um orçamento para o seu imóvel no TerraControl. O PDF do orçamento segue em anexo.\n\n` +
+    `${cardText}\n\n` +
+    (viewUrl ? `Acesse para revisar e aprovar: ${viewUrl}\n\n` : '') +
+    `Após aprovado, você pode pagar via PIX direto na plataforma.\n\n— Equipe TerraControl`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      Você recebeu um orçamento para o seu imóvel no TerraControl. <strong>O PDF do orçamento segue em anexo.</strong>
+    </p>
+    ${card}
+    <p style="margin:0 0 8px 0;font-size:14px;color:#374151;">
+      Após sua aprovação, o pagamento pode ser feito via PIX direto na plataforma.
+    </p>`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: 'Novo orçamento disponível',
+    bodyHtml,
+    ctaLabel: 'Revisar orçamento',
+    ctaUrl: viewUrl,
+    footerNote: 'Você também recebeu uma notificação no sininho do TerraControl.',
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailTcOrcamentoEnviado({ toEmail, username, imovel, municipio, codImovel, totalCents, viewUrl, pdfBuffer, pdfFilename }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcOrcamentoEnviadoTemplate({ username, imovel, municipio, codImovel, totalCents, viewUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  if (pdfBuffer) {
+    msg.attachments = [{
+      content: Buffer.isBuffer(pdfBuffer) ? pdfBuffer.toString('base64') : pdfBuffer,
+      filename: pdfFilename || 'orcamento.pdf',
+      type: 'application/pdf',
+      disposition: 'attachment',
+    }];
+  }
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// ─── tc_user: orçamento revisado (v2+) ──────────────────────────────────────
+
+function buildTcOrcamentoRevisadoTemplate({ username, imovel, municipio, codImovel, totalCents, revisionNumber, viewUrl }) {
+  const subject = `Orçamento revisado (v${revisionNumber || 2}) — TerraControl`;
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents, revisionNumber });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents, revisionNumber });
+  const text = `Olá ${username || ''},\n\n` +
+    `Seu orçamento foi revisado conforme sua solicitação. A nova versão (v${revisionNumber || 2}) segue em anexo.\n\n` +
+    `${cardText}\n\n` +
+    (viewUrl ? `Acesse para revisar: ${viewUrl}\n\n` : '') +
+    `— Equipe TerraControl`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      Seu orçamento foi <strong>revisado</strong> conforme sua solicitação. A nova versão (v${revisionNumber || 2}) segue em anexo.
+    </p>
+    ${card}`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: `Orçamento revisado (v${revisionNumber || 2})`,
+    bodyHtml,
+    ctaLabel: 'Revisar orçamento',
+    ctaUrl: viewUrl,
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailTcOrcamentoRevisado({ toEmail, username, imovel, municipio, codImovel, totalCents, revisionNumber, viewUrl, pdfBuffer, pdfFilename }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcOrcamentoRevisadoTemplate({ username, imovel, municipio, codImovel, totalCents, revisionNumber, viewUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  if (pdfBuffer) {
+    msg.attachments = [{
+      content: Buffer.isBuffer(pdfBuffer) ? pdfBuffer.toString('base64') : pdfBuffer,
+      filename: pdfFilename || `orcamento-v${revisionNumber || 2}.pdf`,
+      type: 'application/pdf',
+      disposition: 'attachment',
+    }];
+  }
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// ─── tc_user: pagamento confirmado ──────────────────────────────────────────
+
+function buildTcPagamentoConfirmadoTemplate({ username, imovel, municipio, codImovel, totalCents, paidAt, loginUrl }) {
+  const subject = 'Pagamento confirmado — TerraControl';
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents });
+  const dataPag = paidAt ? new Date(paidAt).toLocaleString('pt-BR') : '';
+  const text = `Olá ${username || ''},\n\n` +
+    `Seu pagamento foi confirmado e seu imóvel já está aprovado no TerraControl.\n\n` +
+    `${cardText}\n` +
+    (dataPag ? `Pago em: ${dataPag}\n` : '') + '\n' +
+    (loginUrl ? `Acesse: ${loginUrl}\n\n` : '') +
+    `— Equipe TerraControl`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      <strong>Pagamento confirmado!</strong> Seu imóvel já está aprovado e disponível no TerraControl.
+    </p>
+    ${card}
+    ${dataPag ? `<p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">Pago em ${dataPag}</p>` : ''}`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: 'Pagamento confirmado',
+    bodyHtml,
+    ctaLabel: 'Acessar TerraControl',
+    ctaUrl: loginUrl,
+    footerNote: 'Obrigado por usar o TerraControl.',
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailTcPagamentoConfirmado({ toEmail, username, imovel, municipio, codImovel, totalCents, paidAt, loginUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcPagamentoConfirmadoTemplate({ username, imovel, municipio, codImovel, totalCents, paidAt, loginUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// ─── impgeo admin: revisão solicitada pelo tc_user ──────────────────────────
+
+function buildImpgeoRevisaoSolicitadaTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, revisionNumber, comment, source, adminUrl }) {
+  const subject = `Revisão de orçamento solicitada — ${imovel || 'imóvel TC'}`;
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents, revisionNumber });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents, revisionNumber });
+  const sourceLabel = source === 'auto_edit'
+    ? 'O imóvel foi editado pelo tc_user (revisão automática).'
+    : 'O tc_user solicitou alterações no orçamento.';
+  const text = `Olá ${recipientName || ''},\n\n` +
+    `${sourceLabel}\n` +
+    `Solicitante: ${tcUserName || 'tc_user'}\n\n` +
+    `${cardText}\n\n` +
+    (comment ? `Comentário:\n${comment}\n\n` : '') +
+    (adminUrl ? `Abrir no painel admin: ${adminUrl}\n\n` : '') +
+    `Você está recebendo este email porque ativou notificações de orçamentos. Pode desligar em "Meu perfil" no IMPGEO.\n\n` +
+    `— Equipe IMPGEO`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${recipientName || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      ${sourceLabel} Solicitante: <strong>${tcUserName || 'tc_user'}</strong>.
+    </p>
+    ${card}
+    ${comment ? `<div style="background:#fff7ed;border-left:4px solid #F59E0B;padding:12px 14px;border-radius:6px;margin:14px 0;font-size:14px;color:#374151;white-space:pre-wrap;">${escapeHtml(comment)}</div>` : ''}
+    <p style="margin:18px 0 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+      Você está recebendo este email porque ativou notificações de orçamentos. Pode desligar em "Meu perfil" no IMPGEO.
+    </p>`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: 'Revisão de orçamento solicitada',
+    bodyHtml,
+    ctaLabel: 'Abrir no painel',
+    ctaUrl: adminUrl,
+    palette: 'orange',
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailImpgeoRevisaoSolicitada({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, totalCents, revisionNumber, comment, source, adminUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildImpgeoRevisaoSolicitadaTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, revisionNumber, comment, source, adminUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// ─── impgeo admin: pagamento recebido ───────────────────────────────────────
+
+function buildImpgeoPagamentoRecebidoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, paidAt, adminUrl }) {
+  const subject = `Pagamento recebido — ${imovel || 'imóvel TC'}`;
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents });
+  const dataPag = paidAt ? new Date(paidAt).toLocaleString('pt-BR') : '';
+  const text = `Olá ${recipientName || ''},\n\n` +
+    `Um pagamento foi recebido no TerraControl e o imóvel foi aprovado automaticamente.\n\n` +
+    `Cliente: ${tcUserName || 'tc_user'}\n` +
+    `${cardText}\n` +
+    (dataPag ? `Pago em: ${dataPag}\n` : '') + '\n' +
+    (adminUrl ? `Ver no painel: ${adminUrl}\n\n` : '') +
+    `Você está recebendo este email porque ativou notificações de orçamentos. Pode desligar em "Meu perfil" no IMPGEO.\n\n` +
+    `— Equipe IMPGEO`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${recipientName || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      Um pagamento foi <strong>recebido</strong> e o imóvel foi aprovado automaticamente.
+    </p>
+    <p style="margin:8px 0;font-size:14px;color:#374151;">Cliente: <strong>${tcUserName || 'tc_user'}</strong></p>
+    ${card}
+    ${dataPag ? `<p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">Pago em ${dataPag}</p>` : ''}
+    <p style="margin:18px 0 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+      Você está recebendo este email porque ativou notificações de orçamentos. Pode desligar em "Meu perfil" no IMPGEO.
+    </p>`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: 'Pagamento recebido',
+    bodyHtml,
+    ctaLabel: 'Abrir no painel',
+    ctaUrl: adminUrl,
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailImpgeoPagamentoRecebido({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, totalCents, paidAt, adminUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildImpgeoPagamentoRecebidoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, paidAt, adminUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
+// Escape básico pra prevenir HTML injection em campos livres do usuário (comment)
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 module.exports = {
   enviarEmailRecuperacao,
   enviarEmailTcResetSenha,
@@ -470,4 +775,10 @@ module.exports = {
   enviarEmailTcRegistroAprovado,
   enviarEmailTcRegistroEditado,
   enviarEmailImpgeoTcRecordCriado,
+  // Orçamentos (G4)
+  enviarEmailTcOrcamentoEnviado,
+  enviarEmailTcOrcamentoRevisado,
+  enviarEmailTcPagamentoConfirmado,
+  enviarEmailImpgeoRevisaoSolicitada,
+  enviarEmailImpgeoPagamentoRecebido,
 };
