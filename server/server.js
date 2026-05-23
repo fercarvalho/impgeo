@@ -3503,6 +3503,17 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
 
     const created = await db.saveTerraControlAsTcUser(payload, req.tcUser.id);
 
+    // Lockdown: registros novos ficam aguardando o admin enviar o orçamento.
+    // tc_user não pode editar o cadastro até receber a primeira proposta.
+    // Falha aqui não desfaz a criação — best-effort sincronizado.
+    try {
+      await budgetService.lockNewRecord(created.id);
+      // Reflete o lock no objeto retornado pro front pular fetch extra
+      created.budget_status = 'locked';
+    } catch (lockErr) {
+      console.error('[tc-records] Falha ao aplicar lockdown:', lockErr?.message);
+    }
+
     // Dispara notificações pra impgeo users (fire-and-forget).
     // - Sino in-app: TODOS com acesso ao módulo (admin/superadmin ou
     //   user_module_permissions de 'terracontrol').
@@ -3558,14 +3569,59 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
 
 // PUT /api/tc-auth/me/records/:id — tc_user edita registro
 // Permissão checada server-side via tcUserCanEditRecord.
-// Se registro estava aprovado, edição reseta para pendente automaticamente.
+//
+// Lockdown (migration 040): se o registro está em ciclo de orçamento em
+// estado que bloqueia edição (locked, awaiting_payment, paid), devolve 403
+// com mensagem específica antes mesmo de tentar atualizar. Edição em
+// budget.status === 'sent' é permitida MAS dispara revisão automática
+// fire-and-forget no fim (admin é notificado pra reavaliar).
 app.put('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req, res) => {
   try {
     const ok = await db.tcUserCanEditRecord(req.tcUser.id, req.params.id);
     if (!ok) {
       return res.status(403).json({ success: false, error: 'Você não tem permissão para editar este registro' });
     }
+
+    // Pré-check de lockdown — bloqueia em estados sensíveis com mensagem dedicada.
+    const existingBudget = await db.getBudgetByTerracontrolId(req.params.id);
+    if (existingBudget) {
+      const lockMessages = {
+        locked: 'Aguardando envio do orçamento. Você poderá editar o cadastro assim que receber a primeira proposta.',
+        awaiting_payment: 'Pagamento em andamento. Cancele ou conclua o pagamento antes de editar o cadastro.',
+        paid: 'Imóvel já foi pago e aprovado. Para alterações, fale com o suporte.',
+      };
+      const msg = lockMessages[existingBudget.status];
+      if (msg) {
+        return res.status(403).json({ success: false, error: msg, code: `budget_${existingBudget.status}` });
+      }
+    }
+
     const updated = await db.updateTerraControlByTcUser(req.params.id, req.body || {});
+
+    // Auto-revisão: se há orçamento status='sent', o admin precisa saber que o
+    // imóvel mudou — abre uma nova solicitação de revisão (source='auto_edit')
+    // e move pro estado revision_requested. Fire-and-forget pra não atrasar
+    // o response — falha aqui não desfaz o update.
+    if (existingBudget && existingBudget.status === 'sent') {
+      (async () => {
+        try {
+          const { budget } = await budgetService.requestRevision({
+            budgetId: existingBudget.id,
+            tcUserId: req.tcUser.id,
+            comment: 'O cliente editou o cadastro do imóvel após o envio do orçamento. Revise se os valores ainda se aplicam.',
+            source: 'auto_edit',
+          });
+          await budgetDispatcher.dispatchTcBudgetEventToAdmins(budget, updated, 'revision_requested', {
+            tcUser: req.tcUser,
+            comment: 'Imóvel editado pelo cliente (revisão automática)',
+            source: 'auto_edit',
+          });
+        } catch (e) {
+          console.error('[tc-records PUT] Falha ao disparar auto-revisão:', e?.message);
+        }
+      })();
+    }
+
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Erro PUT /api/tc-auth/me/records/:id:', error);
