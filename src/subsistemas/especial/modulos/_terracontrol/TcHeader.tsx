@@ -18,22 +18,42 @@ interface Props {
   // G8 (migration 040): repassa pro sino notificações de orçamento que precisam
   // de roteamento (abrir TcBudgetViewScreen).
   onRouteFromNotif?: (route: { kind: 'budget'; id: string } | { kind: 'record'; id: string }) => void
+  // Clique no bloco logo+título — volta pra "home" do tc_user (lista de
+  // imóveis). Mesmo padrão do header do impgeo. Opcional: se não passado,
+  // o bloco fica não-interativo.
+  onHomeClick?: () => void
 }
 
-const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOpenUsername, onRouteFromNotif }) => {
+const TcHeader: React.FC<Props> = ({ tcUser, onOpenProfile, onOpenPassword, onOpenUsername, onRouteFromNotif, onHomeClick }) => {
   return (
     <div className="bg-gradient-to-r from-tc-green-dark to-tc-blue-dark text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-center justify-between gap-4">
-          {/* Esquerda: logo TerraControl + título (no lugar onde antes era
-              o "by IMPGEO") */}
-          <div className="flex items-center gap-3 min-w-0">
-            <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-tight">TerraControl</h1>
-              <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
+          {/* Esquerda: logo TerraControl + título. Clicável quando onHomeClick
+              passado — volta pra lista de imóveis (mesmo padrão do impgeo). */}
+          {onHomeClick ? (
+            <button
+              type="button"
+              onClick={onHomeClick}
+              className="flex items-center gap-3 min-w-0 -m-1 p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-left"
+              title="Voltar para lista de imóveis"
+              aria-label="Voltar para lista de imóveis"
+            >
+              <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold leading-tight">TerraControl</h1>
+                <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
+              </div>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 min-w-0">
+              <img src="/logo_terracontrol.png" alt="TerraControl" className="h-14 w-14 object-contain rounded-lg flex-shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold leading-tight">TerraControl</h1>
+                <p className="text-blue-200 text-sm">Plataforma de gestão territorial</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Direita: "by IMPGEO" colado à esquerda do menu de usuário.
               Em telas <sm, o texto "by IMPGEO" some — só a logo IMPGEO

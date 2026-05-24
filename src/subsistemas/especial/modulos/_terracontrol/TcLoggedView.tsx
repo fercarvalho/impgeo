@@ -186,6 +186,15 @@ const TcLoggedView: React.FC = () => {
     // kind='record' fica pro futuro (hoje só fecha o dropdown sem ir pra lugar)
   }, [])
 
+  // Clique na logo do header → volta pra lista de imóveis (home do tc_user).
+  // Limpa qualquer sub-tela ativa (budget view/pay/paid) e rola pro topo.
+  const handleHomeClick = useCallback(() => {
+    setBudgetView(null)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [])
+
   // G8: imóveis com orçamento que requer atenção do tc_user (sent ou
   // awaiting_payment). Banners agregados ficam no topo da lista.
   const pendingBudgets = useMemo(
@@ -208,6 +217,7 @@ const TcLoggedView: React.FC = () => {
         onOpenPassword={() => setShowPassword(true)}
         onOpenUsername={() => setShowUsername(true)}
         onRouteFromNotif={handleRouteFromNotif}
+        onHomeClick={handleHomeClick}
       />
     )
     return (
@@ -270,6 +280,7 @@ const TcLoggedView: React.FC = () => {
                 onOpenPassword={() => setShowPassword(true)}
                 onOpenUsername={() => setShowUsername(true)}
                 onRouteFromNotif={handleRouteFromNotif}
+                onHomeClick={handleHomeClick}
               />
               {/* Banner persistente convidando o user a ativar Web Push.
                   Wrapper espelha o max-w-7xl + padding do <main> do
