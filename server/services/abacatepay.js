@@ -13,7 +13,11 @@
 // Env vars:
 //   ABACATEPAY_API_KEY        chave Bearer. Em dev mode é uma chave dev (sim
 //                             ulação); em prod é a chave real. Mesma URL base.
-//   ABACATEPAY_WEBHOOK_SECRET secret compartilhado pra HMAC + ?webhookSecret.
+//   ABACATEPAY_WEBHOOK_SECRET secret arbitrário (gere com `openssl rand -base64
+//                             32`). Validado APENAS contra ?webhookSecret=...
+//                             na query string do webhook — NÃO é usado no HMAC
+//                             (o HMAC usa a chave pública fixa da AbacatePay
+//                             ABACATEPAY_WEBHOOK_PUBLIC_KEY abaixo).
 //   ABACATEPAY_BASE_URL       opcional, default 'https://api.abacatepay.com'.
 //
 // Se ABACATEPAY_API_KEY estiver vazia, as funções de chamada lançam erro
@@ -24,6 +28,17 @@ const crypto = require('crypto');
 
 const DEFAULT_BASE_URL = 'https://api.abacatepay.com';
 const API_VERSION_PATH = '/v2';
+
+// Chave PÚBLICA da AbacatePay usada pra assinar webhooks via HMAC-SHA256.
+// Mesma chave pra todos os clientes — vem direto da documentação oficial
+// (https://docs.abacatepay.com/pages/webhooks). NÃO é segredo nem o
+// webhookSecret configurado no painel.
+//
+// Camadas de validação do webhook:
+//   1) ?webhookSecret=<...> na URL (verifica contra ABACATEPAY_WEBHOOK_SECRET)
+//   2) X-Webhook-Signature header (HMAC sobre raw body usando ESTA chave pública)
+const ABACATEPAY_WEBHOOK_PUBLIC_KEY =
+  't9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9';
 
 function getApiKey() {
   const key = process.env.ABACATEPAY_API_KEY;
@@ -174,14 +189,20 @@ function verifyWebhookSecretFromQuery(req) {
 }
 
 // rawBody: Buffer ou string EXATA do request (sem reparse). Por isso o
-// handler usa express.raw() pro path do webhook — re-stringify com
-// JSON.stringify NÃO bate (formatação muda).
-function verifyWebhookHmac(rawBody, signatureHeader, secret) {
+// handler usa express.json({verify}) pra preservar req.rawBody — re-stringify
+// com JSON.stringify NÃO bate (formatação muda).
+//
+// IMPORTANTE: o HMAC usa a CHAVE PÚBLICA fixa da AbacatePay
+// (ABACATEPAY_WEBHOOK_PUBLIC_KEY), NÃO o webhookSecret configurado no painel.
+// O webhookSecret é validado separadamente pela query string em
+// verifyWebhookSecretFromQuery. Param `secret` mantido por compat mas ignorado.
+function verifyWebhookHmac(rawBody, signatureHeader, _secret) {
   if (!signatureHeader || typeof signatureHeader !== 'string') return false;
-  const key = secret || process.env.ABACATEPAY_WEBHOOK_SECRET;
-  if (!key) return false;
   const buf = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody), 'utf8');
-  const expected = crypto.createHmac('sha256', key).update(buf).digest('base64');
+  const expected = crypto
+    .createHmac('sha256', ABACATEPAY_WEBHOOK_PUBLIC_KEY)
+    .update(buf)
+    .digest('base64');
   const a = Buffer.from(expected);
   const b = Buffer.from(signatureHeader);
   if (a.length !== b.length) return false;
