@@ -3827,10 +3827,22 @@ app.post('/api/webhooks/abacatepay', async (req, res) => {
     // Roteamento por event type
     if (eventType === 'transparent.completed' || eventType === 'billing.paid') {
       const transparent = payload.data?.transparent || payload.data;
-      const externalId = transparent?.externalId;
+      // AbacatePay tem devolvido externalId=null no payload do webhook em
+      // alguns casos (bug do provider — visto em prod 2026-05-23). Fallback:
+      // reconstruir o externalId a partir do metadata que mandamos no accept
+      // (a gente põe { budgetId, attempt } lá; basta refazer o formato).
+      // paidAmount também pode vir null; cai no amount nesse caso.
+      let externalId = transparent?.externalId;
+      if (!externalId) {
+        const md = transparent?.metadata || {};
+        if (md.budgetId) {
+          externalId = `tc_budget_${md.budgetId}_attempt_${md.attempt || 1}`;
+          console.info(`[webhook abacatepay] externalId reconstruído via metadata: ${externalId}`);
+        }
+      }
       const amountCents = transparent?.paidAmount || transparent?.amount;
       if (!externalId) {
-        console.warn('[webhook abacatepay] transparent.completed sem externalId — ignorando');
+        console.warn('[webhook abacatepay] transparent.completed sem externalId nem metadata.budgetId — ignorando');
         return res.json({ success: true, warning: 'no externalId' });
       }
       const result = await budgetService.markPaidFromWebhook({
@@ -3852,7 +3864,13 @@ app.post('/api/webhooks/abacatepay', async (req, res) => {
     if (eventType === 'transparent.refunded' || eventType === 'transparent.disputed') {
       // MVP: só registra evento via dedupe. Rollback de approval fica em
       // TECH-DEBT — admin lida manualmente pelo painel.
-      const externalId = payload.data?.transparent?.externalId || payload.data?.externalId;
+      const transparent = payload.data?.transparent || {};
+      let externalId = transparent?.externalId || payload.data?.externalId;
+      if (!externalId && transparent?.metadata?.budgetId) {
+        // Mesmo fallback do branch completed — AbacatePay às vezes deixa null
+        const md = transparent.metadata;
+        externalId = `tc_budget_${md.budgetId}_attempt_${md.attempt || 1}`;
+      }
       if (externalId) {
         const budget = await db.getBudgetByExternalId(externalId);
         if (budget) {
