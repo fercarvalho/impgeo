@@ -10,7 +10,7 @@
 //   - Senão: usa template ativo (variáveis {{...}} substituídas pelo contexto)
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { X, Plus, Trash2, Loader2, FileText, Save } from 'lucide-react'
+import { X, Plus, Trash2, Loader2, FileText, Save, Eye, EyeOff } from 'lucide-react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import Modal from '@/components/Modal'
 import { useAuth } from '@/contexts/AuthContext'
@@ -99,6 +99,10 @@ const TcBudgetEditorModal: React.FC<Props> = ({
   const [items, setItems] = useState<EditableItem[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
+  // Toggle "Preview" — mostra como o tc_user verá o orçamento (TipTap em
+  // readonly + tabela de itens visual + variáveis {{...}} substituídas pelos
+  // valores reais do registro). Útil pra revisar antes de enviar.
+  const [showPreview, setShowPreview] = useState(false)
 
   const editor = useEditor({
     extensions: tiptapExtensions,
@@ -109,6 +113,39 @@ const TcBudgetEditorModal: React.FC<Props> = ({
       },
     },
   })
+
+  // Editor secundário em modo readonly — exclusivo do preview. Sincronizado
+  // com o conteúdo atual quando o usuário liga o toggle, com variáveis
+  // substituídas pelo contexto do registro.
+  const previewEditor = useEditor({
+    extensions: tiptapExtensions,
+    content: EMPTY_TIPTAP_DOC,
+    editable: false,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm dark:prose-invert max-w-none min-h-[400px] px-4 py-3 text-sm text-gray-900 dark:text-gray-100 leading-relaxed',
+      },
+    },
+  })
+
+  // Atualiza o preview toda vez que ele é ligado, pegando o snapshot atual
+  // do editor e rodando substituteVariables. Não fica observando o editor
+  // continuamente — usuário precisa toggle pra refresh (evita re-render
+  // pesado a cada keystroke).
+  useEffect(() => {
+    if (!showPreview || !editor || !previewEditor) return
+    const ctx = {
+      imovel: record.imovel,
+      municipio: record.municipio,
+      codImovel: record.cod_imovel,
+      areaTotal: record.area_total,
+      reservaLegal: record.reserva_legal,
+      tcUserName,
+    }
+    const substituted = substituteVariables(editor.getJSON(), ctx)
+    previewEditor.commands.setContent(substituted, { emitUpdate: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreview, previewEditor, editor])
 
   // Hidrata ao abrir
   useEffect(() => {
@@ -240,10 +277,27 @@ const TcBudgetEditorModal: React.FC<Props> = ({
           {/* Editor TipTap */}
           <div className="lg:col-span-2 flex flex-col border-r border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#243040] flex flex-wrap items-center gap-2">
-              <ToolbarButtons editor={editor} />
+              {!showPreview && <ToolbarButtons editor={editor} />}
+              {showPreview && (
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-tc-blue flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" /> Preview — como o cliente verá
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowPreview(v => !v)}
+                title={showPreview ? 'Voltar a editar' : 'Visualizar como o cliente verá'}
+                className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                  showPreview
+                    ? 'bg-tc-blue text-white hover:bg-tc-blue-dark'
+                    : 'bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                {showPreview ? <><EyeOff className="w-3.5 h-3.5" /> Editar</> : <><Eye className="w-3.5 h-3.5" /> Preview</>}
+              </button>
             </div>
-            {/* Chips de variáveis (só na criação — em revisão o texto já tem dados reais) */}
-            {!isRevision && (
+            {/* Chips de variáveis — só em criação E não em preview */}
+            {!isRevision && !showPreview && (
               <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-blue-50/30 dark:bg-blue-900/10">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wider mr-1">
@@ -269,7 +323,14 @@ const TcBudgetEditorModal: React.FC<Props> = ({
                   <Loader2 className="w-5 h-5 animate-spin text-tc-blue" />
                 </div>
               )}
-              <EditorContent editor={editor} />
+              {/* Editor real (oculto, mas montado) vs preview readonly.
+                  display:none em vez de unmount preserva o conteúdo + cursor. */}
+              <div className={showPreview ? 'hidden' : ''}>
+                <EditorContent editor={editor} />
+              </div>
+              <div className={showPreview ? '' : 'hidden'}>
+                <EditorContent editor={previewEditor} />
+              </div>
             </div>
           </div>
 
@@ -277,16 +338,43 @@ const TcBudgetEditorModal: React.FC<Props> = ({
           <div className="lg:col-span-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-[#141e2d]">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">Itens</h3>
-              <button
-                type="button"
-                onClick={addItem}
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-tc-blue/10 hover:bg-tc-blue/20 text-tc-blue"
-              >
-                <Plus className="w-3 h-3" /> Adicionar
-              </button>
+              {!showPreview && (
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-tc-blue/10 hover:bg-tc-blue/20 text-tc-blue"
+                >
+                  <Plus className="w-3 h-3" /> Adicionar
+                </button>
+              )}
             </div>
             <div className="flex-1 overflow-auto px-3 py-3 space-y-2">
-              {items.length === 0 ? (
+              {/* Preview: lista visual no estilo do TcBudgetViewScreen */}
+              {showPreview ? (
+                items.length === 0 ? (
+                  <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-12">
+                    Nenhum item.
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-[#1a2332]">
+                    {items.map((it, idx) => (
+                      <div
+                        key={it.id}
+                        className={`flex items-center justify-between gap-3 px-3 py-2 text-xs ${
+                          idx % 2 === 1 ? 'bg-gray-50 dark:bg-[#141e2d]' : ''
+                        }`}
+                      >
+                        <span className="text-gray-800 dark:text-gray-200 flex-1 min-w-0">
+                          {it.description || <span className="italic text-gray-400">(sem descrição)</span>}
+                        </span>
+                        <span className="text-gray-900 dark:text-gray-100 font-semibold tabular-nums shrink-0">
+                          {formatCentsBR(parseAmountToCents(it.amountStr))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : items.length === 0 ? (
                 <div className="text-center text-xs text-gray-500 dark:text-gray-400 py-12">
                   Nenhum item ainda.<br />Clique em "Adicionar".
                 </div>
