@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users, Settings, MoreHorizontal } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users, Settings } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -112,25 +112,9 @@ const TerraControl: React.FC = () => {
   const [budgetEditorPayload, setBudgetEditorPayload] = useState<BudgetFullPayload | null>(null)
   const [budgetHistoryPayload, setBudgetHistoryPayload] = useState<BudgetFullPayload | null>(null)
   const [loadingBudgetForRecord, setLoadingBudgetForRecord] = useState<string | null>(null)
-  // G7 (migration 040) — Configurações do template de orçamento abrem num
-  // modal pelo dropdown "Ações" (mesmo padrão do módulo Transactions).
+  // G7 (migration 040) — modal de Configurações do template de orçamento,
+  // acionado pelo botão "Configurações" no header.
   const [isBudgetSettingsOpen, setIsBudgetSettingsOpen] = useState(false)
-  // Dropdown "Ações" (botão "..." no header — agrega itens secundários)
-  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false)
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!isActionsMenuOpen) return
-    const onClick = (e: MouseEvent) => {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setIsActionsMenuOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsActionsMenuOpen(false) }
-    window.addEventListener('mousedown', onClick)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onClick)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [isActionsMenuOpen])
   const [sortField, setSortField] = useState<SortField>('codImovel')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isUploadingCar, setIsUploadingCar] = useState(false)
@@ -1361,35 +1345,17 @@ const TerraControl: React.FC = () => {
           </div>
         </div>
         <div className="flex w-full sm:w-auto flex-wrap gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
-          {/* Dropdown "Ações" — agrupa configurações e ações secundárias.
-              Mesmo padrão visual do botão Ações em Transactions.tsx. */}
+          {/* Configurações de orçamento (template padrão) — estilo impgeo
+              (azul→indigo), pra distinguir das ações específicas do TC. */}
           {isAdmin && (
-            <div className="relative" ref={actionsMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsActionsMenuOpen((o) => !o)}
-                className="h-10 flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 font-semibold rounded-xl border-2 border-indigo-500 hover:border-indigo-600 dark:border-indigo-400 dark:hover:border-indigo-300 shadow-sm transition-all duration-200"
-                aria-haspopup="menu"
-                aria-expanded={isActionsMenuOpen}
-                title="Mais ações"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-                <span className="hidden sm:inline">Ações</span>
-              </button>
-
-              {isActionsMenuOpen && (
-                <div role="menu" className="absolute right-0 sm:left-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-40 overflow-hidden">
-                  <button
-                    role="menuitem"
-                    onClick={() => { setIsBudgetSettingsOpen(true); setIsActionsMenuOpen(false) }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                  >
-                    <Settings className="h-4 w-4 text-tc-blue flex-shrink-0" />
-                    Configurações de orçamento
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setIsBudgetSettingsOpen(true)}
+              className="h-10 w-full sm:w-auto flex-shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all duration-200"
+              title="Configurações de orçamento"
+            >
+              <Settings className="h-4 w-4" />
+              Configurações
+            </button>
           )}
           {/* Novo: aba "Usuários TerraControl" (substitui Gerar/Gerenciar Links) */}
           {isAdmin && (
