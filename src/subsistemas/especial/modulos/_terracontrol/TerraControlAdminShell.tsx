@@ -9,6 +9,7 @@
 import React, { Suspense, lazy, useState, useRef, useEffect } from 'react'
 import { LogOut, ExternalLink, ChevronDown, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import NotificationBell from '@/components/NotificationBell'
 
 // Banner persistente convidando o user a ativar Web Push neste origin
 // (tc-admin tem subscriptions próprias — uma por origin × device).
@@ -60,7 +61,14 @@ const TerraControlAdminShell: React.FC = () => {
               </div>
             </div>
 
-            <div ref={menuRef} className="relative">
+            <div className="flex items-center gap-2">
+              {/* Sininho do impgeo filtrado: só notificações relacionadas a
+                  TerraControl (tc_*) aparecem aqui. Em admin.terracontrol.*
+                  o user impgeo só está olhando contexto TC, não faz sentido
+                  ver notif de transação/financeiro nesta tela. */}
+              <NotificationBell typeFilter={n => n.notification_type.startsWith('tc_')} />
+
+              <div ref={menuRef} className="relative">
               <button
                 type="button"
                 onClick={() => setMenuOpen(v => !v)}
@@ -106,6 +114,7 @@ const TerraControlAdminShell: React.FC = () => {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>

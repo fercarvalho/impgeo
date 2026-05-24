@@ -28,7 +28,21 @@ interface Notification {
   created_at: string
 }
 
-const NotificationBell: React.FC = () => {
+interface NotificationBellProps {
+  /**
+   * Filtro opcional aplicado em cliente sobre as notificações vindas do servidor.
+   * Usado pelo TerraControlAdminShell pra mostrar só notificações relacionadas
+   * a TerraControl (tc_*) quando o user impgeo acessa via admin.terracontrol.*.
+   * Sem filtro: comportamento padrão (mostra todas).
+   *
+   * Importante: 'marcar todas como lidas' e 'limpar todas' continuam afetando
+   * TODAS as notificações do user (não só as filtradas) — a UI só esconde
+   * visualmente; ações em massa são genéricas pra evitar N round-trips.
+   */
+  typeFilter?: (n: Notification) => boolean
+}
+
+const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -94,13 +108,21 @@ const NotificationBell: React.FC = () => {
       const r = await fetch(`${API_BASE_URL}/notifications`)
       const j = await r.json()
       if (j.success) {
-        setItems(j.data || [])
-        setUnreadCount(j.unreadCount || 0)
+        const all: Notification[] = j.data || []
+        const visible = typeFilter ? all.filter(typeFilter) : all
+        setItems(visible)
+        if (typeFilter) {
+          // Quando filtrado, o unreadCount do servidor é total e não bate
+          // com o que está visível — recalcula local pra badge ficar correto.
+          setUnreadCount(visible.filter(n => !n.is_read).length)
+        } else {
+          setUnreadCount(j.unreadCount || 0)
+        }
       }
     } catch {
       // silencioso (rede)
     }
-  }, [])
+  }, [typeFilter])
 
   useEffect(() => {
     fetchNotifications()
