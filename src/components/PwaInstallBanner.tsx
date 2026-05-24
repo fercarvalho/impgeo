@@ -20,7 +20,7 @@ import {
   type InstallCapabilities,
   type InstallStrategy,
 } from '@/pwa/installCapabilities'
-import { promptInstall, useCanInstall, useWasJustInstalled, useIsAppInstalled } from '@/pwa/installPrompt'
+import { promptInstall, useCanInstall, useWasJustInstalled, useIsAppInstalled, isMarkedAsInstalled } from '@/pwa/installPrompt'
 import { getCurrentAppId } from '@/pwa/appId'
 import PwaInstallHowToModal from './PwaInstallHowToModal'
 
@@ -87,15 +87,28 @@ const PwaInstallBanner: React.FC = () => {
   // Detecta PWA já instalado mesmo quando acessando via aba comum (não
   // standalone). Resolve bug do Chrome desktop: depois de instalar, ao abrir
   // o site numa aba normal, beforeinstallprompt NÃO dispara — banner ficava
-  // preso em "Preparando…". Usa navigator.getInstalledRelatedApps().
+  // preso em "Preparando…".
+  //
+  // 3 camadas de detecção combinadas (any-of):
+  //   1. caps.isStandalone        → display-mode standalone (PWA aberto via ícone)
+  //   2. wasJustInstalled         → appinstalled disparou nesta sessão
+  //   3. useIsAppInstalled        → getInstalledRelatedApps() (depende do
+  //                                 manifest ter related_applications NA HORA
+  //                                 da instalação — pode falhar pra PWAs
+  //                                 instalados antes do related_applications
+  //                                 ter sido adicionado)
+  //   4. markedAsInstalled (init) → flag persistente em localStorage setada
+  //                                 quando appinstalled disparou em qualquer
+  //                                 sessão passada. Cobre o caso de quem
+  //                                 fechou o browser depois de instalar.
   const isAlreadyInstalled = useIsAppInstalled()
+  const markedAsInstalled = useMemo(() => isMarkedAsInstalled(), [])
   const [dismissed, setDismissed] = useState<boolean>(() => isRecentlyDismissed())
   const [showHowTo, setShowHowTo] = useState(false)
   const appName = APP_HUMAN_NAME[getCurrentAppId()]
 
-  // Atalho silencioso: roda standalone, foi dispensado, já instalou agora ou
-  // já instalou anteriormente (detectado via getInstalledRelatedApps).
-  if (caps.isStandalone || wasJustInstalled || isAlreadyInstalled || dismissed) return null
+  // Atalho silencioso: qualquer sinal de já instalado → não mostra banner.
+  if (caps.isStandalone || wasJustInstalled || isAlreadyInstalled || markedAsInstalled || dismissed) return null
   if (caps.strategy === 'installed' || caps.strategy === 'unknown') return null
 
   const button = getButtonConfig(caps.strategy)

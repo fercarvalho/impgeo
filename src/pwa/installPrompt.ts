@@ -25,6 +25,21 @@ const PWA_INSTALL_EVENT = 'pwa-install-eligible'
 const PWA_INSTALLED_EVENT = 'pwa-installed'
 const PWA_PROMPT_RESOLVED_EVENT = 'pwa-prompt-resolved'
 
+// Flag persistente: quando o appinstalled dispara, marca em localStorage por
+// origin (1 PWA por origin). Sobrevive a reload e fechamento do browser —
+// resolve o caso onde o user instala o PWA, fecha o browser, depois abre uma
+// aba normal: getInstalledRelatedApps() pode falhar (depende do manifest ter
+// related_applications quando foi instalado) mas essa flag continua válida.
+const INSTALLED_FLAG_KEY = 'pwa-installed-at'
+
+function markInstalled(): void {
+  try { localStorage.setItem(INSTALLED_FLAG_KEY, String(Date.now())) } catch { /* storage indisponível */ }
+}
+
+export function isMarkedAsInstalled(): boolean {
+  try { return localStorage.getItem(INSTALLED_FLAG_KEY) !== null } catch { return false }
+}
+
 export function setupInstallPrompt(): void {
   if (typeof window === 'undefined') return
 
@@ -38,6 +53,7 @@ export function setupInstallPrompt(): void {
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null
+    markInstalled()
     window.dispatchEvent(new Event(PWA_INSTALLED_EVENT))
   })
 }
