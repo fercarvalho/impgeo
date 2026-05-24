@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users, Settings } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Upload, Search, Share2, Copy, Check, RefreshCw, ExternalLink, Loader2, FileText, ClipboardCheck, Archive, X, Map as MapIcon, AlertTriangle, Users, Settings, MoreHorizontal } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import ChartModal from '@/components/modals/ChartModal'
 import Modal from '@/components/Modal'
@@ -40,10 +40,6 @@ import TcBudgetEditorModal from './_terracontrol/budgets/TcBudgetEditorModal'
 import TcBudgetHistoryPanel from './_terracontrol/budgets/TcBudgetHistoryPanel'
 import TcBudgetSettingsTab from './_terracontrol/budgets/TcBudgetSettingsTab'
 import { fetchBudgetByRecord, type BudgetFullPayload } from './_terracontrol/budgets/budgetApi'
-
-// G7 (migration 040) — view interna do componente: lista de registros ou
-// aba de configurações do template de orçamento.
-type TcAdminView = 'records' | 'settings'
 
 // Feature flag temporária: a UI antiga de share_links (botões "Gerar Link" e
 // "Gerenciar Links") foi substituída pela aba "Usuários TerraControl" na fase
@@ -116,8 +112,25 @@ const TerraControl: React.FC = () => {
   const [budgetEditorPayload, setBudgetEditorPayload] = useState<BudgetFullPayload | null>(null)
   const [budgetHistoryPayload, setBudgetHistoryPayload] = useState<BudgetFullPayload | null>(null)
   const [loadingBudgetForRecord, setLoadingBudgetForRecord] = useState<string | null>(null)
-  // G7 (migration 040) — aba ativa: lista de registros vs configurações do template
-  const [view, setView] = useState<TcAdminView>('records')
+  // G7 (migration 040) — Configurações do template de orçamento abrem num
+  // modal pelo dropdown "Ações" (mesmo padrão do módulo Transactions).
+  const [isBudgetSettingsOpen, setIsBudgetSettingsOpen] = useState(false)
+  // Dropdown "Ações" (botão "..." no header — agrega itens secundários)
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false)
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!isActionsMenuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setIsActionsMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsActionsMenuOpen(false) }
+    window.addEventListener('mousedown', onClick)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onClick)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [isActionsMenuOpen])
   const [sortField, setSortField] = useState<SortField>('codImovel')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isUploadingCar, setIsUploadingCar] = useState(false)
@@ -1336,46 +1349,6 @@ const TerraControl: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* G7 (migration 040) — tabs Registros / Configurações.
-          Substituem o pattern antigo do TerraControlAdminShell pra funcionar
-          também via subsystem picker (rota App.tsx → activeTab='terracontrol'),
-          não só em admin.terracontrol.*. */}
-      <div className="border-b border-gray-200 dark:border-gray-700 -mt-2">
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setView('records')}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              view === 'records'
-                ? 'border-tc-blue text-tc-blue'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Registros
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('settings')}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              view === 'settings'
-                ? 'border-tc-blue text-tc-blue'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            Configurações
-          </button>
-        </div>
-      </div>
-
-      {view === 'settings' ? (
-        <>
-          <TcBudgetSettingsTab notify={notify} />
-          <FeedbackHost />
-        </>
-      ) : (
-        <>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
@@ -1388,6 +1361,36 @@ const TerraControl: React.FC = () => {
           </div>
         </div>
         <div className="flex w-full sm:w-auto flex-wrap gap-2 overflow-x-auto md:overflow-visible scrollbar-hide">
+          {/* Dropdown "Ações" — agrupa configurações e ações secundárias.
+              Mesmo padrão visual do botão Ações em Transactions.tsx. */}
+          {isAdmin && (
+            <div className="relative" ref={actionsMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsActionsMenuOpen((o) => !o)}
+                className="h-10 flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 font-semibold rounded-xl border-2 border-indigo-500 hover:border-indigo-600 dark:border-indigo-400 dark:hover:border-indigo-300 shadow-sm transition-all duration-200"
+                aria-haspopup="menu"
+                aria-expanded={isActionsMenuOpen}
+                title="Mais ações"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+                <span className="hidden sm:inline">Ações</span>
+              </button>
+
+              {isActionsMenuOpen && (
+                <div role="menu" className="absolute right-0 sm:left-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-40 overflow-hidden">
+                  <button
+                    role="menuitem"
+                    onClick={() => { setIsBudgetSettingsOpen(true); setIsActionsMenuOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Settings className="h-4 w-4 text-tc-blue flex-shrink-0" />
+                    Configurações de orçamento
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {/* Novo: aba "Usuários TerraControl" (substitui Gerar/Gerenciar Links) */}
           {isAdmin && (
             <button
@@ -3495,11 +3498,30 @@ const TerraControl: React.FC = () => {
         </Modal>
       )}
 
+      {/* G7: Configurações do template de orçamento — acionado pelo botão
+          "Ações → Configurações de orçamento" no header. */}
+      {isBudgetSettingsOpen && (
+        <Modal isOpen={true} onClose={() => setIsBudgetSettingsOpen(false)}>
+          <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-4 text-white flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Configurações de orçamento
+              </h2>
+              <button type="button" onClick={() => setIsBudgetSettingsOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <TcBudgetSettingsTab notify={notify} />
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* G4.3 — toasts e dialog de confirmação renderizados em portal lógico
           (z-index alto, position fixed). Veja src/.../_terracontrol/feedback.tsx. */}
       <FeedbackHost />
-        </>
-      )}
     </div>
   )
 }
