@@ -2454,6 +2454,64 @@ app.post('/api/admin/tc-budgets/:id/cancel', authenticateToken, requireTerraCont
   }
 });
 
+// POST /api/admin/tc-budgets/preview-pdf — gera PDF temporário pra preview
+// no editor (admin clica "Visualizar PDF" antes de enviar). NÃO persiste em
+// uploads/documents — vai pra /tmp, é stream-ed pro response, depois apagado.
+// Body: { terracontrolId, contentJson, items }
+app.post('/api/admin/tc-budgets/preview-pdf', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  const { renderBudgetPdf } = require('./services/budget-pdf');
+  const os = require('os');
+  const path = require('path');
+  const crypto = require('crypto');
+  const fs = require('fs');
+  let tmpPath = null;
+  try {
+    const { terracontrolId, contentJson, items } = req.body || {};
+    if (!terracontrolId) return res.status(400).json({ success: false, error: 'terracontrolId obrigatório' });
+    if (!contentJson || typeof contentJson !== 'object') {
+      return res.status(400).json({ success: false, error: 'contentJson obrigatório' });
+    }
+    const rows = await db.getTerraControlByIds([terracontrolId]);
+    const record = rows[0];
+    if (!record) return res.status(404).json({ success: false, error: 'Registro não encontrado' });
+    let tcUser = null;
+    if (record.created_by_tc_user_id) {
+      tcUser = await db.getTcUserById(record.created_by_tc_user_id);
+    }
+    const cleanItems = budgetService.normalizeItems(Array.isArray(items) ? items : []);
+    const totalAmountCents = budgetService.computeTotalCents(cleanItems);
+    // Arquivo temp com nome aleatório pra evitar colisão (multi-admin)
+    tmpPath = path.join(os.tmpdir(), `tc-budget-preview-${crypto.randomBytes(8).toString('hex')}.pdf`);
+    await renderBudgetPdf({
+      outPath: tmpPath,
+      record,
+      tcUser,
+      revision: {
+        revision_number: ((await db.getBudgetByTerracontrolId(terracontrolId))?.current_revision || 0) + 1,
+        content_json: contentJson,
+        items: cleanItems,
+        total_amount_cents: totalAmountCents,
+        created_at: new Date().toISOString(),
+      },
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="preview-orcamento.pdf"`);
+    res.setHeader('Cache-Control', 'no-store');
+    const stream = fs.createReadStream(tmpPath);
+    stream.on('close', () => {
+      // Cleanup: apaga o arquivo temp depois do response
+      fs.unlink(tmpPath, () => {});
+    });
+    stream.pipe(res);
+  } catch (error) {
+    console.error('[tc-budgets preview-pdf] Erro:', error);
+    if (tmpPath) { try { fs.unlinkSync(tmpPath); } catch {} }
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: error.message || 'Erro ao gerar PDF' });
+    }
+  }
+});
+
 app.delete('/api/terracontrol', async (req, res) => {
   try {
     const { ids } = req.body;

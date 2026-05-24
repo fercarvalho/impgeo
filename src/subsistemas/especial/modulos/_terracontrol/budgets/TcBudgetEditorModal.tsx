@@ -10,7 +10,7 @@
 //   - Senão: usa template ativo (variáveis {{...}} substituídas pelo contexto)
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { X, Plus, Trash2, Loader2, FileText, Save, Eye, EyeOff } from 'lucide-react'
+import { X, Plus, Trash2, Loader2, FileText, Save, Eye, EyeOff, FileSearch } from 'lucide-react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import Modal from '@/components/Modal'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,6 +24,7 @@ import {
   fetchTemplate,
   sendNewBudget,
   reviseBudget,
+  previewBudgetPdf,
   type Budget,
   type BudgetRevision,
   type BudgetItem,
@@ -103,6 +104,10 @@ const TcBudgetEditorModal: React.FC<Props> = ({
   // readonly + tabela de itens visual + variáveis {{...}} substituídas pelos
   // valores reais do registro). Útil pra revisar antes de enviar.
   const [showPreview, setShowPreview] = useState(false)
+  // Preview PDF — object URL do blob retornado pelo backend; quando definido,
+  // abre sub-modal com iframe. Cleanup do URL ao fechar.
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
+  const [generatingPdfPreview, setGeneratingPdfPreview] = useState(false)
 
   const editor = useEditor({
     extensions: tiptapExtensions,
@@ -215,6 +220,42 @@ const TcBudgetEditorModal: React.FC<Props> = ({
     editor.chain().focus().insertContent(varLabel).run()
   }
 
+  // Visualizar PDF — gera PDF temporário no backend com o conteúdo atual do
+  // editor e abre num sub-modal com iframe. NÃO persiste, NÃO envia o
+  // orçamento. Reusa o renderer do envio real, então o preview é fiel.
+  const handlePreviewPdf = async () => {
+    if (generatingPdfPreview || !editor) return
+    setGeneratingPdfPreview(true)
+    try {
+      const cleanItems: BudgetItem[] = items
+        .map(it => ({
+          description: it.description.trim(),
+          amount_cents: parseAmountToCents(it.amountStr),
+        }))
+        .filter(it => it.description && it.amount_cents > 0)
+      const blob = await previewBudgetPdf(token, {
+        terracontrolId: record.id,
+        contentJson: editor.getJSON(),
+        items: cleanItems,
+      })
+      const url = URL.createObjectURL(blob)
+      // Revoga URL anterior se houver (evita memory leak)
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl)
+      setPdfPreviewUrl(url)
+    } catch (e: any) {
+      notify(e?.message || 'Erro ao gerar preview do PDF', { type: 'error' })
+    } finally {
+      setGeneratingPdfPreview(false)
+    }
+  }
+
+  // Cleanup: revoga object URL ao desmontar (ou ao fechar o sub-modal)
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl)
+    }
+  }, [pdfPreviewUrl])
+
   const handleSubmit = async () => {
     if (submitting || !editor) return
     if (items.length === 0) {
@@ -283,18 +324,34 @@ const TcBudgetEditorModal: React.FC<Props> = ({
                   <Eye className="w-3.5 h-3.5" /> Preview — como o cliente verá
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => setShowPreview(v => !v)}
-                title={showPreview ? 'Voltar a editar' : 'Visualizar como o cliente verá'}
-                className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
-                  showPreview
-                    ? 'bg-tc-blue text-white hover:bg-tc-blue-dark'
-                    : 'bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                {showPreview ? <><EyeOff className="w-3.5 h-3.5" /> Editar</> : <><Eye className="w-3.5 h-3.5" /> Preview</>}
-              </button>
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Visualizar PDF — gera o PDF real (mesmo renderer do envio)
+                    e abre num sub-modal. Disponível em qualquer modo
+                    (edit ou preview). */}
+                <button
+                  type="button"
+                  onClick={handlePreviewPdf}
+                  disabled={generatingPdfPreview}
+                  title="Visualizar como vai ficar o PDF anexado ao e-mail"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {generatingPdfPreview
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando…</>
+                    : <><FileSearch className="w-3.5 h-3.5" /> Visualizar PDF</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(v => !v)}
+                  title={showPreview ? 'Voltar a editar' : 'Visualizar como o cliente verá'}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                    showPreview
+                      ? 'bg-tc-blue text-white hover:bg-tc-blue-dark'
+                      : 'bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {showPreview ? <><EyeOff className="w-3.5 h-3.5" /> Editar</> : <><Eye className="w-3.5 h-3.5" /> Preview</>}
+                </button>
+              </div>
             </div>
             {/* Chips de variáveis — só em criação E não em preview */}
             {!isRevision && !showPreview && (
@@ -447,6 +504,39 @@ const TcBudgetEditorModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {/* Sub-modal de visualização de PDF — iframe + botão fechar/baixar.
+          Object URL é revogado quando pdfPreviewUrl é setado pra null. */}
+      {pdfPreviewUrl && (
+        <Modal isOpen={true} onClose={() => setPdfPreviewUrl(null)}>
+          <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-gradient-to-r from-tc-green to-tc-blue px-5 py-3 text-white flex items-center justify-between">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <FileSearch className="w-4 h-4" /> Preview do PDF
+              </h3>
+              <div className="flex items-center gap-2">
+                <a
+                  href={pdfPreviewUrl}
+                  download="preview-orcamento.pdf"
+                  className="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 text-white"
+                >
+                  Baixar
+                </a>
+                <button type="button" onClick={() => setPdfPreviewUrl(null)} className="text-white/80 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0d1420]">
+              <iframe
+                src={pdfPreviewUrl}
+                title="Preview do PDF do orçamento"
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
     </Modal>
   )
 }

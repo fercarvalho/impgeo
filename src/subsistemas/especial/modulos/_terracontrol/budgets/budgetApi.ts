@@ -175,6 +175,35 @@ export const reviseBudget = (token: string | null, budgetId: string, body: {
   token
 )
 
+// Preview PDF: chama o backend que gera um PDF temporário com o conteúdo
+// atual do editor (não persiste em uploads/). Retorna Blob pra criar object
+// URL e exibir num iframe.
+export async function previewBudgetPdf(token: string | null, body: {
+  terracontrolId: string
+  contentJson: any
+  items: BudgetItem[]
+}): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}/admin/tc-budgets/preview-pdf`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    // Tenta extrair mensagem de erro JSON (quando o handler falha antes do stream)
+    let msg = `HTTP ${res.status}`
+    try {
+      const j = await res.json()
+      if (j?.error) msg = j.error
+    } catch { /* não-json */ }
+    throw new Error(msg)
+  }
+  return res.blob()
+}
+
 export const cancelBudget = (token: string | null, budgetId: string, reason?: string) =>
   request<Budget>(
     `/admin/tc-budgets/${encodeURIComponent(budgetId)}/cancel`,
