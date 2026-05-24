@@ -12,6 +12,13 @@
   "background_color": "#0a1a3e",
   "theme_color": "#0041B1",
   "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://admin.terracontrol.viverdepj.com.br/manifests/tc-admin.webmanifest"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/tc-admin/icon-192.png",

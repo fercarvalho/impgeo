@@ -114,3 +114,52 @@ export function useWasJustInstalled(): boolean {
   }, [])
   return installed
 }
+
+// Tipos pra navigator.getInstalledRelatedApps (não no lib.dom.d.ts ainda)
+interface RelatedApplication {
+  platform?: string
+  url?: string
+  id?: string
+  version?: string
+}
+interface NavigatorWithGetInstalled extends Navigator {
+  getInstalledRelatedApps?: () => Promise<RelatedApplication[]>
+}
+
+/**
+ * Hook reativo — true quando o webapp deste origin já está instalado como PWA
+ * (mesmo que esta janela seja só uma aba comum do browser, NÃO standalone).
+ *
+ * Necessário porque Chrome/Edge desktop NÃO dispara beforeinstallprompt se o
+ * PWA já está instalado — sem este check, o banner ficava com botão preso em
+ * "Preparando…" eternamente. Cf. navigator.getInstalledRelatedApps (Chrome/Edge
+ * em desktop e Android; iOS não suporta — fallback: depende do display-mode
+ * standalone detectado em outro lugar).
+ *
+ * Pré-requisito: manifest precisa ter `related_applications` apontando pra si
+ * próprio com `platform: "webapp"`.
+ */
+export function useIsAppInstalled(): boolean {
+  const [installed, setInstalled] = useState(false)
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return
+    const nav = navigator as NavigatorWithGetInstalled
+    if (typeof nav.getInstalledRelatedApps !== 'function') return
+    let cancelled = false
+    nav.getInstalledRelatedApps()
+      .then(apps => {
+        if (cancelled) return
+        const hasWebapp = apps.some(a => a.platform === 'webapp')
+        if (hasWebapp) setInstalled(true)
+      })
+      .catch(() => { /* API pode rejeitar fora de contexto seguro */ })
+    // Quando o app é instalado nesta sessão, refresh
+    const onInstalled = () => setInstalled(true)
+    window.addEventListener(PWA_INSTALLED_EVENT, onInstalled)
+    return () => {
+      cancelled = true
+      window.removeEventListener(PWA_INSTALLED_EVENT, onInstalled)
+    }
+  }, [])
+  return installed
+}

@@ -12,6 +12,13 @@
   "background_color": "#0a1a3e",
   "theme_color": "#1d4ed8",
   "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://impgeo.sistemas.viverdepj.com.br/manifests/impgeo.webmanifest"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/impgeo/icon-192.png",
