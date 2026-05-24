@@ -292,6 +292,39 @@ const TerraControl: React.FC = () => {
     setIsModalOpen(true)
   }
 
+  // G7+: deep-link via query string `?record=<id>`.
+  // Quando admin clica numa notificação tc_record_created no sininho, o
+  // NotificationBell redireciona pra /?subsystem=especial&module=terracontrol&record=<id>.
+  // Aqui detectamos esse param e abrimos o modal de edição direto pra o
+  // admin ver os dados que o tc_user cadastrou. Limpa o param depois pra
+  // não reabrir em refreshes acidentais.
+  //
+  // Roda só depois que `records` carregou (pra ter o objeto pra preencher
+  // o form). useRef garante que abre apenas 1x por carga de URL.
+  const autoOpenAttemptedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (records.length === 0) return
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const recordId = params.get('record')
+    if (!recordId) return
+    // Já abriu pra esse id? Não repete (evita re-abrir se records muda)
+    if (autoOpenAttemptedRef.current === recordId) return
+    autoOpenAttemptedRef.current = recordId
+    const found = records.find(r => String(r.id) === String(recordId))
+    if (found) {
+      handleEdit(found)
+    } else {
+      notify(`Registro #${recordId} não encontrado ou sem acesso`, { type: 'warning' })
+    }
+    // Limpa o param da URL pra não reabrir em F5 acidentais. Mantém os
+    // demais (subsystem, module).
+    params.delete('record')
+    const newSearch = params.toString()
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash
+    window.history.replaceState({}, '', newUrl)
+  }, [records, notify])
+
   const handleNew = () => {
     setEditing(null)
     setForm({
