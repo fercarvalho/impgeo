@@ -1780,12 +1780,14 @@ const TerraControl: React.FC = () => {
                       {(() => {
                         const bs = record.budgetStatus
                         const isLoading = loadingBudgetForRecord === record.id
+                        // Tons 100/700 + variantes dark: pra contraste forte em ambos os modos.
+                        // Mesmo pattern do TcBudgetHistoryPanel — mantém consistência visual.
                         const badgeMap: Record<NonNullable<TerraControlRecord['budgetStatus']>, { text: string; cls: string }> = {
-                          locked:             { text: 'Aguardando orçamento',   cls: 'bg-gray-200 text-gray-800' },
-                          sent:               { text: 'Orçamento enviado',      cls: 'bg-blue-200 text-blue-900' },
-                          revision_requested: { text: 'Revisão solicitada',     cls: 'bg-amber-200 text-amber-900' },
-                          awaiting_payment:   { text: 'Aguardando pagamento',   cls: 'bg-orange-200 text-orange-900' },
-                          paid:               { text: 'Pago',                   cls: 'bg-green-200 text-green-900' },
+                          locked:             { text: 'Aguardando orçamento', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' },
+                          sent:               { text: 'Orçamento enviado',    cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+                          revision_requested: { text: 'Revisão solicitada',   cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+                          awaiting_payment:   { text: 'Aguardando pagamento', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+                          paid:               { text: 'Pago',                 cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
                         }
                         const showCreate = !bs || bs === 'locked'
                         const showReview = bs === 'sent' || bs === 'revision_requested'
