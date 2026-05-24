@@ -14,6 +14,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Download, MessageCircle, CreditCard, Loader2, AlertTriangle, ChevronDown, ChevronUp, FileText, MessageSquare } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { useTcAuth } from '@/contexts/TcAuthContext'
+import Modal from '@/components/Modal'
 import { tiptapExtensions } from '../budgets/tiptap-config'
 import {
   fetchBudget,
@@ -332,42 +333,42 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
         </div>
       )}
 
-      {/* Dialog de pedido de revisão */}
-      {showRevisionDialog && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3">
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Solicitar alterações</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Descreva o que precisa ser ajustado. O admin será notificado e enviará uma nova versão.
-            </p>
-            <textarea
-              value={revisionComment}
-              onChange={e => setRevisionComment(e.target.value)}
-              rows={5}
-              placeholder="Ex: gostaria de remover o item X, ou ajustar o valor de Y…"
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-tc-blue"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowRevisionDialog(false)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitRevision}
-                disabled={submittingRevision || !revisionComment.trim()}
-                className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-tc-blue hover:bg-tc-blue-dark text-white disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {submittingRevision && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Enviar pedido
-              </button>
-            </div>
+      {/* Dialog de pedido de revisão — usa o <Modal> wrapper global (portal +
+          backdrop-blur + z-[10050] + ESC + click-outside). Sem isso, o header
+          sticky do TerraControlView aparecia em cima do backdrop sem blur. */}
+      <Modal isOpen={showRevisionDialog} onClose={() => setShowRevisionDialog(false)}>
+        <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Solicitar alterações</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Descreva o que precisa ser ajustado. O admin será notificado e enviará uma nova versão.
+          </p>
+          <textarea
+            value={revisionComment}
+            onChange={e => setRevisionComment(e.target.value)}
+            rows={5}
+            placeholder="Ex: gostaria de remover o item X, ou ajustar o valor de Y…"
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-tc-blue"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRevisionDialog(false)}
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitRevision}
+              disabled={submittingRevision || !revisionComment.trim()}
+              className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-tc-blue hover:bg-tc-blue-dark text-white disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {submittingRevision && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Enviar pedido
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }
