@@ -85,20 +85,39 @@ const TcBudgetPaymentScreen: React.FC<Props> = ({ budgetId, initialPayment, onBa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tcToken, budgetId])
 
-  // Polling de status (5s) — encerra ao detectar paid ou ao desmontar
+  // Polling de status (5s) — encerra ao detectar paid ou ao desmontar.
+  // Cenário crítico aqui: user abre tela PIX, alterna pro app do banco
+  // pra pagar, volta. Browsers jogam setInterval pra >=1min em background;
+  // sem o refetch em visibilitychange/focus, o user voltava e a tela
+  // continuava em "Aguardando pagamento" por minutos.
   useEffect(() => {
     if (!tcToken) return
-    const interval = setInterval(async () => {
+    let stopped = false
+    const checkStatus = async () => {
+      if (stopped) return
       try {
         const data = await fetchBudget(tcToken, budgetId)
         setPayload(data)
         if (data.budget.status === 'paid') {
+          stopped = true
           clearInterval(interval)
           onPaid()
         }
       } catch { /* silencioso (rede) */ }
-    }, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
+    }
+    const interval = setInterval(checkStatus, POLL_INTERVAL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkStatus()
+    }
+    const onFocus = () => checkStatus()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      stopped = true
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tcToken, budgetId])
 

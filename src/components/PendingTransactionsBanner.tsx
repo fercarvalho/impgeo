@@ -32,10 +32,20 @@ const PendingTransactionsBanner: React.FC = () => {
     refresh()
     const t = setInterval(refresh, POLL_INTERVAL_MS)
     const onChanged = () => refresh()
+    // Browsers throttle setInterval em background — refetch imediato quando
+    // a aba volta a ficar visível ou ganha foco evita banner estagnado.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    const onFocus = () => refresh()
     window.addEventListener('impgeo:transactions-changed', onChanged)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
     return () => {
       clearInterval(t)
       window.removeEventListener('impgeo:transactions-changed', onChanged)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
     }
   }, [refresh])
 
