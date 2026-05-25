@@ -109,6 +109,42 @@ function formatDate(iso: string | null | undefined): string {
   try { return new Date(iso).toLocaleString('pt-BR') } catch { return iso }
 }
 
+// G10: monta o nome do ator pra timeline ("Nome Sobrenome" > "Nome" >
+// "@username" > rótulo do tipo). Aceita evento OU revision/request — quem
+// chama passa o objeto certo já tipado.
+const ACTOR_TYPE_LABEL: Record<string, string> = {
+  impgeo: 'Impgeo',
+  tc: 'Cliente TerraControl',
+  system: 'Sistema',
+  abacatepay: 'AbacatePay',
+}
+interface ActorFields {
+  actor_type?: string
+  actor_first_name?: string | null
+  actor_last_name?: string | null
+  actor_username?: string | null
+}
+function formatActor(actor: ActorFields): string {
+  const fn = (actor.actor_first_name || '').trim()
+  const ln = (actor.actor_last_name || '').trim()
+  if (fn || ln) return [fn, ln].filter(Boolean).join(' ')
+  if (actor.actor_username) return `@${actor.actor_username}`
+  return ACTOR_TYPE_LABEL[actor.actor_type || ''] || (actor.actor_type || 'Desconhecido')
+}
+// Mesma ideia pra revisions/requests (campos com prefixo created_by_).
+interface CreatedByFields {
+  created_by_first_name?: string | null
+  created_by_last_name?: string | null
+  created_by_username?: string | null
+}
+function formatCreatedBy(obj: CreatedByFields, fallback = ''): string {
+  const fn = (obj.created_by_first_name || '').trim()
+  const ln = (obj.created_by_last_name || '').trim()
+  if (fn || ln) return [fn, ln].filter(Boolean).join(' ')
+  if (obj.created_by_username) return `@${obj.created_by_username}`
+  return fallback
+}
+
 const TcBudgetHistoryPanel: React.FC<Props> = ({
   data, recordEvents, recordImovel, onAcceptRevision, onRevisionDismissed, notify, onClose, compact = false,
 }) => {
@@ -234,6 +270,7 @@ const TcBudgetHistoryPanel: React.FC<Props> = ({
         ) : timeline.map((it, idx) => {
           if (it.kind === 'revision') {
             const r = it.rev
+            const sender = formatCreatedBy(r, 'Impgeo')
             return (
               <div key={`rev-${r.id}`} className="flex gap-3 p-3 rounded-lg border border-blue-100 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-900/10">
                 <FileText className="w-4 h-4 text-tc-blue mt-0.5 shrink-0" />
@@ -245,7 +282,7 @@ const TcBudgetHistoryPanel: React.FC<Props> = ({
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">{formatDate(r.created_at)}</span>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                    {(r.items || []).length} {(r.items || []).length === 1 ? 'item' : 'itens'} · {formatCentsBR(r.total_amount_cents)}
+                    por {sender} · {(r.items || []).length} {(r.items || []).length === 1 ? 'item' : 'itens'} · {formatCentsBR(r.total_amount_cents)}
                   </p>
                   {r.pdf_url && (
                     <a
@@ -264,13 +301,16 @@ const TcBudgetHistoryPanel: React.FC<Props> = ({
           }
           if (it.kind === 'request') {
             const r = it.req
+            const requester = formatCreatedBy(r, 'Cliente TerraControl')
             return (
               <div key={`req-${r.id}`} className="flex gap-3 p-3 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-900/10">
                 <MessageCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {r.source === 'auto_edit' ? 'Revisão automática (cliente editou imóvel)' : 'Cliente solicitou revisão'}
+                      {r.source === 'auto_edit'
+                        ? `Revisão automática — ${requester} editou o imóvel`
+                        : `${requester} solicitou revisão`}
                     </span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">{formatDate(r.created_at)}</span>
                   </div>
@@ -302,7 +342,7 @@ const TcBudgetHistoryPanel: React.FC<Props> = ({
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">{formatDate(r.created_at)}</span>
                   </div>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    por {r.actor_type}
+                    por {formatActor(r)}
                     {r.payload?.fields && Array.isArray(r.payload.fields) && (
                       <> · campos: {r.payload.fields.join(', ')}</>
                     )}
@@ -333,7 +373,7 @@ const TcBudgetHistoryPanel: React.FC<Props> = ({
                   <span className="text-[10px] text-gray-400 shrink-0">{formatDate(e.created_at)}</span>
                 </div>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  por {e.actor_type}
+                  por {formatActor(e)}
                 </p>
                 {isDismissed && e.payload?.reason && (
                   <div className="mt-1 text-[11px] text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a2332] border border-red-200 dark:border-red-800/40 rounded p-1.5 whitespace-pre-wrap">

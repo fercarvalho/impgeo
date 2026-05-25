@@ -55,6 +55,11 @@ export interface BudgetRevision {
   pdf_url: string | null
   created_at: string
   created_by_user_id: string | null
+  // G10: enriquecido pelo backend via JOIN com users (impgeo).
+  // null quando o user foi excluído ou created_by_user_id é null.
+  created_by_first_name?: string | null
+  created_by_last_name?: string | null
+  created_by_username?: string | null
 }
 
 export interface BudgetRevisionRequest {
@@ -65,6 +70,10 @@ export interface BudgetRevisionRequest {
   source: 'tc_user' | 'auto_edit'
   created_at: string
   created_by_tc_user_id: string | null
+  // G10: enriquecido pelo backend via JOIN com tc_users.
+  created_by_first_name?: string | null
+  created_by_last_name?: string | null
+  created_by_username?: string | null
 }
 
 export interface BudgetEvent {
@@ -75,6 +84,11 @@ export interface BudgetEvent {
   actor_id: string | null
   payload: any
   created_at: string
+  // G10: enriquecido pelo backend via LEFT JOIN dual (users/tc_users)
+  // conforme actor_type. Null pra system/abacatepay.
+  actor_first_name?: string | null
+  actor_last_name?: string | null
+  actor_username?: string | null
 }
 
 export interface BudgetTemplate {
@@ -239,6 +253,10 @@ export interface RecordEvent {
   actor_id: string | null
   payload: any
   created_at: string
+  // G10: enriquecido pelo backend via LEFT JOIN dual (users/tc_users).
+  actor_first_name?: string | null
+  actor_last_name?: string | null
+  actor_username?: string | null
 }
 
 export interface RecordHistoryPayload {
