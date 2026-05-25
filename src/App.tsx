@@ -314,7 +314,10 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
 };
 
 const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDefinition }> = ({ user, logout, subsystem }) => {
-  const permissions = usePermissions();
+  // Botões cross-module: ações executadas num módulo (ex.: Dashboard Financeiro)
+  // que pertencem semanticamente a outro (ex.: criar transação).
+  // Cada botão precisa ser gateado pela perm do módulo-alvo, não do host.
+  const transactionsPermissions = usePermissions('transactions');
   const { isDark } = useTheme();
   // Tab inicial é o primeiro módulo do subsistema atual (fase 1.4).
   // Antes era hardcoded 'dashboard' — chave que nem existe mais após a
@@ -3048,7 +3051,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
             <BarChart3 className="w-8 h-8 text-blue-600" />
             Dashboard IMPGEO
           </h1>
-          {permissions.canCreate && (
+          {transactionsPermissions.canCreate && (
             <button
               onClick={() => setShowTransactionModal(true)}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap"

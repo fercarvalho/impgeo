@@ -1529,7 +1529,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         {/* ── Modal: Módulos de acesso ── */}
         {showModulesModal && modulesTargetUser && (
           <div
-            className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+            className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4"
             onClick={() => { setShowModulesModal(false); lastTriggerRef.current?.focus(); }}
           >
             <div
@@ -1537,10 +1537,11 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
               role="dialog"
               aria-modal="true"
               aria-labelledby="modules-modal-title"
-              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-4xl"
+              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
+              {/* Header — fixo */}
+              <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 <h2 id="modules-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100">
                   Permissões de {modulesTargetUser.username}
                 </h2>
@@ -1554,7 +1555,8 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                 </button>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto pr-1">
+              {/* Conteúdo — scrollable, ocupa o espaço restante */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
                 <PermissionsMatrix
                   permissions={moduleOptions}
                   onChange={setModuleOptions}
@@ -1570,52 +1572,53 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                       : {}
                   }
                 />
+
+                {/* Permissões granulares de regras de transação (migration 018) */}
+                <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-5">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">Permissões de Regras de Transação</h3>
+                  {rulePerms.is_admin_bypass ? (
+                    <p className="text-xs text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      Admins e superadmins têm controle total sobre regras automaticamente — não é necessário configurar aqui.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Conceda poderes específicos para gerenciar regras automáticas de transações.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                          <input
+                            type="checkbox"
+                            checked={rulePerms.can_create}
+                            onChange={(e) => setRulePerms((p) => ({ ...p, can_create: e.target.checked }))}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          />
+                          <span>Criar regras</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                          <input
+                            type="checkbox"
+                            checked={rulePerms.can_edit}
+                            onChange={(e) => setRulePerms((p) => ({ ...p, can_edit: e.target.checked }))}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          />
+                          <span>Editar regras</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                          <input
+                            type="checkbox"
+                            checked={rulePerms.can_delete}
+                            onChange={(e) => setRulePerms((p) => ({ ...p, can_delete: e.target.checked }))}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          />
+                          <span>Excluir regras</span>
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Permissões granulares de regras de transação (migration 018) */}
-              <div className="mt-6 border-t border-gray-200 pt-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-2">Permissões de Regras de Transação</h3>
-                {rulePerms.is_admin_bypass ? (
-                  <p className="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    Admins e superadmins têm controle total sobre regras automaticamente — não é necessário configurar aqui.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-500 mb-3">Conceda poderes específicos para gerenciar regras automáticas de transações.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_create}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_create: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Criar regras</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_edit}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_edit: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Editar regras</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_delete}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_delete: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Excluir regras</span>
-                      </label>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
+              {/* Footer — fixo */}
+              <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
                 <button
                   type="button"
                   onClick={() => { setShowModulesModal(false); lastTriggerRef.current?.focus(); }}
@@ -1631,7 +1634,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
                 >
                   <Save className="h-4 w-4" aria-hidden="true" />
-                  {modulesSaving ? 'Salvando...' : 'Salvar módulos e permissões'}
+                  {modulesSaving ? 'Salvando...' : 'Salvar permissões'}
                 </button>
               </div>
             </div>
