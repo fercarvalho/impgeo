@@ -24,6 +24,7 @@ const {
   enviarEmailTcRegistroAprovado,
   enviarEmailTcRegistroEditado,
   enviarEmailImpgeoTcRecordCriado,
+  enviarEmailImpgeoTcRecordEditado,
 } = require('./services/email');
 const { parseExtrato } = require('./services/extratoParser');
 const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
@@ -3748,14 +3749,100 @@ app.put('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req, re
 
     const updated = await db.updateTerraControlByTcUser(req.params.id, req.body || {});
 
+    // G10.1: lista de chaves do body que o tc_user enviou. Usada tanto no
+    // audit log quanto no email/notif de admins.
+    const editedFieldKeys = Object.keys(req.body || {});
+
     // Audit log (migration 041) — fire-and-forget
     db.appendRecordEvent({
       terracontrolId: req.params.id,
       eventType: 'edited',
       actorType: 'tc',
       actorId: req.tcUser.id,
-      payload: { fields: Object.keys(req.body || {}) },
+      payload: { fields: editedFieldKeys },
     });
+
+    // G10.1 — notifica admins sobre a edição (in-app + push + email) APENAS
+    // quando não há auto-revisão acontecendo (budget.status !== 'sent'). No
+    // caso de 'sent', a notif de revisão automática (abaixo) já cobre o
+    // aviso e duplicar deixaria a caixa de entrada poluída.
+    const willTriggerAutoRevision = !!(existingBudget && existingBudget.status === 'sent');
+    if (!willTriggerAutoRevision) {
+      // Mapa de campo → label pt-BR (camelCase e snake_case caem no mesmo
+      // rótulo). Caller do front pode mandar qualquer dos dois.
+      const FIELD_LABELS = {
+        imovel: 'Imóvel', endereco: 'Endereço',
+        municipio: 'Município',
+        mapaUrl: 'Mapa', mapa_url: 'Mapa',
+        matriculas: 'Matrículas', matriculasDados: 'Matrículas', matriculas_dados: 'Matrículas',
+        nIncraCcir: 'N. INCRA / CCIR', n_incra_ccir: 'N. INCRA / CCIR',
+        ccirDados: 'CCIR', ccir_dados: 'CCIR',
+        car: 'CAR', carUrl: 'PDF do CAR', car_url: 'PDF do CAR',
+        statusCar: 'Status do CAR', status_car: 'Status do CAR', status: 'Status',
+        itr: 'ITR', itrDados: 'ITR', itr_dados: 'ITR',
+        geoCertificacao: 'Geo Certificação', geo_certificacao: 'Geo Certificação',
+        geoRegistro: 'Geo Registro', geo_registro: 'Geo Registro',
+        areaTotal: 'Área total', area_total: 'Área total',
+        reservaLegal: 'Reserva legal', reserva_legal: 'Reserva legal',
+        cultura1: 'Cultura 1',
+        areaCultura1: 'Área Cultura 1', area_cultura1: 'Área Cultura 1',
+        cultura2: 'Cultura 2',
+        areaCultura2: 'Área Cultura 2', area_cultura2: 'Área Cultura 2',
+        outros: 'Outros',
+        areaOutros: 'Área Outros', area_outros: 'Área Outros',
+        appCodigoFlorestal: 'APP Código Florestal', app_codigo_florestal: 'APP Código Florestal',
+        appVegetada: 'APP Vegetada', app_vegetada: 'APP Vegetada',
+        appNaoVegetada: 'APP Não Vegetada', app_nao_vegetada: 'APP Não Vegetada',
+        remanescenteFlorestal: 'Remanescente Florestal', remanescente_florestal: 'Remanescente Florestal',
+        observacoes: 'Observações',
+      };
+      const fieldLabels = Array.from(new Set(
+        editedFieldKeys.map(k => FIELD_LABELS[k]).filter(Boolean)
+      ));
+      // Fire-and-forget — não bloqueia o response do PUT.
+      (async () => {
+        try {
+          const tcName = [req.tcUser.firstName, req.tcUser.lastName].filter(Boolean).join(' ').trim()
+            || req.tcUser.username
+            || 'um usuário TerraControl';
+          const impgeoUsers = await db.getImpgeoUsersWithTerraControlAccess();
+          const adminUrl = process.env.IMPGEO_PUBLIC_URL
+            ? `${process.env.IMPGEO_PUBLIC_URL}/?subsystem=especial&module=terracontrol&record=${updated.id}`
+            : undefined;
+          const codImovel = updated.cod_imovel != null ? updated.cod_imovel : null;
+          const fieldsSummary = fieldLabels.length
+            ? fieldLabels.slice(0, 3).join(', ') + (fieldLabels.length > 3 ? `, +${fieldLabels.length - 3}` : '')
+            : 'detalhes indisponíveis';
+          for (const u of impgeoUsers) {
+            const notif = await db.createNotification({
+              user_id: u.id,
+              notification_type: 'tc_record_edited_by_user',
+              title: `${tcName} editou um imóvel`,
+              message: `${updated.imovel}${updated.municipio ? ` em ${updated.municipio}` : ''} — campos: ${fieldsSummary}`,
+              related_entity_type: 'terracontrol',
+              related_entity_id: updated.id,
+            });
+            pushDispatcher.send(db, 'impgeo', u.id, notif).catch(() => {});
+            if (u.tc_email_notifications === true && u.email) {
+              const recipientName = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
+                || u.username || 'usuário';
+              enviarEmailImpgeoTcRecordEditado({
+                toEmail: u.email,
+                recipientName,
+                tcUserName: tcName,
+                imovel: updated.imovel,
+                municipio: updated.municipio,
+                codImovel,
+                fieldLabels,
+                adminUrl,
+              }).catch(e => console.error('[tc-records PUT] Falha ao enviar email edit:', e?.message));
+            }
+          }
+        } catch (e) {
+          console.error('[tc-records PUT] Falha ao notificar admins (edit):', e?.message);
+        }
+      })();
+    }
 
     // Auto-revisão: se há orçamento status='sent', o admin precisa saber que o
     // imóvel mudou — abre uma nova solicitação de revisão (source='auto_edit')

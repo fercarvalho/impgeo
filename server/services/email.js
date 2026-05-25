@@ -463,6 +463,75 @@ async function enviarEmailImpgeoTcRecordCriado({ toEmail, recipientName, tcUserN
   return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
 }
 
+// G10.1 — tc_user editou um registro antes de pagar.
+// Diferente do tc_record_created: aqui interessa O QUE mudou, então o
+// template aceita um array de labels (já em pt-BR) e renderiza como bullets.
+// fieldLabels é responsabilidade do caller — server.js mapeia campos do body
+// pra rótulos amigáveis antes de chamar.
+function buildImpgeoTcRecordEditadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, fieldLabels, adminUrl }) {
+  const subject = `Imóvel editado pelo cliente — ${imovel || 'sem nome'}`;
+  const card = buildTcRecordCardBlock({ imovel, municipio, codImovel });
+  const cardText = buildTcRecordCardText({ imovel, municipio, codImovel });
+  const labels = Array.isArray(fieldLabels) && fieldLabels.length ? fieldLabels : ['(detalhes indisponíveis)'];
+  const fieldsTextBlock = labels.map(l => `  • ${l}`).join('\n');
+  const fieldsHtmlBlock = `
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:6px;margin:18px 0;">
+      <p style="margin:0 0 8px 0;font-size:14px;color:#92400e;font-weight:700;">Campos alterados:</p>
+      <ul style="margin:0;padding-left:20px;color:#78350f;font-size:14px;line-height:1.6;">
+        ${labels.map(l => `<li>${l}</li>`).join('')}
+      </ul>
+    </div>`;
+  const text = `Olá ${recipientName || ''},\n\n` +
+    `${tcUserName} editou o cadastro de um imóvel no TerraControl.\n\n` +
+    `Registro: ${cardText}\n\n` +
+    `Campos alterados:\n${fieldsTextBlock}\n\n` +
+    (adminUrl ? `Acesse para revisar: ${adminUrl}\n\n` : '') +
+    `Você está recebendo esse email porque ativou as notificações por email do TerraControl. Pode desligar a qualquer momento em "Meu perfil" no IMPGEO.\n\n` +
+    `— Equipe IMPGEO`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+          <tr><td style="padding:32px 32px 16px 32px;background:linear-gradient(to right,#F59E0B,#0041B1);color:#fff;text-align:center;">
+            <h1 style="margin:0;font-size:24px;font-weight:700;">TerraControl</h1>
+            <p style="margin:6px 0 0;opacity:0.9;font-size:14px;">Imóvel editado pelo cliente</p>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${recipientName || 'usuário'}</strong>,</p>
+            <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+              <strong>${tcUserName}</strong> editou o cadastro de um imóvel no TerraControl.
+            </p>
+            ${card}
+            ${fieldsHtmlBlock}
+            ${adminUrl ? `<p style="text-align:center;margin:24px 0;">
+              <a href="${adminUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(to right,#F59E0B,#0041B1);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;">Abrir TerraControl</a>
+            </p>` : ''}
+            <p style="margin:18px 0 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+              Você está recebendo este email porque ativou notificações por email do TerraControl. Pode desligar em "Meu perfil" no IMPGEO.
+            </p>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;">
+            — Equipe IMPGEO
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    </body></html>`;
+  return { subject, html, text };
+}
+
+async function enviarEmailImpgeoTcRecordEditado({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, fieldLabels, adminUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildImpgeoTcRecordEditadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, fieldLabels, adminUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
 // ============================================================================
 // Orçamentos (migration 040) — 5 templates
 // ============================================================================
@@ -821,6 +890,7 @@ module.exports = {
   enviarEmailTcRegistroAprovado,
   enviarEmailTcRegistroEditado,
   enviarEmailImpgeoTcRecordCriado,
+  enviarEmailImpgeoTcRecordEditado,
   // Orçamentos (G4)
   enviarEmailTcOrcamentoEnviado,
   enviarEmailTcOrcamentoRevisado,
