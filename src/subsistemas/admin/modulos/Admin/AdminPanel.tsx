@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import UserCreationTypeModal from './UserCreationTypeModal';
 import UserCreatedModal from './UserCreatedModal';
 import CadastroCompletoModal from './CadastroCompletoModal';
-import PermissionsMatrix from './PermissionsMatrix';
+import PermissionsMatrix, { type ModulePermission } from './PermissionsMatrix';
 import {
   UserPlus,
   Edit,
@@ -51,14 +51,9 @@ interface User {
   permissoesLegais?: Record<string, boolean>;
 }
 
-// Fase 2.3: substituído por ModulePermission (3 níveis em vez de boolean).
-// Mantido somente como tipo referência; estado real usa ModulePermission.
-interface ModuleOption {
-  moduleKey: string;
-  moduleName: string;
-  subsystemKey: string;
-  accessLevel: 'view' | 'edit' | null;
-}
+// Fase 2.5: type unificado com PermissionsMatrix — single source of truth para
+// o shape da matriz de permissões no painel admin.
+type ModuleOption = ModulePermission;
 
 const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 

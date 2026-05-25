@@ -6338,6 +6338,8 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // GET /api/users/:id/modules - Listar módulos e permissões do usuário
+// DEPRECATED (Fase 2.5): retorna apenas a presença/ausência, sem nível.
+// Use GET /api/admin/users/:id/permissions para a matriz com view/edit.
 app.get('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -6363,6 +6365,8 @@ app.get('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, r
 });
 
 // PUT /api/users/:id/modules - Atualizar módulos de acesso do usuário
+// DEPRECATED (Fase 2.5): salva sempre com access_level='view'. Use
+// PUT /api/admin/users/:id/permissions para a matriz com view/edit.
 app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
