@@ -39,7 +39,11 @@ import TcUsersAdminPanel from './_terracontrol/TcUsersAdminPanel'
 import TcBudgetEditorModal from './_terracontrol/budgets/TcBudgetEditorModal'
 import TcBudgetHistoryPanel from './_terracontrol/budgets/TcBudgetHistoryPanel'
 import TcBudgetSettingsTab from './_terracontrol/budgets/TcBudgetSettingsTab'
-import { fetchBudgetByRecord, type BudgetFullPayload } from './_terracontrol/budgets/budgetApi'
+import {
+  fetchRecordHistory,
+  type BudgetFullPayload,
+  type RecordEvent,
+} from './_terracontrol/budgets/budgetApi'
 
 // Feature flag temporária: a UI antiga de share_links (botões "Gerar Link" e
 // "Gerenciar Links") foi substituída pela aba "Usuários TerraControl" na fase
@@ -111,6 +115,11 @@ const TerraControl: React.FC = () => {
   const [budgetEditorRecord, setBudgetEditorRecord] = useState<TerraControlRecord | null>(null)
   const [budgetEditorPayload, setBudgetEditorPayload] = useState<BudgetFullPayload | null>(null)
   const [budgetHistoryPayload, setBudgetHistoryPayload] = useState<BudgetFullPayload | null>(null)
+  // G10: complementos do painel de histórico (eventos do registro + nome do
+  // imóvel pro header). Ficam ao lado de budgetHistoryPayload pra não precisar
+  // ser embrulhado num objeto único — vida útil é exatamente a mesma.
+  const [budgetHistoryRecordEvents, setBudgetHistoryRecordEvents] = useState<RecordEvent[]>([])
+  const [budgetHistoryRecord, setBudgetHistoryRecord] = useState<TerraControlRecord | null>(null)
   const [loadingBudgetForRecord, setLoadingBudgetForRecord] = useState<string | null>(null)
   // G7 (migration 040) — modal de Configurações do template de orçamento,
   // acionado pelo botão "Configurações" no header.
@@ -321,6 +330,50 @@ const TerraControl: React.FC = () => {
     const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash
     window.history.replaceState({}, '', newUrl)
   }, [records, notify])
+
+  // G10: deep-link via query string `?budget=<id>`.
+  // Quando admin clica nas notificações tc_budget_revision_requested ou
+  // tc_budget_payment_completed, o NotificationBell redireciona pra
+  // /?subsystem=especial&module=terracontrol&budget=<id>. Aqui resolvemos o
+  // budgetId pro record local (via currentBudgetId) e abrimos o painel de
+  // histórico do imóvel — onde admin pode aceitar/descartar a revisão.
+  const autoOpenBudgetAttemptedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (records.length === 0) return
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const budgetId = params.get('budget')
+    if (!budgetId) return
+    if (autoOpenBudgetAttemptedRef.current === budgetId) return
+    autoOpenBudgetAttemptedRef.current = budgetId
+
+    const found = records.find(r => r.currentBudgetId === budgetId)
+    if (!found) {
+      notify('Orçamento não encontrado ou sem acesso', { type: 'warning' })
+    } else {
+      // Carrega histórico completo e abre o painel — independente do status,
+      // queremos mostrar o histórico (não o editor) quando vem por essa rota.
+      ;(async () => {
+        try {
+          const history = await fetchRecordHistory(token, found.id)
+          if (!history.budget) {
+            notify('Orçamento sem dados disponíveis', { type: 'warning' })
+            return
+          }
+          setBudgetHistoryPayload(history.budget)
+          setBudgetHistoryRecordEvents(history.recordEvents || [])
+          setBudgetHistoryRecord(found)
+        } catch (e: any) {
+          notify(e?.message || 'Erro ao carregar histórico do orçamento', { type: 'error' })
+        }
+      })()
+    }
+
+    params.delete('budget')
+    const newSearch = params.toString()
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash
+    window.history.replaceState({}, '', newUrl)
+  }, [records, notify, token])
 
   const handleNew = () => {
     setEditing(null)
@@ -806,7 +859,11 @@ const TerraControl: React.FC = () => {
   const handleOpenBudget = async (record: TerraControlRecord) => {
     setLoadingBudgetForRecord(record.id)
     try {
-      const payload = await fetchBudgetByRecord(token, record.id)
+      // G10: usa o endpoint unificado de histórico — vem record + recordEvents
+      // + budget no mesmo round-trip. fetchBudgetByRecord segue exportada
+      // mas não é mais usada aqui (mantida pra retrocompat).
+      const history = await fetchRecordHistory(token, record.id)
+      const payload = history.budget
       if (!payload) {
         // Sem budget — abre editor em modo criação
         setBudgetEditorPayload(null)
@@ -820,12 +877,44 @@ const TerraControl: React.FC = () => {
       } else {
         // awaiting_payment/paid/cancelled → só visualizar histórico
         setBudgetHistoryPayload(payload)
+        setBudgetHistoryRecordEvents(history.recordEvents || [])
+        setBudgetHistoryRecord(record)
       }
     } catch (e: any) {
       notify(e?.message || 'Erro ao carregar orçamento', { type: 'error' })
     } finally {
       setLoadingBudgetForRecord(null)
     }
+  }
+
+  // G10: ações vindas do TcBudgetHistoryPanel quando há revisão pendente.
+  //
+  // Aceitar revisão: fecha o painel de histórico e abre o editor com o budget
+  // atual + revisão corrente carregados (modo "revisar"). Reusa o mesmo
+  // record/payload que o painel estava mostrando.
+  const handleAcceptRevisionFromHistory = () => {
+    if (!budgetHistoryPayload || !budgetHistoryRecord) return
+    setBudgetEditorPayload(budgetHistoryPayload)
+    setBudgetEditorRecord(budgetHistoryRecord)
+    setBudgetHistoryPayload(null)
+    setBudgetHistoryRecordEvents([])
+    setBudgetHistoryRecord(null)
+  }
+
+  // Descartar revisão: o painel chamou o backend e a chamada deu sucesso —
+  // status do budget voltou pra 'sent'. Aqui só fechamos o painel e
+  // atualizamos o card local pra refletir o novo status.
+  const handleRevisionDismissedFromHistory = () => {
+    if (budgetHistoryRecord) {
+      setRecords(prev => prev.map(r =>
+        r.id === budgetHistoryRecord.id
+          ? { ...r, budgetStatus: 'sent' as TerraControlRecord['budgetStatus'] }
+          : r
+      ))
+    }
+    setBudgetHistoryPayload(null)
+    setBudgetHistoryRecordEvents([])
+    setBudgetHistoryRecord(null)
   }
 
   // Após salvar o orçamento (criação ou revisão), atualiza state local
@@ -3485,12 +3574,28 @@ const TerraControl: React.FC = () => {
         />
       )}
 
-      {/* G7: Painel de histórico (modos awaiting_payment/paid/cancelled — readonly) */}
+      {/* G7+G10: Painel de histórico do imóvel — junta eventos do registro
+          (cadastros/edições/aprovações) com o ciclo de orçamento (revisões/
+          pedidos/pagamentos). Em status 'revision_requested', renderiza
+          botões "Aceitar revisão" (abre editor) e "Descartar revisão". */}
       {budgetHistoryPayload && (
-        <Modal isOpen={true} onClose={() => setBudgetHistoryPayload(null)}>
+        <Modal isOpen={true} onClose={() => {
+          setBudgetHistoryPayload(null)
+          setBudgetHistoryRecordEvents([])
+          setBudgetHistoryRecord(null)
+        }}>
           <TcBudgetHistoryPanel
             data={budgetHistoryPayload}
-            onClose={() => setBudgetHistoryPayload(null)}
+            recordEvents={budgetHistoryRecordEvents}
+            recordImovel={budgetHistoryRecord?.imovel || null}
+            onAcceptRevision={handleAcceptRevisionFromHistory}
+            onRevisionDismissed={handleRevisionDismissedFromHistory}
+            notify={notify}
+            onClose={() => {
+              setBudgetHistoryPayload(null)
+              setBudgetHistoryRecordEvents([])
+              setBudgetHistoryRecord(null)
+            }}
           />
         </Modal>
       )}

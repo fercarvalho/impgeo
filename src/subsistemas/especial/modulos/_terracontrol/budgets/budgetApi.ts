@@ -214,3 +214,42 @@ export const cancelBudget = (token: string | null, budgetId: string, reason?: st
     },
     token
   )
+
+// G10 — admin descarta pedido de revisão com motivo obrigatório.
+// Status volta 'revision_requested' → 'sent'. Backend notifica tc_user via
+// in-app + push + e-mail. Retorna budget atualizado.
+export const dismissBudgetRevision = (token: string | null, budgetId: string, reason: string) =>
+  request<Budget>(
+    `/admin/tc-budgets/${encodeURIComponent(budgetId)}/dismiss-revision`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    },
+    token
+  )
+
+// G10 — histórico completo do imóvel: eventos do registro + budget (com
+// revisões/pedidos/eventos). Front intercala/exibe na timeline.
+export interface RecordEvent {
+  id: string
+  terracontrol_id: string
+  event_type: string  // created, edited, approved, unapproved
+  actor_type: 'impgeo' | 'tc' | 'system' | 'abacatepay'
+  actor_id: string | null
+  payload: any
+  created_at: string
+}
+
+export interface RecordHistoryPayload {
+  record: any  // TerraControl row (raw)
+  recordEvents: RecordEvent[]
+  budget: BudgetFullPayload | null
+}
+
+export const fetchRecordHistory = (token: string | null, terracontrolId: string) =>
+  request<RecordHistoryPayload>(
+    `/admin/tc-records/${encodeURIComponent(terracontrolId)}/history`,
+    { method: 'GET' },
+    token
+  )

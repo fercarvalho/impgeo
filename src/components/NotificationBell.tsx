@@ -127,7 +127,21 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
   useEffect(() => {
     fetchNotifications()
     const t = setInterval(fetchNotifications, POLL_INTERVAL_MS)
-    return () => clearInterval(t)
+    // Browsers (Chrome em especial) jogam setInterval pra 1min+ quando a
+    // aba está em background. Sem isso, novas notificações podiam demorar
+    // 1+ min pra aparecer depois que o user volta pra aba. Refetch
+    // imediato em visibilitychange + window focus resolve.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchNotifications()
+    }
+    const onFocus = () => fetchNotifications()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [fetchNotifications])
 
   // Ponte SW → UI: quando o SW recebe um push, atualiza o sino na hora
@@ -220,6 +234,21 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
       const params = new URLSearchParams({ subsystem: 'especial', module: 'terracontrol' })
       if (n.related_entity_id) params.set('record', n.related_entity_id)
       window.location.href = `/?${params.toString()}`
+      return
+    }
+
+    // G10: notificações de orçamento (revisão pedida / pagamento recebido) —
+    // abrem o módulo TerraControl com deep-link `?budget=<id>` que o
+    // TerraControl.tsx detecta pra abrir o painel de histórico do imóvel.
+    if (
+      n.notification_type === 'tc_budget_revision_requested' ||
+      n.notification_type === 'tc_budget_payment_completed'
+    ) {
+      setOpen(false)
+      const params = new URLSearchParams({ subsystem: 'especial', module: 'terracontrol' })
+      if (n.related_entity_id) params.set('budget', n.related_entity_id)
+      window.location.href = `/?${params.toString()}`
+      return
     }
   }
 
