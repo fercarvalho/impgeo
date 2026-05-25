@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import UserCreationTypeModal from './UserCreationTypeModal';
 import UserCreatedModal from './UserCreatedModal';
 import CadastroCompletoModal from './CadastroCompletoModal';
+import PermissionsMatrix from './PermissionsMatrix';
 import {
   UserPlus,
   Edit,
@@ -50,10 +51,13 @@ interface User {
   permissoesLegais?: Record<string, boolean>;
 }
 
+// Fase 2.3: substituído por ModulePermission (3 níveis em vez de boolean).
+// Mantido somente como tipo referência; estado real usa ModulePermission.
 interface ModuleOption {
   moduleKey: string;
   moduleName: string;
-  enabled: boolean;
+  subsystemKey: string;
+  accessLevel: 'view' | 'edit' | null;
 }
 
 const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
@@ -432,17 +436,23 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     lastTriggerRef.current = document.activeElement as HTMLElement;
     setModulesLoadingId(user.id);
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${user.id}/modules`, { headers: authHeaders() });
-      // BUG FIX: res.ok antes de res.json()
+      // Fase 2.3: endpoint novo /api/admin/users/:id/permissions retorna a
+      // matriz completa { moduleKey, moduleName, subsystemKey, accessLevel|null }.
+      const response = await fetch(`${API_BASE_URL}/admin/users/${user.id}/permissions`, { headers: authHeaders() });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        setError(data.error || 'Erro ao carregar módulos do usuário');
+        setError(data.error || 'Erro ao carregar permissões do usuário');
         return;
       }
       const data = await response.json();
       setModulesTargetUser(user);
-      // BUG FIX: Array.isArray guard
-      setModuleOptions(Array.isArray(data.data) ? data.data : []);
+      const matrix = Array.isArray(data?.data?.permissions) ? data.data.permissions : [];
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey: p.moduleKey,
+        moduleName: p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel: p.accessLevel,
+      })));
 
       // Carrega permissões de regras
       try {
@@ -462,34 +472,60 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     }
   }, [authHeaders, clearFeedback]);
 
-  const toggleModuleOption = useCallback((moduleKey: string) => {
-    setModuleOptions(previous =>
-      previous.map(option =>
-        option.moduleKey === moduleKey ? { ...option, enabled: !option.enabled } : option
-      )
-    );
-  }, []);
+  // Fase 2.3: toggleModuleOption (estilo legado, boolean) substituído pelos
+  // handlers internos da PermissionsMatrix. Removido na 2.3.
+
+  const handleResetPermissionsToDefaults = useCallback(async () => {
+    if (!modulesTargetUser) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions/reset`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        setError(data.error || 'Erro ao resetar permissões');
+        return;
+      }
+      // Recarrega matriz
+      const r2 = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions`, { headers: authHeaders() });
+      const j2 = await r2.json();
+      const matrix = Array.isArray(j2?.data?.permissions) ? j2.data.permissions : [];
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey: p.moduleKey,
+        moduleName: p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel: p.accessLevel,
+      })));
+      showSuccess('Permissões resetadas para o padrão da role.');
+    } catch {
+      setError('Erro ao resetar permissões');
+    }
+  }, [modulesTargetUser, authHeaders, showSuccess]);
 
   const handleSaveModules = useCallback(async () => {
     if (!modulesTargetUser) return;
     clearFeedback();
     setModulesSaving(true);
     try {
-      const selectedKeys = moduleOptions.filter(o => o.enabled).map(o => o.moduleKey);
-      const response = await fetch(`${API_BASE_URL}/users/${modulesTargetUser.id}/modules`, {
+      // Só envia módulos com accessLevel definido (view/edit). Ausentes = sem acesso.
+      const permissions = moduleOptions
+        .filter((o) => o.accessLevel === 'view' || o.accessLevel === 'edit')
+        .map((o) => ({ moduleKey: o.moduleKey, accessLevel: o.accessLevel }));
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify({ moduleKeys: selectedKeys }),
+        body: JSON.stringify({ permissions }),
       });
-      // BUG FIX: res.ok antes de res.json()
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        setError(data.error || 'Erro ao salvar módulos do usuário');
+        setError(data.error || 'Erro ao salvar permissões do usuário');
         return;
       }
 
-      // Salva permissões granulares de regras (apenas para usuários não-admin —
-      // admin/superadmin têm bypass e não precisam de linha em user_rule_permissions)
+      // Permissões granulares de regras (legado da migration 018-TRANSACTION-RULES,
+      // ortogonal ao modelo de subsistemas — mantém endpoint próprio).
       if (!rulePerms.is_admin_bypass) {
         await fetch(`${API_BASE_URL}/users/${modulesTargetUser.id}/rule-permissions`, {
           method: 'PUT',
@@ -498,7 +534,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         });
       }
 
-      showSuccess('Módulos e permissões atualizados com sucesso!');
+      showSuccess('Permissões atualizadas com sucesso!');
       setShowModulesModal(false);
       setModulesTargetUser(null);
       setModuleOptions([]);
@@ -1499,12 +1535,12 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
               role="dialog"
               aria-modal="true"
               aria-labelledby="modules-modal-title"
-              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-2xl"
+              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-4xl"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 id="modules-modal-title" className="text-xl font-bold text-gray-900">
-                  Módulos de acesso de {modulesTargetUser.username}
+                <h2 id="modules-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Permissões de {modulesTargetUser.username}
                 </h2>
                 <button
                   type="button"
@@ -1516,34 +1552,23 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                 </button>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4">Marque os módulos que este usuário pode acessar.</p>
-
-              {/* BUG FIX: fieldset + legend para grupo de checkboxes de módulos */}
-              <fieldset>
-                <legend className="sr-only">Módulos disponíveis para {modulesTargetUser.username}</legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                  {moduleOptions.map(option => {
-                    const superadminOnly = ['sessions', 'anomalies', 'security_alerts'].includes(option.moduleKey);
-                    const locked = superadminOnly && currentUser?.role !== 'superadmin';
-                    return (
-                      <label
-                        key={option.moduleKey}
-                        className={`flex items-center gap-3 text-sm ${locked ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={option.enabled}
-                          onChange={() => !locked && toggleModuleOption(option.moduleKey)}
-                          disabled={locked}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300 disabled:opacity-50"
-                        />
-                        <span>{option.moduleName}</span>
-                        <span className="text-xs text-gray-400">({option.moduleKey})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <PermissionsMatrix
+                  permissions={moduleOptions}
+                  onChange={setModuleOptions}
+                  onResetToDefaults={handleResetPermissionsToDefaults}
+                  isBusy={modulesSaving}
+                  lockedReasons={
+                    currentUser?.role !== 'superadmin'
+                      ? {
+                          sessions:        'Exclusivo do superadmin',
+                          anomalies:       'Exclusivo do superadmin',
+                          security_alerts: 'Exclusivo do superadmin',
+                        }
+                      : {}
+                  }
+                />
+              </div>
 
               {/* Permissões granulares de regras de transação (migration 018) */}
               <div className="mt-6 border-t border-gray-200 pt-5">
