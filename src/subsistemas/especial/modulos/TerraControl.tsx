@@ -1823,23 +1823,38 @@ const TerraControl: React.FC = () => {
           return (
             <div key={record.id} className={`bg-white dark:!bg-[#243040] rounded-2xl shadow-md border overflow-hidden hover:shadow-lg transition-shadow duration-200 ${selectedItems.has(record.id) ? 'border-blue-400 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
 
-              {/* ── HEADER ───────────────────────────────── */}
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedItems.has(record.id)}
-                  onChange={() => handleSelectItem(record.id)}
-                  className="rounded border-white/40 bg-white/20 text-blue-600 shrink-0"
-                  title="Selecionar registro"
-                />
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
-                    #{formatCodImovel(record.codImovel)}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-white font-bold text-sm leading-tight truncate">{record.imovel}</div>
-                    <div className="text-blue-200 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span>{record.municipio}</span>
+              {/* ── HEADER ─────────────────────────────────
+                  Mobile (<sm): coluna — linha 1: checkbox + #code,
+                  linha 2: imóvel + município, linha 3: badges. Botões de
+                  ações empilhados verticalmente à direita.
+                  Desktop (sm+): layout horizontal original.
+              */}
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 flex items-start sm:items-center gap-3">
+                <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-0 sm:flex sm:items-center sm:gap-3">
+                  {/* Linha 1 mobile / início inline desktop: checkbox + #code */}
+                  <div className="flex items-center gap-2.5 sm:shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(record.id)}
+                      onChange={() => handleSelectItem(record.id)}
+                      className="rounded border-white/40 bg-white/20 text-blue-600 shrink-0"
+                      title="Selecionar registro"
+                    />
+                    <span className="shrink-0 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-lg tracking-wide">
+                      #{formatCodImovel(record.codImovel)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 sm:flex-1">
+                    {/* Linha 2 mobile (imovel + municipio inline) / desktop: só imovel */}
+                    <div className="text-white font-bold text-sm leading-tight flex items-baseline gap-1.5 min-w-0">
+                      <span className="truncate">{record.imovel}</span>
+                      <span className="sm:hidden text-blue-200 font-normal text-xs truncate min-w-0">
+                        · {record.municipio}
+                      </span>
+                    </div>
+                    {/* Linha 3 mobile (badges) / desktop: municipio + badges */}
+                    <div className="text-blue-200 text-xs mt-1 sm:mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span className="hidden sm:inline">{record.municipio}</span>
                       {/* F: badge "Pendente aprovação" + botão Aprovar */}
                       {record.approved === false && (
                         <>
@@ -1914,7 +1929,9 @@ const TerraControl: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Botões: empilhados verticalmente no mobile (libera espaço
+                    horizontal pros 3 blocos da esquerda), inline no desktop. */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 shrink-0">
                   {record.mapaUrl && (
                     <button
                       onClick={() => { setSelectedMapUrl(record.mapaUrl || ''); setSelectedImovel(record.imovel); setIsMapModalOpen(true) }}
