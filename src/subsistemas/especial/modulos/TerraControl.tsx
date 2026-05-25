@@ -1845,14 +1845,16 @@ const TerraControl: React.FC = () => {
                     </span>
                   </div>
                   <div className="min-w-0 sm:flex-1">
-                    {/* Linha 2 mobile (imovel + municipio inline) / desktop: só imovel */}
-                    <div className="text-white font-bold text-sm leading-tight flex items-baseline gap-1.5 min-w-0">
-                      <span className="truncate">{record.imovel}</span>
-                      <span className="sm:hidden text-blue-200 font-normal text-xs truncate min-w-0">
-                        · {record.municipio}
-                      </span>
+                    {/* Linha 2 mobile: só imóvel (quebra) | Desktop: imóvel */}
+                    <div className="text-white font-bold text-sm leading-tight break-words sm:truncate">
+                      {record.imovel}
                     </div>
-                    {/* Linha 3 mobile (badges) / desktop: municipio + badges */}
+                    {/* Linha 3 mobile: só município | Desktop: nada (município
+                        aparece com as badges na linha de baixo) */}
+                    <div className="sm:hidden text-blue-200 font-normal text-xs mt-0.5 break-words">
+                      {record.municipio}
+                    </div>
+                    {/* Linha 4 mobile (badges) / Desktop: município + badges */}
                     <div className="text-blue-200 text-xs mt-1 sm:mt-0.5 flex items-center gap-1.5 flex-wrap">
                       <span className="hidden sm:inline">{record.municipio}</span>
                       {/* F: badge "Pendente aprovação" + botão Aprovar */}
