@@ -80,7 +80,21 @@ const TcNotificationBell: React.FC<BellProps> = ({ onRoute }) => {
     if (!tcToken) return
     fetchNotifications()
     const t = setInterval(fetchNotifications, POLL_INTERVAL_MS)
-    return () => clearInterval(t)
+    // Browsers (especialmente Chrome) jogam setInterval pra 1min+ quando a
+    // aba está em background — sem isso, notificações novas podiam levar
+    // até 1+ minuto pra aparecer depois que o user volta pra aba. Refetch
+    // imediato em visibilitychange + window focus resolve.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchNotifications()
+    }
+    const onFocus = () => fetchNotifications()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [fetchNotifications, tcToken])
 
   // Ponte SW → UI: atualização imediata do sino quando push chega com app

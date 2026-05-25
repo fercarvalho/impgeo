@@ -1346,7 +1346,12 @@ const TerraControlView: React.FC<Props> = (props) => {
           setSelectedImovel('')
         }}
       >
-        <div className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4">
+        {/* Altura FORÇADA (h-, não max-h) pra o flex-1 do iframe esticar.
+            Mobile/tablet: 85vh (adapta à viewport).
+            Desktop (lg+): 700px fixo (não estica em monitor grande).
+            Footer separado do body garante que o botão "Abrir em nova aba"
+            sempre fique visível independente da altura do iframe. */}
+        <div className="bg-white dark:bg-[#1e2a3a] rounded-lg shadow-xl w-full max-w-5xl h-[85vh] lg:h-[700px] lg:max-h-[85vh] flex flex-col m-4">
             <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mapa do Imóvel</h2>
@@ -1364,14 +1369,13 @@ const TerraControlView: React.FC<Props> = (props) => {
                 ✕
               </button>
             </div>
-            <div className="flex-1 p-6 overflow-hidden">
+            <div className="flex-1 min-h-0 p-6 overflow-hidden flex flex-col">
               {isAllowedMapUrl(selectedMapUrl) ? (
-                <div className="w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
+                <div className="flex-1 min-h-[300px] rounded-lg overflow-hidden border border-gray-200">
                   <iframe
                     src={convertMapUrlToEmbed(selectedMapUrl)}
                     width="100%"
                     height="100%"
-                    style={{ minHeight: '500px' }}
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
@@ -1380,7 +1384,7 @@ const TerraControlView: React.FC<Props> = (props) => {
                   />
                 </div>
               ) : (
-                <div className="w-full min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <AlertTriangle className="h-10 w-10 text-yellow-500 mb-3" />
                   <p className="text-yellow-800 dark:text-yellow-300 font-semibold mb-1">URL de mapa não confiável</p>
                   <p className="text-yellow-700 dark:text-yellow-400 text-sm max-w-md">
@@ -1388,17 +1392,17 @@ const TerraControlView: React.FC<Props> = (props) => {
                   </p>
                 </div>
               )}
-              <div className="mt-4 flex justify-end">
-                <a
-                  href={selectedMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-xl hover:from-tc-green-dark hover:to-tc-blue-dark shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                  Abrir em nova aba
-                </a>
-              </div>
+            </div>
+            <div className="flex-shrink-0 px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <a
+                href={selectedMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-xl hover:from-tc-green-dark hover:to-tc-blue-dark shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Abrir em nova aba
+              </a>
             </div>
         </div>
       </Modal>
