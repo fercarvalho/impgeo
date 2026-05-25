@@ -36,6 +36,10 @@ interface Props {
   notify: NotifyFn
   // Se já está em awaiting_payment ao abrir, pai pode mandar direto pra pagamento.
   onResumePayment?: (budgetId: string) => void
+  // Disparado após tc_user pedir revisão com sucesso — pai usa pra
+  // atualizar otimisticamente o records local (status: 'revision_requested')
+  // e remover o banner "Orçamento aguardando você" da home na hora.
+  onRevisionRequested?: (budgetId: string) => void
 }
 
 function formatCentsBR(cents: number | null | undefined): string {
@@ -59,7 +63,7 @@ const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
   draft:              { text: 'Rascunho',                cls: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' },
 }
 
-const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onResumePayment, notify }) => {
+const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onResumePayment, onRevisionRequested, notify }) => {
   const { tcToken } = useTcAuth()
   const [loading, setLoading] = useState(true)
   const [payload, setPayload] = useState<TcBudgetPayload | null>(null)
@@ -115,6 +119,10 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
       notify('Solicitação enviada. O admin será notificado.', { type: 'success' })
       setShowRevisionDialog(false)
       setRevisionComment('')
+      // Avisa o pai pra ele atualizar otimisticamente o records local —
+      // sem isso, o banner "Orçamento aguardando você" continua na home
+      // até o user recarregar a página.
+      onRevisionRequested?.(budgetId)
       onBack()
     } catch (e: any) {
       notify(e?.message || 'Erro ao solicitar revisão', { type: 'error' })

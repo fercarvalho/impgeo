@@ -262,6 +262,20 @@ const TcLoggedView: React.FC = () => {
                 ))
                 setBudgetView({ kind: 'pay', budgetId, initialPayment: payment })
               }}
+              onRevisionRequested={(budgetId) => {
+                // Optimistic: tc_user pediu revisão → status virou
+                // 'revision_requested' no servidor. Removendo do filtro de
+                // pendingBudgets (que só mostra 'sent'/'awaiting_payment'),
+                // o banner some sozinho ao voltar pra home.
+                setRecords(prev => prev.map(r =>
+                  r.currentBudgetId === budgetId
+                    ? { ...r, budgetStatus: 'revision_requested' as TerraControlRecord['budgetStatus'] }
+                    : r
+                ))
+                // Refetch como rede de segurança caso o server tenha
+                // colateral além do status (ex: nova revisão, eventos).
+                setRefetchKey(k => k + 1)
+              }}
               onResumePayment={(budgetId) => setBudgetView({ kind: 'pay', budgetId })}
               notify={notify}
             />
