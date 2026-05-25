@@ -2888,6 +2888,26 @@ class Database {
     );
   }
 
+  // G10.2 — auto mark-as-read por entidade relacionada.
+  // Usado quando o tc_user engaja com o entity (abre TcBudgetViewScreen,
+  // aprova, pede revisão, paga) — as notifs sobre aquele budget viram
+  // "lidas" automaticamente, sem o user precisar clicar no sininho.
+  // Retorna a contagem de linhas afetadas pro front decidir se decrementa
+  // o badge otimistamente.
+  async markTcNotificationsByEntityAsRead(tcUserId, entityType, entityId) {
+    const result = await this.queryWithRetry(
+      `UPDATE tc_notifications
+          SET is_read = TRUE, read_at = NOW()
+        WHERE tc_user_id = $1
+          AND related_entity_type = $2
+          AND related_entity_id   = $3
+          AND is_read = FALSE
+          AND cleared = FALSE`,
+      [tcUserId, entityType, String(entityId)]
+    );
+    return result.rowCount || 0;
+  }
+
   async clearTcNotification(id, tcUserId) {
     const result = await this.queryWithRetry(
       `UPDATE tc_notifications

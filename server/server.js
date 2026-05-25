@@ -3510,6 +3510,24 @@ app.delete('/api/tc-auth/notifications', tcAuth.authenticateTcUser, async (req, 
 });
 
 // Rotas com :id depois das literais (read-all, clear-all)
+// G10.2 — marca como lidas todas as notifs do tc_user sobre uma entidade.
+// Body: { entity_type, entity_id }. Idempotente; retorna quantas foram afetadas.
+// Front chama isso quando user abre/age sobre o entity (ex: TcBudgetViewScreen
+// faz mount com budgetId → notifs daquele budget viram lidas sem precisar
+// clicar no sininho).
+app.patch('/api/tc-auth/notifications/read-by-entity', tcAuth.authenticateTcUser, async (req, res) => {
+  try {
+    const { entity_type, entity_id } = req.body || {};
+    if (!entity_type || !entity_id) {
+      return res.status(400).json({ success: false, error: 'entity_type e entity_id obrigatórios' });
+    }
+    const affected = await db.markTcNotificationsByEntityAsRead(req.tcUser.id, String(entity_type), entity_id);
+    res.json({ success: true, data: { affected } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.patch('/api/tc-auth/notifications/:id/read', tcAuth.authenticateTcUser, async (req, res) => {
   try {
     const updated = await db.markTcNotificationAsRead(req.params.id, req.tcUser.id);
