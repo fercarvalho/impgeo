@@ -88,12 +88,18 @@ const TcNotificationBell: React.FC<BellProps> = ({ onRoute }) => {
       if (document.visibilityState === 'visible') fetchNotifications()
     }
     const onFocus = () => fetchNotifications()
+    // G10.2 — auto mark-as-read: quando TcBudgetViewScreen abre, ele chama
+    // markNotificationsByEntityRead e dispara este evento pra o sininho
+    // refetchar imediato (sem esperar o polling de 30s).
+    const onNotifChanged = () => fetchNotifications()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onFocus)
+    window.addEventListener('tc-notifications-changed', onNotifChanged)
     return () => {
       clearInterval(t)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onFocus)
+      window.removeEventListener('tc-notifications-changed', onNotifChanged)
     }
   }, [fetchNotifications, tcToken])
 
