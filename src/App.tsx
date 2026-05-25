@@ -338,11 +338,13 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   const [catalogModules, setCatalogModules] = useState<{ moduleKey: string; moduleName: string; iconName?: string | null }[] | null>(null)
 
   const getDefaultModulesByRole = (role: string): string[] => {
-    // Atualizado pela fase 1.4 (subsistemas):
-    //   - 3 chaves renomeadas: dashboard_financeiro, metas_financeiro, relatorios_financeiro
-    //   - 4 módulos novos (gerenciamento): dashboard_gerenciamento, metas_gerenciamento,
-    //     projecao_gerenciamento, relatorios_gerenciamento
-    const allWithoutAdmin = [
+    // Fase 2.2: fallback de emergência apenas. A fonte de verdade é
+    // user.modulesAccess vindo do backend (computado de user_module_permissions
+    // pós-migration 042). Este fallback só dispara se modulesAccess vier vazio,
+    // o que indica erro de sessão / dessincronização. Alinhado com
+    // server/permissions/defaults.js — qualquer mudança lá precisa refletir
+    // aqui também.
+    const all = [
       // Financeiro
       'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
       // Gerenciamento
@@ -353,10 +355,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       // Especial
       'terracontrol',
     ];
-    if (role === 'superadmin') return [...allWithoutAdmin, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
-    if (role === 'admin') return [...allWithoutAdmin, 'admin', 'roadmap'];
-    if (role === 'user') return allWithoutAdmin;
-    if (role === 'guest') return allWithoutAdmin.filter((moduleKey) => moduleKey !== 'dre' && moduleKey !== 'terracontrol');
+    if (role === 'superadmin') return [...all, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
+    if (role === 'admin')      return [...all, 'admin', 'roadmap'];
+    if (role === 'manager')    return all;
+    if (role === 'user')       return all;
+    if (role === 'guest')      return all.filter((moduleKey) => moduleKey !== 'roadmap');
     return [];
   };
 

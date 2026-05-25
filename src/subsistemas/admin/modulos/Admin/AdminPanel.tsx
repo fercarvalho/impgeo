@@ -20,7 +20,7 @@ import {
   Check
 } from 'lucide-react';
 
-type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
+type RoleType = 'superadmin' | 'admin' | 'manager' | 'user' | 'guest';
 
 interface User {
   id: string;
@@ -849,6 +849,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                             >
                               {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                               <option value="admin">Administrador</option>
+                              <option value="manager">Gerente</option>
                               <option value="user">Usuário</option>
                               <option value="guest">Convidado</option>
                             </select>
@@ -1706,9 +1707,10 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                 Tem certeza que deseja alterar a função para{' '}
                 <strong>
                   {pendingRoleChange.role === 'superadmin' ? 'Super Administrador'
-                    : pendingRoleChange.role === 'admin' ? 'Administrador'
-                    : pendingRoleChange.role === 'user' ? 'Usuário'
-                    : 'Convidado'}
+                    : pendingRoleChange.role === 'admin'   ? 'Administrador'
+                    : pendingRoleChange.role === 'manager' ? 'Gerente'
+                    : pendingRoleChange.role === 'user'    ? 'Usuário'
+                    :                                        'Convidado'}
                 </strong>?
               </p>
               <div className="flex justify-end gap-3">

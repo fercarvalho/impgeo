@@ -18,7 +18,7 @@ interface Client {
 const API_BASE_URL = '/api'
 
 const Clients: React.FC = () => {
-  const permissions = usePermissions();
+  const permissions = usePermissions('clients');
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)

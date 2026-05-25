@@ -114,7 +114,7 @@ const DevBtn: React.FC<DevBtnProps> = ({ label, bg, domain, initials }) => (
 )
 
 const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) => {
-  const permissions = usePermissions();
+  const permissions = usePermissions('transactions');
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)

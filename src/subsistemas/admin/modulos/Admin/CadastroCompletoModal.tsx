@@ -7,7 +7,7 @@ import { applyPhoneMask, removePhoneMask, validatePhoneFormat } from '@/utils/ph
 import { applyCpfMask, removeCpfMask, validateCpfFormat } from '@/utils/cpfMask';
 import { applyCepMask, removeCepMask, validateCepFormat, fetchAddressByCep } from '@/utils/cepMask';
 
-type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
+type RoleType = 'superadmin' | 'admin' | 'manager' | 'user' | 'guest';
 
 interface CadastroCompletoModalProps {
   isOpen: boolean;
@@ -20,19 +20,23 @@ interface CadastroCompletoModalProps {
 }
 
 const getDefaultModules = (role: RoleType): string[] => {
-  // Atualizado pela fase 1.4 (subsistemas) — mesmas chaves que getDefaultModulesForRole
-  // do AdminPanel e que o backend (getDefaultModulesCatalog em database-pg.js).
-  const baseFinanceiroEGerenciamentoEEspecial = [
+  // Fase 2.2: chaves alinhadas com server/permissions/defaults.js. Este helper
+  // é apenas pré-seleção visual no formulário de cadastro — o backend reaplica
+  // os defaults reais ao receber a role. Vai sumir na sub-fase 2.3 quando o
+  // form passar a usar a matriz granular via /api/admin/users/:id/permissions.
+  const base = [
     'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
     'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
     'projects', 'services', 'clients',
+    'faq', 'documentacao',
     'terracontrol',
   ];
   switch (role) {
-    case 'superadmin': return [...baseFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];
-    case 'admin':      return [...baseFinanceiroEGerenciamentoEEspecial, 'admin'];
-    case 'user':       return baseFinanceiroEGerenciamentoEEspecial;
-    case 'guest':      return ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'dre'];
+    case 'superadmin': return [...base, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
+    case 'admin':      return [...base, 'admin', 'roadmap'];
+    case 'manager':    return base;
+    case 'user':       return base;
+    case 'guest':      return base.filter((key) => key !== 'roadmap');
   }
 };
 
@@ -406,6 +410,7 @@ const CadastroCompletoModal = ({
                 className={sel(false)} disabled={isSubmitting}>
                 {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                 <option value="admin">Administrador</option>
+                <option value="manager">Gerente</option>
                 <option value="user">Usuário</option>
                 <option value="guest">Convidado</option>
               </select>

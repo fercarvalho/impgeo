@@ -20,7 +20,7 @@ const EMPTY_FORM = {
 }
 
 const Services: React.FC = () => {
-  const permissions = usePermissions();
+  const permissions = usePermissions('services');
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
