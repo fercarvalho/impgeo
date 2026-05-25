@@ -72,6 +72,27 @@ const TcLoggedView: React.FC = () => {
     | { kind: 'paid'; budgetId: string; imovel?: string | null; municipio?: string | null }
   const [budgetView, setBudgetView] = useState<BudgetView | null>(null)
 
+  // Função estável de refetch dos records locais (que alimentam o banner).
+  // Definida cedo porque o usePushBridge abaixo a referencia. Chamadas aqui
+  // NÃO remontam TerraControlView — só atualizam o cache local, banner reage
+  // sem o spinner. Cache-bust com ?_t=<timestamp> evita stale-while-revalidate
+  // do SW (mesmo que /api/tc-auth/me/records já tenha saído da allowlist,
+  // a defesa em camadas continua útil pra ambientes de proxy intermediário).
+  const fetchRecords = useCallback(async () => {
+    if (!tcToken) return
+    try {
+      const params = new URLSearchParams()
+      if (approvalFilter === 'approved') params.set('onlyApproved', 'true')
+      params.set('_t', String(Date.now()))
+      const r = await fetch(`/api/tc-auth/me/records?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${tcToken}` },
+        credentials: 'include',
+      })
+      const data = await r.json()
+      if (data?.success) setRecords(normalizeRecords(data.data || []))
+    } catch {/* silencioso */}
+  }, [tcToken, approvalFilter])
+
   // Push bridge: quando chega notif tc-scope que mexe no estado de algum
   // imóvel (pagamento confirmado, orçamento revisado, revisão recusada),
   // bump no refetchKey pra revalidar a lista — assim o banner "Pagamento
@@ -88,35 +109,36 @@ const TcLoggedView: React.FC = () => {
         t === 'tc_budget_sent' ||
         t === 'tc_budget_revision_dismissed'
       ) {
-        setRefetchKey(k => k + 1)
+        // Refetch silencioso (sem remount do TerraControlView) — só o
+        // banner precisa reagir; cards já estão atualizados pelo polling
+        // próprio do TerraControlView quando user navega.
+        fetchRecords()
       }
     },
   })
 
   // CustomEvent 'tc-records-changed' — disparado pelas telas de orçamento
   // após ações do próprio tc_user (aprovar, pedir revisão, pagamento
-  // detectado). Push só cobre ações de OUTROS (admin); pra ações do próprio
-  // user, sem isso aqui o banner ficava preso até F5.
-  // Mesmo padrão do 'tc-notifications-changed' que já funciona pro sino.
+  // detectado). Esse caso precisa remontar TerraControlView também (cards
+  // refletem novo status), então bumpa refetchKey.
   React.useEffect(() => {
     const handler = () => setRefetchKey(k => k + 1)
     window.addEventListener('tc-records-changed', handler)
     return () => window.removeEventListener('tc-records-changed', handler)
   }, [])
 
-  // Fallback de polling + visibility/focus pro records — mesmo padrão do
-  // sino (que já tem). Push é o caminho ideal pra real-time, mas se a
-  // subscription não estiver ativa (user nunca habilitou push nessa
-  // origem, ou SW dormindo), o banner ficaria preso até F5.
-  //   - Polling a cada 30s garante atualização periódica
-  //   - visibilitychange/focus pega o momento em que o user volta pra aba
+  // Polling silencioso (30s) + visibility/focus refetch pro banner.
+  // IMPORTANTE: chama fetchRecords direto, SEM bumpar refetchKey — assim
+  // o TerraControlView NÃO remonta a cada 30s (evita flash do spinner).
+  // Push é o caminho ideal pra real-time; isso garante que mesmo sem push
+  // o banner aparece em ≤30s ou ao focar a aba.
   React.useEffect(() => {
     if (!tcToken) return
-    const t = setInterval(() => setRefetchKey(k => k + 1), 30_000)
+    const t = setInterval(fetchRecords, 30_000)
     const onVisible = () => {
-      if (document.visibilityState === 'visible') setRefetchKey(k => k + 1)
+      if (document.visibilityState === 'visible') fetchRecords()
     }
-    const onFocus = () => setRefetchKey(k => k + 1)
+    const onFocus = () => fetchRecords()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onFocus)
     return () => {
@@ -124,39 +146,16 @@ const TcLoggedView: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onFocus)
     }
-  }, [tcToken])
+  }, [tcToken, fetchRecords])
 
-  // Sincroniza records ao montar (e quando filtro/refetchKey muda).
-  //
-  // BUG histórico: o Service Worker (public/sw.js) faz stale-while-revalidate
-  // pro endpoint /api/tc-auth/me/records (allowlist). Resultado:
-  //   1. user pede revisão / aprova / paga
-  //   2. mutation POST OK (não passa pelo SW cache)
-  //   3. refetch → SW retorna cache stale → banner persiste com status velho
-  //   4. F5 → cache foi atualizado em background → banner some
-  // Solução: quando refetchKey > 0 (i.e., refetch acionado por ação ou push,
-  // não o mount inicial), adicionamos param ?_t=<refetchKey> que vira uma
-  // URL não-cacheada — força o SW a buscar fresco do servidor. Mount sem o
-  // param mantém o cache pra offline funcionar.
+  // Sincroniza records ao montar e quando o filtro muda. refetchKey também
+  // entra como dep — toda ação significativa (aprovar/pagar/etc) que bumpa
+  // refetchKey já remonta TerraControlView; aproveita pra atualizar a banner
+  // junto. Polling/visibility/focus usam fetchRecords direto (sem refetchKey)
+  // pra NÃO remontar TerraControlView a cada 30s.
   React.useEffect(() => {
-    if (!tcToken) return
-    const ctrl = new AbortController()
-    const params = new URLSearchParams()
-    if (approvalFilter === 'approved') params.set('onlyApproved', 'true')
-    if (refetchKey > 0) params.set('_t', String(refetchKey))
-    const qs = params.toString()
-    fetch(`/api/tc-auth/me/records${qs ? `?${qs}` : ''}`, {
-      headers: { Authorization: `Bearer ${tcToken}` },
-      credentials: 'include',
-      signal: ctrl.signal,
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data?.success) setRecords(normalizeRecords(data.data || []))
-      })
-      .catch(() => {/* TerraControlView já trata o erro principal */})
-    return () => ctrl.abort()
-  }, [tcToken, approvalFilter, refetchKey])
+    fetchRecords()
+  }, [fetchRecords, refetchKey])
 
   // Permissão de compartilhamento — só renderizamos os botões se a flag estiver ligada
   const canShare = tcUser?.canShare === true
