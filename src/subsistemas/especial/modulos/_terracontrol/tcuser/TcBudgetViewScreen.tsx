@@ -131,7 +131,7 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
     setSubmittingRevision(true)
     try {
       await apiRequestRevision(tcToken, budgetId, revisionComment.trim())
-      notify('Solicitação enviada. O admin será notificado.', { type: 'success' })
+      notify('Solicitação enviada. Seu orçamento foi enviado para IMPGEO.', { type: 'success' })
       setShowRevisionDialog(false)
       setRevisionComment('')
       // Avisa o pai pra ele atualizar otimisticamente o records local —
