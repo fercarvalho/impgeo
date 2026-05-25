@@ -856,6 +856,28 @@ const TerraControl: React.FC = () => {
   //   - Se record nunca teve orçamento (sem budgetStatus ou só 'locked'): abre editor em modo criação
   //   - Se já existe budget e está em sent/revision_requested: abre editor em modo revisão
   //   - Se já está em awaiting_payment/paid/cancelled: abre só o painel de histórico (sem editar)
+  // G10: abre direto o painel de histórico (sem passar pelo editor).
+  // Usado pelo badge "Revisão solicitada" — em revision_requested, o admin
+  // precisa de um atalho pro painel onde os botões Aceitar/Descartar moram.
+  // O fluxo via botão "Revisar orçamento" continua indo direto pro editor.
+  const handleOpenBudgetHistory = async (record: TerraControlRecord) => {
+    setLoadingBudgetForRecord(record.id)
+    try {
+      const history = await fetchRecordHistory(token, record.id)
+      if (!history.budget) {
+        notify('Esse registro ainda não tem orçamento', { type: 'warning' })
+        return
+      }
+      setBudgetHistoryPayload(history.budget)
+      setBudgetHistoryRecordEvents(history.recordEvents || [])
+      setBudgetHistoryRecord(record)
+    } catch (e: any) {
+      notify(e?.message || 'Erro ao carregar histórico do orçamento', { type: 'error' })
+    } finally {
+      setLoadingBudgetForRecord(null)
+    }
+  }
+
   const handleOpenBudget = async (record: TerraControlRecord) => {
     setLoadingBudgetForRecord(record.id)
     try {
@@ -1853,9 +1875,23 @@ const TerraControl: React.FC = () => {
                         return (
                           <>
                             {bs && badgeMap[bs] && (
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeMap[bs].cls}`}>
-                                {badgeMap[bs].text}
-                              </span>
+                              bs === 'revision_requested' ? (
+                                // G10: badge clicável — atalho pro painel de histórico
+                                // onde ficam os botões Aceitar/Descartar revisão.
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenBudgetHistory(record) }}
+                                  disabled={isLoading}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeMap[bs].cls} hover:brightness-95 dark:hover:brightness-110 transition-all disabled:opacity-50 cursor-pointer`}
+                                  title="Ver pedido de revisão (aceitar/descartar)"
+                                >
+                                  {badgeMap[bs].text}
+                                </button>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeMap[bs].cls}`}>
+                                  {badgeMap[bs].text}
+                                </span>
+                              )
                             )}
                             <button
                               onClick={(e) => { e.stopPropagation(); handleOpenBudget(record) }}
