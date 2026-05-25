@@ -768,6 +768,52 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// ─── tc_user: revisão descartada pelo admin ─────────────────────────────────
+
+function buildTcRevisaoDescartadaTemplate({ username, imovel, municipio, codImovel, totalCents, reason, viewUrl }) {
+  const subject = 'Sua solicitação de revisão foi recusada — TerraControl';
+  const card = buildOrcamentoCardBlock({ imovel, municipio, codImovel, totalCents });
+  const cardText = buildOrcamentoCardText({ imovel, municipio, codImovel, totalCents });
+  const text = `Olá ${username || ''},\n\n` +
+    `Sua solicitação de revisão do orçamento foi recusada pelo nosso time.\n\n` +
+    `${cardText}\n\n` +
+    `Motivo:\n${reason}\n\n` +
+    `O orçamento original continua válido — você pode aprovar e pagar, ou enviar uma nova solicitação de revisão.\n\n` +
+    (viewUrl ? `Acesse: ${viewUrl}\n\n` : '') +
+    `— Equipe TerraControl`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Olá <strong>${username || 'usuário'}</strong>,</p>
+    <p style="margin:0 0 8px 0;font-size:15px;line-height:1.55;color:#374151;">
+      Sua solicitação de revisão do orçamento foi <strong>recusada</strong> pelo nosso time.
+    </p>
+    ${card}
+    <div style="background:#fff7ed;border-left:4px solid #F59E0B;padding:12px 14px;border-radius:6px;margin:14px 0;font-size:14px;color:#374151;white-space:pre-wrap;"><strong>Motivo:</strong>
+${escapeHtml(reason)}</div>
+    <p style="margin:14px 0 0 0;font-size:14px;color:#374151;">
+      O orçamento original continua válido — você pode aprovar e pagar, ou enviar uma nova solicitação de revisão.
+    </p>`;
+  const html = buildBaseEmailShell({
+    headerSubtitle: 'Revisão recusada',
+    bodyHtml,
+    ctaLabel: 'Ver orçamento',
+    ctaUrl: viewUrl,
+    palette: 'orange',
+  });
+  return { subject, html, text };
+}
+
+async function enviarEmailTcRevisaoDescartada({ toEmail, username, imovel, municipio, codImovel, totalCents, reason, viewUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const { subject, html, text } = buildTcRevisaoDescartadaTemplate({ username, imovel, municipio, codImovel, totalCents, reason, viewUrl });
+  const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
+  const [response] = await sgMail.send(msg);
+  return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
+}
+
 module.exports = {
   enviarEmailRecuperacao,
   enviarEmailTcResetSenha,
@@ -781,4 +827,6 @@ module.exports = {
   enviarEmailTcPagamentoConfirmado,
   enviarEmailImpgeoRevisaoSolicitada,
   enviarEmailImpgeoPagamentoRecebido,
+  // G10 — descartar revisão
+  enviarEmailTcRevisaoDescartada,
 };

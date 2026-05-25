@@ -417,6 +417,15 @@ function makeService(db) {
     let approvedRecord = null;
     try {
       approvedRecord = await db.approveTerraControlRecord(budget.terracontrol_id, null);
+      // Audit log no registro (migration 041) — fonte 'abacatepay' diferencia
+      // aprovação automática por pagamento de aprovação manual do admin.
+      db.appendRecordEvent({
+        terracontrolId: budget.terracontrol_id,
+        eventType: 'approved',
+        actorType: 'abacatepay',
+        actorId: null,
+        payload: { reason: 'payment_completed', budgetId: budget.id, amountCents },
+      });
     } catch (err) {
       console.error(`[budget-service] Falha ao aprovar terracontrol ${budget.terracontrol_id}:`, err.message);
     }
@@ -433,6 +442,32 @@ function makeService(db) {
   }
 
   // ─── cancelBudget: admin cancela ──────────────────────────────────────────
+
+  // ─── dismissRevision: admin recusa pedido de revisão do tc_user ──────────
+  // Status volta de 'revision_requested' pra 'sent' (orçamento anterior
+  // continua válido — tc_user pode aprovar ou pedir nova revisão). Motivo é
+  // obrigatório e gravado pra notificação ao cliente.
+  async function dismissRevision({ budgetId, actorUserId, reason }) {
+    const budget = await db.getBudgetById(budgetId);
+    if (!budget) throw new Error('Orçamento não encontrado');
+    if (budget.status !== 'revision_requested') {
+      throw new Error(`Não há revisão pendente para descartar (status atual: ${budget.status})`);
+    }
+    if (!reason || !String(reason).trim()) {
+      throw new Error('Motivo do descarte é obrigatório');
+    }
+    const cleanReason = String(reason).trim();
+    const updated = await db.updateBudgetStatus(budgetId, 'sent');
+    await db.setTerracontrolBudgetState(budget.terracontrol_id, { budgetStatus: 'sent' });
+    await db.appendBudgetEvent({
+      budgetId,
+      eventType: 'revision_dismissed',
+      actorType: 'impgeo',
+      actorId: actorUserId || null,
+      payload: { reason: cleanReason },
+    });
+    return { budget: updated, reason: cleanReason };
+  }
 
   async function cancelBudget({ budgetId, actorUserId, reason }) {
     const budget = await db.getBudgetById(budgetId);
@@ -500,6 +535,7 @@ function makeService(db) {
     refreshPaymentQrCode,
     markPaidFromWebhook,
     cancelBudget,
+    dismissRevision,
     getBudgetForAdmin,
     getBudgetForTcUser,
     getTemplate,

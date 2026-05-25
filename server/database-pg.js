@@ -6659,6 +6659,42 @@ class Database {
     );
   }
 
+  // ───── tc_record_events — audit log do registro (migration 041) ─────────
+
+  // Append-only. Use pra TODA ação não-trivial sobre o registro
+  // (created, edited, approved, unapproved). Falha silenciosa: o caller
+  // não deve quebrar a request principal se o audit falhar.
+  async appendRecordEvent({ terracontrolId, eventType, actorType, actorId, payload }) {
+    try {
+      const id = this.generateId();
+      const result = await this.queryWithRetry(
+        `INSERT INTO tc_record_events
+           (id, terracontrol_id, event_type, actor_type, actor_id, payload)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+         RETURNING *`,
+        [
+          id, terracontrolId, eventType, actorType,
+          actorId || null,
+          payload ? JSON.stringify(payload) : null,
+        ]
+      );
+      return result.rows[0];
+    } catch (err) {
+      console.error('[appendRecordEvent] Falha ao gravar audit:', err?.message);
+      return null;
+    }
+  }
+
+  async listRecordEvents(terracontrolId) {
+    const result = await this.queryWithRetry(
+      `SELECT * FROM tc_record_events
+        WHERE terracontrol_id = $1
+        ORDER BY created_at ASC`,
+      [terracontrolId]
+    );
+    return result.rows;
+  }
+
   // ───── Ownership: tc_user é dono do budget? ──────────────────────────────
 
   // Verdadeiro se o terracontrol referenciado pelo budget foi criado pelo

@@ -2182,6 +2182,13 @@ app.get('/api/terracontrol', async (req, res) => {
 app.post('/api/terracontrol', async (req, res) => {
   try {
     const record = await db.saveTerraControl(req.body);
+    db.appendRecordEvent({
+      terracontrolId: record.id,
+      eventType: 'created',
+      actorType: 'impgeo',
+      actorId: req.user?.id || null,
+      payload: { imovel: record.imovel, municipio: record.municipio },
+    });
     res.json({ success: true, data: record });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -2196,6 +2203,13 @@ app.put('/api/terracontrol/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const record = await db.updateTerraControl(id, req.body);
+    db.appendRecordEvent({
+      terracontrolId: id,
+      eventType: 'edited',
+      actorType: 'impgeo',
+      actorId: req.user.id,
+      payload: { fields: Object.keys(req.body || {}) },
+    });
     const editedByName = req.user?.name || req.user?.username || 'um administrador';
     dispatchTcRecordEventToOwner(record, 'edited', { editedByName }).catch(() => {});
     res.json({ success: true, data: record });
@@ -2301,6 +2315,12 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
 app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, requireTerraControlAccess, async (req, res) => {
   try {
     const updated = await db.approveTerraControlRecord(req.params.id, req.user.id);
+    db.appendRecordEvent({
+      terracontrolId: req.params.id,
+      eventType: 'approved',
+      actorType: 'impgeo',
+      actorId: req.user.id,
+    });
     // Notif + email pro tc_user dono (fire-and-forget, sem await pra não
     // atrasar o response). Falha aqui não desfaz a aprovação.
     dispatchTcRecordEventToOwner(updated, 'approved').catch(() => {});
@@ -2314,6 +2334,12 @@ app.patch('/api/admin/terracontrol/:id/approve', authenticateToken, requireTerra
 app.patch('/api/admin/terracontrol/:id/unapprove', authenticateToken, requireTerraControlAccess, async (req, res) => {
   try {
     const updated = await db.unapproveTerraControlRecord(req.params.id);
+    db.appendRecordEvent({
+      terracontrolId: req.params.id,
+      eventType: 'unapproved',
+      actorType: 'impgeo',
+      actorId: req.user.id,
+    });
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Erro ao revogar aprovação' });
@@ -2451,6 +2477,55 @@ app.post('/api/admin/tc-budgets/:id/cancel', authenticateToken, requireTerraCont
     res.json({ success: true, data: cancelled });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Erro ao cancelar' });
+  }
+});
+
+// POST /api/admin/tc-budgets/:id/dismiss-revision — admin descarta pedido de revisão
+// Body: { reason }
+// Status volta 'revision_requested' → 'sent'. Notifica + envia e-mail pro tc_user.
+app.post('/api/admin/tc-budgets/:id/dismiss-revision', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const { budget, reason: cleanReason } = await budgetService.dismissRevision({
+      budgetId: req.params.id, actorUserId: req.user.id, reason,
+    });
+    // Dispatch fire-and-forget pro tc_user
+    (async () => {
+      try {
+        const rows = await db.getTerraControlByIds([budget.terracontrol_id]);
+        const record = rows[0];
+        if (record) {
+          await budgetDispatcher.dispatchTcBudgetEventToOwner(budget, record, 'revision_dismissed', {
+            reason: cleanReason,
+          });
+        }
+      } catch (e) {
+        console.error('[dismiss-revision] Falha no dispatch:', e?.message);
+      }
+    })();
+    res.json({ success: true, data: budget });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message || 'Erro ao descartar revisão' });
+  }
+});
+
+// GET /api/admin/tc-records/:id/history — histórico completo do imóvel:
+// eventos do registro + orçamento ativo (revisões/pedidos/eventos) intercalados.
+// Front ordena/exibe — endpoint só agrega.
+app.get('/api/admin/tc-records/:id/history', authenticateToken, requireTerraControlAccess, async (req, res) => {
+  try {
+    const recordRows = await db.getTerraControlByIds([req.params.id]);
+    const record = recordRows[0];
+    if (!record) return res.status(404).json({ success: false, error: 'Registro não encontrado' });
+    const recordEvents = await db.listRecordEvents(req.params.id);
+    const budget = await db.getBudgetByTerracontrolId(req.params.id);
+    let budgetData = null;
+    if (budget) {
+      budgetData = await budgetService.getBudgetForAdmin(budget.id);
+    }
+    res.json({ success: true, data: { record, recordEvents, budget: budgetData } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erro ao carregar histórico' });
   }
 });
 
@@ -3569,6 +3644,15 @@ app.post('/api/tc-auth/me/records', tcAuth.authenticateTcUser, async (req, res) 
 
     const created = await db.saveTerraControlAsTcUser(payload, req.tcUser.id);
 
+    // Audit log (migration 041) — fire-and-forget, não trava criação
+    db.appendRecordEvent({
+      terracontrolId: created.id,
+      eventType: 'created',
+      actorType: 'tc',
+      actorId: req.tcUser.id,
+      payload: { imovel: created.imovel, municipio: created.municipio },
+    });
+
     // Lockdown: registros novos ficam aguardando o admin enviar o orçamento.
     // tc_user não pode editar o cadastro até receber a primeira proposta.
     // Falha aqui não desfaz a criação — best-effort sincronizado.
@@ -3663,6 +3747,15 @@ app.put('/api/tc-auth/me/records/:id', tcAuth.authenticateTcUser, async (req, re
     }
 
     const updated = await db.updateTerraControlByTcUser(req.params.id, req.body || {});
+
+    // Audit log (migration 041) — fire-and-forget
+    db.appendRecordEvent({
+      terracontrolId: req.params.id,
+      eventType: 'edited',
+      actorType: 'tc',
+      actorId: req.tcUser.id,
+      payload: { fields: Object.keys(req.body || {}) },
+    });
 
     // Auto-revisão: se há orçamento status='sent', o admin precisa saber que o
     // imóvel mudou — abre uma nova solicitação de revisão (source='auto_edit')

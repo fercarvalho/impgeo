@@ -58,7 +58,7 @@ function makeDispatcher(deps) {
 
   // ─── Para o tc_user (dono do registro) ────────────────────────────────────
 
-  async function dispatchTcBudgetEventToOwner(budget, record, event, { revisionNumber } = {}) {
+  async function dispatchTcBudgetEventToOwner(budget, record, event, { revisionNumber, reason } = {}) {
     if (!budget || !record) return;
     const tcUserId = record.created_by_tc_user_id;
     if (!tcUserId) return;
@@ -98,6 +98,12 @@ function makeDispatcher(deps) {
         title: 'Pagamento confirmado',
         message: `${imovel}${municipio ? ` em ${municipio}` : ''} — seu imóvel está aprovado`,
         emailFn: emailService.enviarEmailTcPagamentoConfirmado,
+      },
+      revision_dismissed: {
+        notifType: 'tc_budget_revision_dismissed',
+        title: 'Sua solicitação de revisão foi recusada',
+        message: `${imovel}${municipio ? ` em ${municipio}` : ''} — clique para ver o motivo`,
+        emailFn: emailService.enviarEmailTcRevisaoDescartada,
       },
     };
     const spec = map[event];
@@ -155,6 +161,11 @@ function makeDispatcher(deps) {
           ...baseArgs,
           paidAt: budget.paid_at,
           loginUrl: tcPublicUrl,
+        });
+      } else if (event === 'revision_dismissed') {
+        await spec.emailFn({
+          ...baseArgs,
+          reason: reason || '',
         });
       }
     } catch (e) {
