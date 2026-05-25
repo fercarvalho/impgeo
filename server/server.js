@@ -4105,14 +4105,29 @@ app.post('/api/webhooks/abacatepay', async (req, res) => {
         externalId, amountCents, abacatePayload: payload,
       });
       if (result.matched && !result.idempotent && result.budget && result.record) {
-        // Dispatch fire-and-forget (não atrasa response pro provider)
-        budgetDispatcher.dispatchTcBudgetEventToOwner(
-          result.budget, result.record, 'payment_completed'
-        ).catch(() => {});
-        budgetDispatcher.dispatchTcBudgetEventToAdmins(
-          result.budget, result.record, 'payment_completed',
-          { tcUser: payload.data?.customer || null }
-        ).catch(() => {});
+        // Dispatch fire-and-forget (não atrasa response pro provider).
+        // O tcUser pro dispatch vem do nosso DB (created_by_tc_user_id do
+        // registro), NÃO do payload.data.customer da AbacatePay — esse
+        // último não tem os campos first_name/last_name/username que o
+        // dispatcher espera, resultando em "Undefined pagou o orçamento"
+        // nas notificações dos admins.
+        (async () => {
+          let tcUserForDispatch = null;
+          try {
+            if (result.record.created_by_tc_user_id) {
+              tcUserForDispatch = await db.getTcUserById(result.record.created_by_tc_user_id);
+            }
+          } catch (e) {
+            console.error('[webhook abacatepay] Falha ao buscar tc_user pra dispatch:', e?.message);
+          }
+          budgetDispatcher.dispatchTcBudgetEventToOwner(
+            result.budget, result.record, 'payment_completed'
+          ).catch(() => {});
+          budgetDispatcher.dispatchTcBudgetEventToAdmins(
+            result.budget, result.record, 'payment_completed',
+            { tcUser: tcUserForDispatch }
+          ).catch(() => {});
+        })();
       }
       return res.json({ success: true });
     }
