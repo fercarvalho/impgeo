@@ -6490,10 +6490,18 @@ class Database {
   }
 
   async listBudgetRevisions(budgetId) {
+    // G10: JOIN com users pra trazer nome/sobrenome do impgeo user que
+    // criou a revisão. Sempre é impgeo (admin envia) — não precisa CASE
+    // como nos eventos.
     const result = await this.queryWithRetry(
-      `SELECT * FROM tc_budget_revisions
-        WHERE budget_id = $1
-        ORDER BY revision_number DESC`,
+      `SELECT r.*,
+              u.first_name AS created_by_first_name,
+              u.last_name  AS created_by_last_name,
+              u.username   AS created_by_username
+         FROM tc_budget_revisions r
+         LEFT JOIN users u ON u.id = r.created_by_user_id
+        WHERE r.budget_id = $1
+        ORDER BY r.revision_number DESC`,
       [budgetId]
     );
     return result.rows;
@@ -6530,10 +6538,17 @@ class Database {
   }
 
   async listBudgetRevisionRequests(budgetId) {
+    // G10: JOIN com tc_users pra trazer nome/sobrenome do tc_user que pediu
+    // a revisão. Requests vêm do cliente, então sempre tc_users.
     const result = await this.queryWithRetry(
-      `SELECT * FROM tc_budget_revision_requests
-        WHERE budget_id = $1
-        ORDER BY created_at DESC`,
+      `SELECT r.*,
+              tu.first_name AS created_by_first_name,
+              tu.last_name  AS created_by_last_name,
+              tu.username   AS created_by_username
+         FROM tc_budget_revision_requests r
+         LEFT JOIN tc_users tu ON tu.id = r.created_by_tc_user_id
+        WHERE r.budget_id = $1
+        ORDER BY r.created_at DESC`,
       [budgetId]
     );
     return result.rows;
@@ -6559,10 +6574,22 @@ class Database {
   }
 
   async listBudgetEvents(budgetId) {
+    // G10: LEFT JOIN dual com users e tc_users — escolhe via CASE pelo
+    // actor_type. Quando actor_type='system' ou 'abacatepay' não tem user
+    // associado e os campos voltam null (o front renderiza o tipo bruto).
     const result = await this.queryWithRetry(
-      `SELECT * FROM tc_budget_events
-        WHERE budget_id = $1
-        ORDER BY created_at ASC`,
+      `SELECT e.*,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.first_name
+                   WHEN e.actor_type = 'tc'     THEN tu.first_name END AS actor_first_name,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.last_name
+                   WHEN e.actor_type = 'tc'     THEN tu.last_name END AS actor_last_name,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.username
+                   WHEN e.actor_type = 'tc'     THEN tu.username END AS actor_username
+         FROM tc_budget_events e
+         LEFT JOIN users u     ON e.actor_type = 'impgeo' AND u.id  = e.actor_id
+         LEFT JOIN tc_users tu ON e.actor_type = 'tc'     AND tu.id = e.actor_id
+        WHERE e.budget_id = $1
+        ORDER BY e.created_at ASC`,
       [budgetId]
     );
     return result.rows;
@@ -6686,10 +6713,20 @@ class Database {
   }
 
   async listRecordEvents(terracontrolId) {
+    // G10: mesmo padrão do listBudgetEvents — JOIN dual + CASE pelo actor_type.
     const result = await this.queryWithRetry(
-      `SELECT * FROM tc_record_events
-        WHERE terracontrol_id = $1
-        ORDER BY created_at ASC`,
+      `SELECT e.*,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.first_name
+                   WHEN e.actor_type = 'tc'     THEN tu.first_name END AS actor_first_name,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.last_name
+                   WHEN e.actor_type = 'tc'     THEN tu.last_name END AS actor_last_name,
+              CASE WHEN e.actor_type = 'impgeo' THEN u.username
+                   WHEN e.actor_type = 'tc'     THEN tu.username END AS actor_username
+         FROM tc_record_events e
+         LEFT JOIN users u     ON e.actor_type = 'impgeo' AND u.id  = e.actor_id
+         LEFT JOIN tc_users tu ON e.actor_type = 'tc'     AND tu.id = e.actor_id
+        WHERE e.terracontrol_id = $1
+        ORDER BY e.created_at ASC`,
       [terracontrolId]
     );
     return result.rows;
