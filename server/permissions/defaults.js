@@ -29,7 +29,14 @@
 //   └─────────────┴───────┴────────┴──────────┴───────────────┴──────────┘
 // =============================================================================
 
-const VALID_ROLES = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+// As 5 roles do SISTEMA — têm comportamento especial no código (bypass de
+// superadmin/admin em gates, defaults hardcoded como fallback) e nunca podem
+// ser deletadas/renomeadas. Roles custom criadas via UI ficam fora desta lista.
+const SYSTEM_ROLES = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+// Alias retrocompat — código antigo que importa VALID_ROLES continua funcionando
+// porque toda role válida do sistema também é uma role válida em geral, mas o
+// nome correto agora é SYSTEM_ROLES (a lista total de roles é dinâmica).
+const VALID_ROLES = SYSTEM_ROLES;
 const VALID_ACCESS_LEVELS = ['view', 'edit'];
 const SUBSYSTEM_KEYS = ['admin', 'gestao', 'financeiro', 'gerenciamento', 'especial'];
 
@@ -95,9 +102,11 @@ const ROLE_DEFAULTS = FALLBACK_DEFAULTS;
  * @returns {Array<{moduleKey, accessLevel}>}
  */
 function computeDefaultsForRole(role, catalog, configMap = null) {
-  if (!VALID_ROLES.includes(role)) return [];
+  if (!role || typeof role !== 'string') return [];
   const root = configMap || FALLBACK_DEFAULTS;
   const config = root[role];
+  // Role custom sem config no mapa = matriz vazia (sem acesso a nada).
+  // Cabe ao superadmin definir as perms ao criar/editar a role.
   if (!config) return [];
 
   const overrides = config.moduleOverrides || {};
@@ -150,21 +159,29 @@ function buildRoleMapFromDbRows(dbRows, catalog) {
     subsystemModules.get(m.subsystemKey).push(m.moduleKey);
   }
 
+  // Descobre dinamicamente quais roles aparecem nos rows + as system roles
+  // (sempre incluídas mesmo que não tenham nenhum registro — viram config vazia).
+  const rolesInData = new Set(SYSTEM_ROLES);
+  for (const row of dbRows) {
+    if (row.role) rolesInData.add(row.role);
+  }
+  const allRoles = Array.from(rolesInData);
+
   // Agrupa rows por role e subsistema
   const grouped = {};
-  for (const role of VALID_ROLES) {
+  for (const role of allRoles) {
     grouped[role] = {};
     for (const sub of SUBSYSTEM_KEYS) grouped[role][sub] = new Map();
   }
   for (const row of dbRows) {
-    if (!VALID_ROLES.includes(row.role)) continue;
+    if (!grouped[row.role]) continue;
     const subsystem = moduleToSubsystem.get(row.moduleKey);
     if (!subsystem) continue;
     grouped[row.role][subsystem].set(row.moduleKey, row.accessLevel);
   }
 
   const result = {};
-  for (const role of VALID_ROLES) {
+  for (const role of allRoles) {
     const config = {};
     const overrides = {};
     for (const sub of SUBSYSTEM_KEYS) {
@@ -223,7 +240,8 @@ function getDefaultOverridesForRole(role, configMap = null) {
 }
 
 module.exports = {
-  VALID_ROLES,
+  SYSTEM_ROLES,
+  VALID_ROLES, // alias retrocompat (= SYSTEM_ROLES)
   VALID_ACCESS_LEVELS,
   SUBSYSTEM_KEYS,
   ROLE_DEFAULTS, // alias retrocompat

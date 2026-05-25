@@ -6186,10 +6186,10 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Username e role são obrigatórios' });
     }
 
-    // Validar role (Fase 2.x: inclui 'manager')
-    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Role inválido. Use: superadmin, admin, manager, user ou guest' });
+    // Validar role contra a tabela roles (dinâmica desde fase 2.x — migration 044)
+    const roleRow = await db.getRoleByKey(role);
+    if (!roleRow) {
+      return res.status(400).json({ error: `Role inválida: "${role}" não existe` });
     }
 
     // Validar permissions (opcional). Se fornecido, deve ser array de pares
@@ -6257,11 +6257,11 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       canManageTcUsers,  // F2.4 — só superadmin pode alterar
     } = req.body;
 
-    // Validar role se fornecido (Fase 2.x: inclui 'manager')
+    // Validar role se fornecido (Fase 2.x: dinâmico contra tabela roles)
     if (role) {
-      const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
-      if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'Role inválido. Use: superadmin, admin, manager, user ou guest' });
+      const roleRow = await db.getRoleByKey(role);
+      if (!roleRow) {
+        return res.status(400).json({ error: `Role inválida: "${role}" não existe` });
       }
     }
 
@@ -6424,9 +6424,9 @@ app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, r
 app.get('/api/admin/permissions/defaults', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const role = String(req.query.role || '').trim();
-    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'role inválido' });
+    const roleRow = await db.getRoleByKey(role);
+    if (!roleRow) {
+      return res.status(400).json({ error: `Role inválida: "${role}" não existe` });
     }
     const matrix = await db.getDefaultPermissionsMatrix(role);
     return res.json({ success: true, data: { role, permissions: matrix } });
@@ -6445,10 +6445,11 @@ app.get('/api/admin/permissions/defaults', authenticateToken, requireAdmin, asyn
 // a matriz inicial.
 app.get('/api/admin/role-defaults', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const roles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+    // Lista dinâmica desde a 044 — inclui system + roles custom criadas pelo admin
+    const allRoles = await db.listRoles();
     const matrices = {};
-    for (const role of roles) {
-      matrices[role] = await db.getDefaultPermissionsMatrix(role);
+    for (const r of allRoles) {
+      matrices[r.key] = await db.getDefaultPermissionsMatrix(r.key);
     }
     return res.json({ success: true, data: { roles: matrices } });
   } catch (error) {
@@ -6464,9 +6465,9 @@ app.put('/api/admin/role-defaults/:role', authenticateToken, requireSuperAdmin, 
   try {
     const { role } = req.params;
     const { permissions } = req.body;
-    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'role inválido' });
+    const roleRow = await db.getRoleByKey(role);
+    if (!roleRow) {
+      return res.status(400).json({ error: `Role inválida: "${role}" não existe` });
     }
     if (!Array.isArray(permissions)) {
       return res.status(400).json({ error: 'permissions deve ser um array' });
@@ -6491,9 +6492,9 @@ app.put('/api/admin/role-defaults/:role', authenticateToken, requireSuperAdmin, 
 app.post('/api/admin/role-defaults/:role/reset', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const { role } = req.params;
-    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'role inválido' });
+    const roleRow = await db.getRoleByKey(role);
+    if (!roleRow) {
+      return res.status(400).json({ error: `Role inválida: "${role}" não existe` });
     }
     const applied = await db.resetRoleDefaultsToFallback(role);
     await logActivity(req, {
@@ -6506,6 +6507,125 @@ app.post('/api/admin/role-defaults/:role/reset', authenticateToken, requireSuper
     return res.json({ success: true, data: { role, count: applied.length } });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Erro ao resetar defaults' });
+  }
+});
+
+// ─── CRUD de roles (migration 044) ───────────────────────────────────────────
+// Superadmin gerencia o catálogo de funções. As 5 roles do sistema têm key
+// imutável e não podem ser deletadas — apenas label/description editáveis.
+
+// GET /api/admin/roles — lista todas (system + custom)
+app.get('/api/admin/roles', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const roles = await db.listRoles();
+    return res.json({ success: true, data: { roles } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao listar roles' });
+  }
+});
+
+// POST /api/admin/roles — cria role custom
+// Body: { key, label, description?, sortOrder?, cloneFromRole? }
+app.post('/api/admin/roles', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { key, label, description, sortOrder, cloneFromRole } = req.body;
+    if (cloneFromRole) {
+      const src = await db.getRoleByKey(cloneFromRole);
+      if (!src) return res.status(400).json({ error: `cloneFromRole inválido: "${cloneFromRole}"` });
+    }
+    const created = await db.createRole({ key, label, description, sortOrder, cloneFromRole });
+    await logActivity(req, {
+      action: 'role_create',
+      moduleKey: 'admin',
+      entityType: 'role',
+      entityId: created.key,
+      details: { label: created.label, cloneFromRole: cloneFromRole || null },
+    });
+    return res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Erro ao criar role' });
+  }
+});
+
+// PUT /api/admin/roles/:key — edita label/description/sortOrder
+// key e is_system permanecem imutáveis (inclusive para roles do sistema).
+app.put('/api/admin/roles/:key', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { label, description, sortOrder } = req.body;
+    const role = await db.getRoleByKey(key);
+    if (!role) return res.status(404).json({ error: 'Role não encontrada' });
+    const updated = await db.updateRoleMeta(key, { label, description, sortOrder });
+    await logActivity(req, {
+      action: 'role_update',
+      moduleKey: 'admin',
+      entityType: 'role',
+      entityId: key,
+    });
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Erro ao atualizar role' });
+  }
+});
+
+// DELETE /api/admin/roles/:key — exclui role custom
+// Falha 400 com code='ROLE_HAS_USERS' se houver usuários — a UI pode então
+// usar /usage pra listar e /migrate-users pra esvaziar antes de tentar de novo.
+app.delete('/api/admin/roles/:key', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { key } = req.params;
+    await db.deleteRole(key);
+    await logActivity(req, {
+      action: 'role_delete',
+      moduleKey: 'admin',
+      entityType: 'role',
+      entityId: key,
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    const payload = { error: error.message || 'Erro ao excluir role' };
+    if (error.code === 'ROLE_HAS_USERS') {
+      payload.code = 'ROLE_HAS_USERS';
+      payload.userCount = error.userCount;
+      return res.status(409).json(payload);
+    }
+    return res.status(400).json(payload);
+  }
+});
+
+// GET /api/admin/roles/:key/usage — lista users que usam esta role
+app.get('/api/admin/roles/:key/usage', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const role = await db.getRoleByKey(key);
+    if (!role) return res.status(404).json({ error: 'Role não encontrada' });
+    const users = await db.listUsersByRole(key);
+    return res.json({ success: true, data: { role: role.key, label: role.label, users } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao buscar uso da role' });
+  }
+});
+
+// POST /api/admin/roles/:fromKey/migrate-users
+// Body: { toKey, resetPermissions?: boolean }
+// Migra todos os usuários de fromKey para toKey, opcionalmente resetando
+// permissões para os defaults da role de destino.
+app.post('/api/admin/roles/:fromKey/migrate-users', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { fromKey } = req.params;
+    const { toKey, resetPermissions = true } = req.body;
+    if (!toKey) return res.status(400).json({ error: 'toKey obrigatório' });
+    const result = await db.migrateUsersBetweenRoles(fromKey, toKey, !!resetPermissions);
+    await logActivity(req, {
+      action: 'role_migrate_users',
+      moduleKey: 'admin',
+      entityType: 'role',
+      entityId: fromKey,
+      details: { toKey, migrated: result.migrated, resetCount: result.resetCount },
+    });
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Erro ao migrar usuários' });
   }
 });
 

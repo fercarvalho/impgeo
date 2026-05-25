@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 const {
-  VALID_ROLES,
+  SYSTEM_ROLES,
   VALID_ACCESS_LEVELS,
   FALLBACK_DEFAULTS,
   computeDefaultsForRole,
@@ -3741,10 +3741,11 @@ class Database {
    * Atômico via transação + invalida o cache.
    */
   async setRoleDefaultPermissions(role, permissions) {
-    if (!VALID_ROLES.includes(role)) {
+    await this.ensureProfileSchema();
+    const exists = await this.getRoleByKey(role);
+    if (!exists) {
       throw new Error(`Role inválida: ${role}`);
     }
-    await this.ensureProfileSchema();
 
     const catalog = await this.getModulesCatalog();
     const validKeys = new Set(catalog.map((m) => m.moduleKey));
@@ -3788,11 +3789,223 @@ class Database {
    * FALLBACK_DEFAULTS. Usado pelo botão "Restaurar padrão original" na UI.
    */
   async resetRoleDefaultsToFallback(role) {
-    if (!VALID_ROLES.includes(role)) throw new Error(`Role inválida: ${role}`);
+    if (!SYSTEM_ROLES.includes(role)) {
+      throw new Error(`Restaurar padrão original só está disponível para funções do sistema (${SYSTEM_ROLES.join(', ')}). Roles customizadas devem ser ajustadas manualmente.`);
+    }
     const catalog = await this.getModulesCatalog();
     // Calcula a lista usando o FALLBACK (passa null pra configMap)
     const fallback = computeDefaultsForRole(role, catalog, FALLBACK_DEFAULTS);
     return await this.setRoleDefaultPermissions(role, fallback);
+  }
+
+  // ─── CRUD de roles dinâmicas (migration 044) ──────────────────────────────
+
+  async listRoles() {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT key, label, description, is_system, sort_order, created_at, updated_at
+         FROM roles
+        ORDER BY is_system DESC, sort_order ASC, label ASC`
+    );
+    return result.rows.map((row) => ({
+      key:         row.key,
+      label:       row.label,
+      description: row.description,
+      isSystem:    row.is_system === true,
+      sortOrder:   row.sort_order,
+      createdAt:   row.created_at,
+      updatedAt:   row.updated_at,
+    }));
+  }
+
+  async getRoleByKey(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT key, label, description, is_system, sort_order, created_at, updated_at
+         FROM roles WHERE key = $1 LIMIT 1`,
+      [key]
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      key:         row.key,
+      label:       row.label,
+      description: row.description,
+      isSystem:    row.is_system === true,
+      sortOrder:   row.sort_order,
+      createdAt:   row.created_at,
+      updatedAt:   row.updated_at,
+    };
+  }
+
+  /**
+   * Cria uma role custom. Se cloneFromRole for passado, copia a matriz de
+   * defaults da role base; caso contrário, role nasce sem nenhuma permissão.
+   * key: snake_case lowercase obrigatório (a CHECK do banco também valida).
+   */
+  async createRole({ key, label, description, sortOrder, cloneFromRole }) {
+    await this.ensureProfileSchema();
+    if (!key || typeof key !== 'string') throw new Error('key obrigatório');
+    if (!label || typeof label !== 'string') throw new Error('label obrigatório');
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+      throw new Error('key deve ser snake_case minúsculo (letras, números e _)');
+    }
+    if (SYSTEM_ROLES.includes(key)) {
+      throw new Error(`A chave "${key}" pertence ao sistema e não pode ser usada para uma role nova.`);
+    }
+    const existing = await this.getRoleByKey(key);
+    if (existing) throw new Error(`Já existe uma função com a chave "${key}"`);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO roles (key, label, description, is_system, sort_order, created_at, updated_at)
+         VALUES ($1, $2, $3, FALSE, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [key, label.trim(), (description || '').trim() || null, Number.isFinite(sortOrder) ? sortOrder : 100]
+      );
+
+      if (cloneFromRole) {
+        const source = await client.query(
+          `SELECT module_key, access_level FROM role_default_permissions WHERE role = $1`,
+          [cloneFromRole]
+        );
+        for (const row of source.rows) {
+          await client.query(
+            `INSERT INTO role_default_permissions (role, module_key, access_level, updated_at)
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+            [key, row.module_key, row.access_level]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      this.invalidateRoleDefaultsCache();
+      return await this.getRoleByKey(key);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao criar role: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Atualiza label e/ou description de uma role. key e is_system são imutáveis.
+   * Funciona para roles do sistema também (só restringe key/is_system).
+   */
+  async updateRoleMeta(key, { label, description, sortOrder }) {
+    await this.ensureProfileSchema();
+    const role = await this.getRoleByKey(key);
+    if (!role) throw new Error('Role não encontrada');
+
+    const sets = [];
+    const params = [];
+    if (typeof label === 'string' && label.trim()) {
+      params.push(label.trim());
+      sets.push(`label = $${params.length}`);
+    }
+    if (description !== undefined) {
+      params.push(description === null ? null : String(description).trim() || null);
+      sets.push(`description = $${params.length}`);
+    }
+    if (Number.isFinite(sortOrder)) {
+      params.push(sortOrder);
+      sets.push(`sort_order = $${params.length}`);
+    }
+    if (sets.length === 0) return role;
+
+    params.push(key);
+    await this.queryWithRetry(
+      `UPDATE roles SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE key = $${params.length}`,
+      params
+    );
+    return await this.getRoleByKey(key);
+  }
+
+  async countUsersByRole(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT COUNT(*)::int AS n FROM users WHERE role = $1`,
+      [key]
+    );
+    return result.rows[0]?.n || 0;
+  }
+
+  async listUsersByRole(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT id, username, first_name, last_name FROM users WHERE role = $1 ORDER BY username`,
+      [key]
+    );
+    return result.rows.map((row) => ({
+      id:        row.id,
+      username:  row.username,
+      firstName: row.first_name || null,
+      lastName:  row.last_name || null,
+    }));
+  }
+
+  /**
+   * Exclui uma role custom. Falha se for is_system OU se houver users com ela.
+   * role_default_permissions é apagada em cascata pela FK.
+   */
+  async deleteRole(key) {
+    await this.ensureProfileSchema();
+    const role = await this.getRoleByKey(key);
+    if (!role) throw new Error('Role não encontrada');
+    if (role.isSystem) {
+      throw new Error('Funções do sistema não podem ser excluídas.');
+    }
+    const userCount = await this.countUsersByRole(key);
+    if (userCount > 0) {
+      const err = new Error(`Não é possível excluir: ${userCount} usuário(s) ainda usam esta função. Migre-os para outra função antes.`);
+      err.code = 'ROLE_HAS_USERS';
+      err.userCount = userCount;
+      throw err;
+    }
+    await this.queryWithRetry(`DELETE FROM roles WHERE key = $1`, [key]);
+    this.invalidateRoleDefaultsCache();
+    return true;
+  }
+
+  /**
+   * Migra usuários de uma role para outra. Se resetPermissions=true, reaplica
+   * os defaults da role nova para cada um (igual ao botão da UI quando troca-
+   * se role); caso contrário só atualiza a coluna role.
+   */
+  async migrateUsersBetweenRoles(fromKey, toKey, resetPermissions = true) {
+    await this.ensureProfileSchema();
+    if (fromKey === toKey) throw new Error('Origem e destino são iguais.');
+    const from = await this.getRoleByKey(fromKey);
+    if (!from) throw new Error(`Role origem não encontrada: ${fromKey}`);
+    const to = await this.getRoleByKey(toKey);
+    if (!to) throw new Error(`Role destino não encontrada: ${toKey}`);
+
+    const usersToMigrate = await this.queryWithRetry(
+      `SELECT id FROM users WHERE role = $1`,
+      [fromKey]
+    );
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE role = $2`, [toKey, fromKey]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao migrar usuários: ' + error.message);
+    } finally {
+      client.release();
+    }
+
+    let resetCount = 0;
+    if (resetPermissions) {
+      for (const row of usersToMigrate.rows) {
+        await this.resetUserPermissionsToDefaults(row.id, toKey);
+        resetCount++;
+      }
+    }
+    return { migrated: usersToMigrate.rows.length, resetCount };
   }
 
   async getUserPermissionsMatrix(userId) {
