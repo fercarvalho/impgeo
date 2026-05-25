@@ -105,11 +105,25 @@ const TcLoggedView: React.FC = () => {
   }, [])
 
   // Sincroniza records ao montar (e quando filtro/refetchKey muda).
+  //
+  // BUG histórico: o Service Worker (public/sw.js) faz stale-while-revalidate
+  // pro endpoint /api/tc-auth/me/records (allowlist). Resultado:
+  //   1. user pede revisão / aprova / paga
+  //   2. mutation POST OK (não passa pelo SW cache)
+  //   3. refetch → SW retorna cache stale → banner persiste com status velho
+  //   4. F5 → cache foi atualizado em background → banner some
+  // Solução: quando refetchKey > 0 (i.e., refetch acionado por ação ou push,
+  // não o mount inicial), adicionamos param ?_t=<refetchKey> que vira uma
+  // URL não-cacheada — força o SW a buscar fresco do servidor. Mount sem o
+  // param mantém o cache pra offline funcionar.
   React.useEffect(() => {
     if (!tcToken) return
     const ctrl = new AbortController()
-    const qs = approvalFilter === 'approved' ? '?onlyApproved=true' : ''
-    fetch(`/api/tc-auth/me/records${qs}`, {
+    const params = new URLSearchParams()
+    if (approvalFilter === 'approved') params.set('onlyApproved', 'true')
+    if (refetchKey > 0) params.set('_t', String(refetchKey))
+    const qs = params.toString()
+    fetch(`/api/tc-auth/me/records${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${tcToken}` },
       credentials: 'include',
       signal: ctrl.signal,

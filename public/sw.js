@@ -55,8 +55,13 @@ const PRECACHE_URLS = [
 //      validar-token) — esses são one-shot ou sensíveis.
 const TC_GET_ALLOWLIST = [
   /^\/api\/tc-auth\/me$/,
-  /^\/api\/tc-auth\/me\/records(\?.*)?$/,
-  /^\/api\/tc-auth\/me\/records\/[\w-]+$/,
+  // /api/tc-auth/me/records foi removido do cache: stale-while-revalidate
+  // estava devolvendo dados velhos depois que o user fazia ação (aprovar,
+  // pedir revisão, pagar) — banner "Orçamento aguardando você" persistia
+  // até F5. Como records muda toda hora (mutations frequentes) e o
+  // refetch é sempre acompanhado de UI feedback, network-only é o certo.
+  // /api/tc-auth/me/records/:id idem — usado dentro de TcBudgetViewScreen,
+  // que sempre tem refetch ao montar.
   /^\/api\/tc-auth\/me\/share-links(\?.*)?$/,
   /^\/api\/tc-auth\/notifications(\?.*)?$/,
 ];
