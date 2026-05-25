@@ -104,6 +104,28 @@ const TcLoggedView: React.FC = () => {
     return () => window.removeEventListener('tc-records-changed', handler)
   }, [])
 
+  // Fallback de polling + visibility/focus pro records — mesmo padrão do
+  // sino (que já tem). Push é o caminho ideal pra real-time, mas se a
+  // subscription não estiver ativa (user nunca habilitou push nessa
+  // origem, ou SW dormindo), o banner ficaria preso até F5.
+  //   - Polling a cada 30s garante atualização periódica
+  //   - visibilitychange/focus pega o momento em que o user volta pra aba
+  React.useEffect(() => {
+    if (!tcToken) return
+    const t = setInterval(() => setRefetchKey(k => k + 1), 30_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setRefetchKey(k => k + 1)
+    }
+    const onFocus = () => setRefetchKey(k => k + 1)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [tcToken])
+
   // Sincroniza records ao montar (e quando filtro/refetchKey muda).
   //
   // BUG histórico: o Service Worker (public/sw.js) faz stale-while-revalidate
