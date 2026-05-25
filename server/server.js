@@ -6435,6 +6435,80 @@ app.get('/api/admin/permissions/defaults', authenticateToken, requireAdmin, asyn
   }
 });
 
+// ─── Defaults editáveis (Fase 2.x) ───────────────────────────────────────────
+// Gerenciamento das tabelas role_default_permissions. Só superadmin edita;
+// admins comuns só leem (via /api/admin/permissions/defaults acima).
+
+// GET /api/admin/role-defaults
+// Retorna a matriz completa { roles: { [role]: [{moduleKey, ...}] } } com 5
+// roles × 21 módulos. Usado pelo painel "Padrões de Função" pra renderizar
+// a matriz inicial.
+app.get('/api/admin/role-defaults', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const roles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+    const matrices = {};
+    for (const role of roles) {
+      matrices[role] = await db.getDefaultPermissionsMatrix(role);
+    }
+    return res.json({ success: true, data: { roles: matrices } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar defaults' });
+  }
+});
+
+// PUT /api/admin/role-defaults/:role
+// Body: { permissions: [{ moduleKey, accessLevel: 'view'|'edit' }] }
+// Substitui os defaults de uma role. Módulos ausentes do array = sem acesso.
+// Invalida cache automaticamente.
+app.put('/api/admin/role-defaults/:role', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { role } = req.params;
+    const { permissions } = req.body;
+    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'role inválido' });
+    }
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ error: 'permissions deve ser um array' });
+    }
+    const applied = await db.setRoleDefaultPermissions(role, permissions);
+    await logActivity(req, {
+      action: 'role_defaults_update',
+      moduleKey: 'admin',
+      entityType: 'role_defaults',
+      entityId: role,
+      details: { count: applied.length },
+    });
+    return res.json({ success: true, data: { role, count: applied.length } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao salvar defaults' });
+  }
+});
+
+// POST /api/admin/role-defaults/:role/reset
+// Restaura os defaults da role para os valores hardcoded originais
+// (FALLBACK_DEFAULTS em defaults.js).
+app.post('/api/admin/role-defaults/:role/reset', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { role } = req.params;
+    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'role inválido' });
+    }
+    const applied = await db.resetRoleDefaultsToFallback(role);
+    await logActivity(req, {
+      action: 'role_defaults_reset',
+      moduleKey: 'admin',
+      entityType: 'role_defaults',
+      entityId: role,
+      details: { count: applied.length },
+    });
+    return res.json({ success: true, data: { role, count: applied.length } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao resetar defaults' });
+  }
+});
+
 // GET /api/admin/users/:id/permissions
 // Retorna a matriz [{ moduleKey, moduleName, subsystemKey, accessLevel|null }]
 app.get('/api/admin/users/:id/permissions', authenticateToken, requireAdmin, async (req, res) => {

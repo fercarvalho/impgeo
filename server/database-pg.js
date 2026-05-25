@@ -1,8 +1,11 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 const {
+  VALID_ROLES,
   VALID_ACCESS_LEVELS,
+  FALLBACK_DEFAULTS,
   computeDefaultsForRole,
+  buildRoleMapFromDbRows,
   getDefaultLevelForRoleAndSubsystem,
   getDefaultOverridesForRole,
 } = require('./permissions/defaults');
@@ -3659,16 +3662,66 @@ class Database {
    * Cada item: { moduleKey, moduleName, subsystemKey, accessLevel | null }
    * accessLevel === null significa "sem acesso".
    */
+  // ─── Defaults editáveis (Fase 2.x — migration 043) ──────────────────────
+  //
+  // O mapa role→subsystema→level vive na tabela role_default_permissions.
+  // Mantemos um cache em memória pra não bater no banco em todo seed; é
+  // invalidado quando o admin salva mudanças via setRoleDefaultPermissions.
+
+  /**
+   * Carrega o mapa de defaults do banco (cached). Retorna config no formato
+   * subsystem-level com moduleOverrides, igual ao FALLBACK_DEFAULTS — pode
+   * ser passado direto pra computeDefaultsForRole.
+   *
+   * Se a tabela está vazia (edge case: migration 043 não rodou ou alguém
+   * deletou tudo), retorna FALLBACK_DEFAULTS para que o sistema continue
+   * funcionando.
+   */
+  async loadRoleDefaultsMap() {
+    if (this._roleDefaultsMapCache) return this._roleDefaultsMapCache;
+
+    await this.ensureProfileSchema();
+
+    // Tabela pode ainda não existir se a 043 não rodou
+    const tableExists = await this.queryWithRetry(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.tables
+          WHERE table_name = 'role_default_permissions'
+       ) AS ok`
+    );
+    if (!tableExists.rows[0]?.ok) {
+      this._roleDefaultsMapCache = FALLBACK_DEFAULTS;
+      return this._roleDefaultsMapCache;
+    }
+
+    const result = await this.queryWithRetry(
+      `SELECT role, module_key AS "moduleKey", access_level AS "accessLevel"
+         FROM role_default_permissions`
+    );
+    if (result.rows.length === 0) {
+      this._roleDefaultsMapCache = FALLBACK_DEFAULTS;
+      return this._roleDefaultsMapCache;
+    }
+
+    const catalog = await this.getModulesCatalog();
+    this._roleDefaultsMapCache = buildRoleMapFromDbRows(result.rows, catalog);
+    return this._roleDefaultsMapCache;
+  }
+
+  invalidateRoleDefaultsCache() {
+    this._roleDefaultsMapCache = null;
+  }
+
   /**
    * Retorna a matriz default que um usuário NOVO da role passada teria, no
    * mesmo formato do getUserPermissionsMatrix — módulos sem acesso aparecem
-   * com accessLevel:null. Usado pelo modal "Novo Usuário" para pré-popular
-   * a tela de permissões granulares antes da criação efetiva.
+   * com accessLevel:null. Usa o mapa editável (cache do DB) como fonte.
    */
   async getDefaultPermissionsMatrix(role) {
     await this.ensureProfileSchema();
     const catalog = await this.getModulesCatalog();
-    const defaults = computeDefaultsForRole(role, catalog);
+    const configMap = await this.loadRoleDefaultsMap();
+    const defaults = computeDefaultsForRole(role, catalog, configMap);
     const defaultsMap = new Map(defaults.map((d) => [d.moduleKey, d.accessLevel]));
     return catalog
       .filter((m) => m.isActive !== false)
@@ -3679,6 +3732,67 @@ class Database {
         sortOrder:    m.sortOrder,
         accessLevel:  defaultsMap.get(m.moduleKey) || null,
       }));
+  }
+
+  /**
+   * Substitui todos os defaults de uma role pelo array passado. Aceita o
+   * mesmo shape de setUserPermissionsMatrix: [{moduleKey, accessLevel}].
+   * Módulos ausentes do array são apagados (= "sem acesso" no default).
+   * Atômico via transação + invalida o cache.
+   */
+  async setRoleDefaultPermissions(role, permissions) {
+    if (!VALID_ROLES.includes(role)) {
+      throw new Error(`Role inválida: ${role}`);
+    }
+    await this.ensureProfileSchema();
+
+    const catalog = await this.getModulesCatalog();
+    const validKeys = new Set(catalog.map((m) => m.moduleKey));
+    const seen = new Set();
+    const sanitized = [];
+    for (const item of (permissions || [])) {
+      if (!item || typeof item !== 'object') continue;
+      const moduleKey = item.moduleKey;
+      const accessLevel = item.accessLevel;
+      if (!validKeys.has(moduleKey)) continue;
+      if (!VALID_ACCESS_LEVELS.includes(accessLevel)) continue;
+      if (seen.has(moduleKey)) continue;
+      seen.add(moduleKey);
+      sanitized.push({ moduleKey, accessLevel });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM role_default_permissions WHERE role = $1', [role]);
+      for (const { moduleKey, accessLevel } of sanitized) {
+        await client.query(
+          `INSERT INTO role_default_permissions (role, module_key, access_level, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+          [role, moduleKey, accessLevel]
+        );
+      }
+      await client.query('COMMIT');
+      this.invalidateRoleDefaultsCache();
+      return sanitized;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao salvar defaults da role: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Restaura os defaults de uma role para os valores hardcoded do
+   * FALLBACK_DEFAULTS. Usado pelo botão "Restaurar padrão original" na UI.
+   */
+  async resetRoleDefaultsToFallback(role) {
+    if (!VALID_ROLES.includes(role)) throw new Error(`Role inválida: ${role}`);
+    const catalog = await this.getModulesCatalog();
+    // Calcula a lista usando o FALLBACK (passa null pra configMap)
+    const fallback = computeDefaultsForRole(role, catalog, FALLBACK_DEFAULTS);
+    return await this.setRoleDefaultPermissions(role, fallback);
   }
 
   async getUserPermissionsMatrix(userId) {
@@ -3772,7 +3886,8 @@ class Database {
     if (!role) throw new Error('Usuário não encontrado para reset de permissões');
 
     const catalog = await this.getModulesCatalog();
-    const defaults = computeDefaultsForRole(role, catalog);
+    const configMap = await this.loadRoleDefaultsMap();
+    const defaults = computeDefaultsForRole(role, catalog, configMap);
     return await this.setUserPermissionsMatrix(userId, defaults);
   }
 
@@ -4243,10 +4358,12 @@ class Database {
       await this.ensureProfileSchema();
     }
 
-    // Fase 2.1: usa defaults granulares (cada módulo pode ter view ou edit
-    // dependendo do subsistema + role). Antigo modelo "1 accessLevel por
-    // role" foi deprecado em favor de computeDefaultsForRole().
-    const permissions = this.getDefaultPermissionsByRole(role);
+    // Fase 2.x: usa defaults editáveis (role_default_permissions, migration
+    // 043). Caímos no FALLBACK_DEFAULTS automaticamente se a tabela estiver
+    // vazia. computeDefaultsForRole é puro — recebe o mapa do DB.
+    const catalog = await this.getModulesCatalog();
+    const configMap = await this.loadRoleDefaultsMap();
+    const permissions = computeDefaultsForRole(role, catalog, configMap);
     const now = new Date().toISOString();
 
     for (const { moduleKey, accessLevel } of permissions) {

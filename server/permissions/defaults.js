@@ -1,12 +1,22 @@
 // =============================================================================
-// Defaults de permissões por role (Fase 2.1)
+// Defaults de permissões por role (Fase 2.1 → editáveis na Fase 2.x)
 // =============================================================================
 //
-// Fonte da verdade do mapeamento role × subsistema → access_level.
-// Espelha exatamente o que a migration 042 aplicou no banco para os usuários
-// existentes — qualquer novo usuário ou reset deve produzir o mesmo resultado.
+// Desde a migration 043, os defaults VIVEM NO BANCO (tabela
+// role_default_permissions) e podem ser editados pelo painel admin.
 //
-// Tabela canônica (role × subsistema):
+// Este arquivo permanece como a CAMADA LÓGICA:
+//   - Mantém o mapa hardcoded FALLBACK_DEFAULTS — usado como (a) fallback
+//     quando o banco não tem registros (migration ainda não rodou ou alguém
+//     deletou tudo) e (b) referência canônica para o botão "Restaurar padrão
+//     original" na UI.
+//   - Expõe computeDefaultsForRole(role, catalog, dbMap?) — função pura que
+//     recebe o mapa do DB (ou usa fallback) e calcula a lista
+//     [{moduleKey, accessLevel}] respeitando o catálogo de módulos.
+//   - Conversores buildRoleMapFromDbRows / buildRoleMapFromMatrix ajudam o
+//     caller (database-pg.js, server.js) a transformar entre formatos.
+//
+// Tabela canônica (fallback hardcoded — SEED da migration 043):
 //
 //   ┌─────────────┬───────┬────────┬──────────┬───────────────┬──────────┐
 //   │ role        │ admin │ gestao │ financ.  │ gerenciamento │ especial │
@@ -17,23 +27,15 @@
 //   │ user        │  —    │ view   │ view     │ edit          │ edit     │
 //   │ guest       │  —    │ view²  │ view     │ view          │ view     │
 //   └─────────────┴───────┴────────┴──────────┴───────────────┴──────────┘
-//   ¹ admin: só módulo 'admin' (UserManagement); sessions/anomalies/
-//     security_alerts permanecem exclusivos do superadmin.
-//   ² guest/gestao: só faq + documentacao (sem roadmap).
-//
-// Convenção:
-//   - subsystemDefault === null  → sem acesso ao subsistema inteiro
-//   - subsystemDefault === 'view' | 'edit' → todos os módulos do subsistema
-//     recebem esse nível, exceto overrides
-//   - moduleOverrides[moduleKey] === 'none' → remove módulo
-//   - moduleOverrides[moduleKey] === 'view' | 'edit' → força nível específico
 // =============================================================================
 
 const VALID_ROLES = ['superadmin', 'admin', 'manager', 'user', 'guest'];
 const VALID_ACCESS_LEVELS = ['view', 'edit'];
 const SUBSYSTEM_KEYS = ['admin', 'gestao', 'financeiro', 'gerenciamento', 'especial'];
 
-const ROLE_DEFAULTS = {
+// Hardcoded — fonte original e fallback. Estrutura subsystem-level com
+// moduleOverrides; convertida em computeDefaultsForRole abaixo.
+const FALLBACK_DEFAULTS = {
   superadmin: {
     admin:         'edit',
     gestao:        'edit',
@@ -48,7 +50,6 @@ const ROLE_DEFAULTS = {
     gerenciamento: 'edit',
     especial:      'edit',
     moduleOverrides: {
-      // Exclusivos do superadmin
       sessions:        'none',
       anomalies:       'none',
       security_alerts: 'none',
@@ -75,23 +76,28 @@ const ROLE_DEFAULTS = {
     gerenciamento: 'view',
     especial:      'view',
     moduleOverrides: {
-      // guest não tem acesso a roadmap
       roadmap: 'none',
     },
   },
 };
 
+// Alias antigo (retrocompat de imports externos)
+const ROLE_DEFAULTS = FALLBACK_DEFAULTS;
+
 /**
- * Calcula a lista de permissões [{moduleKey, accessLevel}] que um usuário com
- * determinada role deveria ter, dadas as informações do catálogo de módulos.
+ * Calcula a lista de permissões a partir do mapa subsystem-level + overrides.
+ * Função pura, sem I/O.
  *
  * @param {string} role
- * @param {Array<{moduleKey:string, subsystemKey:string, isActive?:boolean}>} catalog
- * @returns {Array<{moduleKey:string, accessLevel:'view'|'edit'}>}
+ * @param {Array<{moduleKey, subsystemKey, isActive?}>} catalog
+ * @param {object|null} configMap  Mapa role → {subsystemKey: level, moduleOverrides?}
+ *                                  Se null, usa FALLBACK_DEFAULTS.
+ * @returns {Array<{moduleKey, accessLevel}>}
  */
-function computeDefaultsForRole(role, catalog) {
+function computeDefaultsForRole(role, catalog, configMap = null) {
   if (!VALID_ROLES.includes(role)) return [];
-  const config = ROLE_DEFAULTS[role];
+  const root = configMap || FALLBACK_DEFAULTS;
+  const config = root[role];
   if (!config) return [];
 
   const overrides = config.moduleOverrides || {};
@@ -102,19 +108,15 @@ function computeDefaultsForRole(role, catalog) {
     const moduleKey = module.moduleKey;
     const subsystemKey = module.subsystemKey;
 
-    // Override de módulo tem prioridade
     if (Object.prototype.hasOwnProperty.call(overrides, moduleKey)) {
       const overrideLevel = overrides[moduleKey];
-      if (overrideLevel === 'none' || overrideLevel === null) {
-        continue; // não inclui esse módulo
-      }
+      if (overrideLevel === 'none' || overrideLevel === null) continue;
       if (VALID_ACCESS_LEVELS.includes(overrideLevel)) {
         result.push({ moduleKey, accessLevel: overrideLevel });
         continue;
       }
     }
 
-    // Default do subsistema
     const subsystemDefault = config[subsystemKey];
     if (subsystemDefault === null || subsystemDefault === undefined) continue;
     if (VALID_ACCESS_LEVELS.includes(subsystemDefault)) {
@@ -126,25 +128,96 @@ function computeDefaultsForRole(role, catalog) {
 }
 
 /**
- * Retorna o access_level default para um par (role, subsystemKey), ignorando
- * overrides de módulos individuais. Útil para a UI que mostra o "estado base"
- * de um subsistema antes de o usuário editar individualmente.
+ * Constrói o mapa subsystem-level a partir de uma matriz role-flat vinda do
+ * banco. Quando a maioria dos módulos de um subsistema concorda no mesmo
+ * nível, vira o default do subsistema; divergências viram moduleOverrides.
+ * Módulos ausentes (sem perm) viram override 'none' apenas se o subsistema
+ * tem default não-nulo (caso contrário ficam fora porque o subsistema já
+ * está vazio).
  *
- * @returns {'view'|'edit'|null}
+ * Esse formato bidirecional permite que a UI edite por matriz (granular)
+ * e a tabela canônica continue legível por humanos.
+ *
+ * @param {Array<{role, moduleKey, accessLevel}>} dbRows
+ * @param {Array<{moduleKey, subsystemKey}>} catalog
+ * @returns {object} mapa role → {subsystem: level, moduleOverrides}
  */
-function getDefaultLevelForRoleAndSubsystem(role, subsystemKey) {
-  const config = ROLE_DEFAULTS[role];
+function buildRoleMapFromDbRows(dbRows, catalog) {
+  const moduleToSubsystem = new Map(catalog.map((m) => [m.moduleKey, m.subsystemKey]));
+  const subsystemModules = new Map();
+  for (const m of catalog) {
+    if (!subsystemModules.has(m.subsystemKey)) subsystemModules.set(m.subsystemKey, []);
+    subsystemModules.get(m.subsystemKey).push(m.moduleKey);
+  }
+
+  // Agrupa rows por role e subsistema
+  const grouped = {};
+  for (const role of VALID_ROLES) {
+    grouped[role] = {};
+    for (const sub of SUBSYSTEM_KEYS) grouped[role][sub] = new Map();
+  }
+  for (const row of dbRows) {
+    if (!VALID_ROLES.includes(row.role)) continue;
+    const subsystem = moduleToSubsystem.get(row.moduleKey);
+    if (!subsystem) continue;
+    grouped[row.role][subsystem].set(row.moduleKey, row.accessLevel);
+  }
+
+  const result = {};
+  for (const role of VALID_ROLES) {
+    const config = {};
+    const overrides = {};
+    for (const sub of SUBSYSTEM_KEYS) {
+      const subModules = subsystemModules.get(sub) || [];
+      const grantedMap = grouped[role][sub]; // Map<moduleKey, level>
+
+      if (grantedMap.size === 0) {
+        config[sub] = null;
+        continue;
+      }
+
+      // Conta níveis para escolher o "default" do subsistema (modo)
+      const levelCount = { view: 0, edit: 0 };
+      for (const lvl of grantedMap.values()) levelCount[lvl]++;
+      const dominantLevel = levelCount.edit >= levelCount.view ? 'edit' : 'view';
+
+      // Se TODOS os módulos do subsistema têm o mesmo nível → default puro
+      if (grantedMap.size === subModules.length) {
+        const allSame = subModules.every((mk) => grantedMap.get(mk) === dominantLevel);
+        if (allSame) {
+          config[sub] = dominantLevel;
+          continue;
+        }
+      }
+
+      // Há divergência: default = dominante, overrides para o resto
+      config[sub] = dominantLevel;
+      for (const mk of subModules) {
+        const lvl = grantedMap.get(mk);
+        if (lvl === undefined) {
+          overrides[mk] = 'none';
+        } else if (lvl !== dominantLevel) {
+          overrides[mk] = lvl;
+        }
+      }
+    }
+    if (Object.keys(overrides).length > 0) config.moduleOverrides = overrides;
+    result[role] = config;
+  }
+  return result;
+}
+
+function getDefaultLevelForRoleAndSubsystem(role, subsystemKey, configMap = null) {
+  const root = configMap || FALLBACK_DEFAULTS;
+  const config = root[role];
   if (!config) return null;
   const level = config[subsystemKey];
   return level === undefined ? null : level;
 }
 
-/**
- * Lista módulos com override 'none' para a role — usado pela UI pra mostrar
- * "exclusivo do superadmin" ou "removido por padrão pra essa role".
- */
-function getDefaultOverridesForRole(role) {
-  const config = ROLE_DEFAULTS[role];
+function getDefaultOverridesForRole(role, configMap = null) {
+  const root = configMap || FALLBACK_DEFAULTS;
+  const config = root[role];
   if (!config) return {};
   return { ...(config.moduleOverrides || {}) };
 }
@@ -153,8 +226,10 @@ module.exports = {
   VALID_ROLES,
   VALID_ACCESS_LEVELS,
   SUBSYSTEM_KEYS,
-  ROLE_DEFAULTS,
+  ROLE_DEFAULTS, // alias retrocompat
+  FALLBACK_DEFAULTS,
   computeDefaultsForRole,
+  buildRoleMapFromDbRows,
   getDefaultLevelForRoleAndSubsystem,
   getDefaultOverridesForRole,
 };
