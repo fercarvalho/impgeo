@@ -229,7 +229,12 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
     }
 
     // F: notificação de novo registro criado por tc_user — abre módulo TerraControl
-    if (n.notification_type === 'tc_record_created') {
+    // G10.1: tc_record_edited_by_user — tc_user editou imóvel; mesmo deep-link
+    // pro registro, admin abre o modal de edição e vê os campos atualizados.
+    if (
+      n.notification_type === 'tc_record_created' ||
+      n.notification_type === 'tc_record_edited_by_user'
+    ) {
       setOpen(false)
       const params = new URLSearchParams({ subsystem: 'especial', module: 'terracontrol' })
       if (n.related_entity_id) params.set('record', n.related_entity_id)
