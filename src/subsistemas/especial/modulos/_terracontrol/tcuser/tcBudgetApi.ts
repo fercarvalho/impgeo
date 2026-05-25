@@ -91,3 +91,22 @@ export const refreshPix = (tcToken: string | null, budgetId: string) =>
     { method: 'POST' },
     tcToken
   )
+
+// G10.2 — marca como lidas todas notificações do tc_user sobre uma entidade.
+// Usado quando o user engaja com o entity (ex: abre TcBudgetViewScreen,
+// aprova orçamento, pede revisão, paga) — as notifs daquele budget viram
+// "lidas" automaticamente sem precisar clicar no sininho.
+// Retorna quantas notifs foram afetadas pro front decidir se decrementa.
+export const markNotificationsByEntityRead = (
+  tcToken: string | null,
+  entityType: string,
+  entityId: string,
+) => request<{ affected: number }>(
+  `/tc-auth/notifications/read-by-entity`,
+  {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity_type: entityType, entity_id: entityId }),
+  },
+  tcToken,
+)
