@@ -1,5 +1,11 @@
 require('dotenv').config();
 const { Pool } = require('pg');
+const {
+  VALID_ACCESS_LEVELS,
+  computeDefaultsForRole,
+  getDefaultLevelForRoleAndSubsystem,
+  getDefaultOverridesForRole,
+} = require('./permissions/defaults');
 
 function toCamelCase(obj) {
   if (Array.isArray(obj)) return obj.map(toCamelCase);
@@ -115,37 +121,29 @@ class Database {
     ];
   }
 
-  getDefaultModuleKeysByRole(role) {
-    const allModuleKeys = this.getDefaultModulesCatalog().map((module) => module.moduleKey);
-    const superadminOnlyModules = ['sessions', 'anomalies', 'security_alerts'];
-    const adminAndSuperadminModules = ['roadmap'];
-    switch (role) {
-      case 'superadmin':
-        return allModuleKeys;
-      case 'admin':
-        return allModuleKeys.filter((moduleKey) => !superadminOnlyModules.includes(moduleKey));
-      case 'user':
-        return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin' && !superadminOnlyModules.includes(moduleKey) && !adminAndSuperadminModules.includes(moduleKey));
-      case 'guest':
-        return allModuleKeys.filter(
-          (moduleKey) => !['admin', 'dre', 'terracontrol', ...superadminOnlyModules, ...adminAndSuperadminModules].includes(moduleKey)
-        );
-      default:
-        return [];
-    }
+  // Fase 2.1: fonte da verdade dos defaults vive em ./permissions/defaults.js.
+  // As helpers abaixo são wrappers finos que delegam, mantendo a API antiga
+  // para callers ainda não migrados (que vão sumir nas próximas sub-fases).
+
+  getDefaultPermissionsByRole(role) {
+    const catalog = this.getDefaultModulesCatalog();
+    return computeDefaultsForRole(role, catalog);
   }
 
+  getDefaultModuleKeysByRole(role) {
+    return this.getDefaultPermissionsByRole(role).map((perm) => perm.moduleKey);
+  }
+
+  // DEPRECATED — não há mais "um único nível por role", as roles mistas
+  // (user, guest) precisam de níveis diferentes por subsistema. Mantido por
+  // compat: retorna o nível mais permissivo que a role tem em qualquer
+  // subsistema. Quem precisar do mapeamento real deve usar
+  // getDefaultPermissionsByRole().
   getDefaultAccessLevelByRole(role) {
-    switch (role) {
-      case 'superadmin':
-      case 'admin':
-        return 'edit';
-      case 'user':
-        return 'write';
-      case 'guest':
-      default:
-        return 'view';
-    }
+    const perms = this.getDefaultPermissionsByRole(role);
+    if (perms.some((p) => p.accessLevel === 'edit')) return 'edit';
+    if (perms.some((p) => p.accessLevel === 'view')) return 'view';
+    return 'view';
   }
 
   async ensureProfileSchema() {
@@ -218,7 +216,7 @@ class Database {
           id VARCHAR(255) PRIMARY KEY,
           user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           module_key VARCHAR(100) NOT NULL REFERENCES modules_catalog(module_key) ON DELETE CASCADE,
-          access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'write', 'edit')),
+          access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'edit')),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(user_id, module_key)
@@ -318,41 +316,14 @@ class Database {
         await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
       }
 
-      // Garantir que módulos novos existam para todos os usuários sem
-      // permissão prévia. Cobre tanto usuários pré-faq/documentacao quanto
-      // pré-fase 1.7 (4 módulos novos do subsistema gerenciamento).
-      // user/guest ainda recebem a permissão aqui — o bloqueio efetivo deles
-      // é em camada superior (fase 1.8 — bloqueio do subsistema inteiro).
-      const newModules = [
-        { key: 'faq' },
-        { key: 'documentacao' },
-        { key: 'dashboard_gerenciamento' },
-        { key: 'metas_gerenciamento' },
-        { key: 'projecao_gerenciamento' },
-        { key: 'relatorios_gerenciamento' },
-      ];
-      for (const mod of newModules) {
-        await this.queryWithRetry(`
-          INSERT INTO user_module_permissions (id, user_id, module_key, access_level, created_at, updated_at)
-          SELECT
-            CONCAT(u.id, '-', $1::varchar),
-            u.id,
-            $1::varchar,
-            CASE u.role
-              WHEN 'superadmin' THEN 'edit'
-              WHEN 'admin'      THEN 'edit'
-              WHEN 'user'       THEN 'write'
-              ELSE                   'view'
-            END,
-            NOW(), NOW()
-          FROM users u
-          WHERE NOT EXISTS (
-            SELECT 1 FROM user_module_permissions
-            WHERE user_id = u.id AND module_key = $1::varchar
-          )
-          ON CONFLICT DO NOTHING
-        `, [mod.key]);
-      }
+      // Fase 2.1: o seed legado por-módulo (que populava com 'write' para
+      // user) foi removido. A migration 042 já populou todos os usuários
+      // existentes via defaults de role. Para usuários NOVOS, o caminho é
+      // seedUserModulePermissionsFromRole(), que delega para defaults.js.
+      // Para módulos novos adicionados depois da 042: chamar
+      // resetUserPermissionsToDefaults(userId, role) ou aplicar uma migration
+      // específica (como a 017 fez para os 4 módulos do gerenciamento).
+
 
       // ── Tabelas de segurança / sessões ─────────────────────────
       await this.queryWithRetry(`
@@ -3448,9 +3419,11 @@ class Database {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
       `
-        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
+        SELECT module_key, module_name, icon_name, description, route_path,
+               is_system, is_active, sort_order, subsystem_key,
+               created_at, updated_at
         FROM modules_catalog
-        ORDER BY sort_order ASC NULLS LAST, module_name ASC
+        ORDER BY subsystem_key ASC, sort_order ASC NULLS LAST, module_name ASC
       `
     );
     return result.rows.map((row) => ({
@@ -3462,6 +3435,7 @@ class Database {
       isSystem: row.is_system === true,
       isActive: row.is_active !== false,
       sortOrder: row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null
     }));
@@ -3674,6 +3648,167 @@ class Database {
     } finally {
       client.release();
     }
+  }
+
+  // ─── Permissões granulares (Fase 2.1) ─────────────────────────────────────
+
+  /**
+   * Retorna a matriz completa de permissões de um usuário, juntando o catálogo
+   * de módulos (para cobrir módulos sem permissão) com o estado atual.
+   *
+   * Cada item: { moduleKey, moduleName, subsystemKey, accessLevel | null }
+   * accessLevel === null significa "sem acesso".
+   */
+  async getUserPermissionsMatrix(userId) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `
+        SELECT mc.module_key, mc.module_name, mc.subsystem_key,
+               mc.sort_order, ump.access_level
+          FROM modules_catalog mc
+          LEFT JOIN user_module_permissions ump
+                 ON ump.module_key = mc.module_key
+                AND ump.user_id    = $1
+         WHERE mc.is_active = TRUE
+         ORDER BY mc.subsystem_key, mc.sort_order
+      `,
+      [userId]
+    );
+    return result.rows.map((row) => ({
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      subsystemKey: row.subsystem_key,
+      sortOrder:    row.sort_order,
+      accessLevel:  row.access_level || null,
+    }));
+  }
+
+  /**
+   * Substitui a matriz inteira de permissões do usuário pelo conjunto passado.
+   * Aceita um array de pares { moduleKey, accessLevel } onde:
+   *   - accessLevel ∈ {'view', 'edit'}  → cria/atualiza
+   *   - moduleKey ausente do array       → DELETA (= sem acesso)
+   *
+   * Atômico via transação.
+   */
+  async setUserPermissionsMatrix(userId, permissions) {
+    await this.ensureProfileSchema();
+
+    // Sanitiza: só aceita levels válidos, só módulos que existem no catálogo
+    const catalog = await this.getModulesCatalog();
+    const validKeys = new Set(catalog.map((m) => m.moduleKey));
+
+    const sanitized = [];
+    const seen = new Set();
+    for (const item of (permissions || [])) {
+      if (!item || typeof item !== 'object') continue;
+      const moduleKey = item.moduleKey;
+      const accessLevel = item.accessLevel;
+      if (!validKeys.has(moduleKey)) continue;
+      if (!VALID_ACCESS_LEVELS.includes(accessLevel)) continue;
+      if (seen.has(moduleKey)) continue;
+      seen.add(moduleKey);
+      sanitized.push({ moduleKey, accessLevel });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM user_module_permissions WHERE user_id = $1', [userId]);
+      const now = new Date().toISOString();
+      for (const { moduleKey, accessLevel } of sanitized) {
+        await client.query(
+          `
+            INSERT INTO user_module_permissions
+              (id, user_id, module_key, access_level, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [this.generateId(), userId, moduleKey, accessLevel, now, now]
+        );
+      }
+      await client.query('COMMIT');
+      return sanitized;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao atualizar matriz de permissões: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Reseta permissões do usuário para o default da role atual (ou da role
+   * passada). Usa computeDefaultsForRole contra o catálogo real do banco.
+   */
+  async resetUserPermissionsToDefaults(userId, roleOverride = null) {
+    await this.ensureProfileSchema();
+    let role = roleOverride;
+    if (!role) {
+      const userRow = await this.queryWithRetry('SELECT role FROM users WHERE id = $1', [userId]);
+      role = userRow.rows[0]?.role;
+    }
+    if (!role) throw new Error('Usuário não encontrado para reset de permissões');
+
+    const catalog = await this.getModulesCatalog();
+    const defaults = computeDefaultsForRole(role, catalog);
+    return await this.setUserPermissionsMatrix(userId, defaults);
+  }
+
+  /**
+   * Aplica um único accessLevel a TODOS os módulos de um subsistema para um
+   * usuário. accessLevel === null remove todos os módulos do subsistema.
+   * Não toca em módulos de outros subsistemas.
+   */
+  async setSubsystemPermissionsForUser(userId, subsystemKey, accessLevel) {
+    await this.ensureProfileSchema();
+    if (accessLevel !== null && !VALID_ACCESS_LEVELS.includes(accessLevel)) {
+      throw new Error(`accessLevel inválido: ${accessLevel}`);
+    }
+
+    const catalog = await this.getModulesCatalog();
+    const moduleKeys = catalog
+      .filter((m) => m.subsystemKey === subsystemKey)
+      .map((m) => m.moduleKey);
+    if (moduleKeys.length === 0) return [];
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Remove tudo do subsistema
+      await client.query(
+        'DELETE FROM user_module_permissions WHERE user_id = $1 AND module_key = ANY($2)',
+        [userId, moduleKeys]
+      );
+      // Reinsere com o novo nível (se não for 'none')
+      if (accessLevel !== null) {
+        const now = new Date().toISOString();
+        for (const moduleKey of moduleKeys) {
+          await client.query(
+            `
+              INSERT INTO user_module_permissions
+                (id, user_id, module_key, access_level, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `,
+            [this.generateId(), userId, moduleKey, accessLevel, now, now]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      return moduleKeys.map((moduleKey) => ({ moduleKey, accessLevel }));
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao aplicar permissões em massa: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  // Expostos para a UI (sem precisar duplicar imports no server.js)
+  getDefaultLevelForRoleAndSubsystem(role, subsystemKey) {
+    return getDefaultLevelForRoleAndSubsystem(role, subsystemKey);
+  }
+  getDefaultOverridesForRole(role) {
+    return getDefaultOverridesForRole(role);
   }
 
   async createActivityLog(logData) {
@@ -4086,11 +4221,13 @@ class Database {
       await this.ensureProfileSchema();
     }
 
-    const moduleKeys = this.getDefaultModuleKeysByRole(role);
-    const accessLevel = this.getDefaultAccessLevelByRole(role);
+    // Fase 2.1: usa defaults granulares (cada módulo pode ter view ou edit
+    // dependendo do subsistema + role). Antigo modelo "1 accessLevel por
+    // role" foi deprecado em favor de computeDefaultsForRole().
+    const permissions = this.getDefaultPermissionsByRole(role);
     const now = new Date().toISOString();
 
-    for (const moduleKey of moduleKeys) {
+    for (const { moduleKey, accessLevel } of permissions) {
       await this.queryWithRetry(
         `
           INSERT INTO user_module_permissions

@@ -6293,10 +6293,13 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     // Atualizar usuário
     const updatedUser = await db.updateUser(id, updateData);
 
-    if (role) {
-      const defaultModuleKeys = db.getDefaultModuleKeysByRole(role);
-      const accessLevel = db.getDefaultAccessLevelByRole(role);
-      await db.setUserModulePermissions(id, defaultModuleKeys, accessLevel);
+    // Fase 2.1: quando role muda, por padrão recalculamos a matriz inteira
+    // de permissões a partir dos defaults da role nova. O cliente pode passar
+    // keepPermissions=true para preservar a matriz atual (usado na UI quando
+    // o admin escolhe explicitamente "manter permissões customizadas").
+    const keepPermissions = req.body.keepPermissions === true;
+    if (role && !keepPermissions) {
+      await db.resetUserPermissionsToDefaults(id, role);
     }
 
     // Remover senha antes de enviar
@@ -6390,6 +6393,117 @@ app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, r
     return res.json({ success: true, message: 'Módulos atualizados com sucesso' });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Erro ao atualizar módulos do usuário' });
+  }
+});
+
+// ─── Permissões granulares (Fase 2.1) ────────────────────────────────────────
+// Endpoints novos com semântica view/edit explícita. O legado
+// /api/users/:id/modules continua funcionando para compat enquanto a UI
+// antiga não migrar (será substituído na sub-fase 2.3).
+
+// GET /api/admin/users/:id/permissions
+// Retorna a matriz [{ moduleKey, moduleName, subsystemKey, accessLevel|null }]
+app.get('/api/admin/users/:id/permissions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const matrix = await db.getUserPermissionsMatrix(id);
+    return res.json({
+      success: true,
+      data: {
+        userId: id,
+        role: targetUser.role,
+        permissions: matrix,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar permissões' });
+  }
+});
+
+// PUT /api/admin/users/:id/permissions
+// Body: { permissions: [{ moduleKey, accessLevel: 'view'|'edit' }] }
+// Substitui a matriz inteira (módulos ausentes = sem acesso).
+app.put('/api/admin/users/:id/permissions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body;
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ error: 'permissions deve ser um array' });
+    }
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const applied = await db.setUserPermissionsMatrix(id, permissions);
+    await logActivity(req, {
+      action: 'permission_change',
+      moduleKey: 'admin',
+      entityType: 'user_permissions',
+      entityId: id,
+      details: { count: applied.length },
+    });
+    return res.json({ success: true, data: { count: applied.length } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao atualizar permissões' });
+  }
+});
+
+// POST /api/admin/users/:id/permissions/reset
+// Reseta a matriz para os defaults da role atual do usuário.
+app.post('/api/admin/users/:id/permissions/reset', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const applied = await db.resetUserPermissionsToDefaults(id);
+    await logActivity(req, {
+      action: 'permission_reset',
+      moduleKey: 'admin',
+      entityType: 'user_permissions',
+      entityId: id,
+      details: { role: targetUser.role, count: applied.length },
+    });
+    return res.json({ success: true, data: { count: applied.length, role: targetUser.role } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao resetar permissões' });
+  }
+});
+
+// POST /api/admin/users/:id/permissions/bulk-subsystem
+// Body: { subsystemKey: 'gestao', accessLevel: 'view'|'edit'|null }
+// Aplica um único nível a todos os módulos do subsistema (null = remove).
+app.post('/api/admin/users/:id/permissions/bulk-subsystem', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subsystemKey, accessLevel } = req.body;
+    if (!subsystemKey || typeof subsystemKey !== 'string') {
+      return res.status(400).json({ error: 'subsystemKey é obrigatório' });
+    }
+    const normalizedLevel = (accessLevel === null || accessLevel === 'none') ? null : accessLevel;
+    if (normalizedLevel !== null && !['view', 'edit'].includes(normalizedLevel)) {
+      return res.status(400).json({ error: "accessLevel deve ser 'view', 'edit' ou null" });
+    }
+    const targetUser = await db.getUserById(id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const applied = await db.setSubsystemPermissionsForUser(id, subsystemKey, normalizedLevel);
+    await logActivity(req, {
+      action: 'permission_bulk_subsystem',
+      moduleKey: 'admin',
+      entityType: 'user_permissions',
+      entityId: id,
+      details: { subsystemKey, accessLevel: normalizedLevel, moduleCount: applied.length },
+    });
+    return res.json({ success: true, data: { subsystemKey, accessLevel: normalizedLevel, count: applied.length } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao aplicar bulk' });
   }
 });
 
