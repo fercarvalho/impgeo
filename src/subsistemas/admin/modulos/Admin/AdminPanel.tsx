@@ -58,27 +58,24 @@ type ModuleOption = ModulePermission;
 const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 
 const getDefaultModulesForRole = (role: RoleType): string[] => {
-  // Atualizado pela fase 1.4 (subsistemas).
-  // Financeiro: dashboard_financeiro, metas_financeiro, relatorios_financeiro, projecao, transactions, dre
-  // Gerenciamento: + dashboard_gerenciamento, metas_gerenciamento, projecao_gerenciamento, relatorios_gerenciamento, projects, services, clients
-  // Gestão: roadmap, documentacao, faq | Admin: admin, sessions, anomalies, security_alerts | Especial: terracontrol
-  const allFinanceiroEGerenciamentoEEspecial = [
+  // Fase 2.x: chaves alinhadas com server/permissions/defaults.js. Helper só
+  // serve como pré-seleção visual no modal de cadastro rápido — o backend
+  // reaplica os defaults reais (granular view/edit por módulo) ao receber a
+  // role. Vai sumir junto com este modal "simples" na próxima limpeza.
+  const base = [
     'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
     'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
     'projects', 'services', 'clients',
+    'faq', 'documentacao',
     'terracontrol',
   ];
   switch (role) {
-    case 'superadmin':
-      return [...allFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];
-    case 'admin':
-      return [...allFinanceiroEGerenciamentoEEspecial, 'admin'];
-    case 'user':
-      return allFinanceiroEGerenciamentoEEspecial;
-    case 'guest':
-      return ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'dre'];
-    default:
-      return [];
+    case 'superadmin': return [...base, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
+    case 'admin':      return [...base, 'admin', 'roadmap'];
+    case 'manager':    return base;
+    case 'user':       return base;
+    case 'guest':      return base.filter((k) => k !== 'roadmap');
+    default:           return [];
   }
 };
 
@@ -1019,9 +1016,10 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         {showCreateModal && (() => {
           const roleOptions = [
             ...(currentUser?.role === 'superadmin' ? [{ value: 'superadmin' as RoleType, label: 'Super Administrador', description: 'Acesso total ao sistema' }] : []),
-            { value: 'admin' as RoleType, label: 'Administrador', description: 'Gerencia usuários e módulos' },
-            { value: 'user' as RoleType, label: 'Usuário', description: 'Acesso padrão ao sistema' },
-            { value: 'guest' as RoleType, label: 'Convidado', description: 'Acesso somente leitura' },
+            { value: 'admin' as RoleType,   label: 'Administrador', description: 'Gerencia usuários e módulos' },
+            { value: 'manager' as RoleType, label: 'Gerente',       description: 'Edita Gestão, Financeiro, Gerenciamento e Especial; sem acesso ao Admin' },
+            { value: 'user' as RoleType,    label: 'Usuário',       description: 'Edita Gerenciamento e Especial; vê Gestão e Financeiro' },
+            { value: 'guest' as RoleType,   label: 'Convidado',     description: 'Acesso somente leitura' },
           ];
           const visibleModules = allModules.filter(m =>
             !(SUPERADMIN_MODULES.includes(m.moduleKey) && currentUser?.role !== 'superadmin')
