@@ -20,6 +20,7 @@ import {
   fetchBudget,
   requestRevision as apiRequestRevision,
   acceptBudget,
+  markNotificationsByEntityRead,
   type TcBudgetPayload,
   type PixPaymentSnapshot,
 } from './tcBudgetApi'
@@ -104,6 +105,20 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
         if (!cancelled) notify(err?.message || 'Erro ao carregar orçamento', { type: 'error' })
       })
       .finally(() => { if (!cancelled) setLoading(false) })
+
+    // G10.2 — auto mark-as-read: assim que o user abre a tela do orçamento,
+    // marca como lidas todas as notifs in-app sobre esse budget. Avisa o
+    // sininho via CustomEvent pra ele refetchar e atualizar o badge sem
+    // esperar o polling de 30s. Fire-and-forget: se falhar, o user
+    // simplesmente vai precisar clicar no sininho.
+    markNotificationsByEntityRead(tcToken, 'tc_budget', budgetId)
+      .then(({ affected }) => {
+        if (affected > 0) {
+          window.dispatchEvent(new CustomEvent('tc-notifications-changed'))
+        }
+      })
+      .catch(() => {/* silencioso */})
+
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tcToken, budgetId, editor])
@@ -123,6 +138,10 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
       // sem isso, o banner "Orçamento aguardando você" continua na home
       // até o user recarregar a página.
       onRevisionRequested?.(budgetId)
+      // Rede de segurança: dispara CustomEvent que TcLoggedView escuta pra
+      // refetchar a lista de records. Mesmo padrão do sino — funciona
+      // mesmo se o setRecords otimista do pai não pegar por algum motivo.
+      window.dispatchEvent(new CustomEvent('tc-records-changed'))
       onBack()
     } catch (e: any) {
       notify(e?.message || 'Erro ao solicitar revisão', { type: 'error' })
@@ -138,6 +157,8 @@ const TcBudgetViewScreen: React.FC<Props> = ({ budgetId, onBack, onAccepted, onR
       const { payment } = await acceptBudget(tcToken, budgetId)
       notify('Orçamento aprovado. Pague o PIX para concluir.', { type: 'success' })
       onAccepted(budgetId, payment)
+      // Rede de segurança pro banner — ver comentário no handleSubmitRevision.
+      window.dispatchEvent(new CustomEvent('tc-records-changed'))
     } catch (e: any) {
       notify(e?.message || 'Erro ao iniciar pagamento', { type: 'error' })
     } finally {

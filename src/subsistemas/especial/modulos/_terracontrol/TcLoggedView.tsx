@@ -93,6 +93,17 @@ const TcLoggedView: React.FC = () => {
     },
   })
 
+  // CustomEvent 'tc-records-changed' — disparado pelas telas de orçamento
+  // após ações do próprio tc_user (aprovar, pedir revisão, pagamento
+  // detectado). Push só cobre ações de OUTROS (admin); pra ações do próprio
+  // user, sem isso aqui o banner ficava preso até F5.
+  // Mesmo padrão do 'tc-notifications-changed' que já funciona pro sino.
+  React.useEffect(() => {
+    const handler = () => setRefetchKey(k => k + 1)
+    window.addEventListener('tc-records-changed', handler)
+    return () => window.removeEventListener('tc-records-changed', handler)
+  }, [])
+
   // Sincroniza records ao montar (e quando filtro/refetchKey muda).
   React.useEffect(() => {
     if (!tcToken) return
@@ -309,6 +320,9 @@ const TcLoggedView: React.FC = () => {
                   municipio: rec?.municipio || null,
                 })
                 setRefetchKey(k => k + 1)
+                // Rede de segurança pro banner — ver comentário do listener
+                // 'tc-records-changed' no topo.
+                window.dispatchEvent(new CustomEvent('tc-records-changed'))
               }}
               notify={notify}
             />
