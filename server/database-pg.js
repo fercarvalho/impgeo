@@ -1,5 +1,14 @@
 require('dotenv').config();
 const { Pool } = require('pg');
+const {
+  SYSTEM_ROLES,
+  VALID_ACCESS_LEVELS,
+  FALLBACK_DEFAULTS,
+  computeDefaultsForRole,
+  buildRoleMapFromDbRows,
+  getDefaultLevelForRoleAndSubsystem,
+  getDefaultOverridesForRole,
+} = require('./permissions/defaults');
 
 function toCamelCase(obj) {
   if (Array.isArray(obj)) return obj.map(toCamelCase);
@@ -115,37 +124,29 @@ class Database {
     ];
   }
 
-  getDefaultModuleKeysByRole(role) {
-    const allModuleKeys = this.getDefaultModulesCatalog().map((module) => module.moduleKey);
-    const superadminOnlyModules = ['sessions', 'anomalies', 'security_alerts'];
-    const adminAndSuperadminModules = ['roadmap'];
-    switch (role) {
-      case 'superadmin':
-        return allModuleKeys;
-      case 'admin':
-        return allModuleKeys.filter((moduleKey) => !superadminOnlyModules.includes(moduleKey));
-      case 'user':
-        return allModuleKeys.filter((moduleKey) => moduleKey !== 'admin' && !superadminOnlyModules.includes(moduleKey) && !adminAndSuperadminModules.includes(moduleKey));
-      case 'guest':
-        return allModuleKeys.filter(
-          (moduleKey) => !['admin', 'dre', 'terracontrol', ...superadminOnlyModules, ...adminAndSuperadminModules].includes(moduleKey)
-        );
-      default:
-        return [];
-    }
+  // Fase 2.1: fonte da verdade dos defaults vive em ./permissions/defaults.js.
+  // As helpers abaixo são wrappers finos que delegam, mantendo a API antiga
+  // para callers ainda não migrados (que vão sumir nas próximas sub-fases).
+
+  getDefaultPermissionsByRole(role) {
+    const catalog = this.getDefaultModulesCatalog();
+    return computeDefaultsForRole(role, catalog);
   }
 
+  getDefaultModuleKeysByRole(role) {
+    return this.getDefaultPermissionsByRole(role).map((perm) => perm.moduleKey);
+  }
+
+  // DEPRECATED — não há mais "um único nível por role", as roles mistas
+  // (user, guest) precisam de níveis diferentes por subsistema. Mantido por
+  // compat: retorna o nível mais permissivo que a role tem em qualquer
+  // subsistema. Quem precisar do mapeamento real deve usar
+  // getDefaultPermissionsByRole().
   getDefaultAccessLevelByRole(role) {
-    switch (role) {
-      case 'superadmin':
-      case 'admin':
-        return 'edit';
-      case 'user':
-        return 'write';
-      case 'guest':
-      default:
-        return 'view';
-    }
+    const perms = this.getDefaultPermissionsByRole(role);
+    if (perms.some((p) => p.accessLevel === 'edit')) return 'edit';
+    if (perms.some((p) => p.accessLevel === 'view')) return 'view';
+    return 'view';
   }
 
   async ensureProfileSchema() {
@@ -218,7 +219,7 @@ class Database {
           id VARCHAR(255) PRIMARY KEY,
           user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           module_key VARCHAR(100) NOT NULL REFERENCES modules_catalog(module_key) ON DELETE CASCADE,
-          access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'write', 'edit')),
+          access_level VARCHAR(10) NOT NULL CHECK (access_level IN ('view', 'edit')),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(user_id, module_key)
@@ -318,41 +319,14 @@ class Database {
         await this.seedUserModulePermissionsFromRole(user.id, user.role, true);
       }
 
-      // Garantir que módulos novos existam para todos os usuários sem
-      // permissão prévia. Cobre tanto usuários pré-faq/documentacao quanto
-      // pré-fase 1.7 (4 módulos novos do subsistema gerenciamento).
-      // user/guest ainda recebem a permissão aqui — o bloqueio efetivo deles
-      // é em camada superior (fase 1.8 — bloqueio do subsistema inteiro).
-      const newModules = [
-        { key: 'faq' },
-        { key: 'documentacao' },
-        { key: 'dashboard_gerenciamento' },
-        { key: 'metas_gerenciamento' },
-        { key: 'projecao_gerenciamento' },
-        { key: 'relatorios_gerenciamento' },
-      ];
-      for (const mod of newModules) {
-        await this.queryWithRetry(`
-          INSERT INTO user_module_permissions (id, user_id, module_key, access_level, created_at, updated_at)
-          SELECT
-            CONCAT(u.id, '-', $1::varchar),
-            u.id,
-            $1::varchar,
-            CASE u.role
-              WHEN 'superadmin' THEN 'edit'
-              WHEN 'admin'      THEN 'edit'
-              WHEN 'user'       THEN 'write'
-              ELSE                   'view'
-            END,
-            NOW(), NOW()
-          FROM users u
-          WHERE NOT EXISTS (
-            SELECT 1 FROM user_module_permissions
-            WHERE user_id = u.id AND module_key = $1::varchar
-          )
-          ON CONFLICT DO NOTHING
-        `, [mod.key]);
-      }
+      // Fase 2.1: o seed legado por-módulo (que populava com 'write' para
+      // user) foi removido. A migration 042 já populou todos os usuários
+      // existentes via defaults de role. Para usuários NOVOS, o caminho é
+      // seedUserModulePermissionsFromRole(), que delega para defaults.js.
+      // Para módulos novos adicionados depois da 042: chamar
+      // resetUserPermissionsToDefaults(userId, role) ou aplicar uma migration
+      // específica (como a 017 fez para os 4 módulos do gerenciamento).
+
 
       // ── Tabelas de segurança / sessões ─────────────────────────
       await this.queryWithRetry(`
@@ -3448,9 +3422,11 @@ class Database {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
       `
-        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
+        SELECT module_key, module_name, icon_name, description, route_path,
+               is_system, is_active, sort_order, subsystem_key,
+               created_at, updated_at
         FROM modules_catalog
-        ORDER BY sort_order ASC NULLS LAST, module_name ASC
+        ORDER BY subsystem_key ASC, sort_order ASC NULLS LAST, module_name ASC
       `
     );
     return result.rows.map((row) => ({
@@ -3462,16 +3438,55 @@ class Database {
       isSystem: row.is_system === true,
       isActive: row.is_active !== false,
       sortOrder: row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null
     }));
   }
 
+  // ─── Subsistemas (read-only por enquanto — fase 3.0) ──────────────────────
+  async listSubsystems() {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT subsystem_key, name, description, icon_name, subdomain_slug,
+              sort_order, is_active, created_at, updated_at
+         FROM subsystems
+        WHERE is_active = TRUE
+        ORDER BY sort_order ASC, name ASC`
+    );
+    return result.rows.map((row) => ({
+      subsystemKey:   row.subsystem_key,
+      name:           row.name,
+      description:    row.description || null,
+      iconName:       row.icon_name || null,
+      subdomainSlug:  row.subdomain_slug,
+      sortOrder:      row.sort_order ?? 0,
+      isActive:       row.is_active !== false,
+      createdAt:      row.created_at || null,
+      updatedAt:      row.updated_at || null,
+    }));
+  }
+
+  async getSubsystemByKey(subsystemKey) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT subsystem_key, name FROM subsystems WHERE subsystem_key = $1 LIMIT 1`,
+      [subsystemKey]
+    );
+    return result.rows[0] || null;
+  }
+
+  // ─── Módulos do catálogo ──────────────────────────────────────────────────
+  // Fase 3.0: todos os métodos agora respeitam subsystem_key. sort_order é
+  // POR SUBSISTEMA (decisão da migration 016), não global.
+
   async getModuleByKey(moduleKey) {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
       `
-        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        SELECT module_key, module_name, icon_name, description, route_path,
+               is_system, is_active, sort_order, subsystem_key,
+               created_at, updated_at
         FROM modules_catalog
         WHERE module_key = $1
         LIMIT 1
@@ -3482,29 +3497,44 @@ class Database {
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
   async createModule(moduleData) {
     await this.ensureProfileSchema();
+    const subsystemKey = moduleData.subsystemKey;
+    if (!subsystemKey) {
+      throw new Error('subsystemKey é obrigatório');
+    }
+    const sub = await this.getSubsystemByKey(subsystemKey);
+    if (!sub) {
+      throw new Error(`Subsistema inválido: "${subsystemKey}"`);
+    }
     const now = new Date().toISOString();
-    const maxResult = await this.queryWithRetry('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM modules_catalog');
+    // sort_order = MAX dentro do subsistema + 1
+    const maxResult = await this.queryWithRetry(
+      `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+         FROM modules_catalog WHERE subsystem_key = $1`,
+      [subsystemKey]
+    );
     const nextOrder = maxResult.rows[0]?.next_order ?? 1;
     const result = await this.queryWithRetry(
       `
         INSERT INTO modules_catalog
-          (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
+          (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, subsystem_key, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, subsystem_key, created_at, updated_at
       `,
       [
         moduleData.moduleKey,
@@ -3515,74 +3545,97 @@ class Database {
         moduleData.isSystem === true,
         moduleData.isActive !== false,
         nextOrder,
+        subsystemKey,
         now,
-        now
+        now,
       ]
     );
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      sortOrder: row.sort_order ?? null,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
+  /**
+   * Atualiza metadados de um módulo. Se subsystemKey vier diferente do atual,
+   * recalcula sort_order = MAX(sort_order)+1 no destino — o módulo vai para
+   * o fim do novo subsistema. Atômico via transação.
+   * Campos editáveis: moduleName, iconName, description, routePath, isActive,
+   * subsystemKey. moduleKey continua imutável (regra antiga preservada).
+   */
   async updateModule(moduleKey, moduleData) {
     await this.ensureProfileSchema();
     const existing = await this.getModuleByKey(moduleKey);
-    if (!existing) {
-      throw new Error('Módulo não encontrado');
+    if (!existing) throw new Error('Módulo não encontrado');
+
+    // Validação de subsystem (se enviado)
+    let targetSubsystemKey = existing.subsystemKey;
+    let targetSortOrder    = existing.sortOrder;
+    if (moduleData.subsystemKey && moduleData.subsystemKey !== existing.subsystemKey) {
+      const sub = await this.getSubsystemByKey(moduleData.subsystemKey);
+      if (!sub) throw new Error(`Subsistema inválido: "${moduleData.subsystemKey}"`);
+      targetSubsystemKey = moduleData.subsystemKey;
+      // Vai pro fim do destino
+      const maxResult = await this.queryWithRetry(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+           FROM modules_catalog WHERE subsystem_key = $1`,
+        [targetSubsystemKey]
+      );
+      targetSortOrder = maxResult.rows[0]?.next_order ?? 1;
     }
 
-    if (existing.isSystem && moduleData.moduleKey && moduleData.moduleKey !== moduleKey) {
-      throw new Error('Não é permitido alterar a chave de um módulo de sistema');
-    }
-
-    const targetKey = moduleData.moduleKey || moduleKey;
     const result = await this.queryWithRetry(
       `
         UPDATE modules_catalog
-        SET
-          module_key = $1,
-          module_name = $2,
-          icon_name = $3,
-          description = $4,
-          route_path = $5,
-          is_active = $6,
-          updated_at = $7
-        WHERE module_key = $8
-        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        SET module_name   = $1,
+            icon_name     = $2,
+            description   = $3,
+            route_path    = $4,
+            is_active     = $5,
+            subsystem_key = $6,
+            sort_order    = $7,
+            updated_at    = $8
+        WHERE module_key = $9
+        RETURNING module_key, module_name, icon_name, description, route_path,
+                  is_system, is_active, sort_order, subsystem_key,
+                  created_at, updated_at
       `,
       [
-        targetKey,
-        moduleData.moduleName ?? existing.moduleName,
-        moduleData.iconName !== undefined ? moduleData.iconName : existing.iconName,
+        moduleData.moduleName  ?? existing.moduleName,
+        moduleData.iconName    !== undefined ? moduleData.iconName    : existing.iconName,
         moduleData.description !== undefined ? moduleData.description : existing.description,
-        moduleData.routePath !== undefined ? moduleData.routePath : existing.routePath,
-        moduleData.isActive !== undefined ? moduleData.isActive : existing.isActive,
+        moduleData.routePath   !== undefined ? moduleData.routePath   : existing.routePath,
+        moduleData.isActive    !== undefined ? moduleData.isActive    : existing.isActive,
+        targetSubsystemKey,
+        targetSortOrder,
         new Date().toISOString(),
-        moduleKey
+        moduleKey,
       ]
     );
 
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
@@ -3599,16 +3652,48 @@ class Database {
     return true;
   }
 
-  async reorderModules(orderedKeys) {
+  /**
+   * Reordena módulos DENTRO DE UM SUBSISTEMA. Valida que todas as keys
+   * passadas pertencem ao subsystemKey antes de qualquer UPDATE.
+   */
+  async reorderModules(subsystemKey, orderedKeys) {
     await this.ensureProfileSchema();
-    const now = new Date().toISOString();
-    for (let i = 0; i < orderedKeys.length; i++) {
-      await this.queryWithRetry(
-        'UPDATE modules_catalog SET sort_order = $1, updated_at = $2 WHERE module_key = $3',
-        [i + 1, now, orderedKeys[i]]
-      );
+    if (!subsystemKey) throw new Error('subsystemKey é obrigatório');
+    if (!Array.isArray(orderedKeys) || orderedKeys.length === 0) {
+      throw new Error('orderedKeys deve ser um array não-vazio');
     }
-    return true;
+
+    // Valida: todas as keys são módulos desse subsistema
+    const expected = await this.queryWithRetry(
+      `SELECT module_key FROM modules_catalog WHERE subsystem_key = $1`,
+      [subsystemKey]
+    );
+    const validSet = new Set(expected.rows.map((r) => r.module_key));
+    for (const k of orderedKeys) {
+      if (!validSet.has(k)) {
+        throw new Error(`Módulo "${k}" não pertence ao subsistema "${subsystemKey}"`);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (let i = 0; i < orderedKeys.length; i++) {
+        await client.query(
+          `UPDATE modules_catalog SET sort_order = $1, updated_at = $2
+            WHERE module_key = $3 AND subsystem_key = $4`,
+          [i + 1, now, orderedKeys[i], subsystemKey]
+        );
+      }
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao reordenar módulos: ' + error.message);
+    } finally {
+      client.release();
+    }
   }
 
   async getUserModulePermissions(userId) {
@@ -3674,6 +3759,514 @@ class Database {
     } finally {
       client.release();
     }
+  }
+
+  // ─── Permissões granulares (Fase 2.1) ─────────────────────────────────────
+
+  /**
+   * Retorna a matriz completa de permissões de um usuário, juntando o catálogo
+   * de módulos (para cobrir módulos sem permissão) com o estado atual.
+   *
+   * Cada item: { moduleKey, moduleName, subsystemKey, accessLevel | null }
+   * accessLevel === null significa "sem acesso".
+   */
+  // ─── Defaults editáveis (Fase 2.x — migration 043) ──────────────────────
+  //
+  // O mapa role→subsystema→level vive na tabela role_default_permissions.
+  // Mantemos um cache em memória pra não bater no banco em todo seed; é
+  // invalidado quando o admin salva mudanças via setRoleDefaultPermissions.
+
+  /**
+   * Carrega o mapa de defaults do banco (cached). Retorna config no formato
+   * subsystem-level com moduleOverrides, igual ao FALLBACK_DEFAULTS — pode
+   * ser passado direto pra computeDefaultsForRole.
+   *
+   * Se a tabela está vazia (edge case: migration 043 não rodou ou alguém
+   * deletou tudo), retorna FALLBACK_DEFAULTS para que o sistema continue
+   * funcionando.
+   */
+  async loadRoleDefaultsMap() {
+    if (this._roleDefaultsMapCache) return this._roleDefaultsMapCache;
+
+    await this.ensureProfileSchema();
+
+    // Tabela pode ainda não existir se a 043 não rodou
+    const tableExists = await this.queryWithRetry(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.tables
+          WHERE table_name = 'role_default_permissions'
+       ) AS ok`
+    );
+    if (!tableExists.rows[0]?.ok) {
+      this._roleDefaultsMapCache = FALLBACK_DEFAULTS;
+      return this._roleDefaultsMapCache;
+    }
+
+    const result = await this.queryWithRetry(
+      `SELECT role, module_key AS "moduleKey", access_level AS "accessLevel"
+         FROM role_default_permissions`
+    );
+    if (result.rows.length === 0) {
+      this._roleDefaultsMapCache = FALLBACK_DEFAULTS;
+      return this._roleDefaultsMapCache;
+    }
+
+    const catalog = await this.getModulesCatalog();
+    this._roleDefaultsMapCache = buildRoleMapFromDbRows(result.rows, catalog);
+    return this._roleDefaultsMapCache;
+  }
+
+  invalidateRoleDefaultsCache() {
+    this._roleDefaultsMapCache = null;
+  }
+
+  /**
+   * Retorna a matriz default que um usuário NOVO da role passada teria, no
+   * mesmo formato do getUserPermissionsMatrix — módulos sem acesso aparecem
+   * com accessLevel:null. Usa o mapa editável (cache do DB) como fonte.
+   */
+  async getDefaultPermissionsMatrix(role) {
+    await this.ensureProfileSchema();
+    const catalog = await this.getModulesCatalog();
+    const configMap = await this.loadRoleDefaultsMap();
+    const defaults = computeDefaultsForRole(role, catalog, configMap);
+    const defaultsMap = new Map(defaults.map((d) => [d.moduleKey, d.accessLevel]));
+    return catalog
+      .filter((m) => m.isActive !== false)
+      .map((m) => ({
+        moduleKey:    m.moduleKey,
+        moduleName:   m.moduleName,
+        subsystemKey: m.subsystemKey,
+        sortOrder:    m.sortOrder,
+        accessLevel:  defaultsMap.get(m.moduleKey) || null,
+      }));
+  }
+
+  /**
+   * Substitui todos os defaults de uma role pelo array passado. Aceita o
+   * mesmo shape de setUserPermissionsMatrix: [{moduleKey, accessLevel}].
+   * Módulos ausentes do array são apagados (= "sem acesso" no default).
+   * Atômico via transação + invalida o cache.
+   */
+  async setRoleDefaultPermissions(role, permissions) {
+    await this.ensureProfileSchema();
+    const exists = await this.getRoleByKey(role);
+    if (!exists) {
+      throw new Error(`Role inválida: ${role}`);
+    }
+
+    const catalog = await this.getModulesCatalog();
+    const validKeys = new Set(catalog.map((m) => m.moduleKey));
+    const seen = new Set();
+    const sanitized = [];
+    for (const item of (permissions || [])) {
+      if (!item || typeof item !== 'object') continue;
+      const moduleKey = item.moduleKey;
+      const accessLevel = item.accessLevel;
+      if (!validKeys.has(moduleKey)) continue;
+      if (!VALID_ACCESS_LEVELS.includes(accessLevel)) continue;
+      if (seen.has(moduleKey)) continue;
+      seen.add(moduleKey);
+      sanitized.push({ moduleKey, accessLevel });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM role_default_permissions WHERE role = $1', [role]);
+      for (const { moduleKey, accessLevel } of sanitized) {
+        await client.query(
+          `INSERT INTO role_default_permissions (role, module_key, access_level, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+          [role, moduleKey, accessLevel]
+        );
+      }
+      await client.query('COMMIT');
+      this.invalidateRoleDefaultsCache();
+      return sanitized;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao salvar defaults da role: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Restaura os defaults de uma role para os valores hardcoded do
+   * FALLBACK_DEFAULTS. Usado pelo botão "Restaurar padrão original" na UI.
+   */
+  async resetRoleDefaultsToFallback(role) {
+    if (!SYSTEM_ROLES.includes(role)) {
+      throw new Error(`Restaurar padrão original só está disponível para funções do sistema (${SYSTEM_ROLES.join(', ')}). Roles customizadas devem ser ajustadas manualmente.`);
+    }
+    const catalog = await this.getModulesCatalog();
+    // Calcula a lista usando o FALLBACK (passa null pra configMap)
+    const fallback = computeDefaultsForRole(role, catalog, FALLBACK_DEFAULTS);
+    return await this.setRoleDefaultPermissions(role, fallback);
+  }
+
+  // ─── CRUD de roles dinâmicas (migration 044) ──────────────────────────────
+
+  async listRoles() {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT key, label, description, is_system, sort_order, created_at, updated_at
+         FROM roles
+        ORDER BY is_system DESC, sort_order ASC, label ASC`
+    );
+    return result.rows.map((row) => ({
+      key:         row.key,
+      label:       row.label,
+      description: row.description,
+      isSystem:    row.is_system === true,
+      sortOrder:   row.sort_order,
+      createdAt:   row.created_at,
+      updatedAt:   row.updated_at,
+    }));
+  }
+
+  async getRoleByKey(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT key, label, description, is_system, sort_order, created_at, updated_at
+         FROM roles WHERE key = $1 LIMIT 1`,
+      [key]
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      key:         row.key,
+      label:       row.label,
+      description: row.description,
+      isSystem:    row.is_system === true,
+      sortOrder:   row.sort_order,
+      createdAt:   row.created_at,
+      updatedAt:   row.updated_at,
+    };
+  }
+
+  /**
+   * Cria uma role custom. Se cloneFromRole for passado, copia a matriz de
+   * defaults da role base; caso contrário, role nasce sem nenhuma permissão.
+   * key: snake_case lowercase obrigatório (a CHECK do banco também valida).
+   */
+  async createRole({ key, label, description, sortOrder, cloneFromRole }) {
+    await this.ensureProfileSchema();
+    if (!key || typeof key !== 'string') throw new Error('key obrigatório');
+    if (!label || typeof label !== 'string') throw new Error('label obrigatório');
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+      throw new Error('key deve ser snake_case minúsculo (letras, números e _)');
+    }
+    if (SYSTEM_ROLES.includes(key)) {
+      throw new Error(`A chave "${key}" pertence ao sistema e não pode ser usada para uma role nova.`);
+    }
+    const existing = await this.getRoleByKey(key);
+    if (existing) throw new Error(`Já existe uma função com a chave "${key}"`);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO roles (key, label, description, is_system, sort_order, created_at, updated_at)
+         VALUES ($1, $2, $3, FALSE, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [key, label.trim(), (description || '').trim() || null, Number.isFinite(sortOrder) ? sortOrder : 100]
+      );
+
+      if (cloneFromRole) {
+        const source = await client.query(
+          `SELECT module_key, access_level FROM role_default_permissions WHERE role = $1`,
+          [cloneFromRole]
+        );
+        for (const row of source.rows) {
+          await client.query(
+            `INSERT INTO role_default_permissions (role, module_key, access_level, updated_at)
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+            [key, row.module_key, row.access_level]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      this.invalidateRoleDefaultsCache();
+      return await this.getRoleByKey(key);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao criar role: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Atualiza label e/ou description de uma role. key e is_system são imutáveis.
+   * Funciona para roles do sistema também (só restringe key/is_system).
+   */
+  async updateRoleMeta(key, { label, description, sortOrder }) {
+    await this.ensureProfileSchema();
+    const role = await this.getRoleByKey(key);
+    if (!role) throw new Error('Role não encontrada');
+
+    const sets = [];
+    const params = [];
+    if (typeof label === 'string' && label.trim()) {
+      params.push(label.trim());
+      sets.push(`label = $${params.length}`);
+    }
+    if (description !== undefined) {
+      params.push(description === null ? null : String(description).trim() || null);
+      sets.push(`description = $${params.length}`);
+    }
+    if (Number.isFinite(sortOrder)) {
+      params.push(sortOrder);
+      sets.push(`sort_order = $${params.length}`);
+    }
+    if (sets.length === 0) return role;
+
+    params.push(key);
+    await this.queryWithRetry(
+      `UPDATE roles SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE key = $${params.length}`,
+      params
+    );
+    return await this.getRoleByKey(key);
+  }
+
+  async countUsersByRole(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT COUNT(*)::int AS n FROM users WHERE role = $1`,
+      [key]
+    );
+    return result.rows[0]?.n || 0;
+  }
+
+  async listUsersByRole(key) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT id, username, first_name, last_name FROM users WHERE role = $1 ORDER BY username`,
+      [key]
+    );
+    return result.rows.map((row) => ({
+      id:        row.id,
+      username:  row.username,
+      firstName: row.first_name || null,
+      lastName:  row.last_name || null,
+    }));
+  }
+
+  /**
+   * Exclui uma role custom. Falha se for is_system OU se houver users com ela.
+   * role_default_permissions é apagada em cascata pela FK.
+   */
+  async deleteRole(key) {
+    await this.ensureProfileSchema();
+    const role = await this.getRoleByKey(key);
+    if (!role) throw new Error('Role não encontrada');
+    if (role.isSystem) {
+      throw new Error('Funções do sistema não podem ser excluídas.');
+    }
+    const userCount = await this.countUsersByRole(key);
+    if (userCount > 0) {
+      const err = new Error(`Não é possível excluir: ${userCount} usuário(s) ainda usam esta função. Migre-os para outra função antes.`);
+      err.code = 'ROLE_HAS_USERS';
+      err.userCount = userCount;
+      throw err;
+    }
+    await this.queryWithRetry(`DELETE FROM roles WHERE key = $1`, [key]);
+    this.invalidateRoleDefaultsCache();
+    return true;
+  }
+
+  /**
+   * Migra usuários de uma role para outra. Se resetPermissions=true, reaplica
+   * os defaults da role nova para cada um (igual ao botão da UI quando troca-
+   * se role); caso contrário só atualiza a coluna role.
+   */
+  async migrateUsersBetweenRoles(fromKey, toKey, resetPermissions = true) {
+    await this.ensureProfileSchema();
+    if (fromKey === toKey) throw new Error('Origem e destino são iguais.');
+    const from = await this.getRoleByKey(fromKey);
+    if (!from) throw new Error(`Role origem não encontrada: ${fromKey}`);
+    const to = await this.getRoleByKey(toKey);
+    if (!to) throw new Error(`Role destino não encontrada: ${toKey}`);
+
+    const usersToMigrate = await this.queryWithRetry(
+      `SELECT id FROM users WHERE role = $1`,
+      [fromKey]
+    );
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE role = $2`, [toKey, fromKey]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao migrar usuários: ' + error.message);
+    } finally {
+      client.release();
+    }
+
+    let resetCount = 0;
+    if (resetPermissions) {
+      for (const row of usersToMigrate.rows) {
+        await this.resetUserPermissionsToDefaults(row.id, toKey);
+        resetCount++;
+      }
+    }
+    return { migrated: usersToMigrate.rows.length, resetCount };
+  }
+
+  async getUserPermissionsMatrix(userId) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `
+        SELECT mc.module_key, mc.module_name, mc.subsystem_key,
+               mc.sort_order, ump.access_level
+          FROM modules_catalog mc
+          LEFT JOIN user_module_permissions ump
+                 ON ump.module_key = mc.module_key
+                AND ump.user_id    = $1
+         WHERE mc.is_active = TRUE
+         ORDER BY mc.subsystem_key, mc.sort_order
+      `,
+      [userId]
+    );
+    return result.rows.map((row) => ({
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      subsystemKey: row.subsystem_key,
+      sortOrder:    row.sort_order,
+      accessLevel:  row.access_level || null,
+    }));
+  }
+
+  /**
+   * Substitui a matriz inteira de permissões do usuário pelo conjunto passado.
+   * Aceita um array de pares { moduleKey, accessLevel } onde:
+   *   - accessLevel ∈ {'view', 'edit'}  → cria/atualiza
+   *   - moduleKey ausente do array       → DELETA (= sem acesso)
+   *
+   * Atômico via transação.
+   */
+  async setUserPermissionsMatrix(userId, permissions) {
+    await this.ensureProfileSchema();
+
+    // Sanitiza: só aceita levels válidos, só módulos que existem no catálogo
+    const catalog = await this.getModulesCatalog();
+    const validKeys = new Set(catalog.map((m) => m.moduleKey));
+
+    const sanitized = [];
+    const seen = new Set();
+    for (const item of (permissions || [])) {
+      if (!item || typeof item !== 'object') continue;
+      const moduleKey = item.moduleKey;
+      const accessLevel = item.accessLevel;
+      if (!validKeys.has(moduleKey)) continue;
+      if (!VALID_ACCESS_LEVELS.includes(accessLevel)) continue;
+      if (seen.has(moduleKey)) continue;
+      seen.add(moduleKey);
+      sanitized.push({ moduleKey, accessLevel });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM user_module_permissions WHERE user_id = $1', [userId]);
+      const now = new Date().toISOString();
+      for (const { moduleKey, accessLevel } of sanitized) {
+        await client.query(
+          `
+            INSERT INTO user_module_permissions
+              (id, user_id, module_key, access_level, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [this.generateId(), userId, moduleKey, accessLevel, now, now]
+        );
+      }
+      await client.query('COMMIT');
+      return sanitized;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao atualizar matriz de permissões: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Reseta permissões do usuário para o default da role atual (ou da role
+   * passada). Usa computeDefaultsForRole contra o catálogo real do banco.
+   */
+  async resetUserPermissionsToDefaults(userId, roleOverride = null) {
+    await this.ensureProfileSchema();
+    let role = roleOverride;
+    if (!role) {
+      const userRow = await this.queryWithRetry('SELECT role FROM users WHERE id = $1', [userId]);
+      role = userRow.rows[0]?.role;
+    }
+    if (!role) throw new Error('Usuário não encontrado para reset de permissões');
+
+    const catalog = await this.getModulesCatalog();
+    const configMap = await this.loadRoleDefaultsMap();
+    const defaults = computeDefaultsForRole(role, catalog, configMap);
+    return await this.setUserPermissionsMatrix(userId, defaults);
+  }
+
+  /**
+   * Aplica um único accessLevel a TODOS os módulos de um subsistema para um
+   * usuário. accessLevel === null remove todos os módulos do subsistema.
+   * Não toca em módulos de outros subsistemas.
+   */
+  async setSubsystemPermissionsForUser(userId, subsystemKey, accessLevel) {
+    await this.ensureProfileSchema();
+    if (accessLevel !== null && !VALID_ACCESS_LEVELS.includes(accessLevel)) {
+      throw new Error(`accessLevel inválido: ${accessLevel}`);
+    }
+
+    const catalog = await this.getModulesCatalog();
+    const moduleKeys = catalog
+      .filter((m) => m.subsystemKey === subsystemKey)
+      .map((m) => m.moduleKey);
+    if (moduleKeys.length === 0) return [];
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Remove tudo do subsistema
+      await client.query(
+        'DELETE FROM user_module_permissions WHERE user_id = $1 AND module_key = ANY($2)',
+        [userId, moduleKeys]
+      );
+      // Reinsere com o novo nível (se não for 'none')
+      if (accessLevel !== null) {
+        const now = new Date().toISOString();
+        for (const moduleKey of moduleKeys) {
+          await client.query(
+            `
+              INSERT INTO user_module_permissions
+                (id, user_id, module_key, access_level, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `,
+            [this.generateId(), userId, moduleKey, accessLevel, now, now]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      return moduleKeys.map((moduleKey) => ({ moduleKey, accessLevel }));
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao aplicar permissões em massa: ' + error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  // Expostos para a UI (sem precisar duplicar imports no server.js)
+  getDefaultLevelForRoleAndSubsystem(role, subsystemKey) {
+    return getDefaultLevelForRoleAndSubsystem(role, subsystemKey);
+  }
+  getDefaultOverridesForRole(role) {
+    return getDefaultOverridesForRole(role);
   }
 
   async createActivityLog(logData) {
@@ -4086,11 +4679,15 @@ class Database {
       await this.ensureProfileSchema();
     }
 
-    const moduleKeys = this.getDefaultModuleKeysByRole(role);
-    const accessLevel = this.getDefaultAccessLevelByRole(role);
+    // Fase 2.x: usa defaults editáveis (role_default_permissions, migration
+    // 043). Caímos no FALLBACK_DEFAULTS automaticamente se a tabela estiver
+    // vazia. computeDefaultsForRole é puro — recebe o mapa do DB.
+    const catalog = await this.getModulesCatalog();
+    const configMap = await this.loadRoleDefaultsMap();
+    const permissions = computeDefaultsForRole(role, catalog, configMap);
     const now = new Date().toISOString();
 
-    for (const moduleKey of moduleKeys) {
+    for (const { moduleKey, accessLevel } of permissions) {
       await this.queryWithRetry(
         `
           INSERT INTO user_module_permissions

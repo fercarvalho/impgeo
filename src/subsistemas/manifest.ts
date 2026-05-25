@@ -172,27 +172,51 @@ export function getSubsystemBySlug(slug: string | null | undefined): SubsystemDe
 
 // Permissão de acesso aos subsistemas (fase 1.8).
 //
-// Política da fase 1: apenas superadmin/admin entram nos módulos novos
-// (organizados em subsistemas). user/guest ficam limitados ao Picker com
-// estado vazio, e qualquer tentativa direta (subdomínio em prod, sessionStorage
-// em dev) é bloqueada por <AcessoNegado>.
+// Fase 2.2: acesso a subsistema agora é determinado por permissões reais
+// (user.modulesAccess), não mais por role hardcoded. Um usuário tem acesso
+// ao subsistema X se possui PELO MENOS UM módulo de X com qualquer nível
+// (view ou edit). Picker, Switcher e router macro consomem destas funções.
 //
-// Quando a fase 2 trouxer permissões granulares por usuário/regra, esta função
-// vira o ponto único onde a lógica é alterada — Picker, Switcher e router
-// macro consomem dela.
-export function userCanAccessSubsystems(user: { role?: string } | null | undefined): boolean {
-  if (!user?.role) return false;
-  return user.role === 'superadmin' || user.role === 'admin';
+// Importante: o filtro role-based legado (só superadmin/admin) foi removido —
+// user/guest agora podem ver subsistemas conforme suas permissões reais.
+// O <AcessoNegado> continua sendo o guard final em caso de tentativa direta.
+
+interface UserWithPermissions {
+  role?: string;
+  modulesAccess?: Array<{ moduleKey?: string; accessLevel?: string }>;
 }
 
-// Para granularidade futura (fase 2): permitir acesso a um subsistema específico
-// (ex.: usuário X tem acesso só ao 'financeiro'). Por enquanto reusa a checagem
-// global — quem pode entrar em qualquer um pode entrar em todos.
+function getAccessibleModuleKeys(user: UserWithPermissions | null | undefined): Set<string> {
+  if (!user) return new Set();
+  const access = user.modulesAccess;
+  if (!Array.isArray(access)) return new Set();
+  return new Set(
+    access
+      .map((item) => item?.moduleKey)
+      .filter((key): key is string => typeof key === 'string' && key.length > 0)
+  );
+}
+
 export function userCanAccessSubsystem(
-  user: { role?: string } | null | undefined,
-  _subsystem: SubsystemDefinition,
+  user: UserWithPermissions | null | undefined,
+  subsystem: SubsystemDefinition,
 ): boolean {
-  return userCanAccessSubsystems(user);
+  const accessible = getAccessibleModuleKeys(user);
+  if (accessible.size === 0) return false;
+  return subsystem.moduleKeys.some((key) => accessible.has(key));
+}
+
+export function userCanAccessSubsystems(user: UserWithPermissions | null | undefined): boolean {
+  if (!user) return false;
+  return SUBSYSTEMS.some((subsystem) => userCanAccessSubsystem(user, subsystem));
+}
+
+// Retorna a lista de subsistemas que o user pode acessar, na ordem do manifesto.
+export function getAccessibleSubsystems(
+  user: UserWithPermissions | null | undefined,
+): SubsystemDefinition[] {
+  if (!user) return [];
+  return SUBSYSTEMS.filter((subsystem) => userCanAccessSubsystem(user, subsystem));
 }
 
 // Resolve o subsistema atual considerando ambas as fontes:

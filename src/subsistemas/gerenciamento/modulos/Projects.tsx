@@ -40,7 +40,7 @@ interface Client {
 }
 
 const Projects: React.FC = () => {
-  const permissions = usePermissions();
+  const permissions = usePermissions('projects');
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])

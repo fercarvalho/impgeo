@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, type ComponentType } from 'react';
-import { Users, Settings, Activity, BarChart3, Shield, MessageSquare, HelpCircle, FileText, BookOpen, Layout } from 'lucide-react';
+import { Users, Settings, Activity, BarChart3, Shield, MessageSquare, HelpCircle, FileText, BookOpen, Layout, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import LegacyUserManagement from './AdminPanel';
 import ModuleManagement from './ModuleManagement';
@@ -10,8 +10,9 @@ import FAQManagement from './FAQManagement';
 import LegalManagement from './LegalManagement';
 import DocumentationManagement from './DocumentationManagement';
 import FooterManagement from './FooterManagement';
+import RoleDefaultsManagement from './RoleDefaultsManagement';
 
-type AdminTab = 'users' | 'modules' | 'activity' | 'statistics' | 'feedbacks' | 'faq' | 'legal' | 'documentacao' | 'rodape';
+type AdminTab = 'users' | 'modules' | 'role-defaults' | 'activity' | 'statistics' | 'feedbacks' | 'faq' | 'legal' | 'documentacao' | 'rodape';
 
 interface UserWithPermissions {
   role?: string;
@@ -35,6 +36,7 @@ const AdminTabs = () => {
   const tabs: Array<{ id: AdminTab; name: string; icon: ComponentType<{ className?: string }> }> = useMemo(() => [
     { id: 'users',      name: 'Usuários',    icon: Users },
     { id: 'modules',    name: 'Módulos',     icon: Settings },
+    ...(typedUser?.role === 'superadmin' ? [{ id: 'role-defaults' as AdminTab, name: 'Padrões de Função', icon: KeyRound }] : []),
     { id: 'activity',   name: 'Atividades',  icon: Activity },
     { id: 'statistics', name: 'Estatísticas',icon: BarChart3 },
     { id: 'feedbacks',  name: 'Feedbacks',   icon: MessageSquare },
@@ -110,9 +112,10 @@ const AdminTabs = () => {
         aria-labelledby={`admin-tab-${activeTab}`}
         className="mt-6"
       >
-      {activeTab === 'users'      && <LegacyUserManagement embedded />}
-      {activeTab === 'modules'    && <ModuleManagement />}
-      {activeTab === 'activity'   && <ActivityLog />}
+      {activeTab === 'users'         && <LegacyUserManagement embedded />}
+      {activeTab === 'modules'       && <ModuleManagement />}
+      {activeTab === 'role-defaults' && <RoleDefaultsManagement />}
+      {activeTab === 'activity'      && <ActivityLog />}
       {activeTab === 'statistics' && <Statistics />}
       {activeTab === 'feedbacks'  && <FeedbackManagement />}
       {activeTab === 'faq'          && <FAQManagement />}

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import UserCreationTypeModal from './UserCreationTypeModal';
 import UserCreatedModal from './UserCreatedModal';
 import CadastroCompletoModal from './CadastroCompletoModal';
+import PermissionsMatrix, { type ModulePermission } from './PermissionsMatrix';
 import {
   UserPlus,
   Edit,
@@ -20,7 +21,7 @@ import {
   Check
 } from 'lucide-react';
 
-type RoleType = 'superadmin' | 'admin' | 'user' | 'guest';
+type RoleType = 'superadmin' | 'admin' | 'manager' | 'user' | 'guest';
 
 interface User {
   id: string;
@@ -50,36 +51,31 @@ interface User {
   permissoesLegais?: Record<string, boolean>;
 }
 
-interface ModuleOption {
-  moduleKey: string;
-  moduleName: string;
-  enabled: boolean;
-}
+// Fase 2.5: type unificado com PermissionsMatrix — single source of truth para
+// o shape da matriz de permissões no painel admin.
+type ModuleOption = ModulePermission;
 
 const SUPERADMIN_MODULES = ['sessions', 'anomalies', 'security_alerts'];
 
 const getDefaultModulesForRole = (role: RoleType): string[] => {
-  // Atualizado pela fase 1.4 (subsistemas).
-  // Financeiro: dashboard_financeiro, metas_financeiro, relatorios_financeiro, projecao, transactions, dre
-  // Gerenciamento: + dashboard_gerenciamento, metas_gerenciamento, projecao_gerenciamento, relatorios_gerenciamento, projects, services, clients
-  // Gestão: roadmap, documentacao, faq | Admin: admin, sessions, anomalies, security_alerts | Especial: terracontrol
-  const allFinanceiroEGerenciamentoEEspecial = [
+  // Fase 2.x: chaves alinhadas com server/permissions/defaults.js. Helper só
+  // serve como pré-seleção visual no modal de cadastro rápido — o backend
+  // reaplica os defaults reais (granular view/edit por módulo) ao receber a
+  // role. Vai sumir junto com este modal "simples" na próxima limpeza.
+  const base = [
     'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
     'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
     'projects', 'services', 'clients',
+    'faq', 'documentacao',
     'terracontrol',
   ];
   switch (role) {
-    case 'superadmin':
-      return [...allFinanceiroEGerenciamentoEEspecial, 'admin', 'sessions', 'anomalies', 'security_alerts'];
-    case 'admin':
-      return [...allFinanceiroEGerenciamentoEEspecial, 'admin'];
-    case 'user':
-      return allFinanceiroEGerenciamentoEEspecial;
-    case 'guest':
-      return ['dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'dre'];
-    default:
-      return [];
+    case 'superadmin': return [...base, 'admin', 'roadmap', 'sessions', 'anomalies', 'security_alerts'];
+    case 'admin':      return [...base, 'admin', 'roadmap'];
+    case 'manager':    return base;
+    case 'user':       return base;
+    case 'guest':      return base.filter((k) => k !== 'roadmap');
+    default:           return [];
   }
 };
 
@@ -170,6 +166,12 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
   const [temporaryPassword, setTemporaryPassword] = useState<{ username: string; value: string } | null>(null);
   const [modulesTargetUser, setModulesTargetUser] = useState<User | null>(null);
   const [moduleOptions, setModuleOptions] = useState<ModuleOption[]>([]);
+  // Fase 2.x: estado intermediário do fluxo "novo usuário". Quando definido, o
+  // modal de permissões opera em modo CREATE — botão Salvar vira "Criar usuário".
+  // Quando null, opera em modo EDIT (matriz de um user existente).
+  const [pendingNewUser, setPendingNewUser] = useState<
+    { username: string; role: RoleType; isActive: boolean } | null
+  >(null);
   const [nameSortOrder, setNameSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // BUG FIX: refs para focus trap de cada modal
@@ -339,44 +341,126 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     return list;
   }, [users, nameSortOrder]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  // Fase 2.x: o submit do modal "Novo Usuário" não cria mais o user diretamente.
+  // Em vez disso, valida os dados básicos, carrega a matriz default da role
+  // escolhida e abre o modal de permissões granulares (PermissionsMatrix) em
+  // modo CREATE — o user só é criado quando o admin confirma as permissões.
+  const handleProceedToPermissions = async (e: React.FormEvent) => {
     e.preventDefault();
     clearFeedback();
-    // BUG FIX: username extraído uma vez (era chamado .trim() duas vezes)
     const username = createForm.username.trim();
     if (!username || username.length < 3) {
       setError('Nome de usuário deve ter pelo menos 3 caracteres');
       return;
     }
-    if (createForm.modules.length === 0) {
-      setError('Selecione pelo menos um módulo');
-      return;
-    }
     setSubmittingCreate(true);
     try {
+      // Carrega defaults granulares (view/edit por módulo) da role escolhida
+      const response = await fetch(
+        `${API_BASE_URL}/admin/permissions/defaults?role=${encodeURIComponent(createForm.role)}`,
+        { headers: authHeaders() }
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        setError(data.error || 'Erro ao carregar permissões padrão da função');
+        return;
+      }
+      const data = await response.json();
+      const matrix = Array.isArray(data?.data?.permissions) ? data.data.permissions : [];
+
+      // Transição: fecha modal 1, abre modal 2 com a matriz pré-preenchida
+      setPendingNewUser({
+        username,
+        role: createForm.role,
+        isActive: createForm.isActive,
+      });
+      setModulesTargetUser(null); // modo CREATE
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey:    p.moduleKey,
+        moduleName:   p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel:  p.accessLevel,
+      })));
+      setShowCreateModal(false);
+      setShowModulesModal(true);
+    } catch {
+      setError('Erro ao conectar com o servidor');
+    } finally {
+      setSubmittingCreate(false);
+    }
+  };
+
+  // Modo CREATE: ao clicar "Resetar para defaults da role" na matriz, recarrega
+  // o default da role escolhida (sem precisar ir/voltar entre os modais).
+  const handleReloadDefaultsForPendingUser = useCallback(async () => {
+    if (!pendingNewUser) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/admin/permissions/defaults?role=${encodeURIComponent(pendingNewUser.role)}`,
+        { headers: authHeaders() }
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        setError(data.error || 'Erro ao recarregar defaults');
+        return;
+      }
+      const data = await response.json();
+      const matrix = Array.isArray(data?.data?.permissions) ? data.data.permissions : [];
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey:    p.moduleKey,
+        moduleName:   p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel:  p.accessLevel,
+      })));
+      showSuccess('Permissões restauradas para o padrão da função.');
+    } catch {
+      setError('Erro ao recarregar defaults');
+    }
+  }, [pendingNewUser, authHeaders, showSuccess]);
+
+  // Confirma a criação de um usuário novo enviando username/role/isActive +
+  // a matriz de permissões editada no PermissionsMatrix. Chamado pelo botão
+  // "Criar usuário" quando pendingNewUser !== null.
+  const handleConfirmCreateUser = async () => {
+    if (!pendingNewUser) return;
+    clearFeedback();
+    setModulesSaving(true);
+    try {
+      const permissions = moduleOptions
+        .filter((o) => o.accessLevel === 'view' || o.accessLevel === 'edit')
+        .map((o) => ({ moduleKey: o.moduleKey, accessLevel: o.accessLevel }));
+
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ username, role: createForm.role, isActive: createForm.isActive, modules: createForm.modules }),
+        body: JSON.stringify({
+          username:  pendingNewUser.username,
+          role:      pendingNewUser.role,
+          isActive:  pendingNewUser.isActive,
+          permissions,
+        }),
       });
-      // BUG FIX: res.ok antes de res.json()
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
         setError(data.error || 'Erro ao criar usuário');
         return;
       }
       const data = await response.json();
-      setShowCreateModal(false);
-      // BUG FIX: spread para não reusar a mesma referência de array de DEFAULT_CREATE_FORM
+      const { username, role } = pendingNewUser;
+
+      // Reseta estado e abre modal de "usuário criado"
+      setShowModulesModal(false);
+      setPendingNewUser(null);
+      setModuleOptions([]);
       setCreateForm({ ...DEFAULT_CREATE_FORM, modules: [...DEFAULT_CREATE_FORM.modules] });
-      setCreatedUserData({ username, role: createForm.role, tempPassword: data.temporaryPassword });
+      setCreatedUserData({ username, role, tempPassword: data.temporaryPassword });
       setShowUserCreatedModal(true);
       await loadUsers();
       lastTriggerRef.current?.focus();
     } catch {
       setError('Erro ao conectar com o servidor');
     } finally {
-      setSubmittingCreate(false);
+      setModulesSaving(false);
     }
   };
 
@@ -432,17 +516,23 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     lastTriggerRef.current = document.activeElement as HTMLElement;
     setModulesLoadingId(user.id);
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${user.id}/modules`, { headers: authHeaders() });
-      // BUG FIX: res.ok antes de res.json()
+      // Fase 2.3: endpoint novo /api/admin/users/:id/permissions retorna a
+      // matriz completa { moduleKey, moduleName, subsystemKey, accessLevel|null }.
+      const response = await fetch(`${API_BASE_URL}/admin/users/${user.id}/permissions`, { headers: authHeaders() });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        setError(data.error || 'Erro ao carregar módulos do usuário');
+        setError(data.error || 'Erro ao carregar permissões do usuário');
         return;
       }
       const data = await response.json();
       setModulesTargetUser(user);
-      // BUG FIX: Array.isArray guard
-      setModuleOptions(Array.isArray(data.data) ? data.data : []);
+      const matrix = Array.isArray(data?.data?.permissions) ? data.data.permissions : [];
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey: p.moduleKey,
+        moduleName: p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel: p.accessLevel,
+      })));
 
       // Carrega permissões de regras
       try {
@@ -462,34 +552,60 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     }
   }, [authHeaders, clearFeedback]);
 
-  const toggleModuleOption = useCallback((moduleKey: string) => {
-    setModuleOptions(previous =>
-      previous.map(option =>
-        option.moduleKey === moduleKey ? { ...option, enabled: !option.enabled } : option
-      )
-    );
-  }, []);
+  // Fase 2.3: toggleModuleOption (estilo legado, boolean) substituído pelos
+  // handlers internos da PermissionsMatrix. Removido na 2.3.
+
+  const handleResetPermissionsToDefaults = useCallback(async () => {
+    if (!modulesTargetUser) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions/reset`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        setError(data.error || 'Erro ao resetar permissões');
+        return;
+      }
+      // Recarrega matriz
+      const r2 = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions`, { headers: authHeaders() });
+      const j2 = await r2.json();
+      const matrix = Array.isArray(j2?.data?.permissions) ? j2.data.permissions : [];
+      setModuleOptions(matrix.map((p: { moduleKey: string; moduleName: string; subsystemKey: string; accessLevel: 'view' | 'edit' | null }) => ({
+        moduleKey: p.moduleKey,
+        moduleName: p.moduleName,
+        subsystemKey: p.subsystemKey,
+        accessLevel: p.accessLevel,
+      })));
+      showSuccess('Permissões resetadas para o padrão da role.');
+    } catch {
+      setError('Erro ao resetar permissões');
+    }
+  }, [modulesTargetUser, authHeaders, showSuccess]);
 
   const handleSaveModules = useCallback(async () => {
     if (!modulesTargetUser) return;
     clearFeedback();
     setModulesSaving(true);
     try {
-      const selectedKeys = moduleOptions.filter(o => o.enabled).map(o => o.moduleKey);
-      const response = await fetch(`${API_BASE_URL}/users/${modulesTargetUser.id}/modules`, {
+      // Só envia módulos com accessLevel definido (view/edit). Ausentes = sem acesso.
+      const permissions = moduleOptions
+        .filter((o) => o.accessLevel === 'view' || o.accessLevel === 'edit')
+        .map((o) => ({ moduleKey: o.moduleKey, accessLevel: o.accessLevel }));
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/${modulesTargetUser.id}/permissions`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify({ moduleKeys: selectedKeys }),
+        body: JSON.stringify({ permissions }),
       });
-      // BUG FIX: res.ok antes de res.json()
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        setError(data.error || 'Erro ao salvar módulos do usuário');
+        setError(data.error || 'Erro ao salvar permissões do usuário');
         return;
       }
 
-      // Salva permissões granulares de regras (apenas para usuários não-admin —
-      // admin/superadmin têm bypass e não precisam de linha em user_rule_permissions)
+      // Permissões granulares de regras (legado da migration 018-TRANSACTION-RULES,
+      // ortogonal ao modelo de subsistemas — mantém endpoint próprio).
       if (!rulePerms.is_admin_bypass) {
         await fetch(`${API_BASE_URL}/users/${modulesTargetUser.id}/rule-permissions`, {
           method: 'PUT',
@@ -498,7 +614,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         });
       }
 
-      showSuccess('Módulos e permissões atualizados com sucesso!');
+      showSuccess('Permissões atualizadas com sucesso!');
       setShowModulesModal(false);
       setModulesTargetUser(null);
       setModuleOptions([]);
@@ -625,12 +741,19 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     }
   };
 
-  // BUG FIX: handleRoleChange agora é chamado via modal de confirmação, não direto no onChange do select
-  const handleRoleChange = useCallback(async (userId: string, role: RoleType) => {
+  // Fase 2.4: handleRoleChange aceita `keepPermissions` — quando true, backend
+  // mantém a matriz de permissões atual; quando false (padrão), reseta para os
+  // defaults da role nova. O modal de confirmação oferece as duas opções.
+  const handleRoleChange = useCallback(async (userId: string, role: RoleType, keepPermissions: boolean) => {
     clearFeedback();
     setRoleLoadingId(userId);
     try {
-      await updateUser(userId, { role }, 'Permissão atualizada com sucesso!');
+      const payload: Record<string, unknown> = { role };
+      if (keepPermissions) payload.keepPermissions = true;
+      const successMsg = keepPermissions
+        ? 'Função alterada — permissões customizadas mantidas.'
+        : 'Função alterada — permissões resetadas para o padrão da nova função.';
+      await updateUser(userId, payload, successMsg);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar permissão');
     } finally {
@@ -849,6 +972,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                             >
                               {currentUser?.role === 'superadmin' && <option value="superadmin">Super Administrador</option>}
                               <option value="admin">Administrador</option>
+                              <option value="manager">Gerente</option>
                               <option value="user">Usuário</option>
                               <option value="guest">Convidado</option>
                             </select>
@@ -980,13 +1104,11 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         {showCreateModal && (() => {
           const roleOptions = [
             ...(currentUser?.role === 'superadmin' ? [{ value: 'superadmin' as RoleType, label: 'Super Administrador', description: 'Acesso total ao sistema' }] : []),
-            { value: 'admin' as RoleType, label: 'Administrador', description: 'Gerencia usuários e módulos' },
-            { value: 'user' as RoleType, label: 'Usuário', description: 'Acesso padrão ao sistema' },
-            { value: 'guest' as RoleType, label: 'Convidado', description: 'Acesso somente leitura' },
+            { value: 'admin' as RoleType,   label: 'Administrador', description: 'Gerencia usuários e módulos' },
+            { value: 'manager' as RoleType, label: 'Gerente',       description: 'Edita Gestão, Financeiro, Gerenciamento e Especial; sem acesso ao Admin' },
+            { value: 'user' as RoleType,    label: 'Usuário',       description: 'Edita Gerenciamento e Especial; vê Gestão e Financeiro' },
+            { value: 'guest' as RoleType,   label: 'Convidado',     description: 'Acesso somente leitura' },
           ];
-          const visibleModules = allModules.filter(m =>
-            !(SUPERADMIN_MODULES.includes(m.moduleKey) && currentUser?.role !== 'superadmin')
-          );
           return (
             <div
               className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
@@ -1017,7 +1139,7 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                   </button>
                 </div>
 
-                <form onSubmit={handleCreate} className="p-6 space-y-6">
+                <form onSubmit={handleProceedToPermissions} className="p-6 space-y-6">
                   {error && (
                     <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{error}</div>
                   )}
@@ -1086,43 +1208,12 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                     </label>
                   </div>
 
-                  {/* BUG FIX: fieldset + legend para grupo de checkboxes de módulos */}
-                  {visibleModules.length > 0 && (
-                    <fieldset>
-                      <legend className="block text-sm font-semibold text-gray-700 mb-2">Módulos de Acesso *</legend>
-                      <p className="text-xs text-gray-500 mb-3">
-                        Pré-selecionados para <span className="font-semibold">{roleOptions.find(r => r.value === createForm.role)?.label}</span>. Ajuste conforme necessário.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        {visibleModules.map(m => (
-                          <label
-                            key={m.moduleKey}
-                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${createForm.modules.includes(m.moduleKey) ? 'bg-blue-100 text-blue-900' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={createForm.modules.includes(m.moduleKey)}
-                              onChange={() => setCreateForm(prev => ({
-                                ...prev,
-                                modules: prev.modules.includes(m.moduleKey)
-                                  ? prev.modules.filter(k => k !== m.moduleKey)
-                                  : [...prev.modules, m.moduleKey],
-                              }))}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm font-medium">{m.moduleName}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                  )}
-
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-800">
-                    <p className="font-semibold mb-1">Informações</p>
+                    <p className="font-semibold mb-1">Próximo passo: permissões</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Uma senha temporária será gerada automaticamente</li>
-                      <li>• O usuário deverá alterar a senha no primeiro acesso</li>
-                      <li>• Você pode editar o perfil completo depois</li>
+                      <li>• Você ajustará as permissões granulares (view/edit por submódulo) na próxima tela, já pré-preenchidas com o padrão de <span className="font-semibold">{roleOptions.find(r => r.value === createForm.role)?.label}</span>.</li>
+                      <li>• Uma senha temporária será gerada automaticamente; o usuário deverá alterá-la no primeiro acesso.</li>
+                      <li>• Você pode editar o perfil completo depois.</li>
                     </ul>
                   </div>
 
@@ -1134,14 +1225,13 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
                     >
                       Cancelar
                     </button>
-                    {/* BUG FIX: disabled enquanto submitting — previne criação duplicada por duplo clique */}
                     <button
                       type="submit"
                       disabled={submittingCreate}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-70"
                     >
                       <UserPlus className="w-4 h-4" aria-hidden="true" />
-                      {submittingCreate ? 'Criando...' : 'Criar Usuário'}
+                      {submittingCreate ? 'Carregando...' : 'Continuar para permissões →'}
                     </button>
                   </div>
                 </form>
@@ -1488,127 +1578,153 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
         )}
 
         {/* ── Modal: Módulos de acesso ── */}
-        {showModulesModal && modulesTargetUser && (
-          <div
-            className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
-            onClick={() => { setShowModulesModal(false); lastTriggerRef.current?.focus(); }}
-          >
+        {showModulesModal && (modulesTargetUser || pendingNewUser) && (() => {
+          const isCreateMode = !!pendingNewUser && !modulesTargetUser;
+          const username = isCreateMode ? pendingNewUser!.username : modulesTargetUser!.username;
+          const role     = isCreateMode ? pendingNewUser!.role : (modulesTargetUser!.role as string);
+          const roleLabel =
+            role === 'superadmin' ? 'Super Administrador'
+            : role === 'admin'    ? 'Administrador'
+            : role === 'manager'  ? 'Gerente'
+            : role === 'user'     ? 'Usuário'
+            :                       'Convidado';
+          // No modo CREATE, o "Cancelar" volta pro modal "Novo Usuário" pra
+          // não perder os dados básicos. No modo EDIT, só fecha tudo.
+          const handleCancel = () => {
+            setShowModulesModal(false);
+            setModuleOptions([]);
+            if (isCreateMode) {
+              setPendingNewUser(null);
+              setShowCreateModal(true);
+            } else {
+              lastTriggerRef.current?.focus();
+            }
+          };
+          return (
             <div
-              ref={modulesModalRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="modules-modal-title"
-              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-2xl"
-              onClick={e => e.stopPropagation()}
+              className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001] p-4"
+              onClick={handleCancel}
             >
-              <div className="flex justify-between items-center mb-4">
-                <h2 id="modules-modal-title" className="text-xl font-bold text-gray-900">
-                  Módulos de acesso de {modulesTargetUser.username}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => { setShowModulesModal(false); lastTriggerRef.current?.focus(); }}
-                  className="text-gray-400 hover:text-gray-600"
-                  aria-label="Fechar"
-                >
-                  <X className="h-6 w-6" aria-hidden="true" />
-                </button>
-              </div>
-
-              <p className="text-sm text-gray-600 mb-4">Marque os módulos que este usuário pode acessar.</p>
-
-              {/* BUG FIX: fieldset + legend para grupo de checkboxes de módulos */}
-              <fieldset>
-                <legend className="sr-only">Módulos disponíveis para {modulesTargetUser.username}</legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                  {moduleOptions.map(option => {
-                    const superadminOnly = ['sessions', 'anomalies', 'security_alerts'].includes(option.moduleKey);
-                    const locked = superadminOnly && currentUser?.role !== 'superadmin';
-                    return (
-                      <label
-                        key={option.moduleKey}
-                        className={`flex items-center gap-3 text-sm ${locked ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={option.enabled}
-                          onChange={() => !locked && toggleModuleOption(option.moduleKey)}
-                          disabled={locked}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300 disabled:opacity-50"
-                        />
-                        <span>{option.moduleName}</span>
-                        <span className="text-xs text-gray-400">({option.moduleKey})</span>
-                      </label>
-                    );
-                  })}
+              <div
+                ref={modulesModalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modules-modal-title"
+                className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header — fixo */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+                  <div className="min-w-0">
+                    <h2 id="modules-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+                      {isCreateMode ? 'Permissões do novo usuário' : `Permissões de ${username}`}
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                      {isCreateMode
+                        ? <>Usuário: <strong>{username}</strong> · Função: <strong>{roleLabel}</strong> · Defaults pré-aplicados, ajuste conforme necessário.</>
+                        : <>Função atual: <strong>{roleLabel}</strong></>}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="text-gray-400 hover:text-gray-600 shrink-0 ml-3"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-6 w-6" aria-hidden="true" />
+                  </button>
                 </div>
-              </fieldset>
 
-              {/* Permissões granulares de regras de transação (migration 018) */}
-              <div className="mt-6 border-t border-gray-200 pt-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-2">Permissões de Regras de Transação</h3>
-                {rulePerms.is_admin_bypass ? (
-                  <p className="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    Admins e superadmins têm controle total sobre regras automaticamente — não é necessário configurar aqui.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-500 mb-3">Conceda poderes específicos para gerenciar regras automáticas de transações.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_create}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_create: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Criar regras</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_edit}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_edit: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Editar regras</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 p-2 border border-gray-200 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={rulePerms.can_delete}
-                          onChange={(e) => setRulePerms((p) => ({ ...p, can_delete: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        />
-                        <span>Excluir regras</span>
-                      </label>
+                {/* Conteúdo — scrollable */}
+                <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+                  <PermissionsMatrix
+                    permissions={moduleOptions}
+                    onChange={setModuleOptions}
+                    onResetToDefaults={isCreateMode ? handleReloadDefaultsForPendingUser : handleResetPermissionsToDefaults}
+                    isBusy={modulesSaving}
+                    lockedReasons={
+                      currentUser?.role !== 'superadmin'
+                        ? {
+                            sessions:        'Exclusivo do superadmin',
+                            anomalies:       'Exclusivo do superadmin',
+                            security_alerts: 'Exclusivo do superadmin',
+                          }
+                        : {}
+                    }
+                  />
+
+                  {/* Permissões granulares de regras de transação (migration 018) — só no EDIT */}
+                  {!isCreateMode && (
+                    <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-5">
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">Permissões de Regras de Transação</h3>
+                      {rulePerms.is_admin_bypass ? (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                          Admins e superadmins têm controle total sobre regras automaticamente — não é necessário configurar aqui.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Conceda poderes específicos para gerenciar regras automáticas de transações.</p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <input
+                                type="checkbox"
+                                checked={rulePerms.can_create}
+                                onChange={(e) => setRulePerms((p) => ({ ...p, can_create: e.target.checked }))}
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                              />
+                              <span>Criar regras</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <input
+                                type="checkbox"
+                                checked={rulePerms.can_edit}
+                                onChange={(e) => setRulePerms((p) => ({ ...p, can_edit: e.target.checked }))}
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                              />
+                              <span>Editar regras</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 p-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <input
+                                type="checkbox"
+                                checked={rulePerms.can_delete}
+                                onChange={(e) => setRulePerms((p) => ({ ...p, can_delete: e.target.checked }))}
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                              />
+                              <span>Excluir regras</span>
+                            </label>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setShowModulesModal(false); lastTriggerRef.current?.focus(); }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveModules}
-                  disabled={modulesSaving}
-                  aria-busy={modulesSaving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
-                >
-                  <Save className="h-4 w-4" aria-hidden="true" />
-                  {modulesSaving ? 'Salvando...' : 'Salvar módulos e permissões'}
-                </button>
+                {/* Footer — fixo */}
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]"
+                  >
+                    {isCreateMode ? '← Voltar' : 'Cancelar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={isCreateMode ? handleConfirmCreateUser : handleSaveModules}
+                    disabled={modulesSaving}
+                    aria-busy={modulesSaving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
+                  >
+                    {isCreateMode ? <UserPlus className="h-4 w-4" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+                    {modulesSaving
+                      ? (isCreateMode ? 'Criando...' : 'Salvando...')
+                      : (isCreateMode ? 'Criar usuário' : 'Salvar permissões')}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Modal: Senha temporária (após reset) ── */}
         {temporaryPassword && (
@@ -1685,52 +1801,95 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
           </div>
         )}
 
-        {/* ── Modal: Confirmar mudança de role (novo — evita onChange direto na API) ── */}
-        {pendingRoleChange && (
-          <div
-            className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
-            onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
-          >
+        {/* ── Modal: Confirmar mudança de role (Fase 2.4 — A/B com confirmação visual) ── */}
+        {pendingRoleChange && (() => {
+          const roleLabel =
+            pendingRoleChange.role === 'superadmin' ? 'Super Administrador'
+            : pendingRoleChange.role === 'admin'   ? 'Administrador'
+            : pendingRoleChange.role === 'manager' ? 'Gerente'
+            : pendingRoleChange.role === 'user'    ? 'Usuário'
+            :                                        'Convidado';
+          const isBusy = roleLoadingId === pendingRoleChange.userId;
+          return (
             <div
-              ref={roleConfirmModalRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="roleconfirm-modal-title"
-              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md"
-              onClick={e => e.stopPropagation()}
+              className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+              onClick={() => { if (!isBusy) { setPendingRoleChange(null); lastTriggerRef.current?.focus(); } }}
             >
-              <h2 id="roleconfirm-modal-title" className="text-xl font-bold text-gray-900 mb-3">
-                Confirmar alteração de função
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Tem certeza que deseja alterar a função para{' '}
-                <strong>
-                  {pendingRoleChange.role === 'superadmin' ? 'Super Administrador'
-                    : pendingRoleChange.role === 'admin' ? 'Administrador'
-                    : pendingRoleChange.role === 'user' ? 'Usuário'
-                    : 'Convidado'}
-                </strong>?
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role)}
-                  disabled={roleLoadingId === pendingRoleChange.userId}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
-                >
-                  {roleLoadingId === pendingRoleChange.userId ? 'Salvando...' : 'Confirmar'}
-                </button>
+              <div
+                ref={roleConfirmModalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="roleconfirm-modal-title"
+                className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-lg"
+                onClick={e => e.stopPropagation()}
+              >
+                <h2 id="roleconfirm-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  Alterar função para <span className="text-blue-700 dark:text-blue-300">{roleLabel}</span>
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">
+                  As permissões granulares do usuário podem ser{' '}
+                  <strong>resetadas para o padrão de {roleLabel}</strong> ou{' '}
+                  <strong>mantidas como estão</strong> (mantendo eventuais customizações
+                  que você fez no painel de permissões).
+                </p>
+
+                <div className="space-y-3 mb-6">
+                  {/* Opção A: resetar (recomendado, padrão) */}
+                  <button
+                    type="button"
+                    onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role, false)}
+                    disabled={isBusy}
+                    className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-3">
+                      <RotateCcw className="h-5 w-5 text-blue-600 dark:text-blue-300 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-blue-900 dark:text-blue-100">
+                          Resetar para o padrão de {roleLabel}
+                          <span className="ml-2 text-xs font-normal bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">Recomendado</span>
+                        </div>
+                        <div className="text-xs text-blue-800 dark:text-blue-200/80 mt-0.5">
+                          Aplica a tabela canônica de defaults — qualquer customização será perdida.
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Opção B: manter */}
+                  <button
+                    type="button"
+                    onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role, true)}
+                    disabled={isBusy}
+                    className="w-full text-left px-4 py-3 bg-white dark:bg-[#2d3f52] border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-[#354b60] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Lock className="h-5 w-5 text-gray-600 dark:text-gray-300 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">
+                          Manter permissões atuais
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                          Só altera a função; a matriz granular fica exatamente como está.
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
+                    disabled={isBusy}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60] disabled:opacity-60"
+                  >
+                    {isBusy ? 'Salvando...' : 'Cancelar'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </>, document.body)}
 
       <UserCreationTypeModal
