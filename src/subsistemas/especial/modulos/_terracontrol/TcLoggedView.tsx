@@ -14,6 +14,7 @@
 
 import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useTcAuth } from '@/contexts/TcAuthContext'
+import { usePushBridge } from '@/hooks/usePushBridge'
 import {
   type TerraControlRecord,
   normalizeRecords,
@@ -70,6 +71,27 @@ const TcLoggedView: React.FC = () => {
     | { kind: 'pay';  budgetId: string; initialPayment?: PixPaymentSnapshot | null }
     | { kind: 'paid'; budgetId: string; imovel?: string | null; municipio?: string | null }
   const [budgetView, setBudgetView] = useState<BudgetView | null>(null)
+
+  // Push bridge: quando chega notif tc-scope que mexe no estado de algum
+  // imóvel (pagamento confirmado, orçamento revisado, revisão recusada),
+  // bump no refetchKey pra revalidar a lista — assim o banner "Pagamento
+  // pendente" some sozinho se o user pagou em outra aba/dispositivo, e o
+  // banner "Orçamento aguardando você" aparece quando admin envia uma nova
+  // versão. Sem isso o user precisaria F5 pra ver mudança vinda de fora.
+  usePushBridge({
+    scopeFilter: 'tc',
+    onPush: (payload) => {
+      const t = payload.type || ''
+      if (
+        t === 'tc_budget_payment_confirmed' ||
+        t === 'tc_budget_revised' ||
+        t === 'tc_budget_sent' ||
+        t === 'tc_budget_revision_dismissed'
+      ) {
+        setRefetchKey(k => k + 1)
+      }
+    },
+  })
 
   // Sincroniza records ao montar (e quando filtro/refetchKey muda).
   React.useEffect(() => {
@@ -228,7 +250,18 @@ const TcLoggedView: React.FC = () => {
             <TcBudgetViewScreen
               budgetId={budgetView.budgetId}
               onBack={() => setBudgetView(null)}
-              onAccepted={(budgetId, payment) => setBudgetView({ kind: 'pay', budgetId, initialPayment: payment })}
+              onAccepted={(budgetId, payment) => {
+                // Optimistic: o user aprovou o orçamento → status no servidor
+                // virou 'awaiting_payment'. Atualiza o cache local agora pra
+                // que, se o user voltar pra lista, o banner correto apareça
+                // sem flash de "Orçamento aguardando você".
+                setRecords(prev => prev.map(r =>
+                  r.currentBudgetId === budgetId
+                    ? { ...r, budgetStatus: 'awaiting_payment' as TerraControlRecord['budgetStatus'] }
+                    : r
+                ))
+                setBudgetView({ kind: 'pay', budgetId, initialPayment: payment })
+              }}
               onResumePayment={(budgetId) => setBudgetView({ kind: 'pay', budgetId })}
               notify={notify}
             />
@@ -240,6 +273,21 @@ const TcLoggedView: React.FC = () => {
               onBack={() => setBudgetView({ kind: 'view', budgetId: budgetView.budgetId })}
               onPaid={() => {
                 const rec = records.find(r => r.currentBudgetId === budgetView.budgetId)
+                // Optimistic: marca o registro como 'paid' + approved=true
+                // imediatamente. Sem isso, o banner "Pagamento pendente"
+                // persiste por ~1s até o refetch responder (e pode persistir
+                // mais se a rede falhar). markPaidFromWebhook já fez isso
+                // no servidor antes do polling detectar paid — esse update
+                // local só espelha o estado canônico mais cedo.
+                setRecords(prev => prev.map(r =>
+                  r.currentBudgetId === budgetView.budgetId
+                    ? {
+                        ...r,
+                        budgetStatus: 'paid' as TerraControlRecord['budgetStatus'],
+                        approved: true,
+                      }
+                    : r
+                ))
                 setBudgetView({
                   kind: 'paid',
                   budgetId: budgetView.budgetId,
