@@ -661,12 +661,19 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
     }
   };
 
-  // BUG FIX: handleRoleChange agora é chamado via modal de confirmação, não direto no onChange do select
-  const handleRoleChange = useCallback(async (userId: string, role: RoleType) => {
+  // Fase 2.4: handleRoleChange aceita `keepPermissions` — quando true, backend
+  // mantém a matriz de permissões atual; quando false (padrão), reseta para os
+  // defaults da role nova. O modal de confirmação oferece as duas opções.
+  const handleRoleChange = useCallback(async (userId: string, role: RoleType, keepPermissions: boolean) => {
     clearFeedback();
     setRoleLoadingId(userId);
     try {
-      await updateUser(userId, { role }, 'Permissão atualizada com sucesso!');
+      const payload: Record<string, unknown> = { role };
+      if (keepPermissions) payload.keepPermissions = true;
+      const successMsg = keepPermissions
+        ? 'Função alterada — permissões customizadas mantidas.'
+        : 'Função alterada — permissões resetadas para o padrão da nova função.';
+      await updateUser(userId, payload, successMsg);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar permissão');
     } finally {
@@ -1711,53 +1718,95 @@ const AdminPanel = ({ embedded = false }: AdminPanelProps): React.ReactElement =
           </div>
         )}
 
-        {/* ── Modal: Confirmar mudança de role (novo — evita onChange direto na API) ── */}
-        {pendingRoleChange && (
-          <div
-            className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
-            onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
-          >
+        {/* ── Modal: Confirmar mudança de role (Fase 2.4 — A/B com confirmação visual) ── */}
+        {pendingRoleChange && (() => {
+          const roleLabel =
+            pendingRoleChange.role === 'superadmin' ? 'Super Administrador'
+            : pendingRoleChange.role === 'admin'   ? 'Administrador'
+            : pendingRoleChange.role === 'manager' ? 'Gerente'
+            : pendingRoleChange.role === 'user'    ? 'Usuário'
+            :                                        'Convidado';
+          const isBusy = roleLoadingId === pendingRoleChange.userId;
+          return (
             <div
-              ref={roleConfirmModalRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="roleconfirm-modal-title"
-              className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-md"
-              onClick={e => e.stopPropagation()}
+              className="fixed inset-0 bg-gradient-to-br from-blue-900/50 to-indigo-900/50 backdrop-blur-sm flex items-center justify-center z-[10001]"
+              onClick={() => { if (!isBusy) { setPendingRoleChange(null); lastTriggerRef.current?.focus(); } }}
             >
-              <h2 id="roleconfirm-modal-title" className="text-xl font-bold text-gray-900 mb-3">
-                Confirmar alteração de função
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Tem certeza que deseja alterar a função para{' '}
-                <strong>
-                  {pendingRoleChange.role === 'superadmin' ? 'Super Administrador'
-                    : pendingRoleChange.role === 'admin'   ? 'Administrador'
-                    : pendingRoleChange.role === 'manager' ? 'Gerente'
-                    : pendingRoleChange.role === 'user'    ? 'Usuário'
-                    :                                        'Convidado'}
-                </strong>?
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role)}
-                  disabled={roleLoadingId === pendingRoleChange.userId}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
-                >
-                  {roleLoadingId === pendingRoleChange.userId ? 'Salvando...' : 'Confirmar'}
-                </button>
+              <div
+                ref={roleConfirmModalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="roleconfirm-modal-title"
+                className="bg-[#ffffff] dark:!bg-[#243040] rounded-lg p-6 w-full max-w-lg"
+                onClick={e => e.stopPropagation()}
+              >
+                <h2 id="roleconfirm-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  Alterar função para <span className="text-blue-700 dark:text-blue-300">{roleLabel}</span>
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">
+                  As permissões granulares do usuário podem ser{' '}
+                  <strong>resetadas para o padrão de {roleLabel}</strong> ou{' '}
+                  <strong>mantidas como estão</strong> (mantendo eventuais customizações
+                  que você fez no painel de permissões).
+                </p>
+
+                <div className="space-y-3 mb-6">
+                  {/* Opção A: resetar (recomendado, padrão) */}
+                  <button
+                    type="button"
+                    onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role, false)}
+                    disabled={isBusy}
+                    className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-3">
+                      <RotateCcw className="h-5 w-5 text-blue-600 dark:text-blue-300 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-blue-900 dark:text-blue-100">
+                          Resetar para o padrão de {roleLabel}
+                          <span className="ml-2 text-xs font-normal bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">Recomendado</span>
+                        </div>
+                        <div className="text-xs text-blue-800 dark:text-blue-200/80 mt-0.5">
+                          Aplica a tabela canônica de defaults — qualquer customização será perdida.
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Opção B: manter */}
+                  <button
+                    type="button"
+                    onClick={() => handleRoleChange(pendingRoleChange.userId, pendingRoleChange.role, true)}
+                    disabled={isBusy}
+                    className="w-full text-left px-4 py-3 bg-white dark:bg-[#2d3f52] border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-[#354b60] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Lock className="h-5 w-5 text-gray-600 dark:text-gray-300 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">
+                          Manter permissões atuais
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                          Só altera a função; a matriz granular fica exatamente como está.
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setPendingRoleChange(null); lastTriggerRef.current?.focus(); }}
+                    disabled={isBusy}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:!bg-[#2d3f52] rounded-lg hover:bg-gray-200 dark:hover:!bg-[#354b60] disabled:opacity-60"
+                  >
+                    {isBusy ? 'Salvando...' : 'Cancelar'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </>, document.body)}
 
       <UserCreationTypeModal
