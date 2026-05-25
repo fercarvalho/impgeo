@@ -6180,16 +6180,22 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 // POST /api/users - Criar novo usuário
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { username, role } = req.body;
+    const { username, role, permissions } = req.body;
 
     if (!username || !role) {
       return res.status(400).json({ error: 'Username e role são obrigatórios' });
     }
 
-    // Validar role
-    const validRoles = ['admin', 'user', 'guest', 'superadmin'];
+    // Validar role (Fase 2.x: inclui 'manager')
+    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Role inválido. Use: admin, user, guest ou superadmin' });
+      return res.status(400).json({ error: 'Role inválido. Use: superadmin, admin, manager, user ou guest' });
+    }
+
+    // Validar permissions (opcional). Se fornecido, deve ser array de pares
+    // {moduleKey, accessLevel}. Vai sobrescrever os defaults após a criação.
+    if (permissions !== undefined && !Array.isArray(permissions)) {
+      return res.status(400).json({ error: 'permissions deve ser um array de {moduleKey, accessLevel}' });
     }
 
     // Verificar se o usuário já existe
@@ -6201,13 +6207,19 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     // Placeholder de primeiro login (igual ao alya)
     const placeholderPassword = await bcrypt.hash('FIRST_LOGIN_PLACEHOLDER', 10);
 
-    // Criar usuário
+    // Criar usuário (saveUser já aplica seedUserModulePermissionsFromRole
+    // com defaults da role; em seguida, se vier permissions custom no body,
+    // sobrescrevemos com a matriz informada pelo admin).
     const newUser = await db.saveUser({
       username,
       password: placeholderPassword,
       role,
       lastLogin: null
     });
+
+    if (Array.isArray(permissions)) {
+      await db.setUserPermissionsMatrix(newUser.id, permissions);
+    }
 
     // Remover senha antes de enviar
     const { password: _, ...userWithoutPassword } = newUser;
@@ -6216,7 +6228,8 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       action: 'create',
       moduleKey: 'admin',
       entityType: 'user',
-      entityId: newUser.id
+      entityId: newUser.id,
+      details: { role, customPermissions: Array.isArray(permissions) ? permissions.length : 0 },
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao criar usuário: ' + error.message });
@@ -6244,11 +6257,11 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       canManageTcUsers,  // F2.4 — só superadmin pode alterar
     } = req.body;
 
-    // Validar role se fornecido
+    // Validar role se fornecido (Fase 2.x: inclui 'manager')
     if (role) {
-      const validRoles = ['admin', 'user', 'guest', 'superadmin'];
+      const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
       if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'Role inválido. Use: admin, user, guest ou superadmin' });
+        return res.status(400).json({ error: 'Role inválido. Use: superadmin, admin, manager, user ou guest' });
       }
     }
 
@@ -6404,6 +6417,23 @@ app.put('/api/users/:id/modules', authenticateToken, requireAdmin, async (req, r
 // Endpoints novos com semântica view/edit explícita. O legado
 // /api/users/:id/modules continua funcionando para compat enquanto a UI
 // antiga não migrar (será substituído na sub-fase 2.3).
+
+// GET /api/admin/permissions/defaults?role=manager
+// Matriz de permissões padrão para uma role — usada pelo modal "Novo Usuário"
+// para pré-popular a UI de permissões granulares antes da criação efetiva.
+app.get('/api/admin/permissions/defaults', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const role = String(req.query.role || '').trim();
+    const validRoles = ['superadmin', 'admin', 'manager', 'user', 'guest'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'role inválido' });
+    }
+    const matrix = await db.getDefaultPermissionsMatrix(role);
+    return res.json({ success: true, data: { role, permissions: matrix } });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao carregar defaults' });
+  }
+});
 
 // GET /api/admin/users/:id/permissions
 // Retorna a matriz [{ moduleKey, moduleName, subsystemKey, accessLevel|null }]

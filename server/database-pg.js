@@ -3659,6 +3659,28 @@ class Database {
    * Cada item: { moduleKey, moduleName, subsystemKey, accessLevel | null }
    * accessLevel === null significa "sem acesso".
    */
+  /**
+   * Retorna a matriz default que um usuário NOVO da role passada teria, no
+   * mesmo formato do getUserPermissionsMatrix — módulos sem acesso aparecem
+   * com accessLevel:null. Usado pelo modal "Novo Usuário" para pré-popular
+   * a tela de permissões granulares antes da criação efetiva.
+   */
+  async getDefaultPermissionsMatrix(role) {
+    await this.ensureProfileSchema();
+    const catalog = await this.getModulesCatalog();
+    const defaults = computeDefaultsForRole(role, catalog);
+    const defaultsMap = new Map(defaults.map((d) => [d.moduleKey, d.accessLevel]));
+    return catalog
+      .filter((m) => m.isActive !== false)
+      .map((m) => ({
+        moduleKey:    m.moduleKey,
+        moduleName:   m.moduleName,
+        subsystemKey: m.subsystemKey,
+        sortOrder:    m.sortOrder,
+        accessLevel:  defaultsMap.get(m.moduleKey) || null,
+      }));
+  }
+
   async getUserPermissionsMatrix(userId) {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
