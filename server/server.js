@@ -5937,16 +5937,32 @@ app.post('/api/auth/reset-all-passwords', authenticateToken, requireAdmin, async
 });
 
 // APIs de Módulos (apenas para admins)
+// POST /api/admin/modules/reorder — Fase 3.0: contrato novo
+// Body: { subsystemKey, keys: [...] }. Reorder é POR subsistema agora —
+// sort_order é local ao subsystem desde a migration 016.
 app.post('/api/admin/modules/reorder', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { keys } = req.body;
+    const { subsystemKey, keys } = req.body || {};
+    if (!subsystemKey || typeof subsystemKey !== 'string') {
+      return res.status(400).json({ error: 'subsystemKey é obrigatório' });
+    }
     if (!Array.isArray(keys) || keys.length === 0) {
       return res.status(400).json({ error: 'Array de keys é obrigatório' });
     }
-    await db.reorderModules(keys);
+    await db.reorderModules(subsystemKey, keys);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Erro ao reordenar módulos' });
+    return res.status(400).json({ error: error.message || 'Erro ao reordenar módulos' });
+  }
+});
+
+// GET /api/admin/subsystems — lista (read-only) usada pelos dropdowns da UI
+app.get('/api/admin/subsystems', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const subsystems = await db.listSubsystems();
+    return res.json({ success: true, data: subsystems });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Erro ao buscar subsistemas' });
   }
 });
 
@@ -5967,7 +5983,8 @@ app.post('/api/admin/modules', authenticateToken, requireAdmin, async (req, res)
       iconName,
       description,
       routePath,
-      isActive
+      isActive,
+      subsystemKey,
     } = req.body || {};
 
     const normalizedKey = normalizeModuleKey(moduleKey);
@@ -5976,6 +5993,13 @@ app.post('/api/admin/modules', authenticateToken, requireAdmin, async (req, res)
     }
     if (!moduleName || String(moduleName).trim().length < 2) {
       return res.status(400).json({ error: 'moduleName é obrigatório' });
+    }
+    if (!subsystemKey) {
+      return res.status(400).json({ error: 'subsystemKey é obrigatório' });
+    }
+    const sub = await db.getSubsystemByKey(subsystemKey);
+    if (!sub) {
+      return res.status(400).json({ error: `Subsistema inválido: "${subsystemKey}"` });
     }
 
     const existing = await db.getModuleByKey(normalizedKey);
@@ -5990,7 +6014,8 @@ app.post('/api/admin/modules', authenticateToken, requireAdmin, async (req, res)
       description: description ? String(description).trim() : null,
       routePath: routePath ? String(routePath).trim() : null,
       isActive: isActive !== false,
-      isSystem: false
+      isSystem: false,
+      subsystemKey,
     });
 
     await logActivity(req, {
@@ -5998,7 +6023,7 @@ app.post('/api/admin/modules', authenticateToken, requireAdmin, async (req, res)
       moduleKey: 'admin',
       entityType: 'module',
       entityId: created.moduleKey,
-      details: { targetModuleKey: created.moduleKey }
+      details: { targetModuleKey: created.moduleKey, subsystemKey },
     });
 
     return res.status(201).json({ success: true, data: created });
@@ -6022,17 +6047,18 @@ app.put('/api/admin/modules/:moduleKey', authenticateToken, requireAdmin, async 
       }
       updatePayload.moduleName = String(req.body.moduleName).trim();
     }
-    if (req.body.moduleKey !== undefined) {
-      const normalizedKey = normalizeModuleKey(req.body.moduleKey);
-      if (!normalizedKey || normalizedKey.length < 2) {
-        return res.status(400).json({ error: 'moduleKey inválido' });
-      }
-      updatePayload.moduleKey = normalizedKey;
-    }
+    // moduleKey é imutável (regra antiga). Não aceitamos mais rename via PUT.
     if (req.body.iconName !== undefined) updatePayload.iconName = req.body.iconName ? String(req.body.iconName).trim() : null;
     if (req.body.description !== undefined) updatePayload.description = req.body.description ? String(req.body.description).trim() : null;
     if (req.body.routePath !== undefined) updatePayload.routePath = req.body.routePath ? String(req.body.routePath).trim() : null;
     if (req.body.isActive !== undefined) updatePayload.isActive = req.body.isActive === true;
+    if (req.body.subsystemKey !== undefined) {
+      const sub = await db.getSubsystemByKey(req.body.subsystemKey);
+      if (!sub) {
+        return res.status(400).json({ error: `Subsistema inválido: "${req.body.subsystemKey}"` });
+      }
+      updatePayload.subsystemKey = req.body.subsystemKey;
+    }
 
     const updated = await db.updateModule(moduleKey, updatePayload);
 
@@ -6041,7 +6067,10 @@ app.put('/api/admin/modules/:moduleKey', authenticateToken, requireAdmin, async 
       moduleKey: 'admin',
       entityType: 'module',
       entityId: updated.moduleKey,
-      details: { targetModuleKey: updated.moduleKey, previousModuleKey: moduleKey }
+      details: {
+        targetModuleKey: updated.moduleKey,
+        ...(updatePayload.subsystemKey ? { movedTo: updatePayload.subsystemKey, movedFrom: existing.subsystemKey } : {}),
+      },
     });
 
     return res.json({ success: true, data: updated });

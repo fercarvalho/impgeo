@@ -3444,11 +3444,49 @@ class Database {
     }));
   }
 
+  // ─── Subsistemas (read-only por enquanto — fase 3.0) ──────────────────────
+  async listSubsystems() {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT subsystem_key, name, description, icon_name, subdomain_slug,
+              sort_order, is_active, created_at, updated_at
+         FROM subsystems
+        WHERE is_active = TRUE
+        ORDER BY sort_order ASC, name ASC`
+    );
+    return result.rows.map((row) => ({
+      subsystemKey:   row.subsystem_key,
+      name:           row.name,
+      description:    row.description || null,
+      iconName:       row.icon_name || null,
+      subdomainSlug:  row.subdomain_slug,
+      sortOrder:      row.sort_order ?? 0,
+      isActive:       row.is_active !== false,
+      createdAt:      row.created_at || null,
+      updatedAt:      row.updated_at || null,
+    }));
+  }
+
+  async getSubsystemByKey(subsystemKey) {
+    await this.ensureProfileSchema();
+    const result = await this.queryWithRetry(
+      `SELECT subsystem_key, name FROM subsystems WHERE subsystem_key = $1 LIMIT 1`,
+      [subsystemKey]
+    );
+    return result.rows[0] || null;
+  }
+
+  // ─── Módulos do catálogo ──────────────────────────────────────────────────
+  // Fase 3.0: todos os métodos agora respeitam subsystem_key. sort_order é
+  // POR SUBSISTEMA (decisão da migration 016), não global.
+
   async getModuleByKey(moduleKey) {
     await this.ensureProfileSchema();
     const result = await this.queryWithRetry(
       `
-        SELECT module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        SELECT module_key, module_name, icon_name, description, route_path,
+               is_system, is_active, sort_order, subsystem_key,
+               created_at, updated_at
         FROM modules_catalog
         WHERE module_key = $1
         LIMIT 1
@@ -3459,29 +3497,44 @@ class Database {
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
   async createModule(moduleData) {
     await this.ensureProfileSchema();
+    const subsystemKey = moduleData.subsystemKey;
+    if (!subsystemKey) {
+      throw new Error('subsystemKey é obrigatório');
+    }
+    const sub = await this.getSubsystemByKey(subsystemKey);
+    if (!sub) {
+      throw new Error(`Subsistema inválido: "${subsystemKey}"`);
+    }
     const now = new Date().toISOString();
-    const maxResult = await this.queryWithRetry('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM modules_catalog');
+    // sort_order = MAX dentro do subsistema + 1
+    const maxResult = await this.queryWithRetry(
+      `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+         FROM modules_catalog WHERE subsystem_key = $1`,
+      [subsystemKey]
+    );
     const nextOrder = maxResult.rows[0]?.next_order ?? 1;
     const result = await this.queryWithRetry(
       `
         INSERT INTO modules_catalog
-          (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, created_at, updated_at
+          (module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, subsystem_key, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, sort_order, subsystem_key, created_at, updated_at
       `,
       [
         moduleData.moduleKey,
@@ -3492,74 +3545,97 @@ class Database {
         moduleData.isSystem === true,
         moduleData.isActive !== false,
         nextOrder,
+        subsystemKey,
         now,
-        now
+        now,
       ]
     );
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      sortOrder: row.sort_order ?? null,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
+  /**
+   * Atualiza metadados de um módulo. Se subsystemKey vier diferente do atual,
+   * recalcula sort_order = MAX(sort_order)+1 no destino — o módulo vai para
+   * o fim do novo subsistema. Atômico via transação.
+   * Campos editáveis: moduleName, iconName, description, routePath, isActive,
+   * subsystemKey. moduleKey continua imutável (regra antiga preservada).
+   */
   async updateModule(moduleKey, moduleData) {
     await this.ensureProfileSchema();
     const existing = await this.getModuleByKey(moduleKey);
-    if (!existing) {
-      throw new Error('Módulo não encontrado');
+    if (!existing) throw new Error('Módulo não encontrado');
+
+    // Validação de subsystem (se enviado)
+    let targetSubsystemKey = existing.subsystemKey;
+    let targetSortOrder    = existing.sortOrder;
+    if (moduleData.subsystemKey && moduleData.subsystemKey !== existing.subsystemKey) {
+      const sub = await this.getSubsystemByKey(moduleData.subsystemKey);
+      if (!sub) throw new Error(`Subsistema inválido: "${moduleData.subsystemKey}"`);
+      targetSubsystemKey = moduleData.subsystemKey;
+      // Vai pro fim do destino
+      const maxResult = await this.queryWithRetry(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+           FROM modules_catalog WHERE subsystem_key = $1`,
+        [targetSubsystemKey]
+      );
+      targetSortOrder = maxResult.rows[0]?.next_order ?? 1;
     }
 
-    if (existing.isSystem && moduleData.moduleKey && moduleData.moduleKey !== moduleKey) {
-      throw new Error('Não é permitido alterar a chave de um módulo de sistema');
-    }
-
-    const targetKey = moduleData.moduleKey || moduleKey;
     const result = await this.queryWithRetry(
       `
         UPDATE modules_catalog
-        SET
-          module_key = $1,
-          module_name = $2,
-          icon_name = $3,
-          description = $4,
-          route_path = $5,
-          is_active = $6,
-          updated_at = $7
-        WHERE module_key = $8
-        RETURNING module_key, module_name, icon_name, description, route_path, is_system, is_active, created_at, updated_at
+        SET module_name   = $1,
+            icon_name     = $2,
+            description   = $3,
+            route_path    = $4,
+            is_active     = $5,
+            subsystem_key = $6,
+            sort_order    = $7,
+            updated_at    = $8
+        WHERE module_key = $9
+        RETURNING module_key, module_name, icon_name, description, route_path,
+                  is_system, is_active, sort_order, subsystem_key,
+                  created_at, updated_at
       `,
       [
-        targetKey,
-        moduleData.moduleName ?? existing.moduleName,
-        moduleData.iconName !== undefined ? moduleData.iconName : existing.iconName,
+        moduleData.moduleName  ?? existing.moduleName,
+        moduleData.iconName    !== undefined ? moduleData.iconName    : existing.iconName,
         moduleData.description !== undefined ? moduleData.description : existing.description,
-        moduleData.routePath !== undefined ? moduleData.routePath : existing.routePath,
-        moduleData.isActive !== undefined ? moduleData.isActive : existing.isActive,
+        moduleData.routePath   !== undefined ? moduleData.routePath   : existing.routePath,
+        moduleData.isActive    !== undefined ? moduleData.isActive    : existing.isActive,
+        targetSubsystemKey,
+        targetSortOrder,
         new Date().toISOString(),
-        moduleKey
+        moduleKey,
       ]
     );
 
     const row = result.rows[0];
     return {
-      moduleKey: row.module_key,
-      moduleName: row.module_name,
-      iconName: row.icon_name || null,
-      description: row.description || null,
-      routePath: row.route_path || null,
-      isSystem: row.is_system === true,
-      isActive: row.is_active !== false,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
+      moduleKey:    row.module_key,
+      moduleName:   row.module_name,
+      iconName:     row.icon_name || null,
+      description:  row.description || null,
+      routePath:    row.route_path || null,
+      isSystem:     row.is_system === true,
+      isActive:     row.is_active !== false,
+      sortOrder:    row.sort_order ?? null,
+      subsystemKey: row.subsystem_key || null,
+      createdAt:    row.created_at || null,
+      updatedAt:    row.updated_at || null,
     };
   }
 
@@ -3576,16 +3652,48 @@ class Database {
     return true;
   }
 
-  async reorderModules(orderedKeys) {
+  /**
+   * Reordena módulos DENTRO DE UM SUBSISTEMA. Valida que todas as keys
+   * passadas pertencem ao subsystemKey antes de qualquer UPDATE.
+   */
+  async reorderModules(subsystemKey, orderedKeys) {
     await this.ensureProfileSchema();
-    const now = new Date().toISOString();
-    for (let i = 0; i < orderedKeys.length; i++) {
-      await this.queryWithRetry(
-        'UPDATE modules_catalog SET sort_order = $1, updated_at = $2 WHERE module_key = $3',
-        [i + 1, now, orderedKeys[i]]
-      );
+    if (!subsystemKey) throw new Error('subsystemKey é obrigatório');
+    if (!Array.isArray(orderedKeys) || orderedKeys.length === 0) {
+      throw new Error('orderedKeys deve ser um array não-vazio');
     }
-    return true;
+
+    // Valida: todas as keys são módulos desse subsistema
+    const expected = await this.queryWithRetry(
+      `SELECT module_key FROM modules_catalog WHERE subsystem_key = $1`,
+      [subsystemKey]
+    );
+    const validSet = new Set(expected.rows.map((r) => r.module_key));
+    for (const k of orderedKeys) {
+      if (!validSet.has(k)) {
+        throw new Error(`Módulo "${k}" não pertence ao subsistema "${subsystemKey}"`);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (let i = 0; i < orderedKeys.length; i++) {
+        await client.query(
+          `UPDATE modules_catalog SET sort_order = $1, updated_at = $2
+            WHERE module_key = $3 AND subsystem_key = $4`,
+          [i + 1, now, orderedKeys[i], subsystemKey]
+        );
+      }
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Erro ao reordenar módulos: ' + error.message);
+    } finally {
+      client.release();
+    }
   }
 
   async getUserModulePermissions(userId) {
