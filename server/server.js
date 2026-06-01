@@ -57,6 +57,7 @@ const pmTemplateService = require('./services/pm/template-service');
 const pmProjectService = require('./services/pm/project-service');
 const pmTaskService = require('./services/pm/task-service');
 const pmPomodoroService = require('./services/pm/pomodoro-service');
+const pmHelpService = require('./services/pm/help-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -698,6 +699,20 @@ const uploadDocument = multer({
     fileSize: 20 * 1024 * 1024 // 20MB
   }
 });
+
+// PM Fase 6: storage de anexos de tarefas (qualquer tipo, até 10MB).
+const pmAttachmentsDir = path.join(__dirname, 'uploads', 'pm');
+const pmAttachmentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    if (!fs.existsSync(pmAttachmentsDir)) fs.mkdirSync(pmAttachmentsDir, { recursive: true });
+    cb(null, pmAttachmentsDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, `pm-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  }
+});
+const uploadPmAttachment = multer({ storage: pmAttachmentStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Função para processar dados de transações
 function processTransactions(worksheet) {
@@ -2230,6 +2245,132 @@ app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciament
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Lista enxuta de usuários p/ pickers (atribuição, ajuda). Só campos públicos.
+app.get('/api/pm/users', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const users = await db.getAllUsers();
+    const data = (users || [])
+      .filter(u => u.is_active !== false)
+      .map(u => ({
+        id: u.id,
+        name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
+        role: u.role,
+      }));
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ─── PM Fase 6: revisão, anexos e ajuda ───────────────────────────────────────
+
+// Enviar p/ revisão (responsável/gestor).
+app.post('/api/tasks/:taskId/submit-review', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const task = await _guardTaskActor(req, res, req.params.taskId);
+    if (!task) return;
+    res.json({ success: true, data: await pmTaskService.submitForReview(db, req.params.taskId, { userId: req.user?.id || null }) });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+// Aprovar / reprovar revisão (admin/manager).
+app.post('/api/tasks/:taskId/review/approve', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas admin/gerente revisa.' });
+    const result = await pmTaskService.approveReview(db, req.params.taskId, { id: req.user.id, role: req.user.role });
+    res.json({ success: true, data: result });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+app.post('/api/tasks/:taskId/review/reject', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas admin/gerente revisa.' });
+    const result = await pmTaskService.rejectReview(db, req.params.taskId, { userId: req.user.id, adjustmentNotes: req.body.adjustmentNotes });
+    res.json({ success: true, data: result });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+// Fila de revisões pendentes (admin/manager).
+app.get('/api/pm/pending-reviews', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas admin/gerente.' });
+    res.json({ success: true, data: await pmTaskService.listPendingReviews(db) });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Anexos.
+app.post('/api/tasks/:taskId/attachments', requireModulePermission('tarefas_gerenciamento', 'edit'), uploadPmAttachment.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Arquivo obrigatório' });
+    const task = await pmTaskService.getTask(db.pool, req.params.taskId);
+    if (!task) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
+    const id = db.generateId();
+    await db.pool.query(
+      `INSERT INTO task_attachments (id, task_id, file_name, stored_name, mime, size_bytes, uploaded_by_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, req.params.taskId, req.file.originalname, req.file.filename, req.file.mimetype, req.file.size, req.user?.id || null]
+    );
+    res.json({ success: true, data: { id, fileName: req.file.originalname } });
+  } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/tasks/:taskId/attachments', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const r = await db.pool.query(
+      `SELECT id, file_name, mime, size_bytes, uploaded_by_user_id, uploaded_at FROM task_attachments WHERE task_id = $1 ORDER BY uploaded_at DESC`,
+      [req.params.taskId]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/pm/attachments/:id/download', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const r = await db.pool.query('SELECT * FROM task_attachments WHERE id = $1', [req.params.id]);
+    const att = r.rows[0];
+    if (!att) return res.status(404).json({ success: false, error: 'Anexo não encontrado' });
+    const filePath = path.join(pmAttachmentsDir, att.stored_name);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, error: 'Arquivo ausente no servidor' });
+    res.download(filePath, att.file_name);
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/pm/attachments/:id', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const r = await db.pool.query('DELETE FROM task_attachments WHERE id = $1 RETURNING stored_name', [req.params.id]);
+    if (r.rows[0]) {
+      const fp = path.join(pmAttachmentsDir, r.rows[0].stored_name);
+      if (fs.existsSync(fp)) { try { fs.unlinkSync(fp); } catch { /* noop */ } }
+    }
+    res.json({ success: true });
+  } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// Pedidos de ajuda.
+app.post('/api/tasks/:taskId/help-request', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const data = await pmHelpService.createHelpRequest(db, req.params.taskId, {
+      requesterUserId: req.user.id, targetUserId: req.body.targetUserId, message: req.body.message || null,
+    });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+app.get('/api/me/help-requests', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try { res.json({ success: true, data: await pmHelpService.listIncomingHelp(db, req.user.id) }); }
+  catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+const helpActions = {
+  accept:   (id, req) => pmHelpService.acceptHelp(db, id, { userId: req.user.id }),
+  refuse:   (id, req) => pmHelpService.refuseHelp(db, id, { userId: req.user.id, reason: req.body.reason }),
+  complete: (id, req) => pmHelpService.markCollaborationComplete(db, id, { userId: req.user.id, notes: req.body.notes || null }),
+};
+for (const action of Object.keys(helpActions)) {
+  app.post(`/api/help-requests/:id/${action}`, requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+    try { res.json({ success: true, data: await helpActions[action](req.params.id, req) }); }
+    catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+  });
+}
 
 // ─── PM Fase 5: Pomodoro (controle de tempo) ──────────────────────────────────
 // Endpoints pessoais — escopo sempre req.user.id. Só autenticação (já global).

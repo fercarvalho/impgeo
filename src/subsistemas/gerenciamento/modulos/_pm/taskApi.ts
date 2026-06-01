@@ -38,7 +38,7 @@ export async function fetchMyTasks(statuses?: string[]): Promise<PmTask[]> {
 
 export async function taskAction(
   taskId: string,
-  action: 'accept' | 'refuse' | 'start' | 'pause' | 'resume' | 'complete' | 'cancel',
+  action: 'accept' | 'refuse' | 'start' | 'pause' | 'resume' | 'complete' | 'cancel' | 'submit-review',
   body?: Record<string, any>,
 ): Promise<any> {
   const r = await fetch(`${API}/tasks/${taskId}/${action}`, {
@@ -48,6 +48,27 @@ export async function taskAction(
   })
   return parse(r)
 }
+
+// ─── Fase 6: revisão, ajuda, anexos, usuários ─────────────────────────────────
+export interface PmUser { id: string; name: string; role: string }
+export interface HelpRequest {
+  id: string; task_id: string; requester_user_id: string; target_user_id: string
+  message: string | null; status: 'pending' | 'accepted' | 'refused' | 'completed'
+  task_name?: string; project_name?: string
+}
+
+export const fetchPmUsers = (): Promise<PmUser[]> => fetch(`${API}/pm/users`).then(parse)
+export const fetchPendingReviews = (): Promise<PmTask[]> => fetch(`${API}/pm/pending-reviews`).then(parse)
+export const reviewApprove = (taskId: string) =>
+  fetch(`${API}/tasks/${taskId}/review/approve`, { method: 'POST' }).then(parse)
+export const reviewReject = (taskId: string, adjustmentNotes: string) =>
+  fetch(`${API}/tasks/${taskId}/review/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adjustmentNotes }) }).then(parse)
+
+export const fetchIncomingHelp = (): Promise<HelpRequest[]> => fetch(`${API}/me/help-requests`).then(parse)
+export const createHelpRequest = (taskId: string, targetUserId: string, message: string) =>
+  fetch(`${API}/tasks/${taskId}/help-request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetUserId, message }) }).then(parse)
+export const helpAction = (id: string, action: 'accept' | 'refuse' | 'complete', body?: any) =>
+  fetch(`${API}/help-requests/${id}/${action}`, { method: 'POST', headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined }).then(parse)
 
 // Rótulos + cores de status (compartilhados com a página de detalhe).
 export const TASK_STATUS_META: Record<string, { label: string; cls: string }> = {

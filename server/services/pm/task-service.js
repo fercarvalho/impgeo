@@ -16,8 +16,13 @@ const dependencyResolver = require('./dependency-resolver');
 const triggerRunner = require('./trigger-runner');
 const projectFinalizer = require('./project-finalizer');
 const pomodoroService = require('./pomodoro-service');
+const reviewWorkflow = require('./review-workflow');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function err(message, code, status = 400, extra = {}) {
+  const e = new Error(message); e.code = code; e.status = status; Object.assign(e, extra); return e;
+}
 
 async function getTask(exec, taskId) {
   const r = await exec.query('SELECT * FROM project_tasks WHERE id = $1 LIMIT 1', [taskId]);
@@ -231,23 +236,7 @@ async function completeTask(db, taskId, { userId } = {}) {
     );
     await appendTaskEvent(client, db, { taskId, eventType: 'completed', actorId: userId, payload: {} });
 
-    // Liberar dependentes que ficaram prontos.
-    const graph = await _loadGraph(client, pre.project_id);
-    const promote = dependencyResolver.resolveAvailableTasks(graph);
-    if (promote.length) {
-      await client.query(
-        `UPDATE project_tasks SET status = 'available', updated_at = NOW() WHERE id = ANY($1::varchar[])`, [promote]
-      );
-      for (const pid of promote) {
-        await appendTaskEvent(client, db, { taskId: pid, eventType: 'dependency_unblocked', actorId: null, payload: { byTask: taskId } });
-      }
-    }
-
-    // Gatilhos: cria tarefas novas (idempotente via triggered_at).
-    const triggered = await triggerRunner.runTriggersForCompletedTask(db, taskId, { pgClient: client, actorId: userId });
-
-    // Tenta finalizar o projeto.
-    const projectFinalized = await projectFinalizer.maybeFinalizeProject(client, db, pre.project_id);
+    const { promote, triggered, projectFinalized } = await _applyCompletionEffects(client, db, pre.project_id, taskId, userId);
 
     await client.query('COMMIT');
 
@@ -268,6 +257,109 @@ async function completeTask(db, taskId, { userId } = {}) {
   } finally {
     client.release();
   }
+}
+
+// Efeitos pós-conclusão (compartilhado por completeTask e approveReview):
+// libera dependentes, dispara gatilhos e tenta finalizar o projeto.
+async function _applyCompletionEffects(client, db, projectId, taskId, userId) {
+  const graph = await _loadGraph(client, projectId);
+  const promote = dependencyResolver.resolveAvailableTasks(graph);
+  if (promote.length) {
+    await client.query(
+      `UPDATE project_tasks SET status = 'available', updated_at = NOW() WHERE id = ANY($1::varchar[])`, [promote]
+    );
+    for (const pid of promote) {
+      await appendTaskEvent(client, db, { taskId: pid, eventType: 'dependency_unblocked', actorId: null, payload: { byTask: taskId } });
+    }
+  }
+  const triggered = await triggerRunner.runTriggersForCompletedTask(db, taskId, { pgClient: client, actorId: userId });
+  const projectFinalized = await projectFinalizer.maybeFinalizeProject(client, db, projectId);
+  return { promote, triggered, projectFinalized };
+}
+
+// ─── Revisão (Fase 6) ─────────────────────────────────────────────────────────
+
+/** Envia explicitamente p/ revisão (in_progress → pending_review). */
+async function submitForReview(db, taskId, { userId }) {
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  assertTransition(task, TASK_STATUSES.PENDING_REVIEW);
+  await db.pool.query(
+    `UPDATE project_tasks SET status='pending_review', submitted_for_review_at=NOW(), updated_at=NOW() WHERE id=$1`, [taskId]
+  );
+  await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: {} });
+  return getTask(db.pool, taskId);
+}
+
+/**
+ * Aprova a revisão. Conclui a tarefa (+ efeitos). Se o revisor for MANAGER,
+ * cria tarefa de acompanhamento para um admin (regra do req cenário 3).
+ * @param {object} reviewer - { id, role }
+ */
+async function approveReview(db, taskId, reviewer) {
+  const pre = await getTask(db.pool, taskId);
+  if (!pre) throw new Error('Tarefa não encontrada');
+  if (pre.status !== TASK_STATUSES.PENDING_REVIEW) {
+    throw err('Tarefa não está aguardando revisão', 'invalid_transition', 409);
+  }
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE project_tasks SET status='completed', completed_at=NOW(), review_decision='approved',
+              review_decided_at=NOW(), reviewer_user_id=$1, updated_at=NOW() WHERE id=$2`,
+      [reviewer.id || null, taskId]
+    );
+    await appendTaskEvent(client, db, { taskId, eventType: 'review_approved', actorId: reviewer.id || null, payload: { reviewerRole: reviewer.role } });
+
+    const effects = await _applyCompletionEffects(client, db, pre.project_id, taskId, reviewer.id || null);
+
+    let followUp = null;
+    if (reviewWorkflow.shouldCreateFollowUp(reviewer.role)) {
+      followUp = await reviewWorkflow.createAdminFollowUp(client, db, pre, reviewer.id || null);
+    }
+
+    await client.query('COMMIT');
+    try { await pomodoroService.autoCompleteSessionForTask(db, taskId, { userId: reviewer.id }); } catch { /* best-effort */ }
+    return { task: await getTask(db.pool, taskId), followUp, ...effects };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/** Reprova a revisão → pending_adjustment (com notas). */
+async function rejectReview(db, taskId, { userId, adjustmentNotes }) {
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  if (task.status !== TASK_STATUSES.PENDING_REVIEW) {
+    throw err('Tarefa não está aguardando revisão', 'invalid_transition', 409);
+  }
+  if (!adjustmentNotes || !String(adjustmentNotes).trim()) {
+    throw err('Descreva os ajustes necessários', 'reason_required', 400);
+  }
+  await db.pool.query(
+    `UPDATE project_tasks SET status='pending_adjustment', review_decision='rejected',
+            review_decided_at=NOW(), reviewer_user_id=$1, adjustment_notes=$2, updated_at=NOW() WHERE id=$3`,
+    [userId || null, String(adjustmentNotes).trim(), taskId]
+  );
+  await appendTaskEvent(db.pool, db, { taskId, eventType: 'review_rejected', actorId: userId, payload: { adjustmentNotes: String(adjustmentNotes).trim() } });
+  return getTask(db.pool, taskId);
+}
+
+/** Lista tarefas aguardando revisão (fila do gestor). */
+async function listPendingReviews(db) {
+  const r = await db.pool.query(
+    `SELECT t.*, p.name AS project_name, s.name AS stage_name
+       FROM project_tasks t
+       JOIN projects p ON p.id = t.project_id
+       LEFT JOIN project_stages s ON s.id = t.project_stage_id
+      WHERE t.status = 'pending_review'
+      ORDER BY t.submitted_for_review_at ASC NULLS LAST`
+  );
+  return r.rows;
 }
 
 // ─── Leituras p/ dashboard ────────────────────────────────────────────────────
@@ -314,6 +406,10 @@ module.exports = {
   resumeTask,
   cancelTask,
   completeTask,
+  submitForReview,
+  approveReview,
+  rejectReview,
+  listPendingReviews,
   listMyTasks,
   listProjectTasks,
 };
