@@ -6069,22 +6069,27 @@ const requireAdmin = (req, res, next) => {
 // Gate de permissão granular por módulo (Fase 2.x). superadmin/admin têm bypass;
 // demais roles precisam de entrada em user_module_permissions com o nível exigido.
 // `level` ∈ 'view' | 'edit' ('edit' satisfaz 'view'). Usado nas rotas PM novas.
-const requireModulePermission = (moduleKey, level = 'view') => async (req, res, next) => {
-  if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
-  if (req.user.role === 'admin' || req.user.role === 'superadmin') return next();
-  try {
-    const perms = await db.getUserModulePermissions(req.user.id);
-    const entry = Array.isArray(perms) ? perms.find(p => p.moduleKey === moduleKey) : null;
-    const accessLevel = entry?.accessLevel || null;
-    const ok = level === 'view'
-      ? (accessLevel === 'view' || accessLevel === 'edit')
-      : (accessLevel === 'edit');
-    if (ok) return next();
-    return res.status(403).json({ error: `Acesso negado ao módulo ${moduleKey}.` });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-};
+// Function declaration (hoisted) — é chamada no registro das rotas PM (que
+// aparecem ANTES desta linha no arquivo); precisa estar disponível em todo o
+// módulo, por isso NÃO pode ser `const` (cairia na temporal dead zone).
+function requireModulePermission(moduleKey, level = 'view') {
+  return async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') return next();
+    try {
+      const perms = await db.getUserModulePermissions(req.user.id);
+      const entry = Array.isArray(perms) ? perms.find(p => p.moduleKey === moduleKey) : null;
+      const accessLevel = entry?.accessLevel || null;
+      const ok = level === 'view'
+        ? (accessLevel === 'view' || accessLevel === 'edit')
+        : (accessLevel === 'edit');
+      if (ok) return next();
+      return res.status(403).json({ error: `Acesso negado ao módulo ${moduleKey}.` });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  };
+}
 
 // F2.4 — Autoriza endpoints /api/admin/tc-users/* para:
 //   (a) admin/superadmin impgeo (passa direto), OU
