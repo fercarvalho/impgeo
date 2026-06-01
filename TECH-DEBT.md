@@ -169,7 +169,7 @@ Itens deixados como follow-up ao fim da implementação (fases 1→9, migrations
 
 - **`projects.client` (VARCHAR legado) não foi dropado.** `Projects.tsx` ainda lê/filtra por esse campo (nome do cliente em string). Migração futura: trocar a UI para `client_id` + JOIN em `clients`, então dropar a coluna. Hoje `client` e `client_id` coexistem (dual-write no `saveProject`).
 - **`terracontrol.client_id` permanece nullable.** Terrenos podem existir sem cliente (não pagos). A cardinalidade "1 cliente por terreno" já é garantida pela coluna FK única — NOT NULL seria incorreto.
-- **Vínculo transação→projeto sem UI dedicada.** Endpoint `POST /api/transactions/:id/link-project` existe, mas falta o picker no módulo Financeiro (`Transactions.tsx`). Custo recalcula via trigger ao vincular.
+- ~~Vínculo transação→projeto sem UI / atribuição de tarefa sem UI~~ → **resolvido**: aba Custos do projeto tem "Vincular transação" (picker de despesas não-vinculadas) + desvincular; aba Etapas tem botão de atribuir/reatribuir responsável (ícone UserPlus) por tarefa. (Vincular também pelo módulo Financeiro continua follow-up opcional.)
 - **Export de relatório só em XLSX.** PDF (client-side jsPDF) ficou de fora.
 - **Cards consolidados no `DashboardGerenciamento`** (lucro/atrasadas/top performers) não adicionados — o módulo `relatorios_tarefas_gerenciamento` cobre a visão admin.
 - **`task_idle_tracking` acumula linhas** (1 por abertura da área de tarefas) sem limpeza/agregação — adicionar cron de cleanup futuramente.

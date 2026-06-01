@@ -2320,6 +2320,28 @@ app.post('/api/transactions/:id/link-project', requireModulePermission('projects
   } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message }); }
 });
 
+// Transações vinculadas a um projeto (aba Custos).
+app.get('/api/projects/:id/transactions', requireModulePermission('projects', 'view'), async (req, res) => {
+  try {
+    const r = await db.pool.query(
+      `SELECT id, date, description, value, type, category FROM transactions WHERE project_id = $1 ORDER BY date DESC`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Despesas ainda não vinculadas (picker de vínculo).
+app.get('/api/pm/unlinked-transactions', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    const r = await db.pool.query(
+      `SELECT id, date, description, value, type FROM transactions
+        WHERE project_id IS NULL AND type = 'Despesa' ORDER BY date DESC LIMIT 100`
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // Lista enxuta de usuários p/ pickers (atribuição, ajuda). Só campos públicos.
 app.get('/api/pm/users', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {

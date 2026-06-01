@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft, Layers, ListTodo, History, DollarSign, Users, MapPin,
   Loader2, CopyPlus, SkipForward, CheckCircle2, Clock, AlertCircle,
+  UserPlus, Plus, Unlink,
 } from 'lucide-react'
+import AssignTaskModal from './AssignTaskModal'
+import LinkTransactionModal from './LinkTransactionModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Task {
@@ -81,6 +84,9 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('stages')
+  const [assignFor, setAssignFor] = useState<Task | null>(null)
+  const [showLink, setShowLink] = useState(false)
+  const [linkedTx, setLinkedTx] = useState<any[]>([])
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -97,6 +103,26 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
   }, [projectId])
 
   useEffect(() => { load() }, [load])
+
+  const loadTx = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/projects/${projectId}/transactions`)
+      const j = await r.json()
+      if (j.success) setLinkedTx(j.data)
+    } catch { /* noop */ }
+  }, [projectId])
+
+  useEffect(() => { if (tab === 'costs') loadTx() }, [tab, loadTx])
+
+  const unlinkTx = async (txId: string) => {
+    setBusy(true)
+    try {
+      await fetch(`${API}/transactions/${txId}/link-project`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: null }),
+      })
+      await loadTx(); await load()
+    } catch { /* noop */ } finally { setBusy(false) }
+  }
 
   const cloneStage = async (stageId: string) => {
     if (!window.confirm('Criar uma nova versão desta etapa (com as tarefas copiadas)?')) return
@@ -212,6 +238,13 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                       {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
                       {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
+                      {canEdit && (
+                        <button onClick={() => setAssignFor(t)} disabled={busy}
+                          title={t.assignee_user_id ? 'Reatribuir' : 'Atribuir responsável'}
+                          className="p-1 text-violet-400 hover:text-violet-600">
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   )
                 })}
@@ -235,7 +268,36 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
             <p className="text-xs text-gray-500 dark:text-gray-400">Resultado (orçado − custo)</p>
             <p className={`text-lg font-bold ${project.profit_cents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmtBRL(project.profit_cents)}</p>
           </div>
-          <p className="sm:col-span-3 text-xs text-gray-400">O custo é recalculado automaticamente a partir das despesas (transações com type "Despesa") vinculadas a este projeto. Vincule transações pela API <code>/api/transactions/:id/link-project</code> ou pelo módulo Financeiro.</p>
+          <div className="sm:col-span-3 mt-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Despesas vinculadas</h3>
+              {canEdit && (
+                <button onClick={() => setShowLink(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold">
+                  <Plus className="w-3.5 h-3.5" /> Vincular transação
+                </button>
+              )}
+            </div>
+            {linkedTx.length === 0 ? (
+              <p className="text-xs text-gray-400">Nenhuma despesa vinculada. O custo é recalculado automaticamente ao vincular.</p>
+            ) : (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+                {linkedTx.map(t => (
+                  <div key={t.id} className="flex items-center gap-3 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.description || '(sem descrição)'}</div>
+                      <div className="text-xs text-gray-400">{t.date} · {t.type} · <span className="text-red-600 dark:text-red-400">{fmtBRL(Math.round((t.value || 0) * 100))}</span></div>
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => unlinkTx(t.id)} disabled={busy} title="Desvincular" className="p-1 text-gray-400 hover:text-red-600">
+                        <Unlink className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -255,8 +317,13 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
       )}
 
       {tab === 'team' && (
-        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" /> Atribuição de responsáveis e equipe entram na Fase 4 (workflow de tarefas).
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+          <p className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-violet-400" /> Atribua responsáveis pelo botão <UserPlus className="w-3.5 h-3.5 inline" /> em cada tarefa, na aba <strong>Etapas</strong>.</p>
+          {(() => {
+            const assignees = new Set<string>()
+            ;(project.stages || []).forEach(s => s.tasks.forEach(t => { if (t.assignee_user_id) assignees.add(t.assignee_user_id) }))
+            return <p className="text-xs text-gray-400">{assignees.size} responsável(is) distinto(s) atribuído(s) neste projeto.</p>
+          })()}
         </div>
       )}
 
@@ -270,6 +337,25 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
             <MapPin className="w-4 h-4" /> Ver terreno no TerraControl
           </a>
         </div>
+      )}
+
+      {assignFor && (
+        <AssignTaskModal
+          projectId={project.id}
+          taskId={assignFor.id}
+          taskName={assignFor.name}
+          currentAssigneeId={assignFor.assignee_user_id}
+          onClose={() => setAssignFor(null)}
+          onDone={() => { setAssignFor(null); load() }}
+        />
+      )}
+
+      {showLink && (
+        <LinkTransactionModal
+          projectId={project.id}
+          onClose={() => setShowLink(false)}
+          onDone={() => { loadTx(); load() }}
+        />
       )}
     </div>
   )
