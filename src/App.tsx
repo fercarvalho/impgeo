@@ -26,6 +26,7 @@ import {
   Zap,
   Wallet,
   XCircle,
+  ListTodo,
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -51,6 +52,7 @@ const RelatoriosGerenciamento = lazy(() => import('@/subsistemas/gerenciamento/m
 const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
 const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
 const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
+const Tarefas = lazy(() => import('@/subsistemas/gerenciamento/modulos/Tarefas'))
 const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 const TerraControlView = lazy(() => import('@/subsistemas/especial/modulos/TerraControlView'))
@@ -135,9 +137,9 @@ type TabType =
   // Subsistema financeiro (chaves renomeadas pela migração 016)
   | 'dashboard_financeiro' | 'metas_financeiro' | 'relatorios_financeiro'
   | 'projecao' | 'transactions' | 'dre'
-  // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados)
+  // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados + tarefas)
   | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
-  | 'projects' | 'services' | 'clients'
+  | 'projects' | 'services' | 'clients' | 'tarefas_gerenciamento'
   // Subsistema especial
   | 'terracontrol'
 
@@ -1144,6 +1146,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
               projects: MapIcon,
               services: Target,
               clients: Building,
+              tarefas_gerenciamento: ListTodo,
               // Gestão
               roadmap: MapIcon,
               documentacao: BookOpen,
@@ -3581,6 +3584,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         {activeTab === 'services' && hasModuleAccess('services') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Services />
+          </Suspense>
+        )}
+        {activeTab === 'tarefas_gerenciamento' && hasModuleAccess('tarefas_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Tarefas />
           </Suspense>
         )}
         {/* placeholder duplicado de metas removido */}

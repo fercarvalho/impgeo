@@ -76,9 +76,21 @@ const TASK_STATUSES = Object.freeze({
 });
 const TASK_STATUS_VALUES = Object.freeze(Object.values(TASK_STATUSES));
 
-// Matriz de transições válidas — populada na Fase 4.
-// Estrutura: { [fromStatus]: Set<toStatus> }
-const ALLOWED_TRANSITIONS = Object.freeze({});
+// Matriz de transições válidas (Fase 4). Estrutura: { [from]: [to, ...] }.
+// Revisão (pending_review→completed/pending_adjustment via approve/reject) é
+// exercida na Fase 6, mas as arestas já constam aqui.
+const ALLOWED_TRANSITIONS = Object.freeze({
+  pending:            ['available', 'canceled'],
+  available:          ['in_progress', 'pending_acceptance', 'overdue', 'canceled'],
+  pending_acceptance: ['available', 'in_progress', 'refused', 'canceled'],
+  in_progress:        ['pending_review', 'completed', 'available', 'overdue', 'canceled'],
+  pending_review:     ['completed', 'pending_adjustment', 'canceled'],
+  pending_adjustment: ['in_progress', 'available', 'canceled'],
+  overdue:            ['in_progress', 'completed', 'pending_review', 'canceled'],
+  refused:            ['available', 'pending_acceptance', 'canceled'],
+  completed:          [],   // terminal
+  canceled:           [],   // terminal
+});
 
 // ─── Helpers de validação ─────────────────────────────────────────────────────
 

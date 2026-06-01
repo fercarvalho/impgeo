@@ -55,6 +55,7 @@ const budgetDispatcher = require('./services/budget-dispatcher')({
 // PM (Gerenciamento de Projetos) — services stateless: recebem `db` por parâmetro.
 const pmTemplateService = require('./services/pm/template-service');
 const pmProjectService = require('./services/pm/project-service');
+const pmTaskService = require('./services/pm/task-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2149,6 +2150,83 @@ app.post('/api/projects/:id/stages/:stageId/clone-as-version', requireModulePerm
     res.json({ success: true, data: project });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// ─── PM Fase 4: workflow de tarefas (state machine) ───────────────────────────
+// Auth: módulo 'tarefas_gerenciamento'. Mutações exigem edit; leitura, view.
+// Ações sobre a própria tarefa (accept/start/...) também checam ownership.
+
+const _isManagerRole = (u) => u && (u.role === 'admin' || u.role === 'superadmin' || u.role === 'manager');
+
+// Guarda: admin/manager OU responsável/capturador da tarefa.
+async function _guardTaskActor(req, res, taskId) {
+  const task = await pmTaskService.getTask(db.pool, taskId);
+  if (!task) { res.status(404).json({ success: false, error: 'Tarefa não encontrada' }); return null; }
+  if (_isManagerRole(req.user)) return task;
+  if (task.assignee_user_id === req.user?.id || task.captured_by_user_id === req.user?.id) return task;
+  res.status(403).json({ success: false, error: 'Você não pode agir sobre esta tarefa.' });
+  return null;
+}
+
+// Atribuir/reatribuir (admin/manager).
+app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores atribuem tarefas.' });
+    const task = await pmTaskService.assignTask(db, req.params.taskId, {
+      toUserId: req.body.userId, assignedByUserId: req.user?.id || null, reason: req.body.reason || 'assign',
+    });
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Ações sobre a tarefa.
+const taskActions = {
+  accept:  (taskId, req) => pmTaskService.acceptTask(db, taskId, { userId: req.user?.id || null }),
+  refuse:  (taskId, req) => pmTaskService.refuseTask(db, taskId, { userId: req.user?.id || null, reason: req.body.reason }),
+  start:   (taskId, req) => pmTaskService.startTask(db, taskId, { userId: req.user?.id || null }),
+  pause:   (taskId, req) => pmTaskService.pauseTask(db, taskId, { userId: req.user?.id || null }),
+  resume:  (taskId, req) => pmTaskService.resumeTask(db, taskId, { userId: req.user?.id || null }),
+  complete:(taskId, req) => pmTaskService.completeTask(db, taskId, { userId: req.user?.id || null }),
+  cancel:  (taskId, req) => pmTaskService.cancelTask(db, taskId, { userId: req.user?.id || null, reason: req.body.reason || null }),
+};
+for (const action of Object.keys(taskActions)) {
+  app.post(`/api/tasks/:taskId/${action}`, requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+    try {
+      // cancel só gestor; demais ações exigem ownership (ou gestor).
+      if (action === 'cancel' && !_isManagerRole(req.user)) {
+        return res.status(403).json({ success: false, error: 'Apenas gestores cancelam tarefas.' });
+      }
+      const task = await _guardTaskActor(req, res, req.params.taskId);
+      if (!task) return;
+      const result = await taskActions[action](req.params.taskId, req);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      res.status(error.status || 400).json({ success: false, error: error.message, code: error.code, blockedBy: error.blockedBy });
+    }
+  });
+}
+
+// Dashboard pessoal.
+app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const statuses = req.query.status ? String(req.query.status).split(',').map(s => s.trim()).filter(Boolean) : null;
+    const tasks = await pmTaskService.listMyTasks(db, req.user.id, { statuses });
+    res.json({ success: true, data: tasks });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Tarefas de um projeto (gestores).
+app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const tasks = await pmTaskService.listProjectTasks(db, req.params.id);
+    res.json({ success: true, data: tasks });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

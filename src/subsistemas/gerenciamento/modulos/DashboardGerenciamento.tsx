@@ -9,6 +9,7 @@ import {
   PauseCircle,
   AlertCircle,
 } from 'lucide-react';
+import PendingTasksBanner from './_pm/PendingTasksBanner';
 
 const API_BASE_URL = '/api';
 
@@ -121,6 +122,10 @@ export default function DashboardGerenciamento() {
           Visão consolidada da operação: projetos, serviços e clientes em um só lugar.
         </p>
       </header>
+
+      <div className="mb-6">
+        <PendingTasksBanner />
+      </div>
 
       {error && (
         <div className="mb-6 p-4 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300 flex items-start gap-2">

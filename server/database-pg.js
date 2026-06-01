@@ -118,6 +118,7 @@ class Database {
       { moduleKey: 'projects',                 moduleName: 'Projetos',              iconName: 'FolderOpen',    routePath: 'projects',                 isSystem: true, description: 'Gestão de projetos',                                subsystemKey: 'gerenciamento', sortOrder: 5 },
       { moduleKey: 'services',                 moduleName: 'Serviços',              iconName: 'Briefcase',     routePath: 'services',                 isSystem: true, description: 'Gestão de serviços',                                subsystemKey: 'gerenciamento', sortOrder: 6 },
       { moduleKey: 'clients',                  moduleName: 'Clientes',              iconName: 'Users',         routePath: 'clients',                  isSystem: true, description: 'Cadastro de clientes',                              subsystemKey: 'gerenciamento', sortOrder: 7 },
+      { moduleKey: 'tarefas_gerenciamento',    moduleName: 'Tarefas',               iconName: 'ListTodo',      routePath: 'tarefas_gerenciamento',    isSystem: true, description: 'Execução e acompanhamento de tarefas dos projetos',  subsystemKey: 'gerenciamento', sortOrder: 8 },
 
       // Subsistema especial (módulos extras)
       { moduleKey: 'terracontrol',          moduleName: 'TerraControl',       iconName: 'ClipboardList', routePath: 'terracontrol',          isSystem: true, description: 'Controle e acompanhamento de imóveis rurais',          subsystemKey: 'especial',      sortOrder: 1 }
