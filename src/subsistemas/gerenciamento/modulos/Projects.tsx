@@ -737,7 +737,7 @@ const Projects: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
                   >
                     <option value="">Sem estrutura (projeto vazio)</option>
-                    {services.map(s => (
+                    {services.filter(s => (s as any).status !== 'inativo').map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>

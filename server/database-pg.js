@@ -1533,15 +1533,17 @@ class Database {
   async saveService(serviceData) {
     try {
       const id = this.generateId();
+      const status = serviceData.status === 'inativo' ? 'inativo' : 'ativo';
       const result = await this.queryWithRetry(
-        `INSERT INTO services (id, name, description, price, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO services (id, name, description, price, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
           id,
           serviceData.name || null,
           serviceData.description || null,
           serviceData.price || 0,
+          status,
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -1554,15 +1556,18 @@ class Database {
 
   async updateService(id, updatedData) {
     try {
+      // status só é alterado se vier no payload (preserva o atual senão).
       const result = await this.queryWithRetry(
-        `UPDATE services 
-         SET name = $1, description = $2, price = $3, updated_at = $4
-         WHERE id = $5
+        `UPDATE services
+         SET name = $1, description = $2, price = $3,
+             status = COALESCE($4, status), updated_at = $5
+         WHERE id = $6
          RETURNING *`,
         [
           updatedData.name || null,
           updatedData.description || null,
           updatedData.price || 0,
+          (updatedData.status === 'ativo' || updatedData.status === 'inativo') ? updatedData.status : null,
           new Date().toISOString(),
           id
         ]
