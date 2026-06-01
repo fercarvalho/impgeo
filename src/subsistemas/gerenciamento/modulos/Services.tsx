@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Modal from '@/components/Modal'
-import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag, Layers } from 'lucide-react'
+import { Target, Plus, Edit, Trash2, X, Layers } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import ServiceTemplateEditor from './_pm/ServiceTemplateEditor'
 
@@ -8,16 +8,13 @@ interface Service {
   id: string
   name: string
   description: string
-  category: string
-  price: number
-  duration: number
   status: 'ativo' | 'inativo'
 }
 
 const API_BASE_URL = '/api'
 
 const EMPTY_FORM = {
-  name: '', description: '', category: '', price: '', duration: '', status: 'ativo' as 'ativo' | 'inativo'
+  name: '', description: '', status: 'ativo' as 'ativo' | 'inativo'
 }
 
 const Services: React.FC = () => {
@@ -33,9 +30,6 @@ const Services: React.FC = () => {
   const [form, setForm] = useState<{
     name: string
     description: string
-    category: string
-    price: string
-    duration: string
     status: 'ativo' | 'inativo'
   }>(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
@@ -124,23 +118,6 @@ const Services: React.FC = () => {
 
     if (!form.name.trim()) errors.name = 'Campo obrigatório'
     if (!form.description.trim()) errors.description = 'Campo obrigatório'
-    if (!form.category.trim()) errors.category = 'Campo obrigatório'
-
-    if (!form.price.trim()) {
-      errors.price = 'Campo obrigatório'
-    } else {
-      const priceVal = parseFloat(form.price)
-      if (isNaN(priceVal)) errors.price = 'Valor inválido'
-      else if (priceVal < 0) errors.price = 'Preço não pode ser negativo'
-    }
-
-    if (!form.duration.trim()) {
-      errors.duration = 'Campo obrigatório'
-    } else {
-      const durVal = parseInt(form.duration, 10)
-      if (isNaN(durVal)) errors.duration = 'Valor inválido'
-      else if (durVal <= 0) errors.duration = 'Duração deve ser maior que zero'
-    }
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -154,9 +131,6 @@ const Services: React.FC = () => {
     const payload = {
       name: form.name,
       description: form.description,
-      category: form.category,
-      price: parseFloat(form.price),
-      duration: parseInt(form.duration, 10),
       status: form.status
     }
 
@@ -216,13 +190,6 @@ const Services: React.FC = () => {
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value)
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -279,22 +246,7 @@ const Services: React.FC = () => {
                 </span>
               </div>
 
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2 leading-relaxed">{service.description}</p>
-
-              <div className="space-y-2 mb-5 flex-1">
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <Tag className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" aria-hidden="true" />
-                  <span>{service.category}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <DollarSign className="w-3.5 h-3.5 text-green-500 flex-shrink-0" aria-hidden="true" />
-                  <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(service.price)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <Clock className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" aria-hidden="true" />
-                  <span>{service.duration} dias</span>
-                </div>
-              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-3 leading-relaxed flex-1">{service.description}</p>
 
               <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                 {permissions.canView && (
@@ -310,7 +262,7 @@ const Services: React.FC = () => {
                   <div className="flex gap-2">
                     {permissions.canEdit && (
                       <button
-                        onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
+                        onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, status: service.status }); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
                         className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                       >
                         <Edit className="w-3.5 h-3.5" aria-hidden="true" />
@@ -411,78 +363,6 @@ const Services: React.FC = () => {
                 )}
               </div>
 
-              <div className="relative">
-                <label htmlFor="svc-category" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Categoria <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="svc-category"
-                  value={form.category}
-                  onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.category ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Selecione uma categoria</option>
-                  <option value="REURB">REURB</option>
-                  <option value="GEO">GEO</option>
-                  <option value="PLAN">PLAN</option>
-                  <option value="REG">REG</option>
-                  <option value="NN">NN</option>
-                </select>
-                {formErrors.category && (
-                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                    {formErrors.category}
-                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <label htmlFor="svc-price" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    Preço <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="svc-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.price}
-                    onChange={(e) => setForm(prev => ({ ...prev, price: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                      formErrors.price ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
-                    }`}
-                  />
-                  {formErrors.price && (
-                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                      {formErrors.price}
-                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                    </div>
-                  )}
-                </div>
-                <div className="relative">
-                  <label htmlFor="svc-duration" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    Duração (dias) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="svc-duration"
-                    type="number"
-                    min="1"
-                    value={form.duration}
-                    onChange={(e) => setForm(prev => ({ ...prev, duration: e.target.value }))}
-                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                      formErrors.duration ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
-                    }`}
-                  />
-                  {formErrors.duration && (
-                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                      {formErrors.duration}
-                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               <div>
                 <label htmlFor="svc-status" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Status</label>
