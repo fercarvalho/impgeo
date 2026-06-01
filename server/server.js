@@ -59,6 +59,7 @@ const pmTaskService = require('./services/pm/task-service');
 const pmPomodoroService = require('./services/pm/pomodoro-service');
 const pmHelpService = require('./services/pm/help-service');
 const pmReportService = require('./services/pm/report-service');
+const pmCostService = require('./services/pm/cost-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2267,6 +2268,56 @@ app.put('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento
     );
     res.json({ success: true, data: { emailReports, frequencies: freqs } });
   } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// ─── PM Fase 8: relatórios administrativos + custos ───────────────────────────
+const REL = 'relatorios_tarefas_gerenciamento';
+
+app.get('/api/pm/reports/productivity', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const data = await pmReportService.productivityByUser(db, { from: req.query.from, to: req.query.to, user: req.user });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/pm/reports/projects-health', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const data = await pmReportService.projectsHealth(db, { user: req.user });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/pm/reports/financials', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    if (!req.query.projectId) return res.status(400).json({ success: false, error: 'projectId obrigatório' });
+    const data = await pmCostService.getProjectFinancials(db, req.query.projectId);
+    if (!data) return res.status(404).json({ success: false, error: 'Projeto não encontrado' });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Export XLSX da produtividade (usa a lib XLSX já presente no backend).
+app.get('/api/pm/reports/export', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const rows = await pmReportService.productivityByUser(db, { from: req.query.from, to: req.query.to, user: req.user });
+    const aoa = [['Usuário', 'Concluídas', 'Atrasadas', 'Abertas', 'Min. ativos']]
+      .concat(rows.map(r => [r.name, Number(r.completed), Number(r.overdue), Number(r.open_tasks), Number(r.active_minutes)]));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produtividade');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="produtividade.xlsx"');
+    res.send(buf);
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Vincular/desvincular transação a projeto (custo recalculado por trigger).
+app.post('/api/transactions/:id/link-project', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    const data = await pmCostService.linkTransactionToProject(db, req.params.id, req.body.projectId || null);
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message }); }
 });
 
 // Lista enxuta de usuários p/ pickers (atribuição, ajuda). Só campos públicos.

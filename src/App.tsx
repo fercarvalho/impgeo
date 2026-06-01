@@ -56,6 +56,7 @@ const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services
 const Tarefas = lazy(() => import('@/subsistemas/gerenciamento/modulos/Tarefas'))
 const Pomodoro = lazy(() => import('@/subsistemas/gerenciamento/modulos/Pomodoro'))
 const PomodoroFloatingWidget = lazy(() => import('@/subsistemas/gerenciamento/modulos/_pm/PomodoroFloatingWidget'))
+const RelatoriosTarefas = lazy(() => import('@/subsistemas/gerenciamento/modulos/RelatoriosTarefas'))
 const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 const TerraControlView = lazy(() => import('@/subsistemas/especial/modulos/TerraControlView'))
@@ -142,7 +143,7 @@ type TabType =
   | 'projecao' | 'transactions' | 'dre'
   // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados + tarefas)
   | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
-  | 'projects' | 'services' | 'clients' | 'tarefas_gerenciamento' | 'pomodoro_gerenciamento'
+  | 'projects' | 'services' | 'clients' | 'tarefas_gerenciamento' | 'pomodoro_gerenciamento' | 'relatorios_tarefas_gerenciamento'
   // Subsistema especial
   | 'terracontrol'
 
@@ -1151,6 +1152,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
               clients: Building,
               tarefas_gerenciamento: ListTodo,
               pomodoro_gerenciamento: Timer,
+              relatorios_tarefas_gerenciamento: BarChart3,
               // Gestão
               roadmap: MapIcon,
               documentacao: BookOpen,
@@ -3602,6 +3604,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         {activeTab === 'pomodoro_gerenciamento' && hasModuleAccess('pomodoro_gerenciamento') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Pomodoro />
+          </Suspense>
+        )}
+        {activeTab === 'relatorios_tarefas_gerenciamento' && hasModuleAccess('relatorios_tarefas_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <RelatoriosTarefas />
           </Suspense>
         )}
         {/* placeholder duplicado de metas removido */}

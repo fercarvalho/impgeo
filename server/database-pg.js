@@ -120,6 +120,7 @@ class Database {
       { moduleKey: 'clients',                  moduleName: 'Clientes',              iconName: 'Users',         routePath: 'clients',                  isSystem: true, description: 'Cadastro de clientes',                              subsystemKey: 'gerenciamento', sortOrder: 7 },
       { moduleKey: 'tarefas_gerenciamento',    moduleName: 'Tarefas',               iconName: 'ListTodo',      routePath: 'tarefas_gerenciamento',    isSystem: true, description: 'Execução e acompanhamento de tarefas dos projetos',  subsystemKey: 'gerenciamento', sortOrder: 8 },
       { moduleKey: 'pomodoro_gerenciamento',   moduleName: 'Pomodoro',              iconName: 'Timer',         routePath: 'pomodoro_gerenciamento',   isSystem: true, description: 'Controle de tempo (Pomodoro) e estatísticas pessoais', subsystemKey: 'gerenciamento', sortOrder: 9 },
+      { moduleKey: 'relatorios_tarefas_gerenciamento', moduleName: 'Relatórios de Tarefas', iconName: 'BarChart3', routePath: 'relatorios_tarefas_gerenciamento', isSystem: true, description: 'Relatórios administrativos de produtividade e custos', subsystemKey: 'gerenciamento', sortOrder: 10 },
 
       // Subsistema especial (módulos extras)
       { moduleKey: 'terracontrol',          moduleName: 'TerraControl',       iconName: 'ClipboardList', routePath: 'terracontrol',          isSystem: true, description: 'Controle e acompanhamento de imóveis rurais',          subsystemKey: 'especial',      sortOrder: 1 }

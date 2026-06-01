@@ -201,10 +201,61 @@ async function sendDueReports(db, now = new Date()) {
   return sent;
 }
 
+// ─── Relatórios administrativos (Fase 8) ─────────────────────────────────────
+
+// Filtro de equipe do manager: usuários que ele atribuiu OU projetos onde é
+// manager. Admin/superadmin não filtra (vê tudo). Retorna cláusula + params.
+function _teamScope(user, startIdx) {
+  if (!user || user.role === 'admin' || user.role === 'superadmin') return { clause: '', params: [] };
+  // manager
+  return {
+    clause: `AND (t.assignee_user_id IN (
+                SELECT DISTINCT to_user_id FROM task_assignments_history WHERE assigned_by_user_id = $${startIdx}
+              ) OR p.manager_user_id = $${startIdx})`,
+    params: [user.id],
+  };
+}
+
+/** Produtividade por usuário no período. Respeita escopo de equipe do manager. */
+async function productivityByUser(db, { from, to, user } = {}) {
+  const params = [from || '1970-01-01', to || '2999-12-31'];
+  const scope = _teamScope(user, 3);
+  const sql = `
+    SELECT u.id AS user_id,
+           COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username) AS name,
+           COUNT(t.id) FILTER (WHERE t.status='completed' AND t.completed_at::date BETWEEN $1 AND $2) AS completed,
+           COUNT(t.id) FILTER (WHERE t.status='overdue') AS overdue,
+           COUNT(t.id) FILTER (WHERE t.status IN ('available','in_progress','pending_acceptance','pending_review','pending_adjustment')) AS open_tasks,
+           COALESCE((SELECT SUM(s.total_minutes_worked) FROM pomodoro_daily_stats s WHERE s.user_id=u.id AND s.day BETWEEN $1 AND $2),0) AS active_minutes
+      FROM users u
+      LEFT JOIN project_tasks t ON t.assignee_user_id = u.id
+      LEFT JOIN projects p ON p.id = t.project_id
+     WHERE COALESCE(u.is_active,true)=true ${scope.clause}
+     GROUP BY u.id, u.first_name, u.last_name, u.username
+     ORDER BY active_minutes DESC, completed DESC`;
+  const r = await db.pool.query(sql, [...params, ...scope.params]);
+  return r.rows;
+}
+
+/** Saúde dos projetos (do view). Manager vê só os seus. */
+async function projectsHealth(db, { user } = {}) {
+  if (user && user.role === 'manager') {
+    const r = await db.pool.query(
+      `SELECT h.* FROM pm_project_health_v h JOIN projects p ON p.id = h.project_id WHERE p.manager_user_id = $1 ORDER BY h.days_to_deadline ASC NULLS LAST`,
+      [user.id]
+    );
+    return r.rows;
+  }
+  const r = await db.pool.query(`SELECT * FROM pm_project_health_v ORDER BY days_to_deadline ASC NULLS LAST`);
+  return r.rows;
+}
+
 module.exports = {
   detectAndMarkOverdue,
   sendDueReports,
   previousPeriod,    // exposto p/ teste
   buildReportData,
   renderReportHtml,
+  productivityByUser,
+  projectsHealth,
 };

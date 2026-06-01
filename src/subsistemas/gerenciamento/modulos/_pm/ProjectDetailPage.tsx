@@ -235,7 +235,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
             <p className="text-xs text-gray-500 dark:text-gray-400">Resultado (orçado − custo)</p>
             <p className={`text-lg font-bold ${project.profit_cents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmtBRL(project.profit_cents)}</p>
           </div>
-          <p className="sm:col-span-3 text-xs text-gray-400">Vínculo de transações ao projeto e recálculo automático chegam na Fase 8.</p>
+          <p className="sm:col-span-3 text-xs text-gray-400">O custo é recalculado automaticamente a partir das despesas (transações com type "Despesa") vinculadas a este projeto. Vincule transações pela API <code>/api/transactions/:id/link-project</code> ou pelo módulo Financeiro.</p>
         </div>
       )}
 
