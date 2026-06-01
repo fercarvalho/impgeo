@@ -1,8 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import { fetchMyTasks, taskAction, TASK_STATUS_META, PmTask } from './_pm/taskApi'
+import { useActiveSession, markTaskAreaOpened } from './_pm/pomodoroApi'
+import PomodoroStartModal from './_pm/PomodoroStartModal'
+import IdleAlertModal from './_pm/IdleAlertModal'
 
 // Agrupamento de exibição do dashboard pessoal.
 const GROUPS: { key: string; label: string; statuses: string[] }[] = [
@@ -16,10 +19,14 @@ const GROUPS: { key: string; label: string; statuses: string[] }[] = [
 
 const Tarefas: React.FC = () => {
   const permissions = usePermissions('tarefas_gerenciamento')
+  const { session } = useActiveSession()
   const [tasks, setTasks] = useState<PmTask[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [focusTask, setFocusTask] = useState<PmTask | null>(null)  // abre PomodoroStartModal
+  const [showIdle, setShowIdle] = useState(false)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -34,6 +41,32 @@ const Tarefas: React.FC = () => {
     window.addEventListener('pm-tasks-changed', onChanged)
     return () => window.removeEventListener('pm-tasks-changed', onChanged)
   }, [load])
+
+  // Alerta de inatividade: 5min na área sem sessão ativa → modal.
+  useEffect(() => {
+    markTaskAreaOpened()
+    const arm = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = setTimeout(() => { if (!session) setShowIdle(true) }, 5 * 60 * 1000)
+    }
+    arm()
+    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Se uma sessão iniciar, cancela o alerta pendente.
+  useEffect(() => { if (session && idleTimerRef.current) clearTimeout(idleTimerRef.current) }, [session])
+
+  const startAndFocus = async (t: PmTask) => {
+    setBusyId(t.id); setError(null)
+    try {
+      await taskAction(t.id, 'start')
+      await load()
+      try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
+      setFocusTask(t)  // abre escolha de modo Pomodoro
+    } catch (e: any) { setError(e.message) }
+    finally { setBusyId(null) }
+  }
 
   const act = async (t: PmTask, action: 'start' | 'pause' | 'resume' | 'complete', body?: any) => {
     setBusyId(t.id); setError(null)
@@ -107,7 +140,7 @@ const Tarefas: React.FC = () => {
                         {permissions.canEdit && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {(t.status === 'available' || t.status === 'overdue' || t.status === 'pending_adjustment') && (
-                              <button onClick={() => act(t, 'start')} disabled={busyId === t.id} title="Iniciar"
+                              <button onClick={() => startAndFocus(t)} disabled={busyId === t.id} title="Iniciar (abre o foco)"
                                 className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 disabled:opacity-50">
                                 {busyId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                               </button>
@@ -140,6 +173,27 @@ const Tarefas: React.FC = () => {
             )
           })}
         </div>
+      )}
+
+      {focusTask && (
+        <PomodoroStartModal
+          taskId={focusTask.id}
+          taskName={focusTask.name}
+          onClose={() => setFocusTask(null)}
+          onStarted={() => { setFocusTask(null) }}
+        />
+      )}
+
+      {showIdle && (
+        <IdleAlertModal
+          onChoose={() => setShowIdle(false)}
+          onSnooze={() => {
+            setShowIdle(false)
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+            idleTimerRef.current = setTimeout(() => { if (!session) setShowIdle(true) }, 30 * 60 * 1000)
+          }}
+          onDismiss={() => setShowIdle(false)}
+        />
       )}
     </div>
   )

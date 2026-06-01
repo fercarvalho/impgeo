@@ -124,7 +124,7 @@ export const SUBSYSTEMS: ReadonlyArray<SubsystemDefinition> = [
     name: 'Gerenciamento',
     description: 'Projetos, serviços, clientes e indicadores operacionais',
     iconName: 'Workflow',
-    moduleKeys: ['dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento', 'projects', 'services', 'clients', 'tarefas_gerenciamento'],
+    moduleKeys: ['dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento', 'projects', 'services', 'clients', 'tarefas_gerenciamento', 'pomodoro_gerenciamento'],
     palette: PALETTES.violet,
   },
   {

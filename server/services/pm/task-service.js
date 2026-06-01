@@ -15,6 +15,7 @@ const { canTransitionTask, TASK_STATUSES } = require('./state-machine');
 const dependencyResolver = require('./dependency-resolver');
 const triggerRunner = require('./trigger-runner');
 const projectFinalizer = require('./project-finalizer');
+const pomodoroService = require('./pomodoro-service');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -249,6 +250,12 @@ async function completeTask(db, taskId, { userId } = {}) {
     const projectFinalized = await projectFinalizer.maybeFinalizeProject(client, db, pre.project_id);
 
     await client.query('COMMIT');
+
+    // Auto-complete da sessão Pomodoro ativa nessa tarefa (decisão #13).
+    // Best-effort pós-commit — não desfaz a conclusão se falhar.
+    try { await pomodoroService.autoCompleteSessionForTask(db, taskId, { userId }); }
+    catch (e) { console.error('[task-service] auto-complete pomodoro falhou', taskId, e.message); }
+
     return {
       task: await getTask(db.pool, taskId),
       promoted: promote,

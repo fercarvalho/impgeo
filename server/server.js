@@ -56,6 +56,7 @@ const budgetDispatcher = require('./services/budget-dispatcher')({
 const pmTemplateService = require('./services/pm/template-service');
 const pmProjectService = require('./services/pm/project-service');
 const pmTaskService = require('./services/pm/task-service');
+const pmPomodoroService = require('./services/pm/pomodoro-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2228,6 +2229,85 @@ app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciament
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// ─── PM Fase 5: Pomodoro (controle de tempo) ──────────────────────────────────
+// Endpoints pessoais — escopo sempre req.user.id. Só autenticação (já global).
+
+app.get('/api/pomodoro/active', async (req, res) => {
+  try {
+    const session = await pmPomodoroService.getActiveSession(db, req.user.id);
+    res.json({ success: true, data: session });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/pomodoro/sessions', async (req, res) => {
+  try {
+    const result = await pmPomodoroService.startSession(db, {
+      userId: req.user.id,
+      taskId: req.body.taskId || null,
+      category: req.body.category || null,
+      plannedMinutes: Number(req.body.plannedMinutes) || 25,
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(error.status || 400).json({ success: false, error: error.message, code: error.code, remainingMinutes: error.remainingMinutes });
+  }
+});
+
+const pomodoroActions = {
+  pause:          (id, req) => pmPomodoroService.pauseSession(db, id, req.user.id),
+  resume:         (id, req) => pmPomodoroService.resumeSession(db, id, req.user.id),
+  complete:       (id, req) => pmPomodoroService.completeActive(db, id, req.user.id),
+  'finish-break': (id, req) => pmPomodoroService.finishBreak(db, id, req.user.id),
+  'skip-break':   (id, req) => pmPomodoroService.skipBreak(db, id, req.user.id),
+  abort:          (id, req) => pmPomodoroService.abortSession(db, id, req.user.id, { reason: req.body?.reason || 'manual' }),
+  heartbeat:      (id, req) => pmPomodoroService.heartbeat(db, id, req.user.id),
+};
+for (const action of Object.keys(pomodoroActions)) {
+  app.post(`/api/pomodoro/sessions/:id/${action}`, async (req, res) => {
+    try {
+      const data = await pomodoroActions[action](req.params.id, req);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
+    }
+  });
+}
+
+app.get('/api/pomodoro/stats', async (req, res) => {
+  try {
+    const stats = await pmPomodoroService.getStats(db, req.user.id, { range: req.query.range || 'day' });
+    res.json({ success: true, data: stats });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/pomodoro/config', async (req, res) => {
+  try { res.json({ success: true, data: await pmPomodoroService.getConfig(db, req.user.id) }); }
+  catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/pomodoro/config', async (req, res) => {
+  try {
+    const cfg = await pmPomodoroService.updateConfig(db, req.user.id, {
+      dailyLimitMinutes: req.body.dailyLimitMinutes,
+      idleAlertMinutes: req.body.idleAlertMinutes,
+      soundEnabled: req.body.soundEnabled,
+    });
+    res.json({ success: true, data: cfg });
+  } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// Idle tracking: registra abertura da área de tarefas (alerta 5min é client-side
+// nesta fase; notificação proativa via cron entra na Fase 7).
+app.post('/api/me/task-area-opened', async (req, res) => {
+  try {
+    await db.pool.query(
+      `INSERT INTO task_idle_tracking (id, user_id, opened_at) VALUES ($1, $2, NOW())`,
+      [db.generateId(), req.user.id]
+    );
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 app.put('/api/projects/:id', async (req, res) => {
@@ -8498,6 +8578,18 @@ app.listen(port, async () => {
   if (typeof securityCleanupTimer.unref === 'function') {
     securityCleanupTimer.unref();
   }
+
+  // PM Fase 5: aborta sessões Pomodoro "mortas" (aba fechada > 30min sem
+  // heartbeat). A cada 5min. Evita sessões eternas inflando o tempo ativo.
+  const pomodoroStaleTimer = setInterval(async () => {
+    try {
+      const n = await pmPomodoroService.abortStaleSessions(db);
+      if (n > 0) console.log(`[pomodoro] ${n} sessão(ões) abortada(s) por timeout de heartbeat.`);
+    } catch (error) {
+      console.log('[pomodoro] erro ao abortar sessões mortas:', error.message);
+    }
+  }, 5 * 60 * 1000);
+  if (typeof pomodoroStaleTimer.unref === 'function') pomodoroStaleTimer.unref();
 
   // Sync automático Asaas a cada hora
   if (process.env.ASAAS_API_KEY) {

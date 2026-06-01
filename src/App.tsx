@@ -27,6 +27,7 @@ import {
   Wallet,
   XCircle,
   ListTodo,
+  Timer,
 } from 'lucide-react'
 // PDF libraries serão carregadas dinamicamente quando necessário
 // Dynamic imports para componentes pesados (lazy loading)
@@ -53,6 +54,8 @@ const DRE = lazy(() => import('@/subsistemas/financeiro/modulos/DRE'))
 const Projects = lazy(() => import('@/subsistemas/gerenciamento/modulos/Projects'))
 const Services = lazy(() => import('@/subsistemas/gerenciamento/modulos/Services'))
 const Tarefas = lazy(() => import('@/subsistemas/gerenciamento/modulos/Tarefas'))
+const Pomodoro = lazy(() => import('@/subsistemas/gerenciamento/modulos/Pomodoro'))
+const PomodoroFloatingWidget = lazy(() => import('@/subsistemas/gerenciamento/modulos/_pm/PomodoroFloatingWidget'))
 const Projection = lazy(() => import('@/subsistemas/financeiro/modulos/Projecao'))
 const TerraControl = lazy(() => import('@/subsistemas/especial/modulos/TerraControl'))
 const TerraControlView = lazy(() => import('@/subsistemas/especial/modulos/TerraControlView'))
@@ -139,7 +142,7 @@ type TabType =
   | 'projecao' | 'transactions' | 'dre'
   // Subsistema gerenciamento (4 módulos novos + 3 reaproveitados + tarefas)
   | 'dashboard_gerenciamento' | 'metas_gerenciamento' | 'projecao_gerenciamento' | 'relatorios_gerenciamento'
-  | 'projects' | 'services' | 'clients' | 'tarefas_gerenciamento'
+  | 'projects' | 'services' | 'clients' | 'tarefas_gerenciamento' | 'pomodoro_gerenciamento'
   // Subsistema especial
   | 'terracontrol'
 
@@ -1147,6 +1150,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
               services: Target,
               clients: Building,
               tarefas_gerenciamento: ListTodo,
+              pomodoro_gerenciamento: Timer,
               // Gestão
               roadmap: MapIcon,
               documentacao: BookOpen,
@@ -3533,7 +3537,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       <ImpersonationBanner />
       {user && <FeedbackButton paginaAtual={activeTab} />}
       <NavigationBar />
-      
+      {/* PM Fase 5: widget de Pomodoro flutuante global (some quando não há sessão). */}
+      {user && hasModuleAccess('pomodoro_gerenciamento') && (
+        <Suspense fallback={null}><PomodoroFloatingWidget /></Suspense>
+      )}
+
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-36 min-h-screen">
         {/* Banner persistente convidando o user a ativar Web Push neste dispositivo.
             Fica dentro do max-w-7xl do main pra acompanhar a largura do resto
@@ -3589,6 +3597,11 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         {activeTab === 'tarefas_gerenciamento' && hasModuleAccess('tarefas_gerenciamento') && (
           <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
             <Tarefas />
+          </Suspense>
+        )}
+        {activeTab === 'pomodoro_gerenciamento' && hasModuleAccess('pomodoro_gerenciamento') && (
+          <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <Pomodoro />
           </Suspense>
         )}
         {/* placeholder duplicado de metas removido */}
