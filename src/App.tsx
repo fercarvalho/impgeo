@@ -358,7 +358,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
       'dashboard_financeiro', 'metas_financeiro', 'relatorios_financeiro', 'projecao', 'transactions', 'dre',
       // Gerenciamento
       'dashboard_gerenciamento', 'metas_gerenciamento', 'projecao_gerenciamento', 'relatorios_gerenciamento',
-      'projects', 'services', 'clients',
+      'projects', 'services', 'clients', 'tarefas_gerenciamento', 'pomodoro_gerenciamento', 'relatorios_tarefas_gerenciamento',
       // Gestão
       'faq', 'documentacao',
       // Especial
