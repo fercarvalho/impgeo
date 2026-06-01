@@ -163,10 +163,27 @@ Itens deixados conscientemente fora do MVP de orçamentos e pagamentos AbacatePa
 
 ---
 
+## 🟡 Módulo PM (Gerenciamento de Projetos) — dívidas conscientes
+
+Itens deixados como follow-up ao fim da implementação (fases 1→9, migrations 045-053):
+
+- **`projects.client` (VARCHAR legado) não foi dropado.** `Projects.tsx` ainda lê/filtra por esse campo (nome do cliente em string). Migração futura: trocar a UI para `client_id` + JOIN em `clients`, então dropar a coluna. Hoje `client` e `client_id` coexistem (dual-write no `saveProject`).
+- **`terracontrol.client_id` permanece nullable.** Terrenos podem existir sem cliente (não pagos). A cardinalidade "1 cliente por terreno" já é garantida pela coluna FK única — NOT NULL seria incorreto.
+- **Vínculo transação→projeto sem UI dedicada.** Endpoint `POST /api/transactions/:id/link-project` existe, mas falta o picker no módulo Financeiro (`Transactions.tsx`). Custo recalcula via trigger ao vincular.
+- **Export de relatório só em XLSX.** PDF (client-side jsPDF) ficou de fora.
+- **Cards consolidados no `DashboardGerenciamento`** (lucro/atrasadas/top performers) não adicionados — o módulo `relatorios_tarefas_gerenciamento` cobre a visão admin.
+- **`task_idle_tracking` acumula linhas** (1 por abertura da área de tarefas) sem limpeza/agregação — adicionar cron de cleanup futuramente.
+- **Notificação de inatividade é client-side** (timer 5min no front); não há push proativo via cron.
+- **Storage de anexos é local** (`server/uploads/pm/`) — não escala multi-instância; migrar p/ storage externo se necessário.
+- **Testes do PM são local-only** (gitignored, decisão do dono) — 61 testes Vitest cobrem as regras críticas (state machine, dependências, pomodoro, revisão, custos, período de relatório), rodáveis via `npm test --prefix server`.
+
+---
+
 ## ✅ Resolvidos Recentemente
 
 | Item | Data | Solução |
 |------|------|---------|
+| Módulo de Gerenciamento de Projetos | 2026-06-01 | Projetos/etapas/tarefas a partir de templates, triggers/dependências, revisão admin/manager, ajuda, Pomodoro server-side, métricas e relatórios (migrations 045-053) |
 | Sem refresh tokens | 2026-03-22 | Implementado com rotação automática |
 | Sessões não gerenciadas | 2026-03-22 | active_sessions com geolocalização |
 | Sem detecção de anomalias | 2026-03-22 | ML com Z-score + baseline |
@@ -179,4 +196,4 @@ Itens deixados conscientemente fora do MVP de orçamentos e pagamentos AbacatePa
 
 ---
 
-*Última atualização: 2026-05-23*
+*Última atualização: 2026-06-01*
