@@ -52,6 +52,8 @@ const budgetDispatcher = require('./services/budget-dispatcher')({
     impgeoPublic: process.env.IMPGEO_PUBLIC_URL,
   },
 });
+// PM (Gerenciamento de Projetos) — services stateless: recebem `db` por parâmetro.
+const pmTemplateService = require('./services/pm/template-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2163,10 +2165,136 @@ app.put('/api/services/:id', async (req, res) => {
 app.delete('/api/services/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    // Serviços de sistema (ex.: svc_terracontrol_default) não podem ser excluídos.
+    const svc = await db.pool.query('SELECT is_system FROM services WHERE id = $1', [id]);
+    if (svc.rows[0]?.is_system === true) {
+      return res.status(403).json({ success: false, error: 'Serviço de sistema não pode ser excluído.' });
+    }
     await db.deleteService(id);
     res.json({ success: true, message: 'Serviço excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── PM Fase 2: Template de serviço (etapas/tarefas/deps/triggers) ────────────
+// Auth: middleware global já aplica authenticateToken; gate granular por módulo
+// 'services' (view p/ ler, edit p/ mutar). superadmin/admin têm bypass.
+
+// Template completo aninhado.
+app.get('/api/services/:id/template', requireModulePermission('services', 'view'), async (req, res) => {
+  try {
+    const tpl = await pmTemplateService.getServiceTemplate(db, req.params.id, {
+      version: req.query.version ? Number(req.query.version) : undefined,
+    });
+    res.json({ success: true, data: tpl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Stages
+app.post('/api/services/:id/template/stages', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const stage = await pmTemplateService.createStage(db, req.params.id, req.body);
+    res.json({ success: true, data: stage });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.patch('/api/services/:id/template/stages/:stageId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const stage = await pmTemplateService.updateStage(db, req.params.stageId, req.body);
+    res.json({ success: true, data: stage });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/services/:id/template/stages/:stageId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    await pmTemplateService.deleteStage(db, req.params.stageId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Tasks
+app.post('/api/services/:id/template/stages/:stageId/tasks', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const task = await pmTemplateService.createTask(db, req.params.stageId, req.body);
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.patch('/api/services/:id/template/tasks/:taskId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const task = await pmTemplateService.updateTask(db, req.params.taskId, req.body);
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/services/:id/template/tasks/:taskId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    await pmTemplateService.deleteTask(db, req.params.taskId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Dependências (start/completion; alvo task|stage). Valida ciclo → 400.
+app.post('/api/services/:id/template/tasks/:taskId/dependencies', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const dep = await pmTemplateService.createDependency(db, req.params.taskId, req.body);
+    res.json({ success: true, data: dep });
+  } catch (error) {
+    const status = error.code === 'dependency_cycle' ? 400 : 400;
+    res.status(status).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+app.delete('/api/services/:id/template/dependencies/:depId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    await pmTemplateService.deleteDependency(db, req.params.depId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Triggers (criam tarefa nova quando a source completa).
+app.post('/api/services/:id/template/tasks/:taskId/triggers', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const trigger = await pmTemplateService.createTrigger(db, req.params.taskId, req.body);
+    res.json({ success: true, data: trigger });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+app.delete('/api/services/:id/template/triggers/:triggerId', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    await pmTemplateService.deleteTrigger(db, req.params.triggerId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Version bump: cria v(N+1) preservando a versão atual.
+app.post('/api/services/:id/template/version-bump', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const newVersion = await pmTemplateService.versionBump(db, req.params.id);
+    res.json({ success: true, data: { version: newVersion } });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
   }
 });
 
@@ -5509,6 +5637,26 @@ const requireAdmin = (req, res, next) => {
     next();
   } else {
     res.status(403).json({ error: 'Acesso negado. Apenas administradores podem realizar esta ação.' });
+  }
+};
+
+// Gate de permissão granular por módulo (Fase 2.x). superadmin/admin têm bypass;
+// demais roles precisam de entrada em user_module_permissions com o nível exigido.
+// `level` ∈ 'view' | 'edit' ('edit' satisfaz 'view'). Usado nas rotas PM novas.
+const requireModulePermission = (moduleKey, level = 'view') => async (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  if (req.user.role === 'admin' || req.user.role === 'superadmin') return next();
+  try {
+    const perms = await db.getUserModulePermissions(req.user.id);
+    const entry = Array.isArray(perms) ? perms.find(p => p.moduleKey === moduleKey) : null;
+    const accessLevel = entry?.accessLevel || null;
+    const ok = level === 'view'
+      ? (accessLevel === 'view' || accessLevel === 'edit')
+      : (accessLevel === 'edit');
+    if (ok) return next();
+    return res.status(403).json({ error: `Acesso negado ao módulo ${moduleKey}.` });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 };
 

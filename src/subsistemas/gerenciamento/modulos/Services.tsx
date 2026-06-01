@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Modal from '@/components/Modal'
-import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag } from 'lucide-react'
+import { Target, Plus, Edit, Trash2, X, DollarSign, Clock, Tag, Layers } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import ServiceTemplateEditor from './_pm/ServiceTemplateEditor'
 
 interface Service {
   id: string
@@ -28,6 +29,7 @@ const Services: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
+  const [templateService, setTemplateService] = useState<Service | null>(null)
   const [form, setForm] = useState<{
     name: string
     description: string
@@ -294,29 +296,40 @@ const Services: React.FC = () => {
                 </div>
               </div>
 
-              {(permissions.canEdit || permissions.canDelete) && (
-                <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-                  {permissions.canEdit && (
-                    <button
-                      onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
-                      className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Edit className="w-3.5 h-3.5" aria-hidden="true" />
-                      Editar
-                    </button>
-                  )}
-                  {permissions.canDelete && (
-                    <button
-                      onClick={() => deleteService(service.id)}
-                      disabled={deletingId === service.id}
-                      className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      {deletingId === service.id ? 'Excluindo…' : 'Excluir'}
-                    </button>
-                  )}
-                </div>
-              )}
+              <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                {permissions.canView && (
+                  <button
+                    onClick={() => setTemplateService(service)}
+                    className="w-full px-3 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-900/20 dark:hover:bg-violet-900/40 text-violet-600 dark:text-violet-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                    Estrutura padrão
+                  </button>
+                )}
+                {(permissions.canEdit || permissions.canDelete) && (
+                  <div className="flex gap-2">
+                    {permissions.canEdit && (
+                      <button
+                        onClick={() => { setEditing(service); setForm({ name: service.name, description: service.description, category: service.category, price: String(service.price), duration: String(service.duration), status: service.status }); setFormErrors({}); setErrorMsg(null); setIsModalOpen(true) }}
+                        className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Edit className="w-3.5 h-3.5" aria-hidden="true" />
+                        Editar
+                      </button>
+                    )}
+                    {permissions.canDelete && (
+                      <button
+                        onClick={() => deleteService(service.id)}
+                        disabled={deletingId === service.id}
+                        className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        {deletingId === service.id ? 'Excluindo…' : 'Excluir'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -497,6 +510,16 @@ const Services: React.FC = () => {
             </div>
           </div>
       </Modal>
+
+      {/* Editor de estrutura padrão (template) do serviço */}
+      {templateService && (
+        <ServiceTemplateEditor
+          serviceId={templateService.id}
+          serviceName={templateService.name}
+          canEdit={permissions.canEdit}
+          onClose={() => setTemplateService(null)}
+        />
+      )}
     </div>
   )
 }
