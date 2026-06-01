@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Download, Upload, Edit, Trash2, X } from 'lucide-react'
+import { Plus, Download, Upload, Edit, Trash2, X, Eye } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import Modal from '@/components/Modal'
+import ProjectDetailPage from './_pm/ProjectDetailPage'
 
 interface Project {
   id: string
@@ -65,6 +66,28 @@ const Projects: React.FC = () => {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // PM Fase 3: serviço-template escolhido na criação (materializa etapas/tarefas).
+  const [createServiceId, setCreateServiceId] = useState<string>('')
+  // PM Fase 3: deep-link ?project=ID → página de detalhe (padrão TerraControl).
+  const [detailId, setDetailId] = useState<string | null>(() => {
+    try { return new URLSearchParams(window.location.search).get('project') } catch { return null }
+  })
+  const openDetail = (id: string) => {
+    setDetailId(id)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('project', id)
+      window.history.replaceState({}, '', url.toString())
+    } catch { /* noop */ }
+  }
+  const closeDetail = () => {
+    setDetailId(null)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('project')
+      window.history.replaceState({}, '', url.toString())
+    } catch { /* noop */ }
+  }
 
   // Estados para filtros e ordenação
   const [filters, setFilters] = useState({
@@ -207,7 +230,7 @@ const Projects: React.FC = () => {
   const saveProject = async () => {
     if (!validateForm()) return
     
-    const payload = {
+    const payload: Record<string, any> = {
       name: form.name,
       description: form.description,
       client: form.client,
@@ -218,7 +241,16 @@ const Projects: React.FC = () => {
       progress: parseInt(form.progress, 10),
       services: form.selectedServices
     }
-    
+
+    // PM Fase 3: ao criar com um serviço-template, o backend materializa
+    // etapas/tarefas. Resolve clientId pelo nome selecionado.
+    if (!editing && createServiceId) {
+      payload.serviceId = createServiceId
+      const matchedClient = clients.find(c => c.name === form.client)
+      if (matchedClient) payload.clientId = matchedClient.id
+      payload.totalCents = Number.isFinite(parseFloat(form.value)) ? Math.round(parseFloat(form.value) * 100) : 0
+    }
+
     try {
       if (editing) {
         const r = await fetch(`${API_BASE_URL}/projects/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -229,7 +261,7 @@ const Projects: React.FC = () => {
         if (!r.ok) { console.error('Erro ao criar projeto:', r.status); return }
         const j = await r.json(); if (j.success) setProjects(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
+      setIsModalOpen(false); setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
     } catch (error) {
       console.error('Erro ao salvar:', error)
     }
@@ -361,6 +393,11 @@ const Projects: React.FC = () => {
     }
   }
 
+  // PM Fase 3: se há ?project=ID, mostra a página de detalhe (tela inteira).
+  if (detailId) {
+    return <ProjectDetailPage projectId={detailId} canEdit={permissions.canEdit} onBack={closeDetail} />
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -381,7 +418,7 @@ const Projects: React.FC = () => {
           )}
           {permissions.canCreate && (
             <button
-              onClick={() => { setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
+              onClick={() => { setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-5 w-5" />
@@ -568,8 +605,15 @@ const Projects: React.FC = () => {
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex justify-center space-x-2">
+                      <button
+                        onClick={() => openDetail(project.id)}
+                        className="p-1 text-violet-600 hover:text-violet-800 hover:bg-violet-50 rounded-full transition-colors"
+                        title="Abrir projeto (etapas, tarefas, custos)"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       {permissions.canEdit && (
-                        <button 
+                        <button
                           onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress), selectedServices: project.services || [] }); setIsModalOpen(true) }}
                           className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
                           title="Editar projeto"
@@ -681,6 +725,29 @@ const Projects: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {!editing && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Estrutura do serviço <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <select
+                    value={createServiceId}
+                    onChange={(e) => setCreateServiceId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
+                  >
+                    <option value="">Sem estrutura (projeto vazio)</option>
+                    {services.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  {createServiceId && (
+                    <p className="mt-1 text-xs text-violet-600 dark:text-violet-400">
+                      As etapas e tarefas padrão deste serviço serão copiadas para o projeto.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">

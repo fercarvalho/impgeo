@@ -1,0 +1,278 @@
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  ArrowLeft, Layers, ListTodo, History, DollarSign, Users, MapPin,
+  Loader2, CopyPlus, SkipForward, CheckCircle2, Clock, AlertCircle,
+} from 'lucide-react'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+interface Task {
+  id: string
+  name: string
+  status: string
+  assignee_user_id: string | null
+  due_date: string | null
+  review_required: boolean
+  acceptance_required: boolean
+  deps?: any[]
+}
+interface Stage {
+  id: string
+  name: string
+  version: number
+  sort_order: number
+  status: string
+  tasks: Task[]
+}
+interface ProjectEvent {
+  id: string
+  event_type: string
+  actor_type: string
+  payload: any
+  created_at: string
+}
+interface ProjectDetail {
+  id: string
+  name: string
+  status: string
+  description: string | null
+  client_id: string | null
+  service_id: string | null
+  terracontrol_id: string | null
+  total_cents: number
+  expenses_cents: number
+  profit_cents: number
+  progress_pct: number
+  stages?: Stage[]
+  events?: ProjectEvent[]
+}
+
+const API = '/api'
+
+// status de tarefa → cor + label
+const TASK_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:            { label: 'Pendente',          cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+  available:          { label: 'Disponível',        cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
+  in_progress:        { label: 'Em andamento',      cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  pending_acceptance: { label: 'Aguard. aceite',    cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  pending_review:     { label: 'Aguard. revisão',   cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
+  pending_adjustment: { label: 'Em ajuste',         cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  completed:          { label: 'Concluída',         cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  overdue:            { label: 'Atrasada',          cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  refused:            { label: 'Recusada',          cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  canceled:           { label: 'Cancelada',         cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
+}
+const STAGE_STATUS: Record<string, string> = {
+  pending: 'Pendente', active: 'Ativa', completed: 'Concluída', skipped: 'Pulada',
+}
+
+const fmtBRL = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100)
+
+interface Props {
+  projectId: string
+  canEdit: boolean
+  onBack: () => void
+}
+
+type Tab = 'stages' | 'costs' | 'events' | 'team' | 'terra'
+
+const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
+  const [project, setProject] = useState<ProjectDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('stages')
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await fetch(`${API}/projects/${projectId}?include=stages,tasks,events`)
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error || 'Falha ao carregar projeto')
+      setProject(j.data)
+    } catch (e: any) {
+      setError(e.message || 'Erro ao carregar')
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId])
+
+  useEffect(() => { load() }, [load])
+
+  const cloneStage = async (stageId: string) => {
+    if (!window.confirm('Criar uma nova versão desta etapa (com as tarefas copiadas)?')) return
+    setBusy(true)
+    try {
+      const r = await fetch(`${API}/projects/${projectId}/stages/${stageId}/clone-as-version`, { method: 'POST' })
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error || 'Falha')
+      await load()
+    } catch (e: any) { setError(e.message) } finally { setBusy(false) }
+  }
+  const skipStage = async (stageId: string) => {
+    if (!window.confirm('Pular esta etapa?')) return
+    setBusy(true)
+    try {
+      const r = await fetch(`${API}/projects/${projectId}/stages/${stageId}/skip`, { method: 'POST' })
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error || 'Falha')
+      await load()
+    } catch (e: any) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+  }
+  if (error && !project) {
+    return (
+      <div className="space-y-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300"><ArrowLeft className="w-4 h-4" /> Voltar</button>
+        <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
+      </div>
+    )
+  }
+  if (!project) return null
+
+  const totalTasks = (project.stages || []).reduce((n, s) => n + s.tasks.length, 0)
+  const doneTasks = (project.stages || []).reduce((n, s) => n + s.tasks.filter(t => t.status === 'completed').length, 0)
+
+  const TABS: { key: Tab; label: string; icon: any }[] = [
+    { key: 'stages', label: 'Etapas', icon: Layers },
+    { key: 'costs', label: 'Custos', icon: DollarSign },
+    { key: 'events', label: 'Eventos', icon: History },
+    { key: 'team', label: 'Equipe', icon: Users },
+    ...(project.terracontrol_id ? [{ key: 'terra' as Tab, label: 'Terreno', icon: MapPin }] : []),
+  ]
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 mb-3">
+          <ArrowLeft className="w-4 h-4" /> Voltar aos projetos
+        </button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/25 flex-shrink-0">
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">{project.name}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {doneTasks}/{totalTasks} tarefas · {(project.stages || []).length} etapa(s) · {project.status}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+              tab === t.key
+                ? 'border-violet-500 text-violet-600 dark:text-violet-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}>
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Conteúdo */}
+      {tab === 'stages' && (
+        <div className="space-y-4">
+          {(project.stages || []).length === 0 && (
+            <div className="text-center py-10 text-gray-400"><ListTodo className="w-9 h-9 mx-auto mb-2 opacity-50" /><p className="text-sm">Sem etapas neste projeto.</p></div>
+          )}
+          {(project.stages || []).map((s, i) => (
+            <div key={s.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 dark:bg-[#2d3f52] px-4 py-2.5 flex items-center gap-2">
+                <span className="text-xs font-bold text-violet-600 dark:text-violet-400 w-5">{i + 1}</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">{s.name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">{STAGE_STATUS[s.status] || s.status}</span>
+                {canEdit && (
+                  <div className="flex items-center gap-0.5">
+                    <button onClick={() => cloneStage(s.id)} disabled={busy} title="Nova versão (diligência)" className="p-1 text-violet-400 hover:text-violet-600"><CopyPlus className="w-4 h-4" /></button>
+                    {s.status !== 'completed' && s.status !== 'skipped' && (
+                      <button onClick={() => skipStage(s.id)} disabled={busy} title="Pular etapa" className="p-1 text-gray-400 hover:text-gray-600"><SkipForward className="w-4 h-4" /></button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {s.tasks.length === 0 && <p className="px-4 py-3 text-xs text-gray-400">Sem tarefas.</p>}
+                {s.tasks.map(t => {
+                  const st = TASK_STATUS[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' }
+                  return (
+                    <div key={t.id} className="px-4 py-2.5 flex items-center gap-2">
+                      <span className="text-sm text-gray-800 dark:text-gray-100 flex-1 truncate">{t.name}</span>
+                      {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
+                      {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'costs' && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:!bg-[#243040]">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Valor do projeto</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmtBRL(project.total_cents)}</p>
+          </div>
+          <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:!bg-[#243040]">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Custo (despesas vinculadas)</p>
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">{fmtBRL(project.expenses_cents)}</p>
+          </div>
+          <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:!bg-[#243040]">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Resultado (orçado − custo)</p>
+            <p className={`text-lg font-bold ${project.profit_cents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmtBRL(project.profit_cents)}</p>
+          </div>
+          <p className="sm:col-span-3 text-xs text-gray-400">Vínculo de transações ao projeto e recálculo automático chegam na Fase 8.</p>
+        </div>
+      )}
+
+      {tab === 'events' && (
+        <div className="space-y-2">
+          {(project.events || []).length === 0 && <p className="text-sm text-gray-400">Sem eventos.</p>}
+          {(project.events || []).map(ev => (
+            <div key={ev.id} className="flex items-start gap-2 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <span className="text-gray-800 dark:text-gray-200 font-medium">{ev.event_type}</span>
+                <span className="text-gray-400 text-xs ml-2">{new Date(ev.created_at).toLocaleString('pt-BR')}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'team' && (
+        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> Atribuição de responsáveis e equipe entram na Fase 4 (workflow de tarefas).
+        </div>
+      )}
+
+      {tab === 'terra' && project.terracontrol_id && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">Este projeto foi gerado a partir de um terreno do TerraControl.</p>
+          <a
+            href={`/?subsystem=especial&module=terracontrol&record=${project.terracontrol_id}`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-tc-green to-tc-blue text-white text-sm font-semibold"
+          >
+            <MapPin className="w-4 h-4" /> Ver terreno no TerraControl
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default ProjectDetailPage

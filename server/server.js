@@ -54,6 +54,7 @@ const budgetDispatcher = require('./services/budget-dispatcher')({
 });
 // PM (Gerenciamento de Projetos) — services stateless: recebem `db` por parâmetro.
 const pmTemplateService = require('./services/pm/template-service');
+const pmProjectService = require('./services/pm/project-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2092,10 +2093,62 @@ app.get('/api/projects', async (req, res) => {
 
 app.post('/api/projects', async (req, res) => {
   try {
+    // PM Fase 3: se vier serviceId, materializa o template (cria projeto +
+    // etapas + tarefas + deps + triggers atomicamente). Senão, comportamento
+    // legado (projeto simples).
+    if (req.body && req.body.serviceId) {
+      const project = await pmProjectService.createProjectFromTemplate(db, {
+        name: req.body.name,
+        description: req.body.description,
+        serviceId: req.body.serviceId,
+        clientId: req.body.clientId || null,
+        managerUserId: req.body.managerUserId || null,
+        startDate: req.body.startDate || null,
+        status: req.body.status || null,
+        totalCents: req.body.totalCents || 0,
+        source: 'manual',
+        actorUserId: req.user?.id || null,
+      });
+      return res.json({ success: true, data: project });
+    }
     const project = await db.saveProject(req.body);
     res.json({ success: true, data: project });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PM Fase 3: detalhe aninhado do projeto (etapas/tarefas/eventos).
+app.get('/api/projects/:id', async (req, res) => {
+  try {
+    const include = req.query.include
+      ? String(req.query.include).split(',').map(s => s.trim()).filter(Boolean)
+      : ['stages', 'tasks', 'events'];
+    const project = await pmProjectService.getProjectWithDetails(db, req.params.id, { include });
+    if (!project) return res.status(404).json({ success: false, error: 'Projeto não encontrado' });
+    res.json({ success: true, data: project });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PM Fase 3: pular etapa.
+app.post('/api/projects/:id/stages/:stageId/skip', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    await pmProjectService.skipStage(db, req.params.id, req.params.stageId, { actorUserId: req.user?.id || null });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// PM Fase 3: clonar etapa como nova versão (diligência/retrabalho — "v2/v3").
+app.post('/api/projects/:id/stages/:stageId/clone-as-version', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    const project = await pmProjectService.cloneStageAsNewVersion(db, req.params.id, req.params.stageId, { actorUserId: req.user?.id || null });
+    res.json({ success: true, data: project });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
   }
 });
 

@@ -18,6 +18,7 @@ const path = require('path');
 const fs = require('fs');
 const abacatepay = require('./abacatepay');
 const { renderBudgetPdf } = require('./budget-pdf');
+const projectService = require('./pm/project-service');
 
 // Diretório onde o PDF é gravado. Mesmo lugar dos outros docs do TC.
 // Reusa /api/documents/:filename pra servir (dual auth).
@@ -428,6 +429,25 @@ function makeService(db) {
       });
     } catch (err) {
       console.error(`[budget-service] Falha ao aprovar terracontrol ${budget.terracontrol_id}:`, err.message);
+    }
+
+    // PM Fase 3: gera (cliente + projeto) a partir do pagamento. Idempotente
+    // (UNIQUE em projects.terracontrol_id + clients.tc_user_id) e atômico
+    // internamente (createProjectFromTerraControlPayment usa própria tx).
+    // Best-effort: falha aqui NÃO desfaz o pagamento/aprovação (mesmo padrão
+    // fire-and-forget do appendRecordEvent acima). Logs p/ reconciliação.
+    try {
+      const tcUserId = approvedRecord?.created_by_tc_user_id || null;
+      const result = await projectService.createProjectFromTerraControlPayment(db, {
+        terracontrolId: budget.terracontrol_id,
+        tcUserId,
+        budgetId: budget.id,
+      });
+      if (result.created) {
+        console.log(`[budget-service] Projeto ${result.projectId} criado do PIX (terreno ${budget.terracontrol_id}, cliente ${result.clientId}).`);
+      }
+    } catch (err) {
+      console.error(`[budget-service] Falha ao gerar projeto do PIX (terreno ${budget.terracontrol_id}):`, err.message);
     }
 
     await db.appendBudgetEvent({

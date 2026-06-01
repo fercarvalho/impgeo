@@ -13,19 +13,21 @@
 'use strict';
 
 // ─── Projeto (status) ─────────────────────────────────────────────────────────
-// Espelha CHECK em projects.status (migration 045).
+// Espelha CHECK em projects.status. Em PORTUGUÊS pra alinhar com o requisito
+// (item 2: "ativo, inativo, pausado, concluído") e com o frontend existente
+// (Projects.tsx). Corrigido na migration 047 (a 045 tinha colocado em inglês).
 // Semântica:
-//   - inactive  = data início futura, ou ainda não iniciado
-//   - active    = em andamento
-//   - paused    = pausado manual
-//   - completed = concluído (auto se auto_finalize=TRUE, ou manual)
-//   - canceled  = cancelado
+//   - inativo   = data início futura, ou ainda não iniciado
+//   - ativo     = em andamento
+//   - pausado   = pausado manual
+//   - concluido = concluído (auto se auto_finalize=TRUE, ou manual)
+//   - cancelado = cancelado
 const PROJECT_STATUSES = Object.freeze({
-  INACTIVE:  'inactive',
-  ACTIVE:    'active',
-  PAUSED:    'paused',
-  COMPLETED: 'completed',
-  CANCELED:  'canceled',
+  INACTIVE:  'inativo',
+  ACTIVE:    'ativo',
+  PAUSED:    'pausado',
+  COMPLETED: 'concluido',
+  CANCELED:  'cancelado',
 });
 const PROJECT_STATUS_VALUES = Object.freeze(Object.values(PROJECT_STATUSES));
 
