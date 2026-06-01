@@ -141,10 +141,11 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
     const idx = ordered.findIndex(x => x.id === s.id)
     const swapIdx = idx + dir
     if (swapIdx < 0 || swapIdx >= ordered.length) return
-    // troca sort_order entre os dois
-    const a = ordered[idx], b = ordered[swapIdx]
-    await mutate(`/services/${serviceId}/template/stages/${a.id}`, 'PATCH', { sortOrder: b.sort_order })
-    await mutate(`/services/${serviceId}/template/stages/${b.id}`, 'PATCH', { sortOrder: a.sort_order })
+    // Troca posições e envia a ordem completa (reatribuída em transação no backend).
+    ;[ordered[idx], ordered[swapIdx]] = [ordered[swapIdx], ordered[idx]]
+    await mutate(`/services/${serviceId}/template/stages/reorder`, 'PUT', {
+      version: tpl.version, orderedIds: ordered.map(x => x.id),
+    })
   }
   const deleteStage = async (s: TemplateStage) => {
     if (!window.confirm(`Excluir a etapa "${s.name}" e suas tarefas?`)) return

@@ -2651,6 +2651,16 @@ app.post('/api/services/:id/template/stages', requireModulePermission('services'
   }
 });
 
+// Reordenação manual de etapas (setas) — em transação, sem colisão de unique.
+app.put('/api/services/:id/template/stages/reorder', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    await pmTemplateService.reorderStages(db, req.params.id, Number(req.body.version) || 1, req.body.orderedIds || []);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 app.patch('/api/services/:id/template/stages/:stageId', requireModulePermission('services', 'edit'), async (req, res) => {
   try {
     const stage = await pmTemplateService.updateStage(db, req.params.stageId, req.body);

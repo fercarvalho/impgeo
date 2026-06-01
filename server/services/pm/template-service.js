@@ -101,38 +101,62 @@ async function getServiceTemplate(db, serviceId, { version } = {}) {
 
 async function createStage(db, serviceId, data) {
   const {
-    name, description = null, version = 1, sortOrder = null,
-    stageType = 'normal', defaultDurationDays = null, defaultAssigneeRole = null,
+    name, description = null, version = 1,
+    defaultDurationDays = null, defaultAssigneeRole = null,
   } = data;
   if (!name) throw new Error('createStage: name obrigatório');
-  if (!STAGE_TYPES.includes(stageType)) throw new Error(`createStage: stageType inválido "${stageType}"`);
 
-  // Resolve sort_order conforme stage_type, se não passado.
-  let order = sortOrder;
-  if (order == null) {
-    if (stageType === 'first') {
-      order = -1; // antes de tudo; reordenação normaliza
-    } else {
-      const r = await db.pool.query(
-        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM service_template_stages WHERE service_id = $1 AND version = $2',
-        [serviceId, version]
-      );
-      order = r.rows[0].next;
-    }
+  // Auto-tipo (regra de produto): 1ª etapa = 'first'; demais = 'last' (e a
+  // 'last' anterior vira 'normal'). O usuário pode reclassificar depois.
+  const cntRes = await db.pool.query(
+    'SELECT COUNT(*)::int AS n FROM service_template_stages WHERE service_id = $1 AND version = $2',
+    [serviceId, version]
+  );
+  const isFirstEver = cntRes.rows[0].n === 0;
+  const stageType = isFirstEver ? 'first' : 'last';
+  if (!isFirstEver) {
+    // Demote a 'last' atual para 'normal'.
+    await db.pool.query(
+      `UPDATE service_template_stages SET stage_type='normal', updated_at=NOW()
+        WHERE service_id=$1 AND version=$2 AND stage_type='last'`,
+      [serviceId, version]
+    );
   }
 
+  // sort_order temporário no fim; a normalização reposiciona por tipo.
+  const maxRes = await db.pool.query(
+    'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM service_template_stages WHERE service_id = $1 AND version = $2',
+    [serviceId, version]
+  );
   const id = db.generateId();
   const res = await db.pool.query(
     `INSERT INTO service_template_stages
        (id, service_id, name, description, version, sort_order, stage_type, default_duration_days, default_assignee_role)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-    [id, serviceId, name, description, version, order, stageType, defaultDurationDays, defaultAssigneeRole]
+    [id, serviceId, name, description, version, maxRes.rows[0].next, stageType, defaultDurationDays, defaultAssigneeRole]
   );
   await _normalizeStageOrder(db, serviceId, version);
-  return res.rows[0];
+  return getStage(db, id);
 }
 
 async function updateStage(db, stageId, data) {
+  const current = await getStage(db, stageId);
+  if (!current) throw new Error('Etapa não encontrada');
+
+  const newType = data.stageType;
+  if (newType !== undefined && !STAGE_TYPES.includes(newType)) {
+    throw new Error(`updateStage: stageType inválido "${newType}"`);
+  }
+
+  // Ao marcar como first/last, garante unicidade: rebaixa outra first/last p/ normal.
+  if (newType === 'first' || newType === 'last') {
+    await db.pool.query(
+      `UPDATE service_template_stages SET stage_type='normal', updated_at=NOW()
+        WHERE service_id=$1 AND version=$2 AND stage_type=$3 AND id<>$4`,
+      [current.service_id, current.version, newType, stageId]
+    );
+  }
+
   const fields = [];
   const values = [];
   let i = 1;
@@ -142,23 +166,19 @@ async function updateStage(db, stageId, data) {
     defaultAssigneeRole: 'default_assignee_role', isActive: 'is_active',
   };
   for (const [key, col] of Object.entries(map)) {
-    if (data[key] !== undefined) {
-      if (key === 'stageType' && !STAGE_TYPES.includes(data[key])) {
-        throw new Error(`updateStage: stageType inválido "${data[key]}"`);
-      }
-      fields.push(`${col} = $${i++}`);
-      values.push(data[key]);
-    }
+    if (data[key] !== undefined) { fields.push(`${col} = $${i++}`); values.push(data[key]); }
   }
-  if (!fields.length) return getStage(db, stageId);
-  fields.push(`updated_at = NOW()`);
-  values.push(stageId);
-  const res = await db.pool.query(
-    `UPDATE service_template_stages SET ${fields.join(', ')} WHERE id = $${i} RETURNING *`,
-    values
-  );
-  if (!res.rows.length) throw new Error('Etapa não encontrada');
-  return res.rows[0];
+  if (fields.length) {
+    fields.push(`updated_at = NOW()`);
+    values.push(stageId);
+    await db.pool.query(`UPDATE service_template_stages SET ${fields.join(', ')} WHERE id = $${i}`, values);
+  }
+
+  // Mudou o tipo → reposiciona (first no topo, last no fim).
+  if (newType !== undefined) {
+    await _normalizeStageOrder(db, current.service_id, current.version);
+  }
+  return getStage(db, stageId);
 }
 
 async function getStage(db, stageId) {
@@ -173,23 +193,53 @@ async function deleteStage(db, stageId) {
   return true;
 }
 
-// Normaliza sort_order (0..N) respeitando first/last.
+// Reatribui sort_order em DUAS FASES (negativos → finais) numa transação, pra
+// nunca colidir com a UNIQUE (service_id, version, sort_order).
+async function _reassignOrder(client, serviceId, version, orderedIds) {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await client.query(
+      'UPDATE service_template_stages SET sort_order=$1 WHERE id=$2 AND service_id=$3 AND version=$4',
+      [-(i + 1), orderedIds[i], serviceId, version]
+    );
+  }
+  for (let i = 0; i < orderedIds.length; i++) {
+    await client.query(
+      'UPDATE service_template_stages SET sort_order=$1, updated_at=NOW() WHERE id=$2 AND service_id=$3 AND version=$4',
+      [i, orderedIds[i], serviceId, version]
+    );
+  }
+}
+
+// Normaliza a ordem por (tipo: first<normal<last, depois sort_order atual).
 async function _normalizeStageOrder(db, serviceId, version) {
   const r = await db.pool.query(
-    `SELECT id, stage_type, sort_order FROM service_template_stages
-      WHERE service_id = $1 AND version = $2`,
+    `SELECT id, stage_type, sort_order FROM service_template_stages WHERE service_id = $1 AND version = $2`,
     [serviceId, version]
   );
-  const rows = r.rows.slice().sort((a, b) => {
-    const rank = st => (st === 'first' ? -1 : st === 'last' ? 1 : 0);
-    if (rank(a.stage_type) !== rank(b.stage_type)) return rank(a.stage_type) - rank(b.stage_type);
-    return a.sort_order - b.sort_order;
-  });
-  for (let idx = 0; idx < rows.length; idx++) {
-    if (rows[idx].sort_order !== idx) {
-      await db.pool.query('UPDATE service_template_stages SET sort_order = $1 WHERE id = $2', [idx, rows[idx].id]);
-    }
-  }
+  const rank = st => (st === 'first' ? -1 : st === 'last' ? 1 : 0);
+  const orderedIds = r.rows.slice().sort((a, b) =>
+    rank(a.stage_type) - rank(b.stage_type) || a.sort_order - b.sort_order
+  ).map(s => s.id);
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await _reassignOrder(client, serviceId, version, orderedIds);
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+}
+
+// Reordenação manual (setas): aplica a ordem explícita dada pelo usuário.
+async function reorderStages(db, serviceId, version, orderedIds) {
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await _reassignOrder(client, serviceId, version, orderedIds);
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
 }
 
 // ─── Tasks CRUD ───────────────────────────────────────────────────────────────
@@ -495,6 +545,7 @@ module.exports = {
   updateStage,
   getStage,
   deleteStage,
+  reorderStages,
   // tasks
   createTask,
   updateTask,
