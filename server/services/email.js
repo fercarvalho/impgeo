@@ -883,7 +883,51 @@ async function enviarEmailTcRevisaoDescartada({ toEmail, username, imovel, munic
   return { messageId: response.headers?.['x-message-id'] || null, statusCode: response.statusCode };
 }
 
+// ─── PM Fase 7 ────────────────────────────────────────────────────────────────
+function escapeHtmlPm(s) {
+  return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// E-mail simples de notificação de projetos/tarefas.
+async function enviarEmailPmNotificacao({ toEmail, title, message, ctaUrl }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME || 'IMPGEO';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+
+  const cta = ctaUrl
+    ? `<p style="margin:24px 0"><a href="${escapeHtmlPm(ctaUrl)}" style="background:linear-gradient(90deg,#7c3aed,#4f46e5);color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600">Abrir no IMPGEO</a></p>`
+    : '';
+  const html = `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+    <h2 style="color:#4f46e5">${escapeHtmlPm(title)}</h2>
+    <p style="font-size:15px;line-height:1.5">${escapeHtmlPm(message || '')}</p>${cta}
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+    <p style="font-size:12px;color:#9ca3af">IMPGEO · Gerenciamento de Projetos</p>
+  </div>`;
+  const [response] = await sgMail.send({
+    to: toEmail, from: { email: fromEmail, name: fromName },
+    subject: title, html, text: `${title}\n\n${message || ''}${ctaUrl ? `\n\n${ctaUrl}` : ''}`,
+  });
+  return { messageId: response.headers?.['x-message-id'] || null };
+}
+
+// Relatório administrativo por período (HTML já montado pelo report-service).
+async function enviarEmailRelatorioPm({ toEmail, subject, html }) {
+  ensureSendGridConfigured();
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const fromName = process.env.SENDGRID_FROM_NAME || 'IMPGEO';
+  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  if (!toEmail) throw new Error('Email de destino não informado');
+  const [response] = await sgMail.send({
+    to: toEmail, from: { email: fromEmail, name: fromName }, subject, html,
+  });
+  return { messageId: response.headers?.['x-message-id'] || null };
+}
+
 module.exports = {
+  enviarEmailPmNotificacao,
+  enviarEmailRelatorioPm,
   enviarEmailRecuperacao,
   enviarEmailTcResetSenha,
   enviarEmailTcConvite,

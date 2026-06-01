@@ -19,6 +19,7 @@ const fs = require('fs');
 const abacatepay = require('./abacatepay');
 const { renderBudgetPdf } = require('./budget-pdf');
 const projectService = require('./pm/project-service');
+const pmNotificationService = require('./pm/notification-service');
 
 // Diretório onde o PDF é gravado. Mesmo lugar dos outros docs do TC.
 // Reusa /api/documents/:filename pra servir (dual auth).
@@ -445,6 +446,15 @@ function makeService(db) {
       });
       if (result.created) {
         console.log(`[budget-service] Projeto ${result.projectId} criado do PIX (terreno ${budget.terracontrol_id}, cliente ${result.clientId}).`);
+        // Notifica admins (pm_project_paid). Best-effort.
+        try {
+          const pr = await db.pool.query('SELECT name FROM projects WHERE id = $1', [result.projectId]);
+          pmNotificationService.notifyAdmins(db, {
+            type: 'pm_project_paid',
+            payload: { projectName: pr.rows[0]?.name || 'Projeto TerraControl' },
+            entityType: 'project', entityId: result.projectId, ctaProjectId: result.projectId,
+          }).catch(() => {});
+        } catch { /* best-effort */ }
       }
     } catch (err) {
       console.error(`[budget-service] Falha ao gerar projeto do PIX (terreno ${budget.terracontrol_id}):`, err.message);

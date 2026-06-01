@@ -17,6 +17,29 @@ const triggerRunner = require('./trigger-runner');
 const projectFinalizer = require('./project-finalizer');
 const pomodoroService = require('./pomodoro-service');
 const reviewWorkflow = require('./review-workflow');
+const notificationService = require('./notification-service');
+
+// Notificação best-effort (nunca quebra a transição).
+function _notify(db, args) { notificationService.notify(db, args).catch(() => {}); }
+function _notifyAdmins(db, args) { notificationService.notifyAdmins(db, args).catch(() => {}); }
+async function _taskMeta(db, task) {
+  const r = await db.pool.query(
+    `SELECT t.name AS task_name, p.name AS project_name FROM project_tasks t JOIN projects p ON p.id=t.project_id WHERE t.id=$1`,
+    [task.id]
+  );
+  return { taskName: r.rows[0]?.task_name || task.name, projectName: r.rows[0]?.project_name || null };
+}
+async function _notifyProjectCompleted(db, projectId, finalized) {
+  if (!finalized) return;
+  try {
+    const r = await db.pool.query('SELECT name, manager_user_id FROM projects WHERE id=$1', [projectId]);
+    const proj = r.rows[0];
+    if (!proj) return;
+    const payload = { projectName: proj.name };
+    if (proj.manager_user_id) _notify(db, { type: 'pm_project_completed', userId: proj.manager_user_id, payload, entityType: 'project', entityId: projectId, ctaProjectId: projectId });
+    _notifyAdmins(db, { type: 'pm_project_completed', payload, entityType: 'project', entityId: projectId, ctaProjectId: projectId });
+  } catch { /* best-effort */ }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,6 +112,8 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
     taskId, eventType: 'assigned', actorId: assignedByUserId,
     payload: { toUserId, fromUserId, statusAfter: nextStatus },
   });
+  const meta = await _taskMeta(db, task);
+  _notify(db, { type: 'pm_task_assigned', userId: toUserId, payload: meta, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return getTask(db.pool, taskId);
 }
 
@@ -129,6 +154,8 @@ async function refuseTask(db, taskId, { userId, reason }) {
     [db.generateId(), taskId, task.assignee_user_id, userId, String(reason).trim()]
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'refused', actorId: userId, payload: { reason: String(reason).trim() } });
+  const metaR = await _taskMeta(db, task);
+  _notifyAdmins(db, { type: 'pm_task_refused', payload: { ...metaR, reason: String(reason).trim() }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return getTask(db.pool, taskId);
 }
 
@@ -222,6 +249,8 @@ async function completeTask(db, taskId, { userId } = {}) {
       `UPDATE project_tasks SET status = 'pending_review', updated_at = NOW() WHERE id = $1`, [taskId]
     );
     await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: {} });
+    const metaC = await _taskMeta(db, pre);
+    _notifyAdmins(db, { type: 'pm_review_requested', payload: metaC, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
     return { task: await getTask(db.pool, taskId), promoted: [], triggered: [], projectFinalized: false };
   }
 
@@ -244,6 +273,8 @@ async function completeTask(db, taskId, { userId } = {}) {
     // Best-effort pós-commit — não desfaz a conclusão se falhar.
     try { await pomodoroService.autoCompleteSessionForTask(db, taskId, { userId }); }
     catch (e) { console.error('[task-service] auto-complete pomodoro falhou', taskId, e.message); }
+
+    await _notifyProjectCompleted(db, pre.project_id, projectFinalized);
 
     return {
       task: await getTask(db.pool, taskId),
@@ -288,6 +319,8 @@ async function submitForReview(db, taskId, { userId }) {
     `UPDATE project_tasks SET status='pending_review', submitted_for_review_at=NOW(), updated_at=NOW() WHERE id=$1`, [taskId]
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: {} });
+  const metaS = await _taskMeta(db, task);
+  _notifyAdmins(db, { type: 'pm_review_requested', payload: metaS, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return getTask(db.pool, taskId);
 }
 
@@ -313,6 +346,7 @@ async function approveReview(db, taskId, reviewer) {
     await appendTaskEvent(client, db, { taskId, eventType: 'review_approved', actorId: reviewer.id || null, payload: { reviewerRole: reviewer.role } });
 
     const effects = await _applyCompletionEffects(client, db, pre.project_id, taskId, reviewer.id || null);
+    var _approveFinalized = effects.projectFinalized;
 
     let followUp = null;
     if (reviewWorkflow.shouldCreateFollowUp(reviewer.role)) {
@@ -321,6 +355,11 @@ async function approveReview(db, taskId, reviewer) {
 
     await client.query('COMMIT');
     try { await pomodoroService.autoCompleteSessionForTask(db, taskId, { userId: reviewer.id }); } catch { /* best-effort */ }
+    if (pre.assignee_user_id) {
+      const metaA = await _taskMeta(db, pre);
+      _notify(db, { type: 'pm_review_decided', userId: pre.assignee_user_id, payload: { ...metaA, approved: true }, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
+    }
+    await _notifyProjectCompleted(db, pre.project_id, _approveFinalized);
     return { task: await getTask(db.pool, taskId), followUp, ...effects };
   } catch (e) {
     await client.query('ROLLBACK');
@@ -346,6 +385,10 @@ async function rejectReview(db, taskId, { userId, adjustmentNotes }) {
     [userId || null, String(adjustmentNotes).trim(), taskId]
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'review_rejected', actorId: userId, payload: { adjustmentNotes: String(adjustmentNotes).trim() } });
+  if (task.assignee_user_id) {
+    const metaRj = await _taskMeta(db, task);
+    _notify(db, { type: 'pm_review_decided', userId: task.assignee_user_id, payload: { ...metaRj, approved: false, notes: String(adjustmentNotes).trim() }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+  }
   return getTask(db.pool, taskId);
 }
 

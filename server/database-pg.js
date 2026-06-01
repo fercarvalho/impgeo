@@ -2952,6 +2952,19 @@ class Database {
       // (mesmo padrão de tc_record_created — evita spam em times grandes).
       tc_budget_revision_requested:   { push: true,  email: false },
       tc_budget_payment_completed:    { push: true,  email: false },
+      // PM Fase 7 — projetos/tarefas. Push on por default; email opt-in (evita
+      // spam em times grandes). Eventos endereçados ao próprio executor podem
+      // ligar email manualmente nas preferências.
+      pm_task_assigned:               { push: true,  email: false },
+      pm_task_accepted:               { push: true,  email: false },
+      pm_task_refused:                { push: true,  email: false },
+      pm_task_overdue:                { push: true,  email: false },
+      pm_review_requested:            { push: true,  email: false },
+      pm_review_decided:              { push: true,  email: false },
+      pm_help_requested:              { push: true,  email: false },
+      pm_help_accepted:               { push: true,  email: false },
+      pm_project_paid:                { push: true,  email: false },
+      pm_project_completed:           { push: true,  email: false },
       '_meta:foreground':             { push: false, email: false },
     },
     tc: {

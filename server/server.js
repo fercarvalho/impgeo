@@ -58,6 +58,7 @@ const pmProjectService = require('./services/pm/project-service');
 const pmTaskService = require('./services/pm/task-service');
 const pmPomodoroService = require('./services/pm/pomodoro-service');
 const pmHelpService = require('./services/pm/help-service');
+const pmReportService = require('./services/pm/report-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2244,6 +2245,28 @@ app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciament
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Preferências de relatório por e-mail (opt-in).
+app.get('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const r = await db.pool.query('SELECT pm_email_reports, pm_report_frequencies FROM users WHERE id = $1', [req.user.id]);
+    const row = r.rows[0] || {};
+    res.json({ success: true, data: { emailReports: row.pm_email_reports === true, frequencies: Array.isArray(row.pm_report_frequencies) ? row.pm_report_frequencies : [] } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const VALID = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+    const freqs = Array.isArray(req.body.frequencies) ? req.body.frequencies.filter(f => VALID.includes(f)) : [];
+    const emailReports = req.body.emailReports === true;
+    await db.pool.query(
+      'UPDATE users SET pm_email_reports = $1, pm_report_frequencies = $2::jsonb WHERE id = $3',
+      [emailReports, JSON.stringify(freqs), req.user.id]
+    );
+    res.json({ success: true, data: { emailReports, frequencies: freqs } });
+  } catch (error) { res.status(400).json({ success: false, error: error.message }); }
 });
 
 // Lista enxuta de usuários p/ pickers (atribuição, ajuda). Só campos públicos.
@@ -8731,6 +8754,26 @@ app.listen(port, async () => {
     }
   }, 5 * 60 * 1000);
   if (typeof pomodoroStaleTimer.unref === 'function') pomodoroStaleTimer.unref();
+
+  // PM Fase 7: detector de tarefas atrasadas (a cada 1min). Marca overdue +
+  // notifica responsável e admins (idempotente — só pega available/in_progress).
+  const pmOverdueTimer = setInterval(async () => {
+    try {
+      const n = await pmReportService.detectAndMarkOverdue(db);
+      if (n > 0) console.log(`[pm-report] ${n} tarefa(s) marcada(s) como atrasada(s).`);
+    } catch (error) { console.log('[pm-report] erro no detector de atraso:', error.message); }
+  }, 60 * 1000);
+  if (typeof pmOverdueTimer.unref === 'function') pmOverdueTimer.unref();
+
+  // PM Fase 7: tick de relatórios por e-mail (a cada 5min). Envia o relatório
+  // do período anterior fechado p/ admins opt-in; idempotente via pm_report_jobs.
+  const pmReportTimer = setInterval(async () => {
+    try {
+      const sent = await pmReportService.sendDueReports(db, new Date());
+      if (sent > 0) console.log(`[pm-report] ${sent} relatório(s) enviado(s) por e-mail.`);
+    } catch (error) { console.log('[pm-report] erro no tick de relatórios:', error.message); }
+  }, 5 * 60 * 1000);
+  if (typeof pmReportTimer.unref === 'function') pmReportTimer.unref();
 
   // Sync automático Asaas a cada hora
   if (process.env.ASAAS_API_KEY) {

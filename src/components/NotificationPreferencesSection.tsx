@@ -20,6 +20,7 @@ import {
   getDeniedHelpText,
   type PermissionState,
 } from '@/pwa/push'
+import PmEmailReportsPanel from '@/subsistemas/gerenciamento/modulos/_pm/PmEmailReportsPanel'
 
 type Channel = 'push' | 'email'
 type Scope = 'impgeo' | 'tc'
@@ -77,6 +78,17 @@ const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
     title: 'Pagamento recebido',
     description: 'Quando um cliente paga um orçamento e o imóvel é aprovado automaticamente.',
   },
+  // PM Fase 7 — Projetos & Tarefas
+  pm_task_assigned:     { title: 'Tarefa atribuída', description: 'Quando você recebe uma nova tarefa.' },
+  pm_task_accepted:     { title: 'Tarefa aceita', description: 'Quando uma tarefa que você acompanha é aceita.' },
+  pm_task_refused:      { title: 'Tarefa recusada', description: 'Quando uma tarefa da equipe é recusada.' },
+  pm_task_overdue:      { title: 'Tarefa atrasada', description: 'Quando uma tarefa passa do prazo.' },
+  pm_review_requested:  { title: 'Revisão solicitada', description: 'Quando uma tarefa entra na fila de revisão.' },
+  pm_review_decided:    { title: 'Revisão decidida', description: 'Quando sua tarefa é aprovada ou volta para ajustes.' },
+  pm_help_requested:    { title: 'Pedido de ajuda', description: 'Quando um colega pede sua ajuda numa tarefa.' },
+  pm_help_accepted:     { title: 'Ajuda aceita', description: 'Quando alguém aceita ajudar na sua tarefa.' },
+  pm_project_paid:      { title: 'Projeto pago', description: 'Quando um projeto TerraControl é pago via PIX.' },
+  pm_project_completed: { title: 'Projeto concluído', description: 'Quando um projeto é finalizado.' },
 }
 
 function labelFor(type: string): { title: string; description?: string } {
@@ -242,6 +254,8 @@ const NotificationPreferencesSection: React.FC<Props> = ({ scope, authHeaders })
         Escolha como quer ser avisado para cada tipo de evento. As preferências de <strong>push</strong> e
         <strong> e-mail</strong> são independentes — você pode receber só uma das duas.
       </p>
+
+      {scope === 'impgeo' && <PmEmailReportsPanel />}
 
       {/* Toggle ativar/desativar push neste dispositivo (espelha o sino) */}
       {isWebPushSupported() && permission !== 'unsupported' && (
