@@ -77,22 +77,26 @@ async function findOrCreateFromTcUser(db, tcUserId, { pgClient } = {}) {
     }
   }
 
-  // 4. Cria novo cliente.
+  // 4. Cria novo cliente — mapeia 1:1 o padrão moderno do tc_user
+  //    (first_name/last_name separados + address JSONB no mesmo shape).
   const id = db.generateId();
-  const name = [tcUser.first_name, tcUser.last_name].filter(Boolean).join(' ').trim()
-    || tcUser.username
-    || tcUser.email
-    || 'Cliente TerraControl';
-  let address = null;
+  const firstName = tcUser.first_name || null;
+  const lastName = tcUser.last_name || null;
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim()
+    || tcUser.username || tcUser.email || 'Cliente TerraControl';
+
+  // address: tc_users.address já é JSONB ({cep,street,number,complement,
+  // neighborhood,city,state}). Copia direto, sem serializar.
+  let addressJson = null;
   try {
     const addrObj = typeof tcUser.address === 'string' ? JSON.parse(tcUser.address) : tcUser.address;
-    address = serializeAddress(addrObj);
-  } catch { address = null; }
+    addressJson = addrObj ? JSON.stringify(addrObj) : null;
+  } catch { addressJson = null; }
 
   await exec.query(
-    `INSERT INTO clients (id, name, email, phone, cpf, address, source, tc_user_id, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,'terracontrol',$7, NOW(), NOW())`,
-    [id, name, tcUser.email || null, tcUser.phone || null, tcUser.cpf || null, address, tcUserId]
+    `INSERT INTO clients (id, name, first_name, last_name, email, phone, cpf, address, source, tc_user_id, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'terracontrol',$9, NOW(), NOW())`,
+    [id, name, firstName, lastName, tcUser.email || null, tcUser.phone || null, tcUser.cpf || null, addressJson, tcUserId]
   );
   return { clientId: id, created: true };
 }

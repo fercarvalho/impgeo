@@ -3,16 +3,59 @@ import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X } from 'lucide-r
 import { usePermissions } from '@/hooks/usePermissions'
 import Modal from '@/components/Modal'
 
+// Endereço estruturado — mesmo shape do tc_user (padrão moderno).
+interface AddressObj {
+  cep?: string
+  street?: string
+  number?: string
+  complement?: string
+  neighborhood?: string
+  city?: string
+  state?: string
+}
+
 interface Client {
   id: string
   name: string
+  first_name?: string
+  last_name?: string
   email: string
   phone: string
-  address: string
+  address: AddressObj | string | null
   cpf?: string
   cnpj?: string
   createdAt?: string
   updatedAt?: string
+}
+
+interface ClientForm {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: AddressObj
+  documentType: 'cpf' | 'cnpj'
+  cpf: string
+  cnpj: string
+}
+
+const EMPTY_ADDRESS: AddressObj = { cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '' }
+const EMPTY_FORM: ClientForm = {
+  firstName: '', lastName: '', email: '', phone: '', address: { ...EMPTY_ADDRESS }, documentType: 'cpf', cpf: '', cnpj: ''
+}
+
+// Endereço (objeto) → string legível para exibição.
+function formatAddress(a: AddressObj | string | null | undefined): string {
+  if (!a) return ''
+  if (typeof a === 'string') return a
+  const parts = [
+    [a.street, a.number].filter(Boolean).join(', '),
+    a.complement,
+    a.neighborhood,
+    [a.city, a.state].filter(Boolean).join('/'),
+    a.cep ? `CEP ${a.cep}` : '',
+  ].filter(Boolean)
+  return parts.join(' · ')
 }
 
 const API_BASE_URL = '/api'
@@ -23,17 +66,7 @@ const Clients: React.FC = () => {
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Client | null>(null)
-  const [form, setForm] = useState<{
-    name: string
-    email: string
-    phone: string
-    address: string
-    documentType: 'cpf' | 'cnpj'
-    cpf: string
-    cnpj: string
-  }>({
-    name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: ''
-  })
+  const [form, setForm] = useState<ClientForm>({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -123,11 +156,10 @@ const Clients: React.FC = () => {
   const validateForm = () => {
     const errors: {[key: string]: string} = {}
     
-    if (!form.name.trim()) errors.name = 'Campo obrigatório'
+    if (!form.firstName.trim()) errors.firstName = 'Campo obrigatório'
     if (!form.email.trim()) errors.email = 'Campo obrigatório'
     if (!form.phone.trim()) errors.phone = 'Campo obrigatório'
-    if (!form.address.trim()) errors.address = 'Campo obrigatório'
-    
+
     // Validar CPF ou CNPJ baseado no tipo selecionado
     if (form.documentType === 'cpf' && !form.cpf.trim()) {
       errors.cpf = 'Campo obrigatório'
@@ -144,13 +176,17 @@ const Clients: React.FC = () => {
     if (isSaving) return
     setIsSaving(true)
 
+    // Limpa o endereço (remove campos vazios); envia objeto ou null.
+    const addrEntries = Object.entries(form.address).filter(([, v]) => v && String(v).trim())
+    const addressObj = addrEntries.length ? Object.fromEntries(addrEntries) : null
     const basePayload = {
-      name: form.name,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim() || undefined,
       email: form.email,
       phone: form.phone,
-      address: form.address,
-      cpf: form.cpf || undefined,
-      cnpj: form.cnpj || undefined
+      address: addressObj,
+      cpf: form.documentType === 'cpf' ? (form.cpf || undefined) : undefined,
+      cnpj: form.documentType === 'cnpj' ? (form.cnpj || undefined) : undefined,
     }
     try {
       if (editing) {
@@ -162,7 +198,7 @@ const Clients: React.FC = () => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json(); if (j.success) setClients(prev => [j.data, ...prev])
       }
-      setIsModalOpen(false); setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({})
+      setIsModalOpen(false); setEditing(null); setForm({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } }); setFormErrors({})
     } catch (error) {
       console.error('Erro ao salvar:', error)
     } finally {
@@ -257,7 +293,7 @@ const Clients: React.FC = () => {
           )}
           {permissions.canCreate && (
             <button
-              onClick={() => { setEditing(null); setForm({ name: '', email: '', phone: '', address: '', documentType: 'cpf', cpf: '', cnpj: '' }); setFormErrors({}); setIsModalOpen(true) }}
+              onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } }); setFormErrors({}); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-5 w-5" aria-hidden="true" />
@@ -399,11 +435,22 @@ const Clients: React.FC = () => {
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.phone}</p>
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{c.address}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate">{formatAddress(c.address)}</p>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 flex gap-0.5 sm:gap-1 justify-center">
                     {permissions.canEdit && (
-                      <button onClick={() => { setEditing(c); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, documentType: c.cpf ? 'cpf' : 'cnpj', cpf: c.cpf || '', cnpj: c.cnpj || '' }); setFormErrors({}); setIsModalOpen(true) }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
+                      <button onClick={() => {
+                        setEditing(c)
+                        const addr = (c.address && typeof c.address === 'object') ? c.address : {}
+                        setForm({
+                          firstName: c.first_name || (c.name ? c.name.split(' ')[0] : ''),
+                          lastName: c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : ''),
+                          email: c.email || '', phone: c.phone || '',
+                          address: { ...EMPTY_ADDRESS, ...addr },
+                          documentType: c.cnpj ? 'cnpj' : 'cpf', cpf: c.cpf || '', cnpj: c.cnpj || '',
+                        })
+                        setFormErrors({}); setIsModalOpen(true)
+                      }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
                         <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
                     )}
@@ -438,25 +485,37 @@ const Clients: React.FC = () => {
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
             <div className="p-6 space-y-3">
-              <div className="relative">
-                <label htmlFor="form-name" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Nome <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="form-name"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.name ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
-                  }`}
-                />
-                {formErrors.name && (
-                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                    {formErrors.name}
-                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                  </div>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                  <label htmlFor="form-firstName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Nome <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="form-firstName"
+                    type="text"
+                    value={form.firstName}
+                    onChange={(e) => setForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                      formErrors.firstName ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
+                    }`}
+                  />
+                  {formErrors.firstName && (
+                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                      {formErrors.firstName}
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="form-lastName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Sobrenome</label>
+                  <input
+                    id="form-lastName"
+                    type="text"
+                    value={form.lastName}
+                    onChange={(e) => setForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
+                  />
+                </div>
               </div>
               <div className="relative">
                 <label htmlFor="form-email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -498,25 +557,30 @@ const Clients: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="relative">
-                <label htmlFor="form-address" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Endereço <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="form-address"
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
-                    formErrors.address ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
-                  }`}
-                />
-                {formErrors.address && (
-                  <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-                    {formErrors.address}
-                    <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
-                  </div>
-                )}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+                {(() => {
+                  const inputCls = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 text-sm transition-all duration-200'
+                  const setAddr = (k: keyof AddressObj, v: string) => setForm(prev => ({ ...prev, address: { ...prev.address, [k]: v } }))
+                  const A = form.address
+                  return (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <input placeholder="CEP" value={A.cep || ''} onChange={e => setAddr('cep', e.target.value)} className={inputCls} />
+                        <input placeholder="Rua/Logradouro" value={A.street || ''} onChange={e => setAddr('street', e.target.value)} className={`${inputCls} col-span-2`} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input placeholder="Número" value={A.number || ''} onChange={e => setAddr('number', e.target.value)} className={inputCls} />
+                        <input placeholder="Complemento" value={A.complement || ''} onChange={e => setAddr('complement', e.target.value)} className={`${inputCls} col-span-2`} />
+                      </div>
+                      <input placeholder="Bairro" value={A.neighborhood || ''} onChange={e => setAddr('neighborhood', e.target.value)} className={inputCls} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input placeholder="Cidade" value={A.city || ''} onChange={e => setAddr('city', e.target.value)} className={`${inputCls} col-span-2`} />
+                        <input placeholder="UF" maxLength={2} value={A.state || ''} onChange={e => setAddr('state', e.target.value.toUpperCase())} className={inputCls} />
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               <div>
                 <label htmlFor="form-documentType" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">

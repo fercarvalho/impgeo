@@ -1336,23 +1336,40 @@ class Database {
     }
   }
 
+  // Helpers do padrão moderno (alinha com tc_users): nome separado + address JSONB.
+  _composeClientName(c) {
+    const composed = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
+    return composed || c.name || null;
+  }
+  _normalizeAddressJson(addr) {
+    if (addr == null) return null;
+    if (typeof addr === 'string') {
+      const s = addr.trim();
+      if (!s) return null;
+      try { return JSON.stringify(JSON.parse(s)); } catch { return JSON.stringify({ street: s }); }
+    }
+    if (typeof addr === 'object') return JSON.stringify(addr);
+    return null;
+  }
+
   async saveClient(client) {
     try {
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO clients (id, name, email, phone, company, address, city, state, zip_code, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO clients (id, name, first_name, last_name, email, phone, company, cpf, cnpj, address, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
          RETURNING *`,
         [
           id,
-          client.name || null,
+          this._composeClientName(client),
+          client.firstName || null,
+          client.lastName || null,
           client.email || null,
           client.phone || null,
           client.company || null,
-          client.address || null,
-          client.city || null,
-          client.state || null,
-          client.zipCode || null,
+          client.cpf || null,
+          client.cnpj || null,
+          this._normalizeAddressJson(client.address),
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -1367,19 +1384,21 @@ class Database {
   async updateClient(id, updatedClient) {
     try {
       const result = await this.queryWithRetry(
-        `UPDATE clients 
-         SET name = $1, email = $2, phone = $3, company = $4, address = $5, city = $6, state = $7, zip_code = $8, updated_at = $9
-         WHERE id = $10
+        `UPDATE clients
+         SET name = $1, first_name = $2, last_name = $3, email = $4, phone = $5,
+             company = $6, cpf = $7, cnpj = $8, address = $9::jsonb, updated_at = $10
+         WHERE id = $11
          RETURNING *`,
         [
-          updatedClient.name || null,
+          this._composeClientName(updatedClient),
+          updatedClient.firstName || null,
+          updatedClient.lastName || null,
           updatedClient.email || null,
           updatedClient.phone || null,
           updatedClient.company || null,
-          updatedClient.address || null,
-          updatedClient.city || null,
-          updatedClient.state || null,
-          updatedClient.zipCode || null,
+          updatedClient.cpf || null,
+          updatedClient.cnpj || null,
+          this._normalizeAddressJson(updatedClient.address),
           new Date().toISOString(),
           id
         ]
