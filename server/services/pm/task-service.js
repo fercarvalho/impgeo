@@ -93,14 +93,22 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
   if (!task) throw new Error('Tarefa não encontrada');
 
   const fromUserId = task.assignee_user_id;
+  // Reatribuir uma tarefa recusada a outra pessoa a "reabre": volta a aguardar
+  // aceite (se exige) ou a ficar disponível, para o novo responsável agir.
   let nextStatus = task.status;
-  if (task.acceptance_required && (task.status === 'available' || task.status === 'pending')) {
+  if (task.acceptance_required && (task.status === 'available' || task.status === 'pending' || task.status === 'refused')) {
     nextStatus = TASK_STATUSES.PENDING_ACCEPTANCE;
+    assertTransition(task, nextStatus);
+  } else if (task.status === 'refused') {
+    nextStatus = TASK_STATUSES.AVAILABLE;
     assertTransition(task, nextStatus);
   }
 
   await db.pool.query(
-    `UPDATE project_tasks SET assignee_user_id = $1, assigned_at = NOW(), status = $2, updated_at = NOW() WHERE id = $3`,
+    `UPDATE project_tasks
+        SET assignee_user_id = $1, assigned_at = NOW(), status = $2,
+            accepted_at = NULL, refusal_reason = NULL, updated_at = NOW()
+      WHERE id = $3`,
     [toUserId, nextStatus, taskId]
   );
   await db.pool.query(
@@ -182,8 +190,36 @@ async function refuseTask(db, taskId, { userId, reason }) {
     [db.generateId(), taskId, task.assignee_user_id, userId, String(reason).trim()]
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'refused', actorId: userId, payload: { reason: String(reason).trim() } });
-  const metaR = await _taskMeta(db, task);
-  _notifyAdmins(db, { type: 'pm_task_refused', payload: { ...metaR, reason: String(reason).trim() }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+
+  // Notifica os responsáveis pela tarefa: quem a atribuiu + gerente do projeto
+  // + admins. Deduplicado; não notifica quem recusou.
+  try {
+    const recips = new Set();
+    const lastAssign = await db.pool.query(
+      `SELECT assigned_by_user_id FROM task_assignments_history
+        WHERE task_id = $1 AND reason = 'assign' AND assigned_by_user_id IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1`,
+      [taskId]
+    );
+    if (lastAssign.rows[0]?.assigned_by_user_id) recips.add(lastAssign.rows[0].assigned_by_user_id);
+    const projRow = await db.pool.query('SELECT manager_user_id FROM projects WHERE id = $1', [task.project_id]);
+    if (projRow.rows[0]?.manager_user_id) recips.add(projRow.rows[0].manager_user_id);
+    const admins = await db.pool.query(
+      `SELECT id FROM users WHERE role IN ('admin','superadmin') AND COALESCE(is_active,true)=true`
+    );
+    admins.rows.forEach(r => recips.add(r.id));
+    recips.delete(userId); // quem recusou não precisa ser avisado
+
+    const metaR = await _taskMeta(db, task);
+    for (const uid of recips) {
+      _notify(db, {
+        type: 'pm_task_refused', userId: uid,
+        payload: { ...metaR, reason: String(reason).trim() },
+        entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id,
+      });
+    }
+  } catch (e) { console.error('[task-service] notificação de recusa falhou', taskId, e.message); }
+
   return getTask(db.pool, taskId);
 }
 
