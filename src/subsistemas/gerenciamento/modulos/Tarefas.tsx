@@ -7,7 +7,7 @@ import {
   fetchPendingReviews, fetchIncomingHelp, helpAction, HelpRequest,
   fetchAvailableTasks, claimTask,
 } from './_pm/taskApi'
-import { useActiveSession, markTaskAreaOpened } from './_pm/pomodoroApi'
+import { useActiveSession, markTaskAreaOpened, getActive } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
 import IdleAlertModal from './_pm/IdleAlertModal'
 import HelpRequestModal from './_pm/HelpRequestModal'
@@ -106,6 +106,11 @@ const Tarefas: React.FC = () => {
         // pause/resume da tarefa também mexem na sessão Pomodoro → reabre/fecha o widget.
         window.dispatchEvent(new CustomEvent('pm-pomodoro-changed'))
       } catch { /* noop */ }
+      // Ao retomar: se a sessão estacionada expirou (não reabriu), abre o foco p/ iniciar de novo.
+      if (action === 'resume') {
+        const fresh = await getActive().catch(() => null)
+        if (!fresh) setFocusTask(t)
+      }
     } catch (e: any) { setError(e.message) }
     finally { setBusyId(null) }
   }
