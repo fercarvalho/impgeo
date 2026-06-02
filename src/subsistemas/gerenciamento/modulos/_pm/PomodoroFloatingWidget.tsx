@@ -71,28 +71,51 @@ const PomodoroFloatingWidget: React.FC = () => {
     finally { setBusy(false) }
   }, [session, refetch])
 
-  // Abre a janela PiP e prepara o container para o portal.
-  const openPip = useCallback(async () => {
-    if (!supportsPip) return
-    try {
-      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 300, height: 230 })
-      copyStylesToPip(w)
-      w.document.documentElement.className = document.documentElement.className // herda dark mode
-      w.document.title = 'Pomodoro'
-      w.document.body.style.margin = '0'
-      w.document.body.style.overflow = 'hidden'
-      const container = w.document.createElement('div')
-      w.document.body.appendChild(container)
-      w.addEventListener('pagehide', () => { setPipWindow(null); setPipContainer(null) })
-      setPipContainer(container)
-      setPipWindow(w)
-    } catch { /* usuário cancelou ou indisponível */ }
+  // Polling de fechamento da janela destacada (cobre Document PiP e popup comum).
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const setupDetachedWindow = useCallback((w: Window) => {
+    copyStylesToPip(w)
+    w.document.documentElement.className = document.documentElement.className // herda dark mode
+    w.document.title = 'Pomodoro'
+    w.document.body.style.margin = '0'
+    w.document.body.style.overflow = 'hidden'
+    const container = w.document.createElement('div')
+    w.document.body.appendChild(container)
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(() => {
+      if (w.closed) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+        setPipWindow(null); setPipContainer(null)
+      }
+    }, 500)
+    setPipContainer(container)
+    setPipWindow(w)
   }, [])
 
+  // Abre a janela destacada: Document PiP (always-on-top, Chrome/Edge) quando
+  // disponível; senão cai pro window.open (janela separada comum — Safari/iOS/Android).
+  const openDetached = useCallback(async () => {
+    try {
+      let w: Window | null = null
+      if (supportsPip) {
+        w = await (window as any).documentPictureInPicture.requestWindow({ width: 300, height: 230 })
+      } else {
+        w = window.open('', 'impgeo-pomodoro', 'width=300,height=240')
+      }
+      if (!w) { alert('Não foi possível abrir a janela. Permita pop-ups para este site e tente de novo.'); return }
+      setupDetachedWindow(w)
+    } catch { /* usuário cancelou ou indisponível */ }
+  }, [setupDetachedWindow])
+
   const closePip = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     try { pipWindow?.close() } catch { /* noop */ }
     setPipWindow(null); setPipContainer(null)
   }, [pipWindow])
+
+  // Limpa o polling ao desmontar.
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
   // Auto: tempo ativo acabou → entra em pausa (complete).
   useEffect(() => {
@@ -115,6 +138,7 @@ const PomodoroFloatingWidget: React.FC = () => {
   // Sessão acabou (ou some) → fecha a janela PiP, se aberta.
   useEffect(() => {
     if (pipWindow && (!session || !['running', 'paused', 'break'].includes(session.state))) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       try { pipWindow.close() } catch { /* noop */ }
       setPipWindow(null); setPipContainer(null)
     }
@@ -242,12 +266,11 @@ const PomodoroFloatingWidget: React.FC = () => {
         <Timer className="w-4 h-4" />
         <span className="text-sm font-semibold flex-1">{paused ? 'Pausado' : 'Em foco'}</span>
         <span className="text-[11px] opacity-80">{session.planned_minutes}/{session.break_planned_minutes}</span>
-        {supportsPip && (
-          <button onClick={openPip} title="Abrir em janela flutuante (fica acima de tudo)"
-            className="p-0.5 rounded text-white/80 hover:text-white hover:bg-white/15">
-            <PictureInPicture2 className="w-4 h-4" />
-          </button>
-        )}
+        <button onClick={openDetached}
+          title={supportsPip ? 'Abrir em janela flutuante (fica acima de tudo)' : 'Abrir em janela separada'}
+          className="p-0.5 rounded text-white/80 hover:text-white hover:bg-white/15">
+          <PictureInPicture2 className="w-4 h-4" />
+        </button>
       </div>
       <div className="p-4">
         <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{targetLabel}</div>
