@@ -64,7 +64,6 @@ const Projects: React.FC = () => {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
-  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // PM Fase 3: serviço-template escolhido na criação (materializa etapas/tarefas).
   const [createServiceId, setCreateServiceId] = useState<string>('')
@@ -140,10 +139,10 @@ const Projects: React.FC = () => {
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen || isServicesModalOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen, isServicesModalOpen])
+  }, [isImportExportOpen, isModalOpen])
 
   // ESC vem do <Modal> via stack global — apenas o modal no topo da pilha
   // responde. Hierarquia ServicesModal > ImportExport > Modal principal
@@ -193,13 +192,6 @@ const Projects: React.FC = () => {
   }
 
   const clearFilters = () => setFilters({ name: '', client: '', status: '' })
-
-  const calculateServicesValue = (selectedServiceIds: string[]) => {
-    return selectedServiceIds.reduce((total, serviceId) => {
-      const service = services.find(s => s.id === serviceId)
-      return total + (service ? service.price : 0)
-    }, 0)
-  }
 
   // CRUD
   const validateForm = () => {
@@ -883,49 +875,6 @@ const Projects: React.FC = () => {
                 )}
               </div>
 
-              {/* Seleção de Serviços */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Serviços Inclusos
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsServicesModalOpen(true)}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
-                  >
-                    {form.selectedServices.length > 0 
-                      ? `${form.selectedServices.length} serviço(s) selecionado(s)`
-                      : 'Selecionar Serviços'
-                    }
-                  </button>
-                  {form.selectedServices.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForm(prev => ({
-                          ...prev,
-                          selectedServices: []
-                        }))
-                      }}
-                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Limpar seleção"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {form.selectedServices.length > 0 && (
-                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      <strong>Valor calculado:</strong> R$ {(parseFloat(String(calculateServicesValue(form.selectedServices))) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                      Você pode editar o valor final do projeto abaixo
-                    </p>
-                  </div>
-                )}
-              </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
@@ -933,87 +882,6 @@ const Projects: React.FC = () => {
             </div>
             </div>
             </div>
-      </Modal>
-
-      {/* Modal Seleção de Serviços */}
-      <Modal isOpen={isServicesModalOpen} onClose={() => setIsServicesModalOpen(false)}>
-        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">Selecionar Serviços</h2>
-              <button onClick={() => setIsServicesModalOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-6">
-            <div className="max-h-96 overflow-y-auto space-y-3 mb-4">
-              {services.filter(s => s.status === 'ativo').length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum serviço ativo disponível.</p>
-              )}
-              {services.filter(s => s.status === 'ativo').map((service) => (
-                <label key={service.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600 transition-all duration-200">
-                  <input
-                    type="checkbox"
-                    checked={form.selectedServices.includes(service.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        const newSelectedServices = [...form.selectedServices, service.id]
-                        const calculatedValue = calculateServicesValue(newSelectedServices)
-                        setForm(prev => ({ 
-                          ...prev, 
-                          selectedServices: newSelectedServices,
-                          value: String(calculatedValue)
-                        }))
-                      } else {
-                        const newSelectedServices = form.selectedServices.filter(id => id !== service.id)
-                        const calculatedValue = calculateServicesValue(newSelectedServices)
-                        setForm(prev => ({ 
-                          ...prev, 
-                          selectedServices: newSelectedServices,
-                          value: String(calculatedValue)
-                        }))
-                      }
-                    }}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{service.name}</span>
-                      <span className="text-sm text-green-600 dark:text-green-400 font-semibold">
-                        R$ {(parseFloat(String(service.price)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{service.category} - {service.duration} dias</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{service.description}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-
-            {form.selectedServices.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
-                <p className="text-sm text-blue-800 dark:text-blue-300">
-                  <strong>Valor total:</strong> R$ {(parseFloat(String(calculateServicesValue(form.selectedServices))) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  {form.selectedServices.length} serviço(s) selecionado(s)
-                </p>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => { setForm(prev => ({ ...prev, selectedServices: [] })) }}
-                className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200"
-              >
-                Limpar Tudo
-              </button>
-              <button
-                onClick={() => setIsServicesModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Confirmar
-              </button>
-            </div>
-            </div>
-          </div>
       </Modal>
     </div>
   )
