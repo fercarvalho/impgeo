@@ -143,9 +143,13 @@ async function _loadTemplate(exec, serviceId) {
   const depsRes = taskIds.length
     ? await exec.query('SELECT * FROM service_template_task_deps WHERE task_id = ANY($1::varchar[])', [taskIds])
     : { rows: [] };
-  const trgRes = await exec.query(
-    'SELECT * FROM service_template_task_triggers WHERE service_id = $1 AND is_active = TRUE', [serviceId]
-  );
+  // Triggers escopados pela VERSÃO atual (via source task), senão pegaria
+  // triggers de versões antigas cujo source não está no mapa de tarefas.
+  const trgRes = taskIds.length
+    ? await exec.query(
+        'SELECT * FROM service_template_task_triggers WHERE source_template_task_id = ANY($1::varchar[]) AND is_active = TRUE', [taskIds]
+      )
+    : { rows: [] };
   return { version, stages, tasks, deps: depsRes.rows, triggers: trgRes.rows };
 }
 
@@ -233,26 +237,34 @@ async function createProjectFromTemplate(db, input, opts = {}) {
         );
       }
 
-      // Copia deps (remapeia ids).
+      // Copia deps (remapeia ids). Pula dep cujo dono ou alvo não foi copiado
+      // (resíduo de outra versão) — evita violar NOT NULL/CHECK do alvo.
       for (const d of tpl.deps) {
+        const taskNew = taskIdMap.get(d.task_id);
+        if (!taskNew) continue;
+        const targetTaskNew = d.target_task_id ? taskIdMap.get(d.target_task_id) : null;
+        const targetStageNew = d.target_stage_id ? stageIdMap.get(d.target_stage_id) : null;
+        if (d.dependency_target_type === 'task' && !targetTaskNew) continue;
+        if (d.dependency_target_type === 'stage' && !targetStageNew) continue;
         await client.query(
           `INSERT INTO project_task_deps
              (id, task_id, dependency_type, dependency_target_type, target_task_id, target_stage_id, required_status)
            VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [db.generateId(), taskIdMap.get(d.task_id), d.dependency_type, d.dependency_target_type,
-           d.target_task_id ? taskIdMap.get(d.target_task_id) : null,
-           d.target_stage_id ? stageIdMap.get(d.target_stage_id) : null,
-           d.required_status]
+          [db.generateId(), taskNew, d.dependency_type, d.dependency_target_type,
+           targetTaskNew, targetStageNew, d.required_status]
         );
       }
 
-      // Copia triggers (remapeia source).
+      // Copia triggers (remapeia source). Pula trigger cujo source não foi
+      // copiado (ex.: resíduo de outra versão) — evita source_task_id nulo.
       for (const trg of tpl.triggers) {
+        const newSource = taskIdMap.get(trg.source_template_task_id);
+        if (!newSource) continue;
         await client.query(
           `INSERT INTO project_task_triggers
              (id, project_id, source_task_id, action, on_status, payload, created_at)
            VALUES ($1,$2,$3,$4,$5,$6::jsonb, NOW())`,
-          [db.generateId(), id, taskIdMap.get(trg.source_template_task_id), trg.action,
+          [db.generateId(), id, newSource, trg.action,
            trg.on_status, JSON.stringify(typeof trg.payload === 'string' ? JSON.parse(trg.payload) : trg.payload)]
         );
       }
