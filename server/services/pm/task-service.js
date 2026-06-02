@@ -58,12 +58,25 @@ async function _blockerNames(db, blockedBy = []) {
   const stageIds = blockedBy.filter(d => d.target_stage_id).map(d => d.target_stage_id);
   const names = [];
   if (taskIds.length) {
-    const r = await db.pool.query('SELECT name FROM project_tasks WHERE id = ANY($1::varchar[])', [taskIds]);
-    names.push(...r.rows.map(x => x.name));
+    const r = await db.pool.query(
+      `SELECT t.name AS task_name, s.name AS stage_name, p.name AS project_name
+         FROM project_tasks t
+         LEFT JOIN project_stages s ON s.id = t.project_stage_id
+         LEFT JOIN projects p ON p.id = t.project_id
+        WHERE t.id = ANY($1::varchar[])`, [taskIds]
+    );
+    names.push(...r.rows.map(x => {
+      const ctx = [x.stage_name && `etapa ${x.stage_name}`, x.project_name && `projeto ${x.project_name}`].filter(Boolean).join(' do ');
+      return ctx ? `${x.task_name} (${ctx})` : x.task_name;
+    }));
   }
   if (stageIds.length) {
-    const r = await db.pool.query('SELECT name FROM project_stages WHERE id = ANY($1::varchar[])', [stageIds]);
-    names.push(...r.rows.map(x => `etapa "${x.name}"`));
+    const r = await db.pool.query(
+      `SELECT s.name AS stage_name, p.name AS project_name
+         FROM project_stages s LEFT JOIN projects p ON p.id = s.project_id
+        WHERE s.id = ANY($1::varchar[])`, [stageIds]
+    );
+    names.push(...r.rows.map(x => x.project_name ? `etapa "${x.stage_name}" (projeto ${x.project_name})` : `etapa "${x.stage_name}"`));
   }
   return names;
 }
