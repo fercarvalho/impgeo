@@ -90,6 +90,18 @@ const PomodoroFloatingWidget: React.FC = () => {
     finally { setBusy(false) }
   }, [session, refetch])
 
+  // Retoma a tarefa estacionada (reabre o cronômetro de onde parou).
+  const onResumeParked = useCallback(async () => {
+    if (!session?.task_id) return
+    setBusy(true)
+    try {
+      await taskAction(session.task_id, 'resume')
+      try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
+      await refetch(); notifyPomodoroChanged()
+    } catch { /* noop */ }
+    finally { setBusy(false) }
+  }, [session, refetch])
+
   // Polling de fechamento da janela destacada (cobre Document PiP e popup comum).
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -169,8 +181,23 @@ const PomodoroFloatingWidget: React.FC = () => {
   }, [session, pipWindow])
 
   if (!session || !['running', 'paused', 'break'].includes(session.state)) return null
-  // Tarefa pausada → widget "estacionado": some até a tarefa ser retomada.
-  if (session.task_id && session.task_paused_at) return null
+  // Tarefa pausada → widget "estacionado": pílula compacta com botão de retomar.
+  if (session.task_id && session.task_paused_at) {
+    return (
+      <div
+        style={{ left: pos.x, top: pos.y }}
+        className="fixed z-[10040] rounded-xl shadow-lg border border-amber-200 dark:border-amber-900 bg-white dark:!bg-[#1a2332] px-3 py-2 flex items-center gap-2"
+        role="dialog" aria-label="Tarefa pausada"
+      >
+        <Pause className="w-4 h-4 text-amber-500" />
+        <span className="text-xs text-gray-600 dark:text-gray-300">Tarefa pausada</span>
+        <button onClick={onResumeParked} disabled={busy} title="Retomar tarefa e cronômetro"
+          className="p-1.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+        </button>
+      </div>
+    )
+  }
 
   const targetLabel = session.task_id ? 'Tarefa' : (session.category || 'Foco')
   const paused = session.state === 'paused'
