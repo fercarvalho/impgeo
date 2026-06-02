@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X } from 'lucide-react'
+import { Users, Plus, Download, Upload, Edit, Trash2, Filter, X, Loader2 } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import Modal from '@/components/Modal'
+import { applyCepMask, fetchAddressByCep } from '@/utils/cepMask'
 
 // Endereço estruturado — mesmo shape do tc_user (padrão moderno).
 interface AddressObj {
@@ -68,6 +69,33 @@ const Clients: React.FC = () => {
   const [editing, setEditing] = useState<Client | null>(null)
   const [form, setForm] = useState<ClientForm>({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepError, setCepError] = useState('')
+
+  // Busca endereço pelo CEP (BrasilAPI → ViaCEP de fallback).
+  const lookupCep = async (rawCep: string) => {
+    const digits = (rawCep || '').replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setCepLoading(true); setCepError('')
+    try {
+      const data = await fetchAddressByCep(digits)
+      if (!data) { setCepError('CEP não encontrado'); return }
+      setForm(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          street: data.logradouro || prev.address.street || '',
+          neighborhood: data.bairro || prev.address.neighborhood || '',
+          city: data.localidade || prev.address.city || '',
+          state: data.uf || prev.address.state || '',
+        },
+      }))
+    } catch {
+      setCepError('Falha ao buscar o CEP')
+    } finally {
+      setCepLoading(false)
+    }
+  }
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -157,8 +185,16 @@ const Clients: React.FC = () => {
     const errors: {[key: string]: string} = {}
     
     if (!form.firstName.trim()) errors.firstName = 'Campo obrigatório'
+    if (!form.lastName.trim()) errors.lastName = 'Campo obrigatório'
     if (!form.email.trim()) errors.email = 'Campo obrigatório'
     if (!form.phone.trim()) errors.phone = 'Campo obrigatório'
+
+    // Endereço obrigatório (complemento é opcional).
+    const A = form.address
+    const addrRequired: (keyof AddressObj)[] = ['cep', 'street', 'number', 'neighborhood', 'city', 'state']
+    if (addrRequired.some(k => !String(A[k] || '').trim())) {
+      errors.address = 'Preencha o endereço completo (complemento é opcional).'
+    }
 
     // Validar CPF ou CNPJ baseado no tipo selecionado
     if (form.documentType === 'cpf' && !form.cpf.trim()) {
@@ -293,7 +329,7 @@ const Clients: React.FC = () => {
           )}
           {permissions.canCreate && (
             <button
-              onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } }); setFormErrors({}); setIsModalOpen(true) }}
+              onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM, address: { ...EMPTY_ADDRESS } }); setFormErrors({}); setCepError(''); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-5 w-5" aria-hidden="true" />
@@ -449,7 +485,7 @@ const Clients: React.FC = () => {
                           address: { ...EMPTY_ADDRESS, ...addr },
                           documentType: c.cnpj ? 'cnpj' : 'cpf', cpf: c.cpf || '', cnpj: c.cnpj || '',
                         })
-                        setFormErrors({}); setIsModalOpen(true)
+                        setFormErrors({}); setCepError(''); setIsModalOpen(true)
                       }} className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-200" title="Editar cliente">
                         <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
                       </button>
@@ -506,15 +542,25 @@ const Clients: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div>
-                  <label htmlFor="form-lastName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Sobrenome</label>
+                <div className="relative">
+                  <label htmlFor="form-lastName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Sobrenome <span className="text-red-500">*</span>
+                  </label>
                   <input
                     id="form-lastName"
                     type="text"
                     value={form.lastName}
                     onChange={(e) => setForm(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 transition-all duration-200 ${
+                      formErrors.lastName ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'
+                    }`}
                   />
+                  {formErrors.lastName && (
+                    <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                      {formErrors.lastName}
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-red-500 transform rotate-45"></div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="relative">
@@ -558,26 +604,41 @@ const Clients: React.FC = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Endereço <span className="text-red-500">*</span>
+                </label>
                 {(() => {
-                  const inputCls = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 text-sm transition-all duration-200'
+                  const base = 'w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 text-sm transition-all duration-200'
                   const setAddr = (k: keyof AddressObj, v: string) => setForm(prev => ({ ...prev, address: { ...prev.address, [k]: v } }))
                   const A = form.address
+                  // Destaca campos obrigatórios vazios quando há erro de endereço.
+                  const cls = (k: keyof AddressObj, required = true) =>
+                    `${base} ${formErrors.address && required && !String(A[k] || '').trim() ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300'}`
                   return (
                     <div className="space-y-2">
                       <div className="grid grid-cols-3 gap-2">
-                        <input placeholder="CEP" value={A.cep || ''} onChange={e => setAddr('cep', e.target.value)} className={inputCls} />
-                        <input placeholder="Rua/Logradouro" value={A.street || ''} onChange={e => setAddr('street', e.target.value)} className={`${inputCls} col-span-2`} />
+                        <div className="relative">
+                          <input
+                            placeholder="CEP" value={A.cep || ''}
+                            onChange={e => setAddr('cep', applyCepMask(e.target.value))}
+                            onBlur={e => lookupCep(e.target.value)}
+                            className={cls('cep')}
+                          />
+                          {cepLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-500 absolute right-2 top-2.5" />}
+                        </div>
+                        <input placeholder="Rua/Logradouro" value={A.street || ''} onChange={e => setAddr('street', e.target.value)} className={`${cls('street')} col-span-2`} />
                       </div>
+                      {cepError && <p className="text-xs text-red-600 dark:text-red-400">{cepError}</p>}
                       <div className="grid grid-cols-3 gap-2">
-                        <input placeholder="Número" value={A.number || ''} onChange={e => setAddr('number', e.target.value)} className={inputCls} />
-                        <input placeholder="Complemento" value={A.complement || ''} onChange={e => setAddr('complement', e.target.value)} className={`${inputCls} col-span-2`} />
+                        <input placeholder="Número" value={A.number || ''} onChange={e => setAddr('number', e.target.value)} className={cls('number')} />
+                        <input placeholder="Complemento" value={A.complement || ''} onChange={e => setAddr('complement', e.target.value)} className={`${cls('complement', false)} col-span-2`} />
                       </div>
-                      <input placeholder="Bairro" value={A.neighborhood || ''} onChange={e => setAddr('neighborhood', e.target.value)} className={inputCls} />
+                      <input placeholder="Bairro" value={A.neighborhood || ''} onChange={e => setAddr('neighborhood', e.target.value)} className={cls('neighborhood')} />
                       <div className="grid grid-cols-3 gap-2">
-                        <input placeholder="Cidade" value={A.city || ''} onChange={e => setAddr('city', e.target.value)} className={`${inputCls} col-span-2`} />
-                        <input placeholder="UF" maxLength={2} value={A.state || ''} onChange={e => setAddr('state', e.target.value.toUpperCase())} className={inputCls} />
+                        <input placeholder="Cidade" value={A.city || ''} onChange={e => setAddr('city', e.target.value)} className={`${cls('city')} col-span-2`} />
+                        <input placeholder="UF" maxLength={2} value={A.state || ''} onChange={e => setAddr('state', e.target.value.toUpperCase())} className={cls('state')} />
                       </div>
+                      {formErrors.address && <p className="text-xs text-red-600 dark:text-red-400">{formErrors.address}</p>}
                     </div>
                   )
                 })()}
