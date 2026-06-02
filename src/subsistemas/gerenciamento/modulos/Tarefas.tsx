@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox } from 'lucide-react'
+import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox, Timer } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import {
@@ -273,6 +273,13 @@ const Tarefas: React.FC = () => {
                               <button onClick={() => act(t, 'resume')} disabled={busyId === t.id} title="Retomar"
                                 className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 disabled:opacity-50">
                                 <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                            {/* Em andamento sem cronômetro ativo → iniciar um Pomodoro novo (ex.: sessão estacionada expirou). */}
+                            {t.status === 'in_progress' && !paused && !session && (
+                              <button onClick={() => setFocusTask(t)} disabled={busyId === t.id} title="Iniciar cronômetro (foco)"
+                                className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 disabled:opacity-50">
+                                <Timer className="w-4 h-4" />
                               </button>
                             )}
                             {t.status === 'in_progress' && (
