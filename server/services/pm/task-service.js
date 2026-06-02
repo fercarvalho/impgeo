@@ -52,6 +52,22 @@ async function getTask(exec, taskId) {
   return r.rows[0] || null;
 }
 
+// Resolve os nomes das tarefas/etapas que bloqueiam uma dependência (p/ mensagem clara).
+async function _blockerNames(db, blockedBy = []) {
+  const taskIds = blockedBy.filter(d => d.target_task_id).map(d => d.target_task_id);
+  const stageIds = blockedBy.filter(d => d.target_stage_id).map(d => d.target_stage_id);
+  const names = [];
+  if (taskIds.length) {
+    const r = await db.pool.query('SELECT name FROM project_tasks WHERE id = ANY($1::varchar[])', [taskIds]);
+    names.push(...r.rows.map(x => x.name));
+  }
+  if (stageIds.length) {
+    const r = await db.pool.query('SELECT name FROM project_stages WHERE id = ANY($1::varchar[])', [stageIds]);
+    names.push(...r.rows.map(x => `etapa "${x.name}"`));
+  }
+  return names;
+}
+
 async function appendTaskEvent(exec, db, { taskId, eventType, actorId = null, payload = {} }) {
   await exec.query(
     `INSERT INTO task_events (id, task_id, event_type, actor_type, actor_id, payload)
@@ -232,7 +248,11 @@ async function startTask(db, taskId, { userId }) {
   const graph = await _loadGraph(db.pool, task.project_id);
   const start = dependencyResolver.canStartTask(taskId, graph);
   if (!start.ok) {
-    const err = new Error('Tarefa bloqueada por dependências de início não satisfeitas');
+    const names = await _blockerNames(db, start.blockedBy);
+    const msg = names.length
+      ? `Não dá para iniciar ainda. Conclua antes: ${names.join(', ')}.`
+      : 'Tarefa bloqueada por dependências de início não satisfeitas';
+    const err = new Error(msg);
     err.code = 'start_blocked'; err.status = 409; err.blockedBy = start.blockedBy;
     throw err;
   }
@@ -305,7 +325,11 @@ async function completeTask(db, taskId, { userId } = {}) {
   const graph0 = await _loadGraph(db.pool, pre.project_id);
   const comp = dependencyResolver.canCompleteTask(taskId, graph0);
   if (!comp.ok) {
-    const err = new Error('Tarefa bloqueada por dependências de conclusão não satisfeitas');
+    const names = await _blockerNames(db, comp.blockedBy);
+    const msg = names.length
+      ? `Conclua antes: ${names.join(', ')}.`
+      : 'Tarefa bloqueada por dependências de conclusão não satisfeitas';
+    const err = new Error(msg);
     err.code = 'completion_blocked'; err.status = 409; err.blockedBy = comp.blockedBy;
     throw err;
   }

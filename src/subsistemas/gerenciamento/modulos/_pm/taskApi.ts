@@ -23,8 +23,8 @@ async function parse(r: Response) {
   const j = await r.json().catch(() => ({}))
   if (!r.ok || !j.success) {
     const msg = j.code === 'invalid_transition' ? 'Ação não permitida no estado atual da tarefa.'
-      : j.code === 'start_blocked' ? 'Tarefa bloqueada por dependências de início.'
-      : j.code === 'completion_blocked' ? 'Tarefa não pode concluir: dependências pendentes.'
+      : j.code === 'start_blocked' ? (j.error || 'Tarefa bloqueada por dependências de início.')
+      : j.code === 'completion_blocked' ? (j.error || 'Tarefa não pode concluir: dependências pendentes.')
       : (j.error || `Erro (HTTP ${r.status})`)
     throw new Error(msg)
   }
