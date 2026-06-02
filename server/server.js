@@ -777,26 +777,57 @@ function processProducts(worksheet) {
 }
 
 // Função para processar dados de clientes
+// Achata o address (objeto JSONB ou string legada) em colunas planas p/ export.
+function flattenClientAddress(addr) {
+  if (!addr) return {};
+  let a = addr;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch { return { street: a }; } }
+  if (typeof a !== 'object') return {};
+  return {
+    cep: a.cep || '', street: a.street || '', number: a.number || '',
+    complement: a.complement || '', neighborhood: a.neighborhood || '',
+    city: a.city || '', state: a.state || '',
+  };
+}
+
 function processClients(worksheet) {
   const data = XLSX.utils.sheet_to_json(worksheet);
   const clients = [];
+  const pick = (row, ...keys) => { for (const k of keys) { if (row[k] != null && String(row[k]).trim()) return String(row[k]).trim(); } return ''; };
 
   data.forEach((row, index) => {
     try {
-      // Mapear colunas do Excel para o formato esperado
-      const documentType = row['Tipo de Documento'] || row['tipo de documento'] || row['Tipo de documento'] || 'cpf';
+      const documentType = (pick(row, 'Tipo de Documento', 'tipo de documento', 'Tipo de documento') || 'cpf').toLowerCase();
+      // Nome pode vir separado (Nome/Sobrenome) ou junto (compat com modelo antigo).
+      let firstName = pick(row, 'Nome', 'Nome (Primeiro)', 'name', 'Name');
+      let lastName = pick(row, 'Sobrenome', 'Sobrenome (Último)', 'last_name');
+      if (!lastName && firstName.includes(' ')) {
+        const parts = firstName.split(' ');
+        firstName = parts[0];
+        lastName = parts.slice(1).join(' ');
+      }
+      const address = {
+        cep: pick(row, 'CEP', 'cep'),
+        street: pick(row, 'Rua', 'Logradouro', 'Endereço', 'Endereco', 'address'),
+        number: pick(row, 'Número', 'Numero', 'number'),
+        complement: pick(row, 'Complemento', 'complement'),
+        neighborhood: pick(row, 'Bairro', 'neighborhood'),
+        city: pick(row, 'Cidade', 'city'),
+        state: pick(row, 'UF', 'Estado', 'state'),
+      };
+      // Remove campos vazios; address vira null se tudo vazio.
+      const addrEntries = Object.entries(address).filter(([, v]) => v);
       const client = {
-        id: crypto.randomUUID(),
-        name: row['Nome'] || row['name'] || row['Name'] || '',
-        email: row['Email'] || row['email'] || row['Email'] || '',
-        phone: row['Telefone'] || row['phone'] || row['Phone'] || '',
-        address: row['Endereço'] || row['Endereco'] || row['address'] || row['Address'] || '',
-        cpf: documentType === 'cpf' ? (row['CPF'] || row['cpf'] || row['Cpf'] || '') : '',
-        cnpj: documentType === 'cnpj' ? (row['CNPJ'] || row['cnpj'] || row['Cnpj'] || '') : ''
+        firstName,
+        lastName: lastName || null,
+        email: pick(row, 'Email', 'email', 'E-mail'),
+        phone: pick(row, 'Telefone', 'phone', 'Phone'),
+        cpf: documentType === 'cpf' ? pick(row, 'CPF', 'cpf', 'Cpf') : (pick(row, 'CPF', 'cpf') || null),
+        cnpj: documentType === 'cnpj' ? pick(row, 'CNPJ', 'cnpj', 'Cnpj') : (pick(row, 'CNPJ', 'cnpj') || null),
+        address: addrEntries.length ? Object.fromEntries(addrEntries) : null,
       };
 
-      // Validar se tem dados essenciais
-      if (client.name && client.email) {
+      if (client.firstName && client.email) {
         clients.push(client);
       }
     } catch (error) {
@@ -926,22 +957,18 @@ app.get('/api/modelo/:type', async (req, res) => {
     } else if (type === 'clients') {
       const sampleData = [
         {
-          'Nome': 'João Silva',
-          'Email': 'joao@email.com',
-          'Telefone': '(11) 99999-9999',
-          'Endereço': 'Rua das Flores, 123',
-          'Tipo de Documento': 'cpf',
-          'CPF': '123.456.789-00',
-          'CNPJ': ''
+          'Nome': 'João', 'Sobrenome': 'Silva',
+          'Email': 'joao@email.com', 'Telefone': '(11) 99999-9999',
+          'Tipo de Documento': 'cpf', 'CPF': '123.456.789-00', 'CNPJ': '',
+          'CEP': '01001-000', 'Rua': 'Rua das Flores', 'Número': '123',
+          'Complemento': 'Apto 12', 'Bairro': 'Centro', 'Cidade': 'São Paulo', 'UF': 'SP'
         },
         {
-          'Nome': 'Empresa XYZ Ltda',
-          'Email': 'contato@empresa.com',
-          'Telefone': '(11) 88888-8888',
-          'Endereço': 'Av. Principal, 456',
-          'Tipo de Documento': 'cnpj',
-          'CPF': '',
-          'CNPJ': '12.345.678/0001-90'
+          'Nome': 'Empresa XYZ Ltda', 'Sobrenome': '',
+          'Email': 'contato@empresa.com', 'Telefone': '(11) 88888-8888',
+          'Tipo de Documento': 'cnpj', 'CPF': '', 'CNPJ': '12.345.678/0001-90',
+          'CEP': '20040-002', 'Rua': 'Av. Principal', 'Número': '456',
+          'Complemento': '', 'Bairro': 'Centro', 'Cidade': 'Rio de Janeiro', 'UF': 'RJ'
         }
       ];
       worksheet = XLSX.utils.json_to_sheet(sampleData);
@@ -1110,8 +1137,15 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       processedData = processProducts(worksheet);
       message = `${processedData.length} produtos importados com sucesso!`;
     } else if (type === 'clients') {
-      processedData = processClients(worksheet);
-      message = `${processedData.length} clientes importados com sucesso!`;
+      const parsed = processClients(worksheet);
+      // Persiste de fato (antes só retornava e sumia no reload).
+      const saved = [];
+      for (const c of parsed) {
+        try { saved.push(await db.saveClient(c)); }
+        catch (error) { console.error('Erro ao salvar cliente importado:', error.message); }
+      }
+      processedData = saved;
+      message = `${saved.length} clientes importados com sucesso!`;
     } else if (type === 'projects') {
       processedData = processProjects(worksheet);
       message = `${processedData.length} projetos importados com sucesso!`;
@@ -1221,15 +1255,22 @@ app.post('/api/export', async (req, res) => {
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
     } else if (type === 'clients') {
-      // Mapear dados para formato Excel
-      const excelData = data.map(c => ({
-        'Nome': c.name,
-        'Email': c.email,
-        'Telefone': c.phone,
-        'Endereço': c.address,
-        'CPF': c.cpf || '',
-        'CNPJ': c.cnpj || ''
-      }));
+      // Mapear dados para formato Excel (nome separado + endereço em colunas).
+      const excelData = data.map(c => {
+        const a = flattenClientAddress(c.address);
+        return {
+          'Nome': c.first_name || c.firstName || (c.name ? String(c.name).split(' ')[0] : ''),
+          'Sobrenome': c.last_name || c.lastName || (c.name ? String(c.name).split(' ').slice(1).join(' ') : ''),
+          'Email': c.email || '',
+          'Telefone': c.phone || '',
+          'Tipo de Documento': c.cnpj ? 'cnpj' : 'cpf',
+          'CPF': c.cpf || '',
+          'CNPJ': c.cnpj || '',
+          'CEP': a.cep || '', 'Rua': a.street || '', 'Número': a.number || '',
+          'Complemento': a.complement || '', 'Bairro': a.neighborhood || '',
+          'Cidade': a.city || '', 'UF': a.state || '',
+        };
+      });
       worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
     } else if (type === 'terracontrol') {
