@@ -479,12 +479,12 @@ const Clients: React.FC = () => {
 
       {/* Modal Novo/Editar Cliente */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }}>
-        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" aria-hidden="true" />{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
               <button onClick={() => { setIsModalOpen(false); setEditing(null); setFormErrors({}) }} aria-label="Fechar" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
-            <div className="p-6 space-y-3">
+            <div className="p-6 space-y-3 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <label htmlFor="form-firstName" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
