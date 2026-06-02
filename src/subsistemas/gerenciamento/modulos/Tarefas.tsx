@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck } from 'lucide-react'
+import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import {
   fetchMyTasks, taskAction, TASK_STATUS_META, PmTask,
   fetchPendingReviews, fetchIncomingHelp, helpAction, HelpRequest,
+  fetchAvailableTasks, claimTask,
 } from './_pm/taskApi'
 import { useActiveSession, markTaskAreaOpened } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
@@ -26,6 +27,7 @@ const Tarefas: React.FC = () => {
   const permissions = usePermissions('tarefas_gerenciamento')
   const { session } = useActiveSession()
   const [tasks, setTasks] = useState<PmTask[]>([])
+  const [available, setAvailable] = useState<PmTask[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,8 @@ const Tarefas: React.FC = () => {
     try { setTasks(await fetchMyTasks()) }
     catch (e: any) { setError(e.message || 'Falha ao carregar tarefas') }
     finally { setLoading(false) }
+    // Tarefas disponíveis para pegar (sem responsável).
+    fetchAvailableTasks().then(setAvailable).catch(() => setAvailable([]))
     // Revisões pendentes (gestor): 403 → não-gestor, esconde a seção.
     fetchPendingReviews().then(setPendingReviews).catch(() => setPendingReviews(null))
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
@@ -77,6 +81,17 @@ const Tarefas: React.FC = () => {
       await load()
       try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
       setFocusTask(t)  // abre escolha de modo Pomodoro
+    } catch (e: any) { setError(e.message) }
+    finally { setBusyId(null) }
+  }
+
+  const claim = async (t: PmTask) => {
+    if (!window.confirm(`Pegar a tarefa "${t.name}" para você?`)) return
+    setBusyId(t.id); setError(null)
+    try {
+      await claimTask(t.id)
+      await load()
+      try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
     } catch (e: any) { setError(e.message) }
     finally { setBusyId(null) }
   }
@@ -165,6 +180,39 @@ const Tarefas: React.FC = () => {
           <span className="flex-1">{error}</span>
           <button onClick={() => setError(null)}><X className="w-4 h-4" /></button>
         </div>
+      )}
+
+      {/* Tarefas disponíveis para pegar (sem responsável) */}
+      {available.length > 0 && (
+        <section className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-900/10 p-4">
+          <h2 className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1 flex items-center gap-2">
+            <Inbox className="w-4 h-4" /> Tarefas disponíveis para pegar
+            <span className="text-xs text-emerald-600/70 dark:text-emerald-400/70">({available.length})</span>
+          </h2>
+          <p className="text-xs text-emerald-700/70 dark:text-emerald-400/60 mb-2">Tarefas de projetos ainda sem responsável. Clique no <UserPlus className="w-3 h-3 inline" /> para assumir.</p>
+          <div className="space-y-2">
+            {available.map(t => (
+              <div key={t.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.project_name}{t.stage_name ? ` · ${t.stage_name}` : ''}</div>
+                </div>
+                {t.due_date && <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{t.due_date}</span>}
+                {permissions.canEdit && (
+                  <button onClick={() => claim(t)} disabled={busyId === t.id} title="Pegar esta tarefa para você"
+                    className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 disabled:opacity-50 flex-shrink-0">
+                    {busyId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Minhas tarefas */}
+      {available.length > 0 && !loading && tasks.length > 0 && (
+        <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Minhas tarefas</h2>
       )}
 
       {loading ? (

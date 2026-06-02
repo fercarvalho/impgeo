@@ -117,6 +117,34 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
   return getTask(db.pool, taskId);
 }
 
+/**
+ * "Pegar" uma tarefa disponível e sem responsável (auto-atribuição). Qualquer
+ * usuário do módulo pode capturar uma tarefa que ninguém pegou ainda. Não passa
+ * pelo fluxo de aceite (quem pega já está aceitando).
+ */
+async function claimTask(db, taskId, { userId }) {
+  if (!userId) throw new Error('claimTask: userId obrigatório');
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  if (task.assignee_user_id) throw err('Esta tarefa já tem um responsável', 'already_assigned', 409);
+  if (task.status !== TASK_STATUSES.AVAILABLE) {
+    throw err('Só é possível pegar tarefas disponíveis', 'invalid_transition', 409);
+  }
+  await db.pool.query(
+    `UPDATE project_tasks
+        SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(), updated_at = NOW()
+      WHERE id = $2`,
+    [userId, taskId]
+  );
+  await db.pool.query(
+    `INSERT INTO task_assignments_history (id, task_id, from_user_id, to_user_id, assigned_by_user_id, reason)
+     VALUES ($1,$2,NULL,$3,$3,'self_claim')`,
+    [db.generateId(), taskId, userId]
+  );
+  await appendTaskEvent(db.pool, db, { taskId, eventType: 'assigned', actorId: userId, payload: { toUserId: userId, selfClaim: true } });
+  return getTask(db.pool, taskId);
+}
+
 /** Aceita tarefa (pending_acceptance → available). */
 async function acceptTask(db, taskId, { userId }) {
   const task = await getTask(db.pool, taskId);
@@ -427,6 +455,25 @@ async function listMyTasks(db, userId, { statuses } = {}) {
   return r.rows;
 }
 
+/**
+ * Tarefas "disponíveis para pegar": sem responsável e em status 'available',
+ * de projetos que não estão concluídos/cancelados. Qualquer usuário do módulo vê
+ * para poder se auto-atribuir.
+ */
+async function listAvailableUnassignedTasks(db) {
+  const r = await db.pool.query(
+    `SELECT t.*, p.name AS project_name, s.name AS stage_name
+       FROM project_tasks t
+       JOIN projects p ON p.id = t.project_id
+       LEFT JOIN project_stages s ON s.id = t.project_stage_id
+      WHERE t.assignee_user_id IS NULL
+        AND t.status = 'available'
+        AND p.status NOT IN ('concluido', 'cancelado', 'inativo')
+      ORDER BY t.due_date ASC NULLS LAST, t.updated_at DESC`
+  );
+  return r.rows;
+}
+
 /** Tarefas de um projeto (admin/manager). */
 async function listProjectTasks(db, projectId) {
   const r = await db.pool.query(
@@ -442,6 +489,7 @@ module.exports = {
   getTask,
   appendTaskEvent,
   assignTask,
+  claimTask,
   acceptTask,
   refuseTask,
   startTask,
@@ -454,5 +502,6 @@ module.exports = {
   rejectReview,
   listPendingReviews,
   listMyTasks,
+  listAvailableUnassignedTasks,
   listProjectTasks,
 };

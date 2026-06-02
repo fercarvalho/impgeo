@@ -2279,11 +2279,31 @@ for (const action of Object.keys(taskActions)) {
   });
 }
 
+// "Pegar" uma tarefa disponível e sem responsável (auto-atribuição).
+app.post('/api/tasks/:taskId/claim', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const task = await pmTaskService.claimTask(db, req.params.taskId, { userId: req.user.id });
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
 // Dashboard pessoal.
 app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
     const statuses = req.query.status ? String(req.query.status).split(',').map(s => s.trim()).filter(Boolean) : null;
     const tasks = await pmTaskService.listMyTasks(db, req.user.id, { statuses });
+    res.json({ success: true, data: tasks });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Tarefas disponíveis para "pegar" (sem responsável, status available).
+app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const tasks = await pmTaskService.listAvailableUnassignedTasks(db);
     res.json({ success: true, data: tasks });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

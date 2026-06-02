@@ -93,7 +93,12 @@ async function getProjectWithDetails(db, projectId, { include = ['stages', 'task
 
     if (wantTasks && stages.length) {
       const tasksRes = await db.pool.query(
-        'SELECT * FROM project_tasks WHERE project_id = $1 ORDER BY sort_order ASC', [projectId]
+        `SELECT t.*,
+                COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username) AS assignee_name
+           FROM project_tasks t
+           LEFT JOIN users u ON u.id = t.assignee_user_id
+          WHERE t.project_id = $1
+          ORDER BY t.sort_order ASC`, [projectId]
       );
       const tasks = tasksRes.rows;
       const taskIds = tasks.map(t => t.id);

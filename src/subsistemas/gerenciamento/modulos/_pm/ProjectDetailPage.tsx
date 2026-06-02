@@ -13,6 +13,7 @@ interface Task {
   name: string
   status: string
   assignee_user_id: string | null
+  assignee_name?: string | null
   due_date: string | null
   review_required: boolean
   acceptance_required: boolean
@@ -231,10 +232,18 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {s.tasks.length === 0 && <p className="px-4 py-3 text-xs text-gray-400">Sem tarefas.</p>}
                 {s.tasks.map(t => {
-                  const st = TASK_STATUS[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' }
+                  // Tarefa disponível com responsável definido → badge "Atribuída".
+                  const st = (t.status === 'available' && t.assignee_user_id)
+                    ? { label: 'Atribuída', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' }
+                    : (TASK_STATUS[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' })
                   return (
                     <div key={t.id} className="px-4 py-2.5 flex items-center gap-2">
                       <span className="text-sm text-gray-800 dark:text-gray-100 flex-1 truncate">{t.name}</span>
+                      {t.assignee_name && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center gap-0.5 max-w-[140px] truncate">
+                          <Users className="w-3 h-3 flex-shrink-0" />{t.assignee_name}
+                        </span>
+                      )}
                       {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
                       {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
@@ -316,16 +325,61 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
         </div>
       )}
 
-      {tab === 'team' && (
-        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-          <p className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-violet-400" /> Atribua responsáveis pelo botão <UserPlus className="w-3.5 h-3.5 inline" /> em cada tarefa, na aba <strong>Etapas</strong>.</p>
-          {(() => {
-            const assignees = new Set<string>()
-            ;(project.stages || []).forEach(s => s.tasks.forEach(t => { if (t.assignee_user_id) assignees.add(t.assignee_user_id) }))
-            return <p className="text-xs text-gray-400">{assignees.size} responsável(is) distinto(s) atribuído(s) neste projeto.</p>
-          })()}
-        </div>
-      )}
+      {tab === 'team' && (() => {
+        // Agrupa as tarefas por responsável (assignee_user_id).
+        const byUser = new Map<string, { name: string; tasks: Task[] }>()
+        ;(project.stages || []).forEach(s => s.tasks.forEach(t => {
+          if (!t.assignee_user_id) return
+          const cur = byUser.get(t.assignee_user_id) || { name: t.assignee_name || 'Usuário', tasks: [] }
+          cur.tasks.push(t)
+          byUser.set(t.assignee_user_id, cur)
+        }))
+        const members = Array.from(byUser.entries())
+        return (
+          <div className="space-y-4">
+            <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <AlertCircle className="w-4 h-4 text-violet-400" /> Atribua responsáveis pelo botão <UserPlus className="w-3.5 h-3.5 inline" /> em cada tarefa, na aba <strong>Etapas</strong>.
+            </p>
+            {members.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">
+                <Users className="w-9 h-9 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Nenhuma tarefa atribuída neste projeto ainda.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {members.map(([uid, m]) => {
+                  const done = m.tasks.filter(t => t.status === 'completed').length
+                  return (
+                    <div key={uid} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 dark:bg-[#2d3f52] px-4 py-2.5 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {m.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">{m.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{done}/{m.tasks.length} concluída(s)</span>
+                      </div>
+                      <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {m.tasks.map(t => {
+                          const st = (t.status === 'available' && t.assignee_user_id)
+                            ? { label: 'Atribuída', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' }
+                            : (TASK_STATUS[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' })
+                          return (
+                            <div key={t.id} className="px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-sm text-gray-800 dark:text-gray-100 flex-1 truncate">{t.name}</span>
+                              {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {tab === 'terra' && project.terracontrol_id && (
         <div className="space-y-3">

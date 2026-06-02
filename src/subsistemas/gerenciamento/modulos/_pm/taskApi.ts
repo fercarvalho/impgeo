@@ -14,6 +14,7 @@ export interface PmTask {
   review_required: boolean
   acceptance_required: boolean
   paused_at: string | null
+  assignee_name?: string | null
   project_name?: string
   stage_name?: string
 }
@@ -33,6 +34,18 @@ async function parse(r: Response) {
 export async function fetchMyTasks(statuses?: string[]): Promise<PmTask[]> {
   const q = statuses?.length ? `?status=${encodeURIComponent(statuses.join(','))}` : ''
   const r = await fetch(`${API}/me/tasks${q}`)
+  return parse(r)
+}
+
+// Tarefas disponíveis para "pegar" (sem responsável).
+export async function fetchAvailableTasks(): Promise<PmTask[]> {
+  const r = await fetch(`${API}/me/available-tasks`)
+  return parse(r)
+}
+
+// Auto-atribuir uma tarefa disponível ao usuário logado.
+export async function claimTask(taskId: string): Promise<any> {
+  const r = await fetch(`${API}/tasks/${taskId}/claim`, { method: 'POST' })
   return parse(r)
 }
 
