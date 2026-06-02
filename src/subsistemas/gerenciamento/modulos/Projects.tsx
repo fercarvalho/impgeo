@@ -63,6 +63,7 @@ const Projects: React.FC = () => {
     endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: []
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isImportExportOpen, setIsImportExportOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // PM Fase 3: serviço-template escolhido na criação (materializa etapas/tarefas).
@@ -220,8 +221,9 @@ const Projects: React.FC = () => {
   }
 
   const saveProject = async () => {
+    setSaveError(null)
     if (!validateForm()) return
-    
+
     const payload: Record<string, any> = {
       name: form.name,
       description: form.description,
@@ -244,18 +246,18 @@ const Projects: React.FC = () => {
     }
 
     try {
-      if (editing) {
-        const r = await fetch(`${API_BASE_URL}/projects/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        if (!r.ok) { console.error('Erro ao atualizar projeto:', r.status); return }
-        const j = await r.json(); if (j.success) setProjects(prev => prev.map(p => p.id === editing.id ? j.data : p))
-      } else {
-        const r = await fetch(`${API_BASE_URL}/projects`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        if (!r.ok) { console.error('Erro ao criar projeto:', r.status); return }
-        const j = await r.json(); if (j.success) setProjects(prev => [j.data, ...prev])
+      const url = editing ? `${API_BASE_URL}/projects/${editing.id}` : `${API_BASE_URL}/projects`
+      const r = await fetch(url, { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.success) {
+        setSaveError(j.error || `Falha ao salvar (HTTP ${r.status}).`)
+        return
       }
+      if (editing) setProjects(prev => prev.map(p => p.id === editing.id ? j.data : p))
+      else setProjects(prev => [j.data, ...prev])
       setIsModalOpen(false); setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
-    } catch (error) {
-      console.error('Erro ao salvar:', error)
+    } catch (error: any) {
+      setSaveError(error?.message || 'Erro de rede ao salvar.')
     }
   }
 
@@ -875,8 +877,13 @@ const Projects: React.FC = () => {
                 )}
               </div>
 
+              {saveError && (
+                <div role="alert" className="mt-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
+                  {saveError}
+                </div>
+              )}
               <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={() => { setIsModalOpen(false); setEditing(null); setSaveError(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
               </div>
             </div>

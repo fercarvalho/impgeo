@@ -2158,9 +2158,15 @@ app.post('/api/projects', async (req, res) => {
     // legado (projeto simples).
     if (req.body && req.body.serviceId) {
       // Serviço inativo não gera novos projetos (mas continua no sistema).
-      const svc = await db.pool.query('SELECT status FROM services WHERE id = $1', [req.body.serviceId]);
-      if (svc.rows[0]?.status === 'inativo') {
-        return res.status(400).json({ success: false, error: 'Este serviço está inativo e não pode gerar novos projetos.', code: 'service_inactive' });
+      // Tolerante: se a coluna status ainda não existe (migration 054 não
+      // aplicada), não bloqueia — apenas pula o check.
+      try {
+        const svc = await db.pool.query('SELECT status FROM services WHERE id = $1', [req.body.serviceId]);
+        if (svc.rows[0]?.status === 'inativo') {
+          return res.status(400).json({ success: false, error: 'Este serviço está inativo e não pode gerar novos projetos.', code: 'service_inactive' });
+        }
+      } catch (e) {
+        if (!/column .*status.* does not exist/i.test(e.message)) throw e;
       }
       const project = await pmProjectService.createProjectFromTemplate(db, {
         name: req.body.name,
