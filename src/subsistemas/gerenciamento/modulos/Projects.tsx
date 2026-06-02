@@ -11,10 +11,15 @@ interface Project {
   client: string
   startDate: string
   endDate: string
-  status: 'ativo' | 'pausado' | 'concluido'
+  status: string
   value: number
   progress: number
   services: string[]
+  // Campos do modelo novo (projetos criados a partir de template / PIX).
+  client_id?: string | null
+  total_cents?: number | null
+  progress_pct?: number | null
+  start_date?: string | null
 }
 
 interface Service {
@@ -160,20 +165,28 @@ const Projects: React.FC = () => {
     return sortConfig.direction === 'asc' ? <span className="text-white">↑</span> : <span className="text-white">↓</span>
   }
 
+  // Helpers tolerantes ao modelo novo (projetos de template/PIX podem não ter
+  // os campos legados client/value/progress/startDate preenchidos).
+  const clientNameOf = (p: Project) => p.client || clients.find(c => c.id === p.client_id)?.name || ''
+  const projValue = (p: Project) => (p.value ?? (p.total_cents != null ? p.total_cents / 100 : 0))
+  const projProgress = (p: Project) => (p.progress ?? p.progress_pct ?? 0)
+  const projStart = (p: Project) => (p.startDate || p.start_date || '')
+
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
-      const matchesName = p.name.toLowerCase().includes(filters.name.toLowerCase())
-      const matchesClient = p.client.toLowerCase().includes(filters.client.toLowerCase())
+      const matchesName = (p.name || '').toLowerCase().includes(filters.name.toLowerCase())
+      const matchesClient = clientNameOf(p).toLowerCase().includes(filters.client.toLowerCase())
       const matchesStatus = !filters.status || p.status === filters.status
       return matchesName && matchesClient && matchesStatus
     }).sort((a, b) => {
-      const aVal = a[sortConfig.field]
-      const bVal = b[sortConfig.field]
+      const aVal: any = a[sortConfig.field] ?? ''
+      const bVal: any = b[sortConfig.field] ?? ''
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
       return 0
     })
-  }, [projects, filters, sortConfig])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, filters, sortConfig, clients])
 
   const handleSelect = (id: string) => {
     setSelectedProjects(prev => {
@@ -329,14 +342,14 @@ const Projects: React.FC = () => {
     }
 
     const data = filteredProjects.map(p => ({
-      Nome: p.name,
-      Descrição: p.description,
-      Cliente: p.client,
-      'Data Início': p.startDate,
+      Nome: p.name || '',
+      Descrição: p.description || '',
+      Cliente: clientNameOf(p),
+      'Data Início': projStart(p),
       'Data Fim': p.endDate || '',
-      Status: p.status,
-      Valor: p.value,
-      Progresso: p.progress,
+      Status: p.status || '',
+      Valor: projValue(p),
+      Progresso: Math.round(projProgress(p)),
       Serviços: (p.services || []).join('; ')
     }))
 
@@ -569,11 +582,11 @@ const Projects: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
-                    <span className="text-sm text-gray-900 dark:text-gray-100">{project.client}</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100">{clientNameOf(project) || '—'}</span>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <span className="text-sm text-gray-900 dark:text-gray-100">
-                      {project.startDate ? new Date(project.startDate.includes('T') ? project.startDate : project.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                      {(() => { const d = projStart(project); return d ? new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('pt-BR') : '-' })()}
                     </span>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -583,7 +596,7 @@ const Projects: React.FC = () => {
                   </td>
                   <td className="px-4 sm:px-6 py-4">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      R$ {(parseFloat(String(project.value)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R$ {(projValue(project) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -591,10 +604,10 @@ const Projects: React.FC = () => {
                       <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
                         <div
                           className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full"
-                          style={{ width: `${Math.min(100, Math.max(0, project.progress))}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, projProgress(project)))}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-900 dark:text-gray-100">{project.progress ?? 0}%</span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{Math.round(projProgress(project))}%</span>
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4">
@@ -608,7 +621,7 @@ const Projects: React.FC = () => {
                       </button>
                       {permissions.canEdit && (
                         <button
-                          onClick={() => { setEditing(project); setForm({ name: project.name, description: project.description, client: project.client, startDate: project.startDate, endDate: project.endDate, status: project.status, value: String(project.value), progress: String(project.progress), selectedServices: project.services || [] }); setIsModalOpen(true) }}
+                          onClick={() => { setEditing(project); setForm({ name: project.name || '', description: project.description || '', client: clientNameOf(project), startDate: projStart(project), endDate: project.endDate || '', status: (project.status as any) || 'ativo', value: String(projValue(project)), progress: String(Math.round(projProgress(project))), selectedServices: project.services || [] }); setIsModalOpen(true) }}
                           className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
                           title="Editar projeto"
                         >
