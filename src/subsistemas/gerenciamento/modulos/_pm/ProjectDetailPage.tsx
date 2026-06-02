@@ -17,6 +17,7 @@ interface Task {
   due_date: string | null
   review_required: boolean
   acceptance_required: boolean
+  actual_minutes?: number | null
   deps?: any[]
 }
 interface Stage {
@@ -70,6 +71,15 @@ const STAGE_STATUS: Record<string, string> = {
 }
 
 const fmtBRL = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100)
+
+// minutos → "1h 23min" / "45min" / "—"
+const fmtDur = (min?: number | null) => {
+  const m = Math.max(0, Math.round(min || 0))
+  if (!m) return '—'
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  return h ? `${h}h ${r}min` : `${r}min`
+}
 
 interface Props {
   projectId: string
@@ -349,6 +359,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
               <div className="space-y-4">
                 {members.map(([uid, m]) => {
                   const done = m.tasks.filter(t => t.status === 'completed').length
+                  const totalMin = m.tasks.reduce((n, t) => n + (t.actual_minutes || 0), 0)
                   return (
                     <div key={uid} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                       <div className="bg-gray-50 dark:bg-[#2d3f52] px-4 py-2.5 flex items-center gap-2">
@@ -356,7 +367,8 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                           {m.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">{m.name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{done}/{m.tasks.length} concluída(s)</span>
+                        <span className="text-xs text-violet-600 dark:text-violet-400 font-medium flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{fmtDur(totalMin)}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">· {done}/{m.tasks.length} concluída(s)</span>
                       </div>
                       <div className="divide-y divide-gray-100 dark:divide-gray-700">
                         {m.tasks.map(t => {
@@ -366,7 +378,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                           return (
                             <div key={t.id} className="px-4 py-2.5 flex items-center gap-2">
                               <span className="text-sm text-gray-800 dark:text-gray-100 flex-1 truncate">{t.name}</span>
-                              {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
+                              <span className="text-[10px] text-violet-500 dark:text-violet-400 flex items-center gap-0.5 flex-shrink-0" title="Tempo trabalhado"><Clock className="w-3 h-3" />{fmtDur(t.actual_minutes)}</span>
                               <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
                             </div>
                           )

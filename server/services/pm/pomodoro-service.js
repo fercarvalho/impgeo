@@ -56,6 +56,25 @@ async function _addDaily(exec, { userId, activeMinutes = 0, breakMinutes = 0, co
   );
 }
 
+// Credita o tempo ATIVO trabalhado na tarefa (project_tasks.actual_seconds/minutes).
+// Usa credited_seconds da sessão para nunca recontar o mesmo trecho (pausar→retomar→concluir).
+async function _creditTaskTime(exec, session, activeSec) {
+  if (!session.task_id) return;
+  const sec = Math.max(0, Math.round(activeSec));
+  const delta = sec - (session.credited_seconds || 0);
+  if (delta > 0) {
+    await exec.query(
+      `UPDATE project_tasks
+          SET actual_seconds = COALESCE(actual_seconds,0) + $1,
+              actual_minutes = ROUND((COALESCE(actual_seconds,0) + $1) / 60.0),
+              updated_at = NOW()
+        WHERE id = $2`,
+      [delta, session.task_id]
+    );
+  }
+  await exec.query('UPDATE task_work_sessions SET credited_seconds = $1 WHERE id = $2', [sec, session.id]);
+}
+
 async function getConfig(db, userId) {
   let r = await db.pool.query('SELECT * FROM user_pomodoro_config WHERE user_id = $1', [userId]);
   if (!r.rows[0]) {
@@ -188,8 +207,20 @@ async function _loadOwned(db, sessionId, userId) {
 async function pauseSession(db, sessionId, userId) {
   const s = await _loadOwned(db, sessionId, userId);
   if (s.state !== 'running') throw err('Só é possível pausar uma sessão em execução', 'invalid_state', 409);
-  await db.pool.query(`UPDATE task_work_sessions SET state='paused', pause_started_at=NOW(), last_heartbeat=NOW(), updated_at=NOW() WHERE id=$1`, [sessionId]);
-  await _event(db.pool, db, { userId, sessionId, taskId: s.task_id, type: 'PAUSED' });
+  const activeSec = activeSecondsNow(s, Date.now());
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE task_work_sessions SET state='paused', pause_started_at=NOW(), total_active_seconds=$1, last_heartbeat=NOW(), updated_at=NOW() WHERE id=$2`,
+      [activeSec, sessionId]
+    );
+    // Stop/pausa fecha o trecho ativo → credita o tempo na tarefa (p/ produtividade).
+    await _creditTaskTime(client, s, activeSec);
+    await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'PAUSED' });
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
   return getActiveSession(db, userId);
 }
 
@@ -250,6 +281,7 @@ async function completeActive(db, sessionId, userId) {
       [pausedAdd, activeSec, sessionId]
     );
     await _addDaily(client, { userId, activeMinutes: activeMin });
+    await _creditTaskTime(client, s, activeSec);
     await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'BREAK_STARTED', metadata: { activeMin } });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
@@ -326,6 +358,7 @@ async function _abort(db, session, reason) {
     // Conta o tempo ativo trabalhado até o abort (foi trabalho real).
     if (wasActive) await _addDaily(client, { userId: session.user_id, activeMinutes: Math.round(activeSec / 60), aborted: 1 });
     else await _addDaily(client, { userId: session.user_id, aborted: 1 });
+    await _creditTaskTime(client, session, activeSec);
     await _event(client, db, { userId: session.user_id, sessionId: session.id, taskId: session.task_id, type: 'STOPPED', metadata: { reason } });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
