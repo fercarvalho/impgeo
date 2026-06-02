@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Modal from '@/components/Modal'
 import { Pause, Play, Square, Coffee, Loader2, GripVertical, Timer, PictureInPicture2, X } from 'lucide-react'
 import { useActiveSession, sessionAction, fmtClock, notifyPomodoroChanged } from './pomodoroApi'
+import { taskAction } from './taskApi'
 
 const POS_KEY = 'pm-pomodoro-widget-pos'
 
@@ -71,6 +72,24 @@ const PomodoroFloatingWidget: React.FC = () => {
     finally { setBusy(false) }
   }, [session, refetch])
 
+  // Stop (parar): se a sessão é de uma tarefa, PAUSA a tarefa (e a sessão junto,
+  // preservando o tempo) e fecha o widget — retomar a tarefa reabre o cronômetro.
+  // Sessão de categoria (sem tarefa) só aborta como antes.
+  const onStop = useCallback(async () => {
+    if (!session) return
+    setBusy(true)
+    try {
+      if (session.task_id) {
+        await taskAction(session.task_id, 'pause')
+        try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
+      } else {
+        await sessionAction(session.id, 'abort', { reason: 'manual' })
+      }
+      await refetch(); notifyPomodoroChanged()
+    } catch { /* noop */ }
+    finally { setBusy(false) }
+  }, [session, refetch])
+
   // Polling de fechamento da janela destacada (cobre Document PiP e popup comum).
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -135,6 +154,11 @@ const PomodoroFloatingWidget: React.FC = () => {
     }
   }, [session, remainingBreak, act])
 
+  // Tarefa pausada (widget estaciona) → fecha a janela destacada, se aberta.
+  useEffect(() => {
+    if (pipWindow && session?.task_id && session?.task_paused_at) closePip()
+  }, [session, pipWindow, closePip])
+
   // Sessão acabou (ou some) → fecha a janela PiP, se aberta.
   useEffect(() => {
     if (pipWindow && (!session || !['running', 'paused', 'break'].includes(session.state))) {
@@ -145,6 +169,8 @@ const PomodoroFloatingWidget: React.FC = () => {
   }, [session, pipWindow])
 
   if (!session || !['running', 'paused', 'break'].includes(session.state)) return null
+  // Tarefa pausada → widget "estacionado": some até a tarefa ser retomada.
+  if (session.task_id && session.task_paused_at) return null
 
   const targetLabel = session.task_id ? 'Tarefa' : (session.category || 'Foco')
   const paused = session.state === 'paused'
@@ -163,7 +189,7 @@ const PomodoroFloatingWidget: React.FC = () => {
           <Pause className="w-5 h-5" />
         </button>
       )}
-      <button onClick={() => act('abort', { reason: 'manual' })} disabled={busy} title="Parar"
+      <button onClick={onStop} disabled={busy} title={session.task_id ? 'Parar e pausar a tarefa' : 'Parar'}
         className="p-2.5 rounded-full bg-red-500 hover:bg-red-600 text-white disabled:opacity-50">
         <Square className="w-5 h-5" />
       </button>

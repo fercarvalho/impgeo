@@ -87,9 +87,11 @@ async function _todayMinutes(exec, userId) {
 // Sessão viva (restore). Aborta se estiver "morta" (heartbeat velho).
 async function getActiveSession(db, userId) {
   const r = await db.pool.query(
-    `SELECT * FROM task_work_sessions
-      WHERE user_id = $1 AND state IN ('running','paused','break')
-      ORDER BY started_at DESC LIMIT 1`, [userId]
+    `SELECT ws.*, t.paused_at AS task_paused_at
+       FROM task_work_sessions ws
+       LEFT JOIN project_tasks t ON t.id = ws.task_id
+      WHERE ws.user_id = $1 AND ws.state IN ('running','paused','break')
+      ORDER BY ws.started_at DESC LIMIT 1`, [userId]
   );
   const s = r.rows[0];
   if (!s) return null;
@@ -201,6 +203,25 @@ async function resumeSession(db, sessionId, userId) {
   );
   await _event(db.pool, db, { userId, sessionId, taskId: s.task_id, type: 'RESUMED' });
   return getActiveSession(db, userId);
+}
+
+// Acoplamento tarefa↔sessão (usado por task-service ao pausar/retomar a tarefa).
+// Best-effort: se não houver sessão no estado esperado, ignora.
+async function pauseSessionForTask(db, taskId, userId) {
+  if (!taskId || !userId) return;
+  const r = await db.pool.query(
+    `SELECT id FROM task_work_sessions WHERE task_id=$1 AND user_id=$2 AND state='running' LIMIT 1`,
+    [taskId, userId]
+  );
+  if (r.rows[0]) { try { await pauseSession(db, r.rows[0].id, userId); } catch { /* já pausada/encerrada */ } }
+}
+async function resumeSessionForTask(db, taskId, userId) {
+  if (!taskId || !userId) return;
+  const r = await db.pool.query(
+    `SELECT id FROM task_work_sessions WHERE task_id=$1 AND user_id=$2 AND state='paused' LIMIT 1`,
+    [taskId, userId]
+  );
+  if (r.rows[0]) { try { await resumeSession(db, r.rows[0].id, userId); } catch { /* já retomada/encerrada */ } }
 }
 
 // ─── Complete active → break ──────────────────────────────────────────────────
@@ -376,6 +397,7 @@ module.exports = {
   getActiveSession,
   startSession,
   pauseSession, resumeSession,
+  pauseSessionForTask, resumeSessionForTask,
   completeActive,
   finishBreak, skipBreak,
   abortSession, autoCompleteSessionForTask,

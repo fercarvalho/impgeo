@@ -101,7 +101,11 @@ const Tarefas: React.FC = () => {
     try {
       await taskAction(t.id, action, body)
       await load()
-      try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
+      try {
+        window.dispatchEvent(new CustomEvent('pm-tasks-changed'))
+        // pause/resume da tarefa também mexem na sessão Pomodoro → reabre/fecha o widget.
+        window.dispatchEvent(new CustomEvent('pm-pomodoro-changed'))
+      } catch { /* noop */ }
     } catch (e: any) { setError(e.message) }
     finally { setBusyId(null) }
   }
@@ -234,8 +238,10 @@ const Tarefas: React.FC = () => {
                 </h2>
                 <div className="space-y-2">
                   {list.map(t => {
-                    const st = TASK_STATUS_META[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' }
                     const paused = !!t.paused_at
+                    const st = (t.status === 'in_progress' && paused)
+                      ? { label: 'Pausada', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }
+                      : (TASK_STATUS_META[t.status] || { label: t.status, cls: 'bg-gray-100 text-gray-600' })
                     return (
                       <div key={t.id} className="bg-white dark:!bg-[#243040] border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex items-center gap-3">
                         <div className="min-w-0 flex-1">

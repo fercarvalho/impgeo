@@ -261,6 +261,8 @@ async function pauseTask(db, taskId, { userId }) {
   }
   await db.pool.query(`UPDATE project_tasks SET paused_at = NOW(), updated_at = NOW() WHERE id = $1`, [taskId]);
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'paused', actorId: userId, payload: {} });
+  // Pausa junto a sessão Pomodoro ativa desta tarefa (preserva o tempo p/ retomar).
+  try { await pomodoroService.pauseSessionForTask(db, taskId, userId); } catch { /* best-effort */ }
   return getTask(db.pool, taskId);
 }
 
@@ -273,6 +275,8 @@ async function resumeTask(db, taskId, { userId }) {
   }
   await db.pool.query(`UPDATE project_tasks SET paused_at = NULL, updated_at = NOW() WHERE id = $1`, [taskId]);
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'resumed', actorId: userId, payload: {} });
+  // Retoma a sessão Pomodoro pausada desta tarefa (reabre o cronômetro de onde parou).
+  try { await pomodoroService.resumeSessionForTask(db, taskId, userId); } catch { /* best-effort */ }
   return getTask(db.pool, taskId);
 }
 

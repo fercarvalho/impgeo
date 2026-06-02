@@ -14,6 +14,7 @@ export interface PomodoroSession {
   planned_minutes: number
   break_planned_minutes: number
   state: 'running' | 'paused' | 'break' | 'completed' | 'aborted' | 'daily_limit_reached'
+  task_paused_at?: string | null
   derived?: {
     activeSeconds: number
     remainingActiveSeconds: number
