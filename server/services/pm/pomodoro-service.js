@@ -96,29 +96,72 @@ async function updateConfig(db, userId, { dailyLimitMinutes, idleAlertMinutes, s
   return getConfig(db, userId);
 }
 
+// Minutos ativos de hoje DERIVADOS das sessões (fonte da verdade — evita o drift
+// do contador incremental pomodoro_daily_stats, que acumulava erro/dupla contagem).
 async function _todayMinutes(exec, userId) {
   const r = await exec.query(
-    'SELECT total_minutes_worked FROM pomodoro_daily_stats WHERE user_id = $1 AND day = CURRENT_DATE', [userId]
+    `SELECT COALESCE(ROUND(SUM(total_active_seconds) / 60.0), 0) AS min
+       FROM task_work_sessions
+      WHERE user_id = $1 AND started_at::date = CURRENT_DATE`, [userId]
   );
-  return r.rows[0]?.total_minutes_worked || 0;
+  return Number(r.rows[0]?.min || 0);
 }
 
-// Sessão viva (restore). Aborta se estiver "morta" (heartbeat velho).
-async function getActiveSession(db, userId) {
-  const r = await db.pool.query(
-    `SELECT ws.*, t.paused_at AS task_paused_at
-       FROM task_work_sessions ws
-       LEFT JOIN project_tasks t ON t.id = ws.task_id
-      WHERE ws.user_id = $1 AND ws.state IN ('running','paused','break')
-      ORDER BY ws.started_at DESC LIMIT 1`, [userId]
-  );
-  const s = r.rows[0];
-  if (!s) return null;
-  const ageMin = (Date.now() - new Date(s.last_heartbeat).getTime()) / 60000;
-  if (ageMin > STALE_AFTER_MIN) {
-    await _abort(db, s, 'tab_closed_timeout');
-    return null;
+// Reconcilia uma sessão "atrasada" (heartbeat velho e/ou passou do tempo).
+// Regra: um ciclo RUNNING tem direito à duração planejada inteira — nunca é
+// abortado antes disso (mesmo com a aba congelada/heartbeat parado). Quando passa
+// do planejado, é auto-concluído (vai pra pausa). Só paused/break abandonados são
+// abortados por timeout (quando abortStale=true).
+async function _reconcileSession(db, s, { abortStale = false } = {}) {
+  const now = Date.now();
+  const stale = (now - new Date(s.last_heartbeat).getTime()) / 60000 > STALE_AFTER_MIN;
+
+  if (s.state === 'running') {
+    const elapsed = activeSecondsNow(s, now);
+    if (elapsed >= s.planned_minutes * 60) {
+      // Ciclo chegou ao fim → pausa, mesmo que a aba esteja congelada/fechada.
+      try { await completeActive(db, s.id, s.user_id); } catch { /* já transicionou */ }
+      return 'completed_active';
+    }
+    return 'running'; // dentro do ciclo: protegido, nunca aborta por heartbeat
   }
+
+  if (s.state === 'break') {
+    const brkElapsed = s.break_started_at ? (now - new Date(s.break_started_at).getTime()) / 1000 : 0;
+    if (brkElapsed >= s.break_planned_minutes * 60) {
+      try { await finishBreak(db, s.id, s.user_id); } catch { /* já encerrou */ }
+      return 'finished_break';
+    }
+    if (abortStale && stale) { await _abort(db, s, 'tab_closed_timeout'); return 'aborted'; }
+    return 'break';
+  }
+
+  if (s.state === 'paused') {
+    if (abortStale && stale) { await _abort(db, s, 'tab_closed_timeout'); return 'aborted'; }
+    return 'paused';
+  }
+  return s.state;
+}
+
+// Sessão viva (restore). Reconcilia (auto-conclui se passou do tempo) mas NÃO
+// aborta no restore — o usuário acabou de voltar; devolve a sessão de onde está.
+async function getActiveSession(db, userId) {
+  const sql = `SELECT ws.*, t.paused_at AS task_paused_at
+                 FROM task_work_sessions ws
+                 LEFT JOIN project_tasks t ON t.id = ws.task_id
+                WHERE ws.user_id = $1 AND ws.state IN ('running','paused','break')
+                ORDER BY ws.started_at DESC LIMIT 1`;
+  const r = await db.pool.query(sql, [userId]);
+  const s0 = r.rows[0];
+  if (!s0) return null;
+  await _reconcileSession(db, s0, { abortStale: false });
+  // Recarrega: o estado pode ter mudado (running → break, ou break → completed).
+  const r2 = await db.pool.query(
+    `SELECT ws.*, t.paused_at AS task_paused_at FROM task_work_sessions ws
+       LEFT JOIN project_tasks t ON t.id = ws.task_id WHERE ws.id = $1`, [s0.id]
+  );
+  const s = r2.rows[0];
+  if (!s || !['running', 'paused', 'break'].includes(s.state)) return null;
   return _decorate(s);
 }
 
@@ -149,20 +192,30 @@ async function startSession(db, { userId, taskId = null, category = null, planne
 
   // Consome "próximo forçado" (penalidade de pausa pulada).
   let planned = plannedMinutes;
-  let forced = false;
-  if (config.next_cycle_forced_minutes) {
-    planned = config.next_cycle_forced_minutes;
-    forced = true;
-  }
+  const hadForce = !!config.next_cycle_forced_minutes;
+  if (hadForce) planned = config.next_cycle_forced_minutes;
   if (!VALID_MINUTES.includes(planned)) throw err(`plannedMinutes inválido: ${planned}`, 'invalid_minutes');
   if (!taskId && !category) throw err('Informe uma tarefa ou uma categoria', 'target_required');
 
-  // Limite diário (bloqueia ciclo inteiro se não couber).
+  // Limite diário: o ciclo precisa caber no que resta. A penalidade (forçado)
+  // NUNCA trava o usuário — se o ciclo forçado não couber, reduz pro maior que cabe.
   const limit = config.daily_limit_minutes || 400;
   const today = await _todayMinutes(db.pool, userId);
-  if (today + planned > limit) {
-    throw err(`Você atingiu o limite diário de ${limit} minutos ativos.`, 'daily_limit', 409, { remainingMinutes: Math.max(0, limit - today) });
+  const remaining = limit - today;
+  if (planned > remaining) {
+    const fit = hadForce ? [100, 50, 25].find(m => m <= remaining) : null;
+    if (fit) {
+      planned = fit;
+    } else {
+      throw err(
+        `Restam só ${Math.max(0, remaining)} min hoje (limite diário de ${limit} min). ` +
+        `Um ciclo de ${planned} min não cabe${hadForce ? ' (próximo ciclo forçado por ter pulado a pausa)' : ' — escolha um menor'}.`,
+        'daily_limit', 409, { remainingMinutes: Math.max(0, remaining) }
+      );
+    }
   }
+  // "forçado" (p/ o evento) só se o ciclo realmente subiu acima do escolhido.
+  const forced = hadForce && planned > plannedMinutes;
 
   let projectId = null;
   if (taskId) {
@@ -185,8 +238,8 @@ async function startSession(db, { userId, taskId = null, category = null, planne
     throw e;
   }
 
-  // Consumiu o forçado → limpa.
-  if (forced) {
+  // Consumiu o forçado → limpa (mesmo que tenha sido reduzido pra caber no dia).
+  if (hadForce) {
     await db.pool.query('UPDATE user_pomodoro_config SET next_cycle_forced_minutes = NULL, updated_at = NOW() WHERE user_id = $1', [userId]);
   }
   await _event(db.pool, db, { userId, sessionId: id, taskId, type: 'STARTED', toMode: mode, metadata: { forced } });
@@ -390,17 +443,22 @@ async function heartbeat(db, sessionId, userId) {
   return { ok: true };
 }
 
-// Cron: aborta sessões "mortas" (sem heartbeat há > 30min).
+// Cron: reconcilia sessões. Auto-conclui ciclos RUNNING que passaram do tempo
+// (mesmo aba fechada/congelada) e aborta apenas paused/break abandonados (sem
+// heartbeat há > 30min). Sessões running dentro do ciclo são preservadas.
 async function abortStaleSessions(db) {
   const r = await db.pool.query(
     `SELECT * FROM task_work_sessions
       WHERE state IN ('running','paused','break')
-        AND last_heartbeat < NOW() - INTERVAL '${STALE_AFTER_MIN} minutes'`
+        AND ( last_heartbeat < NOW() - INTERVAL '${STALE_AFTER_MIN} minutes'
+              OR (state = 'running' AND started_at < NOW() - (planned_minutes * INTERVAL '1 minute')) )`
   );
+  let n = 0;
   for (const s of r.rows) {
-    try { await _abort(db, s, 'tab_closed_timeout'); } catch (e) { console.error('[pomodoro] abort stale falhou', s.id, e.message); }
+    try { const r2 = await _reconcileSession(db, s, { abortStale: true }); if (r2 === 'aborted' || r2 === 'completed_active' || r2 === 'finished_break') n++; }
+    catch (e) { console.error('[pomodoro] reconcile falhou', s.id, e.message); }
   }
-  return r.rows.length;
+  return n;
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
