@@ -171,6 +171,12 @@ const PomodoroFloatingWidget: React.FC = () => {
     if (pipWindow && session?.task_id && session?.task_paused_at) closePip()
   }, [session, pipWindow, closePip])
 
+  // Pausa obrigatória ("VÁ DESCANSAR") tem que travar a tela PRINCIPAL do sistema:
+  // fecha a janela destacada para o modal bloqueante aparecer na janela principal.
+  useEffect(() => {
+    if (pipWindow && session?.state === 'break') closePip()
+  }, [session, pipWindow, closePip])
+
   // Sessão acabou (ou some) → fecha a janela PiP, se aberta.
   useEffect(() => {
     if (pipWindow && (!session || !['running', 'paused', 'break'].includes(session.state))) {
@@ -246,15 +252,11 @@ const PomodoroFloatingWidget: React.FC = () => {
   )
 
   // ─── Conteúdo para a janela PiP (preenche a janela inteira) ───────────────────
-  if (pipWindow && pipContainer) {
-    const pipBody = session.state === 'break' ? (
-      <div className="flex flex-col items-center justify-center h-screen w-screen bg-gradient-to-br from-tc-green to-tc-blue text-white text-center p-5 select-none">
-        <Coffee className="w-12 h-12 mb-2 opacity-90" />
-        <h2 className="text-2xl font-extrabold tracking-tight mb-1">VÁ DESCANSAR!</h2>
-        <div className="font-mono text-4xl tabular-nums my-3">{fmtClock(remainingBreak ?? 0)}</div>
-        {breakControls}
-      </div>
-    ) : (
+  // Durante a pausa obrigatória NÃO usa a janela destacada — o "VÁ DESCANSAR"
+  // tem que travar a tela principal (a janela destacada é fechada pelo efeito).
+  if (pipWindow && pipContainer && session.state !== 'break') {
+    // Só o cronômetro vai pra janela destacada; a pausa obrigatória trava a tela principal.
+    const pipBody = (
       <div className="flex flex-col h-screen w-screen bg-white dark:bg-[#1a2332] text-gray-900 dark:text-gray-100 select-none">
         <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white">
           <Timer className="w-4 h-4" />
