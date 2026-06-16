@@ -2557,6 +2557,7 @@ app.post('/api/pomodoro/sessions', async (req, res) => {
       taskId: req.body.taskId || null,
       category: req.body.category || null,
       plannedMinutes: Number(req.body.plannedMinutes) || 25,
+      breakMinutes: req.body.breakMinutes != null ? Number(req.body.breakMinutes) : null,
     });
     res.json({ success: true, data: result });
   } catch (error) {

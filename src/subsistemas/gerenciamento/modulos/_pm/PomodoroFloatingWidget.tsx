@@ -242,7 +242,7 @@ const PomodoroFloatingWidget: React.FC = () => {
       {session.derived?.canSkipBreak && (remainingBreak ?? 1) > 0 && (
         <button onClick={() => act('skip-break')} disabled={busy}
           className="w-full py-2 rounded-xl bg-white/15 text-white text-sm font-medium hover:bg-white/25 disabled:opacity-50">
-          Pular pausa (próximo ciclo será mais longo)
+          Pular pausa{session.pomodoro_mode === 'POMODORO_CUSTOM' ? '' : ' (próximo ciclo será mais longo)'}
         </button>
       )}
       {!session.derived?.canSkipBreak && (

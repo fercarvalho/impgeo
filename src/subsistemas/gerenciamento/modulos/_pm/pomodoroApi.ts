@@ -38,7 +38,7 @@ async function parse(r: Response) {
 }
 
 export const getActive = () => fetch(`${API}/pomodoro/active`).then(parse)
-export const startSession = (body: { taskId?: string | null; category?: string | null; plannedMinutes: number }) =>
+export const startSession = (body: { taskId?: string | null; category?: string | null; plannedMinutes: number; breakMinutes?: number | null }) =>
   fetch(`${API}/pomodoro/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(parse)
 export const sessionAction = (id: string, action: string, body?: any) =>
   fetch(`${API}/pomodoro/sessions/${id}/${action}`, {
