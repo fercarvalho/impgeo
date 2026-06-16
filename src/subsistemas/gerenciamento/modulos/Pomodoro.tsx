@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Timer, Loader2, Play, Clock, Coffee, CheckCircle2, SkipForward } from 'lucide-react'
+import { Timer, Loader2, Play, Clock, Coffee, CheckCircle2, SkipForward, AlertTriangle, ShieldCheck, Check, X } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
-import { getStats, getConfig, updateConfig, useActiveSession } from './_pm/pomodoroApi'
+import {
+  getStats, getConfig, updateConfig, useActiveSession,
+  requestOverage, fetchPendingOverages, decideOverage, OverageRequest,
+} from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
 
 const Pomodoro: React.FC = () => {
@@ -14,6 +17,9 @@ const Pomodoro: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [startOpen, setStartOpen] = useState(false)
+  const [pending, setPending] = useState<OverageRequest[] | null>(null) // null = não-gestor
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [reqBusy, setReqBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -21,9 +27,27 @@ const Pomodoro: React.FC = () => {
       const [s, c] = await Promise.all([getStats(range), getConfig()])
       setStats(s); setConfig(c)
     } catch { /* noop */ } finally { setLoading(false) }
+    // Fila de aprovação de excedente (gestor): 403 → não-gestor, esconde a seção.
+    fetchPendingOverages().then(setPending).catch(() => setPending(null))
   }, [range])
 
   useEffect(() => { load() }, [load])
+
+  const askApproval = async () => {
+    setReqBusy(true)
+    try { await requestOverage(); await load() } catch { /* noop */ } finally { setReqBusy(false) }
+  }
+  const decide = async (id: string, approved: boolean) => {
+    setBusyId(id)
+    try { await decideOverage(id, approved); await load() } catch { /* noop */ } finally { setBusyId(null) }
+  }
+
+  // Estado do excedente de hoje (para o card e o botão de solicitar).
+  const worked = stats?.todayWorkedMinutes ?? 0
+  const counted = stats?.todayActiveMinutes ?? 0
+  const hard = stats?.hardMax ?? 500
+  const overStatus = stats?.overageStatus as ('approved' | 'pending' | 'rejected' | null | undefined)
+  const needsApproval = worked > hard && overStatus !== 'approved' && overStatus !== 'pending'
 
   const saveConfig = async (patch: any) => {
     setSaving(true)
@@ -82,17 +106,67 @@ const Pomodoro: React.FC = () => {
             <StatCard icon={Coffee} label="Min. pausa" value={stats?.break_minutes ?? 0} tone="amber" />
             <StatCard icon={CheckCircle2} label="Ciclos completos" value={stats?.completed ?? 0} tone="green" />
             <StatCard icon={SkipForward} label="Pausas puladas" value={stats?.skipped_breaks ?? 0} tone="orange" />
-            <StatCard icon={Timer} label="Hoje / limite" value={`${stats?.todayActiveMinutes ?? 0}/${stats?.dailyLimit ?? 400}`} tone="violet" />
+            <StatCard icon={Timer} label="Hoje (contabilizado / recom.)" value={`${counted}/${stats?.dailyLimit ?? 400}`} tone="violet" />
           </div>
+
+          {/* Excedente do dia (recomendação + aprovação) */}
+          {range === 'day' && worked > (stats?.recommendedMax ?? 480) && (
+            <div className={`rounded-xl border p-4 text-sm ${
+              overStatus === 'approved'
+                ? 'border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-900/10 text-green-800 dark:text-green-300'
+                : 'border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-300'
+            }`}>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  Você trabalhou <strong>{worked} min</strong> hoje (recomendado: {stats?.recommendedMax ?? 480}, teto: {hard}).
+                  {worked > hard && overStatus === 'approved' && ' Tempo extra aprovado — tudo contabilizado.'}
+                  {worked > hard && overStatus === 'pending' && ' Pedido de aprovação enviado, aguardando um gestor.'}
+                  {worked > hard && overStatus !== 'approved' && overStatus !== 'pending' && (
+                    <> Acima de {hard} min, os <strong>{stats?.pendingMinutes ?? 0} min</strong> extras só contam após aprovação de um gestor.</>
+                  )}
+                </div>
+                {needsApproval && (
+                  <button onClick={askApproval} disabled={reqBusy}
+                    className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50 flex items-center gap-1.5">
+                    {reqBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Solicitar aprovação
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Fila de aprovação (gestor) */}
+          {pending && pending.length > 0 && (
+            <section className="rounded-xl border border-violet-200 dark:border-violet-900 bg-violet-50/50 dark:bg-violet-900/10 p-4">
+              <h2 className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-2 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" /> Aprovações de tempo extra ({pending.length})
+              </h2>
+              <div className="space-y-2">
+                {pending.map(o => (
+                  <div key={o.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{o.user_name} · <span className="text-gray-500">{o.worked_minutes} min hoje</span></div>
+                      {o.justification && <div className="text-xs text-gray-500 dark:text-gray-400">{o.justification}</div>}
+                    </div>
+                    <button onClick={() => decide(o.id, true)} disabled={busyId === o.id} title="Aprovar"
+                      className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 disabled:opacity-50"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => decide(o.id, false)} disabled={busyId === o.id} title="Negar"
+                      className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 disabled:opacity-50"><X className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       ) : (
         <div className="max-w-md space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Limite diário de minutos ativos</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Limite diário recomendado (min ativos)</label>
             <input type="number" min={25} max={600} defaultValue={config?.daily_limit_minutes ?? 400}
               onBlur={e => saveConfig({ dailyLimitMinutes: Number(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100" />
-            <p className="text-xs text-gray-400 mt-1">Padrão: 400 minutos.</p>
+            <p className="text-xs text-gray-400 mt-1">Padrão 400 min. É só recomendação — não bloqueia. Acima de 20% (480) vem aviso; acima de 25% (500) o tempo extra precisa de aprovação de um gestor.</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Alerta de inatividade (minutos)</label>

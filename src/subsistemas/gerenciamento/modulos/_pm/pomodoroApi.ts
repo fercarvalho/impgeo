@@ -45,6 +45,18 @@ export const sessionAction = (id: string, action: string, body?: any) =>
     method: 'POST', headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined,
   }).then(parse)
 export const getStats = (range: string) => fetch(`${API}/pomodoro/stats?range=${range}`).then(parse)
+
+// ─── Excedente de tempo diário (recomendação + aprovação de gestor) ───────────
+export interface OverageRequest {
+  id: string; user_id: string; day: string; justification: string | null
+  status: 'pending' | 'approved' | 'rejected'; user_name?: string; worked_minutes?: number
+}
+export const getOverage = (): Promise<OverageRequest | null> => fetch(`${API}/pomodoro/overage`).then(parse)
+export const requestOverage = (justification?: string): Promise<OverageRequest> =>
+  fetch(`${API}/pomodoro/overage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ justification: justification || null }) }).then(parse)
+export const fetchPendingOverages = (): Promise<OverageRequest[]> => fetch(`${API}/pomodoro/overage/pending`).then(parse)
+export const decideOverage = (id: string, approved: boolean): Promise<OverageRequest> =>
+  fetch(`${API}/pomodoro/overage/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved }) }).then(parse)
 export const getConfig = () => fetch(`${API}/pomodoro/config`).then(parse)
 export const updateConfig = (body: any) =>
   fetch(`${API}/pomodoro/config`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(parse)

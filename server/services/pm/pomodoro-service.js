@@ -15,6 +15,8 @@
 
 'use strict';
 
+const notificationService = require('./notification-service');
+
 const MODE_BY_MINUTES  = { 25: 'POMODORO_25_5', 50: 'POMODORO_50_10', 100: 'POMODORO_100_20' };
 const BREAK_BY_MINUTES = { 25: 5, 50: 10, 100: 20 };
 const VALID_MINUTES    = [25, 50, 100];
@@ -22,6 +24,21 @@ const STALE_AFTER_MIN  = 30;
 
 function err(message, code, status = 400, extra = {}) {
   const e = new Error(message); e.code = code; e.status = status; Object.assign(e, extra); return e;
+}
+
+// Limite diário = recomendação. Acima de `hard` o tempo extra só conta após
+// aprovação de gestor. Derivado do limite (padrão 400 → rec 480 / hard 500).
+function _thresholds(limit) {
+  const L = Number(limit) || 400;
+  return { soft: L, recommended: Math.round(L * 1.2), hard: Math.round(L * 1.25) };
+}
+
+// Status do pedido de excedente de HOJE: 'approved' | 'pending' | 'rejected' | null.
+async function _overageStatus(exec, userId) {
+  const r = await exec.query(
+    `SELECT status FROM pomodoro_overage_requests WHERE user_id = $1 AND day = CURRENT_DATE LIMIT 1`, [userId]
+  );
+  return r.rows[0]?.status || null;
 }
 
 // segundos ativos decorridos "agora" (desconta pausas).
@@ -210,25 +227,23 @@ async function startSession(db, { userId, taskId = null, category = null, planne
   }
   if (!taskId && !category) throw err('Informe uma tarefa ou uma categoria', 'target_required');
 
-  // Limite diário: o ciclo precisa caber no que resta. A penalidade (forçado)
-  // NUNCA trava o usuário — se o ciclo forçado não couber, reduz pro maior que cabe.
+  // O limite diário virou RECOMENDAÇÃO — nunca bloqueia o início ("não trava").
+  // Acima do teto (hard), o tempo extra só é contabilizado após aprovação de um
+  // gestor; aqui só montamos o aviso a ser exibido ao usuário.
   const limit = config.daily_limit_minutes || 400;
-  const today = await _todayMinutes(db.pool, userId);
-  const remaining = limit - today;
-  if (planned > remaining) {
-    const fit = hadForce ? [100, 50, 25].find(m => m <= remaining) : null;
-    if (fit) {
-      planned = fit; mode = MODE_BY_MINUTES[fit]; breakMin = BREAK_BY_MINUTES[fit];
-    } else {
-      throw err(
-        `Restam só ${Math.max(0, remaining)} min hoje (limite diário de ${limit} min). ` +
-        `Um ciclo de ${planned} min não cabe${hadForce ? ' (próximo ciclo forçado por ter pulado a pausa)' : ' — escolha um menor'}.`,
-        'daily_limit', 409, { remainingMinutes: Math.max(0, remaining) }
-      );
-    }
-  }
+  const { recommended, hard } = _thresholds(limit);
+  const worked = await _todayMinutes(db.pool, userId);
+  const projected = worked + planned;
   // "forçado" (p/ o evento) só se o ciclo realmente subiu acima do escolhido.
   const forced = hadForce && planned > plannedMinutes;
+
+  let warning = null;
+  if (projected > hard) {
+    const ov = await _overageStatus(db.pool, userId);
+    if (ov !== 'approved') warning = { code: 'overage_approval_needed', approvalStatus: ov || 'none' };
+  }
+  if (!warning && projected > recommended) warning = { code: 'over_recommended' };
+  if (warning) Object.assign(warning, { worked, projected, limit, recommended, hard });
 
   let projectId = null;
   if (taskId) {
@@ -255,7 +270,7 @@ async function startSession(db, { userId, taskId = null, category = null, planne
   }
   await _event(db.pool, db, { userId, sessionId: id, taskId, type: 'STARTED', toMode: mode, metadata: { forced, custom: isCustom, planned, breakMin } });
   const r = await db.pool.query('SELECT * FROM task_work_sessions WHERE id = $1', [id]);
-  return { session: _decorate(r.rows[0]), forced };
+  return { session: _decorate(r.rows[0]), forced, warning };
 }
 
 // ─── Pause / Resume ───────────────────────────────────────────────────────────
@@ -493,9 +508,86 @@ async function getStats(db, userId, { range = 'day' } = {}) {
      WHERE user_id = $1 AND day > CURRENT_DATE - $2::int`,
     [userId, intervalDays]
   );
-  const today = await _todayMinutes(db.pool, userId);
+  const worked = await _todayMinutes(db.pool, userId);
   const config = await getConfig(db, userId);
-  return { ...r.rows[0], todayActiveMinutes: today, dailyLimit: config.daily_limit_minutes };
+  const limit = config.daily_limit_minutes || 400;
+  const { recommended, hard } = _thresholds(limit);
+  const overageStatus = await _overageStatus(db.pool, userId);
+  // "Contabilizado" = trabalhado, mas travado no teto até aprovação do gestor.
+  const counted = overageStatus === 'approved' ? worked : Math.min(worked, hard);
+  return {
+    ...r.rows[0],
+    todayActiveMinutes: counted,        // oficial (contabilizado)
+    todayWorkedMinutes: worked,         // real trabalhado
+    pendingMinutes: Math.max(0, worked - counted),
+    dailyLimit: limit, recommendedMax: recommended, hardMax: hard,
+    overageStatus,
+  };
+}
+
+// ─── Excedente de tempo diário (aprovação por gestor) ─────────────────────────
+
+async function getOverageToday(db, userId) {
+  const r = await db.pool.query(
+    `SELECT * FROM pomodoro_overage_requests WHERE user_id = $1 AND day = CURRENT_DATE LIMIT 1`, [userId]
+  );
+  return r.rows[0] || null;
+}
+
+// Usuário pede aprovação para o excedente de hoje (justificativa opcional).
+// Notifica managers + admins + superadmin (sino + push + email).
+async function requestOverage(db, userId, { justification = null } = {}) {
+  const just = justification ? String(justification).trim().slice(0, 1000) || null : null;
+  const id = db.generateId();
+  const r = await db.pool.query(
+    `INSERT INTO pomodoro_overage_requests (id, user_id, day, justification, status)
+     VALUES ($1, $2, CURRENT_DATE, $3, 'pending')
+     ON CONFLICT (user_id, day) DO UPDATE SET
+       justification = EXCLUDED.justification, status = 'pending',
+       decided_by_user_id = NULL, decided_at = NULL, updated_at = NOW()
+     RETURNING *`,
+    [id, userId, just]
+  );
+  const row = r.rows[0];
+  const u = await db.pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), username) AS name FROM users WHERE id = $1`, [userId]
+  );
+  const worked = await _todayMinutes(db.pool, userId);
+  notificationService.notifyManagersAndAdmins(db, {
+    type: 'pm_pomodoro_overage_requested',
+    payload: { userName: u.rows[0]?.name || 'Colaborador', workedMinutes: worked, justification: just },
+    entityType: 'pomodoro_overage', entityId: row.id, exceptUserId: userId,
+  }).catch(() => {});
+  return row;
+}
+
+// Fila de pedidos pendentes (gestor).
+async function listPendingOverages(db) {
+  const r = await db.pool.query(
+    `SELECT o.*,
+            COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'')||' '||COALESCE(u.last_name,'')),''), u.username) AS user_name,
+            (SELECT COALESCE(ROUND(SUM(total_active_seconds)/60.0),0)
+               FROM task_work_sessions s WHERE s.user_id = o.user_id AND s.started_at::date = o.day) AS worked_minutes
+       FROM pomodoro_overage_requests o JOIN users u ON u.id = o.user_id
+      WHERE o.status = 'pending' ORDER BY o.created_at ASC`
+  );
+  return r.rows;
+}
+
+// Gestor aprova/nega. Notifica o solicitante (sino + push + email).
+async function decideOverage(db, requestId, reviewer, { approved }) {
+  const r = await db.pool.query(
+    `UPDATE pomodoro_overage_requests SET status = $1, decided_by_user_id = $2, decided_at = NOW(), updated_at = NOW()
+      WHERE id = $3 AND status = 'pending' RETURNING *`,
+    [approved ? 'approved' : 'rejected', reviewer?.id || null, requestId]
+  );
+  const row = r.rows[0];
+  if (!row) throw err('Pedido não encontrado ou já decidido', 'not_found', 404);
+  notificationService.notify(db, {
+    type: 'pm_pomodoro_overage_decided', userId: row.user_id,
+    payload: { approved: !!approved }, entityType: 'pomodoro_overage', entityId: row.id,
+  }).catch(() => {});
+  return row;
 }
 
 module.exports = {
@@ -511,4 +603,5 @@ module.exports = {
   abortSession, autoCompleteSessionForTask,
   heartbeat, abortStaleSessions,
   getStats,
+  getOverageToday, requestOverage, listPendingOverages, decideOverage,
 };

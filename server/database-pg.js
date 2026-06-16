@@ -2990,6 +2990,10 @@ class Database {
       pm_help_accepted:               { push: true,  email: false },
       pm_project_paid:                { push: true,  email: false },
       pm_project_completed:           { push: true,  email: false },
+      // Excedente de tempo diário (Pomodoro) — pedido/decisão: email ON por
+      // default (precisa de ação do gestor; o executor quer saber a decisão).
+      pm_pomodoro_overage_requested:  { push: true,  email: true },
+      pm_pomodoro_overage_decided:    { push: true,  email: true },
       '_meta:foreground':             { push: false, email: false },
     },
     tc: {

@@ -67,14 +67,25 @@ async function notify(db, { type, userId, payload = {}, entityType = null, entit
 
 // Notifica todos admins/superadmins ativos (ex.: pagamento, atraso crítico).
 async function notifyAdmins(db, args) {
-  try {
-    const r = await db.pool.query(
-      `SELECT id FROM users WHERE role IN ('admin','superadmin') AND COALESCE(is_active,true)=true`
-    );
-    for (const row of r.rows) {
-      await notify(db, { ...args, userId: row.id });
-    }
-  } catch (e) { console.error('[pm-notify] notifyAdmins falhou', e.message); }
+  return notifyRoles(db, ['admin', 'superadmin'], args);
 }
 
-module.exports = { notify, notifyAdmins };
+// Notifica todos os usuários ativos de um conjunto de papéis (sem duplicar).
+async function notifyRoles(db, roles, args) {
+  try {
+    const r = await db.pool.query(
+      `SELECT id FROM users WHERE role = ANY($1::text[]) AND COALESCE(is_active,true)=true`, [roles]
+    );
+    for (const row of r.rows) {
+      if (args.exceptUserId && row.id === args.exceptUserId) continue;
+      await notify(db, { ...args, userId: row.id });
+    }
+  } catch (e) { console.error('[pm-notify] notifyRoles falhou', e.message); }
+}
+
+// Gestores (manager + admin + superadmin) — fluxo de aprovação de excedente.
+async function notifyManagersAndAdmins(db, args) {
+  return notifyRoles(db, ['manager', 'admin', 'superadmin'], args);
+}
+
+module.exports = { notify, notifyAdmins, notifyRoles, notifyManagersAndAdmins };

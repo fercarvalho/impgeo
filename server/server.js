@@ -2592,6 +2592,38 @@ app.get('/api/pomodoro/stats', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ─── Excedente de tempo diário (recomendação + aprovação de gestor) ───────────
+// Status do meu pedido de hoje.
+app.get('/api/pomodoro/overage', async (req, res) => {
+  try { res.json({ success: true, data: await pmPomodoroService.getOverageToday(db, req.user.id) }); }
+  catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Solicitar aprovação do excedente (justificativa opcional).
+app.post('/api/pomodoro/overage', async (req, res) => {
+  try {
+    const data = await pmPomodoroService.requestOverage(db, req.user.id, { justification: req.body.justification || null });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+// Fila de pedidos pendentes (gestor).
+app.get('/api/pomodoro/overage/pending', async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores.' });
+    res.json({ success: true, data: await pmPomodoroService.listPendingOverages(db) });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Aprovar/negar um pedido (gestor).
+app.post('/api/pomodoro/overage/:id/decide', async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores.' });
+    const data = await pmPomodoroService.decideOverage(db, req.params.id, req.user, { approved: req.body.approved === true });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
 app.get('/api/pomodoro/config', async (req, res) => {
   try { res.json({ success: true, data: await pmPomodoroService.getConfig(db, req.user.id) }); }
   catch (error) { res.status(500).json({ success: false, error: error.message }); }

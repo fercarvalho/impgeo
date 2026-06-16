@@ -16,6 +16,8 @@ const STRINGS = {
   pm_help_accepted:     (p) => ({ title: 'Ajuda aceita',          message: `${p.helperName || 'Um colega'} vai ajudar em "${p.taskName}".` }),
   pm_project_paid:      (p) => ({ title: 'Pagamento recebido',    message: `Projeto "${p.projectName}" foi pago e iniciado.` }),
   pm_project_completed: (p) => ({ title: 'Projeto concluído',     message: `Projeto "${p.projectName}" foi concluído.` }),
+  pm_pomodoro_overage_requested: (p) => ({ title: 'Aprovação de tempo extra', message: `${p.userName || 'Um colaborador'} pediu aprovação para ultrapassar o limite diário (${p.workedMinutes || '?'} min hoje)${p.justification ? `: ${p.justification}` : '.'}` }),
+  pm_pomodoro_overage_decided:   (p) => ({ title: p.approved ? 'Tempo extra aprovado' : 'Tempo extra negado', message: p.approved ? `Seu tempo extra de hoje foi aprovado — o tempo passa a ser contabilizado.` : `Seu pedido de tempo extra de hoje foi negado.` }),
 };
 
 function build(type, payload = {}) {

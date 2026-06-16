@@ -89,6 +89,8 @@ const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
   pm_help_accepted:     { title: 'Ajuda aceita', description: 'Quando alguém aceita ajudar na sua tarefa.' },
   pm_project_paid:      { title: 'Projeto pago', description: 'Quando um projeto TerraControl é pago via PIX.' },
   pm_project_completed: { title: 'Projeto concluído', description: 'Quando um projeto é finalizado.' },
+  pm_pomodoro_overage_requested: { title: 'Aprovação de tempo extra', description: 'Quando um colaborador pede para ultrapassar o limite diário (gestor).' },
+  pm_pomodoro_overage_decided:   { title: 'Tempo extra decidido', description: 'Quando seu pedido de tempo extra é aprovado ou negado.' },
 }
 
 function labelFor(type: string): { title: string; description?: string } {
