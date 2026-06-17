@@ -526,17 +526,19 @@ async function getStats(db, userId, { range = 'day' } = {}) {
   const config = await getConfig(db, userId);
   const limit = config.daily_limit_minutes || 400;
   const { recommended, hard } = _thresholds(limit);
-  // Gestores não passam pela trava → tempo sempre contabilizado.
-  const overageStatus = (await _isGestor(db.pool, userId)) ? 'approved' : await _overageStatus(db.pool, userId);
-  // "Contabilizado" = trabalhado, mas travado no teto até aprovação do gestor.
-  const counted = overageStatus === 'approved' ? worked : Math.min(worked, hard);
+  // Gestores são ISENTOS da trava (não precisam de aprovação de ninguém) — o
+  // tempo sempre conta. Não confundir com "aprovado por alguém".
+  const overageExempt = await _isGestor(db.pool, userId);
+  const overageStatus = overageExempt ? null : await _overageStatus(db.pool, userId);
+  // "Contabilizado" = trabalhado, mas travado no teto até aprovação (para não-gestor).
+  const counted = (overageExempt || overageStatus === 'approved') ? worked : Math.min(worked, hard);
   return {
     ...r.rows[0],
     todayActiveMinutes: counted,        // oficial (contabilizado)
     todayWorkedMinutes: worked,         // real trabalhado
     pendingMinutes: Math.max(0, worked - counted),
     dailyLimit: limit, recommendedMax: recommended, hardMax: hard,
-    overageStatus,
+    overageStatus, overageExempt,
   };
 }
 

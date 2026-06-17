@@ -47,7 +47,8 @@ const Pomodoro: React.FC = () => {
   const counted = stats?.todayActiveMinutes ?? 0
   const hard = stats?.hardMax ?? 500
   const overStatus = stats?.overageStatus as ('approved' | 'pending' | 'rejected' | null | undefined)
-  const needsApproval = worked > hard && overStatus !== 'approved' && overStatus !== 'pending'
+  const exempt = stats?.overageExempt === true   // gestor: não precisa de aprovação
+  const needsApproval = !exempt && worked > hard && overStatus !== 'approved' && overStatus !== 'pending'
 
   const saveConfig = async (patch: any) => {
     setSaving(true)
@@ -112,7 +113,7 @@ const Pomodoro: React.FC = () => {
           {/* Excedente do dia (recomendação + aprovação) */}
           {range === 'day' && worked > (stats?.recommendedMax ?? 480) && (
             <div className={`rounded-xl border p-4 text-sm ${
-              overStatus === 'approved'
+              exempt || overStatus === 'approved'
                 ? 'border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-900/10 text-green-800 dark:text-green-300'
                 : 'border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-300'
             }`}>
@@ -120,9 +121,10 @@ const Pomodoro: React.FC = () => {
                 <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   Você trabalhou <strong>{worked} min</strong> hoje (recomendado: {stats?.recommendedMax ?? 480}, teto: {hard}).
-                  {worked > hard && overStatus === 'approved' && ' Tempo extra aprovado — tudo contabilizado.'}
-                  {worked > hard && overStatus === 'pending' && ' Pedido de aprovação enviado, aguardando um gestor.'}
-                  {worked > hard && overStatus !== 'approved' && overStatus !== 'pending' && (
+                  {exempt && worked > hard && ' Tudo contabilizado — como gestor, seu tempo não precisa de aprovação. Lembre de descansar 😉'}
+                  {!exempt && worked > hard && overStatus === 'approved' && ' Tempo extra aprovado — tudo contabilizado.'}
+                  {!exempt && worked > hard && overStatus === 'pending' && ' Pedido de aprovação enviado, aguardando um gestor.'}
+                  {!exempt && worked > hard && overStatus !== 'approved' && overStatus !== 'pending' && (
                     <> Acima de {hard} min, os <strong>{stats?.pendingMinutes ?? 0} min</strong> extras só contam após aprovação de um gestor.</>
                   )}
                 </div>
