@@ -22,6 +22,12 @@ const BREAK_BY_MINUTES = { 25: 5, 50: 10, 100: 20 };
 const VALID_MINUTES    = [25, 50, 100];
 const STALE_AFTER_MIN  = 30;
 
+// O "dia" do Pomodoro é em horário de Brasília (não UTC) — senão o contador diário
+// reseta às 21h BRT (meia-noite UTC), no meio do expediente da noite.
+const TZ = 'America/Sao_Paulo';
+const TODAY_LOCAL = `(NOW() AT TIME ZONE '${TZ}')::date`;            // "hoje" local
+const STARTED_LOCAL_DATE = (col) => `(${col} AT TIME ZONE '${TZ}')::date`; // data local de started_at
+
 function err(message, code, status = 400, extra = {}) {
   const e = new Error(message); e.code = code; e.status = status; Object.assign(e, extra); return e;
 }
@@ -36,7 +42,7 @@ function _thresholds(limit) {
 // Status do pedido de excedente de HOJE: 'approved' | 'pending' | 'rejected' | null.
 async function _overageStatus(exec, userId) {
   const r = await exec.query(
-    `SELECT status FROM pomodoro_overage_requests WHERE user_id = $1 AND day = CURRENT_DATE LIMIT 1`, [userId]
+    `SELECT status FROM pomodoro_overage_requests WHERE user_id = $1 AND day = ${TODAY_LOCAL} LIMIT 1`, [userId]
   );
   return r.rows[0]?.status || null;
 }
@@ -61,7 +67,7 @@ async function _event(exec, db, { userId, sessionId, taskId = null, type, fromMo
 async function _addDaily(exec, { userId, activeMinutes = 0, breakMinutes = 0, completed = 0, aborted = 0, skipped = 0 }) {
   await exec.query(
     `INSERT INTO pomodoro_daily_stats (user_id, day, total_minutes_worked, break_minutes, sessions_completed, sessions_aborted, skipped_breaks)
-     VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
+     VALUES ($1, ${TODAY_LOCAL}, $2, $3, $4, $5, $6)
      ON CONFLICT (user_id, day) DO UPDATE SET
        total_minutes_worked = pomodoro_daily_stats.total_minutes_worked + $2,
        break_minutes        = pomodoro_daily_stats.break_minutes + $3,
@@ -119,7 +125,7 @@ async function _todayMinutes(exec, userId) {
   const r = await exec.query(
     `SELECT COALESCE(ROUND(SUM(total_active_seconds) / 60.0), 0) AS min
        FROM task_work_sessions
-      WHERE user_id = $1 AND started_at::date = CURRENT_DATE`, [userId]
+      WHERE user_id = $1 AND ${STARTED_LOCAL_DATE('started_at')} = ${TODAY_LOCAL}`, [userId]
   );
   return Number(r.rows[0]?.min || 0);
 }
@@ -505,7 +511,7 @@ async function getStats(db, userId, { range = 'day' } = {}) {
        COALESCE(SUM(sessions_aborted),0)     AS aborted,
        COALESCE(SUM(skipped_breaks),0)       AS skipped_breaks
      FROM pomodoro_daily_stats
-     WHERE user_id = $1 AND day > CURRENT_DATE - $2::int`,
+     WHERE user_id = $1 AND day > ${TODAY_LOCAL} - $2::int`,
     [userId, intervalDays]
   );
   const worked = await _todayMinutes(db.pool, userId);
@@ -529,7 +535,7 @@ async function getStats(db, userId, { range = 'day' } = {}) {
 
 async function getOverageToday(db, userId) {
   const r = await db.pool.query(
-    `SELECT * FROM pomodoro_overage_requests WHERE user_id = $1 AND day = CURRENT_DATE LIMIT 1`, [userId]
+    `SELECT * FROM pomodoro_overage_requests WHERE user_id = $1 AND day = ${TODAY_LOCAL} LIMIT 1`, [userId]
   );
   return r.rows[0] || null;
 }
@@ -541,7 +547,7 @@ async function requestOverage(db, userId, { justification = null } = {}) {
   const id = db.generateId();
   const r = await db.pool.query(
     `INSERT INTO pomodoro_overage_requests (id, user_id, day, justification, status)
-     VALUES ($1, $2, CURRENT_DATE, $3, 'pending')
+     VALUES ($1, $2, ${TODAY_LOCAL}, $3, 'pending')
      ON CONFLICT (user_id, day) DO UPDATE SET
        justification = EXCLUDED.justification, status = 'pending',
        decided_by_user_id = NULL, decided_at = NULL, updated_at = NOW()
@@ -567,7 +573,7 @@ async function listPendingOverages(db) {
     `SELECT o.*,
             COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'')||' '||COALESCE(u.last_name,'')),''), u.username) AS user_name,
             (SELECT COALESCE(ROUND(SUM(total_active_seconds)/60.0),0)
-               FROM task_work_sessions s WHERE s.user_id = o.user_id AND s.started_at::date = o.day) AS worked_minutes
+               FROM task_work_sessions s WHERE s.user_id = o.user_id AND ${STARTED_LOCAL_DATE('s.started_at')} = o.day) AS worked_minutes
        FROM pomodoro_overage_requests o JOIN users u ON u.id = o.user_id
       WHERE o.status = 'pending' ORDER BY o.created_at ASC`
   );
