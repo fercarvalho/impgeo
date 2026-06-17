@@ -16,8 +16,16 @@ const STRINGS = {
   pm_help_accepted:     (p) => ({ title: 'Ajuda aceita',          message: `${p.helperName || 'Um colega'} vai ajudar em "${p.taskName}".` }),
   pm_project_paid:      (p) => ({ title: 'Pagamento recebido',    message: `Projeto "${p.projectName}" foi pago e iniciado.` }),
   pm_project_completed: (p) => ({ title: 'Projeto concluído',     message: `Projeto "${p.projectName}" foi concluído.` }),
-  pm_pomodoro_overage_requested: (p) => ({ title: 'Aprovação de tempo extra', message: `${p.userName || 'Um colaborador'} pediu aprovação para ultrapassar o limite diário (${p.workedMinutes || '?'} min hoje)${p.justification ? `: ${p.justification}` : '.'}` }),
-  pm_pomodoro_overage_decided:   (p) => ({ title: p.approved ? 'Tempo extra aprovado' : 'Tempo extra negado', message: p.approved ? `Seu tempo extra de hoje foi aprovado — o tempo passa a ser contabilizado.` : `Seu pedido de tempo extra de hoje foi negado.` }),
+  pm_pomodoro_overage_requested: (p) => ({
+    title: 'Aprovação de tempo extra',
+    message: `${p.userName || 'Um colaborador'} trabalhou ${p.workedMinutes ?? '?'} min hoje, acima do teto de ${p.hard ?? 500} min (limite recomendado: ${p.limit ?? 400} min), e pediu aprovação para que o tempo extra seja contabilizado.${p.justification ? ` Justificativa: "${p.justification}"` : ' (sem justificativa)'} Aprove ou recuse em Pomodoro → Aprovações de tempo extra.`,
+  }),
+  pm_pomodoro_overage_decided:   (p) => ({
+    title: p.approved ? 'Tempo extra aprovado' : 'Tempo extra recusado',
+    message: p.approved
+      ? `Seu tempo extra de hoje foi aprovado${p.decidedByName ? ` por ${p.decidedByName}` : ''} — o tempo passa a ser contabilizado normalmente.`
+      : `Seu pedido de tempo extra de hoje foi recusado${p.decidedByName ? ` por ${p.decidedByName}` : ''}. O tempo acima do teto não será contabilizado hoje.`,
+  }),
 };
 
 function build(type, payload = {}) {

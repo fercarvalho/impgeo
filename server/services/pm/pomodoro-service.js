@@ -568,9 +568,14 @@ async function requestOverage(db, userId, { justification = null } = {}) {
     `SELECT COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), username) AS name FROM users WHERE id = $1`, [userId]
   );
   const worked = await _todayMinutes(db.pool, userId);
+  const config = await getConfig(db, userId);
+  const { hard } = _thresholds(config.daily_limit_minutes || 400);
   notificationService.notifyManagersAndAdmins(db, {
     type: 'pm_pomodoro_overage_requested',
-    payload: { userName: u.rows[0]?.name || 'Colaborador', workedMinutes: worked, justification: just },
+    payload: {
+      userName: u.rows[0]?.name || 'Colaborador', workedMinutes: worked,
+      hard, limit: config.daily_limit_minutes || 400, justification: just,
+    },
     entityType: 'pomodoro_overage', entityId: row.id, exceptUserId: userId,
   }).catch(() => {});
   return row;
@@ -598,9 +603,16 @@ async function decideOverage(db, requestId, reviewer, { approved }) {
   );
   const row = r.rows[0];
   if (!row) throw err('Pedido não encontrado ou já decidido', 'not_found', 404);
+  let decidedByName = null;
+  if (reviewer?.id) {
+    const d = await db.pool.query(
+      `SELECT COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), username) AS name FROM users WHERE id = $1`, [reviewer.id]
+    );
+    decidedByName = d.rows[0]?.name || null;
+  }
   notificationService.notify(db, {
     type: 'pm_pomodoro_overage_decided', userId: row.user_id,
-    payload: { approved: !!approved }, entityType: 'pomodoro_overage', entityId: row.id,
+    payload: { approved: !!approved, decidedByName }, entityType: 'pomodoro_overage', entityId: row.id,
   }).catch(() => {});
   return row;
 }
