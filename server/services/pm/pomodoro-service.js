@@ -39,6 +39,14 @@ function _thresholds(limit) {
   return { soft: L, recommended: Math.round(L * 1.2), hard: Math.round(L * 1.25) };
 }
 
+// Gestores (manager/admin/superadmin) não passam pela trava de excedente — o
+// tempo deles sempre conta (têm autoridade; não há a quem pedir aprovação).
+async function _isGestor(exec, userId) {
+  const r = await exec.query(`SELECT role FROM users WHERE id = $1`, [userId]);
+  const role = r.rows[0]?.role;
+  return role === 'manager' || role === 'admin' || role === 'superadmin';
+}
+
 // Status do pedido de excedente de HOJE: 'approved' | 'pending' | 'rejected' | null.
 async function _overageStatus(exec, userId) {
   const r = await exec.query(
@@ -245,7 +253,7 @@ async function startSession(db, { userId, taskId = null, category = null, planne
 
   let warning = null;
   if (projected > hard) {
-    const ov = await _overageStatus(db.pool, userId);
+    const ov = (await _isGestor(db.pool, userId)) ? 'approved' : await _overageStatus(db.pool, userId);
     if (ov !== 'approved') warning = { code: 'overage_approval_needed', approvalStatus: ov || 'none' };
   }
   if (!warning && projected > recommended) warning = { code: 'over_recommended' };
@@ -518,7 +526,8 @@ async function getStats(db, userId, { range = 'day' } = {}) {
   const config = await getConfig(db, userId);
   const limit = config.daily_limit_minutes || 400;
   const { recommended, hard } = _thresholds(limit);
-  const overageStatus = await _overageStatus(db.pool, userId);
+  // Gestores não passam pela trava → tempo sempre contabilizado.
+  const overageStatus = (await _isGestor(db.pool, userId)) ? 'approved' : await _overageStatus(db.pool, userId);
   // "Contabilizado" = trabalhado, mas travado no teto até aprovação do gestor.
   const counted = overageStatus === 'approved' ? worked : Math.min(worked, hard);
   return {
