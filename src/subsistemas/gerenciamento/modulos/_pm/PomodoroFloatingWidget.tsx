@@ -242,11 +242,11 @@ const PomodoroFloatingWidget: React.FC = () => {
       {session.derived?.canSkipBreak && (remainingBreak ?? 1) > 0 && (
         <button onClick={() => act('skip-break')} disabled={busy}
           className="w-full py-2 rounded-xl bg-white/15 text-white text-sm font-medium hover:bg-white/25 disabled:opacity-50">
-          Pular pausa{session.pomodoro_mode === 'POMODORO_CUSTOM' ? '' : ' (próximo ciclo será mais longo)'}
+          Pular pausa (soma no próximo intervalo)
         </button>
       )}
       {!session.derived?.canSkipBreak && (
-        <p className="text-xs text-white/60">Ciclo de 100 min: a pausa é obrigatória.</p>
+        <p className="text-xs text-white/60">Pausa obrigatória: 100 min de foco acumulado.</p>
       )}
     </div>
   )

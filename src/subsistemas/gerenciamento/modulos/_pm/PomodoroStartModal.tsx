@@ -169,7 +169,7 @@ const PomodoroStartModal: React.FC<Props> = ({ taskId = null, taskName = null, o
                     onChange={e => setBreakMin(Math.max(1, Math.min(60, Number(e.target.value) || 0)))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
                 </div>
-                <p className="col-span-2 text-[10px] text-gray-400">Foco de 1 a 240 min · descanso de 1 a 60 min. No modo livre, pular a pausa não força o próximo ciclo.</p>
+                <p className="col-span-2 text-[10px] text-gray-400">Foco de 1 a 240 min · descanso de 1 a 60 min. Pular a pausa soma o intervalo no próximo; acima de 100 min de foco a pausa é obrigatória.</p>
               </div>
             )}
           </div>

@@ -193,7 +193,12 @@ async function getActiveSession(db, userId) {
   );
   const s = r2.rows[0];
   if (!s || !['running', 'paused', 'break'].includes(s.state)) return null;
-  return _decorate(s);
+  const dec = _decorate(s);
+  // Pular a pausa depende do foco ACUMULADO (não do ciclo isolado): < 100 min.
+  const cfg = await db.pool.query('SELECT focus_since_break_minutes FROM user_pomodoro_config WHERE user_id = $1', [userId]);
+  dec.derived.canSkipBreak = (cfg.rows[0]?.focus_since_break_minutes || 0) < 100;
+  dec.derived.focusSinceBreak = cfg.rows[0]?.focus_since_break_minutes || 0;
+  return dec;
 }
 
 function _decorate(s) {
@@ -221,24 +226,23 @@ function _decorate(s) {
 async function startSession(db, { userId, taskId = null, category = null, plannedMinutes = 25, breakMinutes = null }) {
   const config = await getConfig(db, userId);
 
-  // Foco livre (custom): foco + descanso definidos pelo usuário. A penalidade de
-  // pausa pulada (forçado) só se aplica aos presets, não ao custom.
+  // Foco livre (custom): foco + descanso definidos pelo usuário.
   const isCustom = breakMinutes != null;
-  let planned = Math.round(Number(plannedMinutes));
-  let breakMin, mode;
-  const hadForce = !isCustom && !!config.next_cycle_forced_minutes;
-  if (hadForce) planned = config.next_cycle_forced_minutes;
+  const planned = Math.round(Number(plannedMinutes));
+  let baseBreak, mode;
 
   if (isCustom) {
-    breakMin = Math.round(Number(breakMinutes));
+    baseBreak = Math.round(Number(breakMinutes));
     if (!(planned >= 1 && planned <= 240)) throw err('Tempo de foco inválido (use de 1 a 240 min)', 'invalid_minutes');
-    if (!(breakMin >= 1 && breakMin <= 60)) throw err('Tempo de descanso inválido (use de 1 a 60 min)', 'invalid_minutes');
+    if (!(baseBreak >= 1 && baseBreak <= 60)) throw err('Tempo de descanso inválido (use de 1 a 60 min)', 'invalid_minutes');
     mode = 'POMODORO_CUSTOM';
   } else {
     if (!VALID_MINUTES.includes(planned)) throw err(`plannedMinutes inválido: ${planned}`, 'invalid_minutes');
     mode = MODE_BY_MINUTES[planned];
-    breakMin = BREAK_BY_MINUTES[planned];
+    baseBreak = BREAK_BY_MINUTES[planned];
   }
+  // O intervalo deste ciclo SOMA os intervalos pulados anteriormente (carryover).
+  const breakMin = (config.carryover_break_minutes || 0) + baseBreak;
   if (!taskId && !category) throw err('Informe uma tarefa ou uma categoria', 'target_required');
 
   // O limite diário virou RECOMENDAÇÃO — nunca bloqueia o início ("não trava").
@@ -248,8 +252,6 @@ async function startSession(db, { userId, taskId = null, category = null, planne
   const { recommended, hard } = _thresholds(limit);
   const worked = await _todayMinutes(db.pool, userId);
   const projected = worked + planned;
-  // "forçado" (p/ o evento) só se o ciclo realmente subiu acima do escolhido.
-  const forced = hadForce && planned > plannedMinutes;
 
   let warning = null;
   if (projected > hard) {
@@ -278,13 +280,9 @@ async function startSession(db, { userId, taskId = null, category = null, planne
     throw e;
   }
 
-  // Consumiu o forçado → limpa (mesmo que tenha sido reduzido pra caber no dia).
-  if (hadForce) {
-    await db.pool.query('UPDATE user_pomodoro_config SET next_cycle_forced_minutes = NULL, updated_at = NOW() WHERE user_id = $1', [userId]);
-  }
-  await _event(db.pool, db, { userId, sessionId: id, taskId, type: 'STARTED', toMode: mode, metadata: { forced, custom: isCustom, planned, breakMin } });
+  await _event(db.pool, db, { userId, sessionId: id, taskId, type: 'STARTED', toMode: mode, metadata: { custom: isCustom, planned, breakMin } });
   const r = await db.pool.query('SELECT * FROM task_work_sessions WHERE id = $1', [id]);
-  return { session: _decorate(r.rows[0]), forced, warning };
+  return { session: _decorate(r.rows[0]), warning };
 }
 
 // ─── Pause / Resume ───────────────────────────────────────────────────────────
@@ -375,6 +373,11 @@ async function completeActive(db, sessionId, userId) {
     );
     await _addDaily(client, { userId, activeMinutes: activeMin });
     await _creditTaskTime(client, s, activeSec);
+    // Acumula o foco desde a última pausa (gate dos 100 min p/ pausa obrigatória).
+    await client.query(
+      `UPDATE user_pomodoro_config SET focus_since_break_minutes = focus_since_break_minutes + $1, updated_at=NOW() WHERE user_id=$2`,
+      [s.planned_minutes, userId]
+    );
     await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'BREAK_STARTED', metadata: { activeMin } });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
@@ -397,6 +400,11 @@ async function finishBreak(db, sessionId, userId) {
       [breakSec, sessionId]
     );
     await _addDaily(client, { userId, breakMinutes: breakMin, completed: 1 });
+    // Pausa tomada → zera os acumuladores (intervalo carregado + foco desde a pausa).
+    await client.query(
+      `UPDATE user_pomodoro_config SET carryover_break_minutes=0, focus_since_break_minutes=0, updated_at=NOW() WHERE user_id=$1`,
+      [userId]
+    );
     await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'BREAK_COMPLETED' });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
@@ -404,17 +412,17 @@ async function finishBreak(db, sessionId, userId) {
   return { ok: true };
 }
 
-// ─── Skip break → completed + upgrade do próximo ciclo ────────────────────────
+// ─── Skip break → acumula o intervalo no próximo ciclo ────────────────────────
+// Pular NÃO aumenta o foco: ACUMULA o intervalo (o próximo soma este). Só dá pra
+// pular enquanto o foco acumulado desde a última pausa for < 100 min.
 
 async function skipBreak(db, sessionId, userId) {
   const s = await _loadOwned(db, sessionId, userId);
   if (s.state !== 'break') throw err('Sessão não está em descanso', 'invalid_state', 409);
-  if (s.planned_minutes >= 100) {
-    throw err('Você não pode pular a pausa após um ciclo de 100 minutos.', 'cannot_skip_long_break', 409);
+  const config = await getConfig(db, userId);
+  if ((config.focus_since_break_minutes || 0) >= 100) {
+    throw err('Pausa obrigatória: você acumulou 100 min de foco. Descanse antes de continuar.', 'cannot_skip_long_break', 409);
   }
-  // Foco livre (custom) não tem escada de upgrade: pula sem penalidade.
-  const isCustom = s.pomodoro_mode === 'POMODORO_CUSTOM';
-  const nextForced = isCustom ? null : Math.min(s.planned_minutes * 2, 100);
   const breakSec = s.break_started_at ? Math.round((Date.now() - new Date(s.break_started_at).getTime()) / 1000) : 0;
   const client = await db.pool.connect();
   try {
@@ -423,21 +431,17 @@ async function skipBreak(db, sessionId, userId) {
       `UPDATE task_work_sessions SET state='completed', stopped_at=NOW(), total_break_seconds=$1, skipped_break_count=1, updated_at=NOW() WHERE id=$2`,
       [breakSec, sessionId]
     );
-    if (nextForced) {
-      await client.query(
-        `UPDATE user_pomodoro_config SET next_cycle_forced_minutes=$1, updated_at=NOW() WHERE user_id=$2`,
-        [nextForced, userId]
-      );
-    }
+    // O intervalo pulado (já com os anteriores somados) carrega para o próximo ciclo.
+    await client.query(
+      `UPDATE user_pomodoro_config SET carryover_break_minutes=$1, updated_at=NOW() WHERE user_id=$2`,
+      [s.break_planned_minutes, userId]
+    );
     await _addDaily(client, { userId, completed: 1, skipped: 1 });
-    await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'BREAK_SKIPPED' });
-    if (nextForced) {
-      await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'MODE_UPGRADED', fromMode: s.pomodoro_mode, toMode: MODE_BY_MINUTES[nextForced] });
-    }
+    await _event(client, db, { userId, sessionId, taskId: s.task_id, type: 'BREAK_SKIPPED', metadata: { carriedBreakMin: s.break_planned_minutes, focusSinceBreak: config.focus_since_break_minutes } });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
   finally { client.release(); }
-  return { ok: true, nextForcedMinutes: nextForced };
+  return { ok: true, carriedBreakMinutes: s.break_planned_minutes };
 }
 
 // ─── Abort (manual / timeout / task concluída) ────────────────────────────────
@@ -458,6 +462,11 @@ async function _abort(db, session, reason) {
     if (wasActive) await _addDaily(client, { userId: session.user_id, activeMinutes: Math.round(activeSec / 60), aborted: 1 });
     else await _addDaily(client, { userId: session.user_id, aborted: 1 });
     await _creditTaskTime(client, session, activeSec);
+    // Encerrou (parou/timeout) → quebra a sequência: zera os acumuladores de pausa.
+    await client.query(
+      `UPDATE user_pomodoro_config SET carryover_break_minutes=0, focus_since_break_minutes=0, updated_at=NOW() WHERE user_id=$1`,
+      [session.user_id]
+    );
     await _event(client, db, { userId: session.user_id, sessionId: session.id, taskId: session.task_id, type: 'STOPPED', metadata: { reason } });
     await client.query('COMMIT');
   } catch (e) { await client.query('ROLLBACK'); throw e; }
