@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
 import { UserPlus, X, Loader2 } from 'lucide-react'
-import { fetchPmUsers, PmUser } from './taskApi'
+import { fetchAssignableUsers, PmUser } from './taskApi'
 
 // Atribui uma tarefa do projeto a um usuário (ação de gestor).
 const AssignTaskModal: React.FC<{
@@ -18,7 +18,7 @@ const AssignTaskModal: React.FC<{
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { fetchPmUsers().then(setUsers).catch(() => {}) }, [])
+  useEffect(() => { fetchAssignableUsers(taskId).then(setUsers).catch(() => {}) }, [taskId])
 
   const submit = async () => {
     if (!userId) { setError('Selecione um responsável'); return }

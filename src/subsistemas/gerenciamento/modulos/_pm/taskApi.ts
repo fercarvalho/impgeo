@@ -75,6 +75,9 @@ export interface HelpRequest {
 }
 
 export const fetchPmUsers = (): Promise<PmUser[]> => fetch(`${API}/pm/users`).then(parse)
+// Usuários a quem o ator pode atribuir a tarefa (filtrado por escopo no backend).
+export const fetchAssignableUsers = (taskId?: string): Promise<PmUser[]> =>
+  fetch(`${API}/pm/assignable-users${taskId ? `?taskId=${encodeURIComponent(taskId)}` : ''}`).then(parse)
 export const fetchPendingReviews = (): Promise<PmTask[]> => fetch(`${API}/pm/pending-reviews`).then(parse)
 export const reviewApprove = (taskId: string) =>
   fetch(`${API}/tasks/${taskId}/review/approve`, { method: 'POST' }).then(parse)

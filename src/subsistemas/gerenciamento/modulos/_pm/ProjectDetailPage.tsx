@@ -20,6 +20,7 @@ interface Task {
   review_required: boolean
   acceptance_required: boolean
   actual_minutes?: number | null
+  can_manage?: boolean
   deps?: any[]
 }
 interface Stage {
@@ -270,14 +271,14 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                       {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
                       {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
-                      {canEdit && (
+                      {canEdit && t.can_manage !== false && (
                         <button onClick={() => { setDueFor(t); setDueVal(t.due_date || '') }} disabled={busy}
                           title={t.due_date ? 'Editar prazo' : 'Definir prazo'}
                           className="p-1 text-violet-400 hover:text-violet-600">
                           <CalendarClock className="w-4 h-4" />
                         </button>
                       )}
-                      {canEdit && (
+                      {canEdit && t.can_manage !== false && (
                         <button onClick={() => setAssignFor(t)} disabled={busy}
                           title={t.assignee_user_id ? 'Reatribuir' : 'Atribuir responsável'}
                           className="p-1 text-violet-400 hover:text-violet-600">

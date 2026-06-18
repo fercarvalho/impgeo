@@ -2197,6 +2197,7 @@ app.get('/api/projects/:id', async (req, res) => {
       : ['stages', 'tasks', 'events'];
     const project = await pmProjectService.getProjectWithDetails(db, req.params.id, { include });
     if (!project) return res.status(404).json({ success: false, error: 'Projeto não encontrado' });
+    await _annotateCanManage(db, req.user, project);
     res.json({ success: true, data: project });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -2267,6 +2268,45 @@ async function _canManageTask(db, actor, task, targetUserId) {
     return false;
   }
   return false;
+}
+
+// Anota cada tarefa do projeto com `can_manage` (escopo do ator) — para o
+// frontend esconder os botões de prazo/atribuir fora do escopo. Eficiente (lotes).
+async function _annotateCanManage(db, actor, project) {
+  if (!actor || !project) return;
+  const tasks = (project.stages || []).flatMap(s => s.tasks || []);
+  if (!tasks.length) return;
+
+  if (actor.role === 'superadmin') { tasks.forEach(t => { t.can_manage = true; }); return; }
+
+  if (actor.role === 'admin') {
+    const ids = [...new Set(tasks.map(t => t.assignee_user_id).filter(Boolean))];
+    const roleById = {};
+    if (ids.length) {
+      const rr = await db.pool.query('SELECT id, role FROM users WHERE id = ANY($1::varchar[])', [ids]);
+      rr.rows.forEach(r => { roleById[r.id] = r.role; });
+    }
+    tasks.forEach(t => {
+      const tid = t.assignee_user_id;
+      t.can_manage = !(tid && tid !== actor.id && (roleById[tid] === 'admin' || roleById[tid] === 'superadmin'));
+    });
+    return;
+  }
+
+  if (actor.role === 'manager') {
+    const ownsProject = project.manager_user_id === actor.id;
+    let teamSet = new Set();
+    if (!ownsProject) {
+      const h = await db.pool.query('SELECT DISTINCT to_user_id FROM task_assignments_history WHERE assigned_by_user_id = $1', [actor.id]);
+      teamSet = new Set(h.rows.map(r => r.to_user_id));
+    }
+    tasks.forEach(t => {
+      const tid = t.assignee_user_id;
+      t.can_manage = (tid === actor.id) || ownsProject || (!!tid && teamSet.has(tid));
+    });
+    return;
+  }
+  tasks.forEach(t => { t.can_manage = false; });
 }
 
 // Guarda: admin/manager OU responsável/capturador da tarefa.
@@ -2486,6 +2526,38 @@ app.get('/api/pm/users', requireModulePermission('tarefas_gerenciamento', 'view'
         name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
         role: u.role,
       }));
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Usuários a quem o ator PODE atribuir a tarefa (escopo) — para o dropdown do assign.
+app.get('/api/pm/assignable-users', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores atribuem tarefas.' });
+    const actor = req.user;
+    const task = req.query.taskId ? await pmTaskService.getTask(db.pool, req.query.taskId) : null;
+
+    // Contexto do manager (1x): gerencia o projeto? quem está na equipe dele?
+    let ownsProject = false, teamSet = new Set();
+    if (actor.role === 'manager') {
+      if (task && task.project_id) {
+        const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id = $1', [task.project_id]);
+        ownsProject = p.rows[0]?.manager_user_id === actor.id;
+      }
+      if (!ownsProject) {
+        const h = await db.pool.query('SELECT DISTINCT to_user_id FROM task_assignments_history WHERE assigned_by_user_id = $1', [actor.id]);
+        teamSet = new Set(h.rows.map(r => r.to_user_id));
+      }
+    }
+
+    const users = (await db.getAllUsers() || []).filter(u => u.is_active !== false);
+    const data = users.filter(u => {
+      if (actor.role === 'superadmin') return true;
+      if (actor.role === 'admin') return u.id === actor.id || !(u.role === 'admin' || u.role === 'superadmin');
+      if (actor.role === 'manager') return u.id === actor.id || ownsProject || teamSet.has(u.id);
+      return false;
+    }).map(u => ({ id: u.id, name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username, role: u.role }));
+
     res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
