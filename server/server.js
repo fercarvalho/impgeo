@@ -2229,6 +2229,46 @@ app.post('/api/projects/:id/stages/:stageId/clone-as-version', requireModulePerm
 
 const _isManagerRole = (u) => u && (u.role === 'admin' || u.role === 'superadmin' || u.role === 'manager');
 
+// Escopo de gestão de tarefa (atribuir / definir prazo):
+//  - superadmin: tudo.
+//  - admin: tudo, MENOS tarefa de outro admin ou de superadmin.
+//  - manager: só na equipe dele — projeto que gerencia, quem ele já atribuiu, ou ele mesmo.
+//  - demais: não.
+// targetUserId = dono/alvo relevante (assignee da tarefa, ou o novo responsável no assign).
+async function _canManageTask(db, actor, task, targetUserId) {
+  if (!actor) return false;
+  if (targetUserId === undefined) targetUserId = task && task.assignee_user_id;
+  if (actor.role === 'superadmin') return true;
+
+  let targetRole = null;
+  if (targetUserId) {
+    const r = await db.pool.query('SELECT role FROM users WHERE id = $1', [targetUserId]);
+    targetRole = r.rows[0]?.role || null;
+  }
+
+  if (actor.role === 'admin') {
+    if (targetUserId && targetUserId !== actor.id && (targetRole === 'admin' || targetRole === 'superadmin')) return false;
+    return true;
+  }
+
+  if (actor.role === 'manager') {
+    if (targetUserId && targetUserId === actor.id) return true;
+    if (task && task.project_id) {
+      const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id = $1', [task.project_id]);
+      if (p.rows[0]?.manager_user_id === actor.id) return true;
+    }
+    if (targetUserId) {
+      const h = await db.pool.query(
+        `SELECT 1 FROM task_assignments_history WHERE assigned_by_user_id = $1 AND to_user_id = $2 LIMIT 1`,
+        [actor.id, targetUserId]
+      );
+      if (h.rows[0]) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 // Guarda: admin/manager OU responsável/capturador da tarefa.
 async function _guardTaskActor(req, res, taskId) {
   const task = await pmTaskService.getTask(db.pool, taskId);
@@ -2243,6 +2283,12 @@ async function _guardTaskActor(req, res, taskId) {
 app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores atribuem tarefas.' });
+    const existing = await pmTaskService.getTask(db.pool, req.params.taskId);
+    if (!existing) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
+    // Escopo: pode agir nesta tarefa E atribuir ao novo responsável.
+    const okCurrent = await _canManageTask(db, req.user, existing, existing.assignee_user_id);
+    const okTarget = await _canManageTask(db, req.user, existing, req.body.userId);
+    if (!okCurrent || !okTarget) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
     const task = await pmTaskService.assignTask(db, req.params.taskId, {
       toUserId: req.body.userId, assignedByUserId: req.user?.id || null, reason: req.body.reason || 'assign',
       ...(req.body.dueDate !== undefined ? { dueDate: req.body.dueDate } : {}),
@@ -2257,6 +2303,9 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
 app.post('/api/tasks/:taskId/due-date', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores definem prazo.' });
+    const existing = await pmTaskService.getTask(db.pool, req.params.taskId);
+    if (!existing) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
+    if (!await _canManageTask(db, req.user, existing)) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
     const task = await pmTaskService.setTaskDueDate(db, req.params.taskId, { dueDate: req.body.dueDate ?? null, userId: req.user?.id || null });
     res.json({ success: true, data: task });
   } catch (error) {
