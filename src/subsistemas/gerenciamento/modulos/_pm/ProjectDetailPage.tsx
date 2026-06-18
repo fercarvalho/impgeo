@@ -21,6 +21,7 @@ interface Task {
   acceptance_required: boolean
   actual_minutes?: number | null
   can_manage?: boolean
+  due_action?: 'edit' | 'request' | null
   deps?: any[]
 }
 interface Stage {
@@ -101,6 +102,8 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
   const [assignFor, setAssignFor] = useState<Task | null>(null)
   const [dueFor, setDueFor] = useState<Task | null>(null)
   const [dueVal, setDueVal] = useState('')
+  const [dueJust, setDueJust] = useState('')
+  const [dueMsg, setDueMsg] = useState<string | null>(null)
   const [showLink, setShowLink] = useState(false)
   const [linkedTx, setLinkedTx] = useState<any[]>([])
 
@@ -140,12 +143,15 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
     } catch { /* noop */ } finally { setBusy(false) }
   }
 
+  const openDue = (t: Task) => { setDueFor(t); setDueVal(t.due_date || ''); setDueJust(''); setDueMsg(null) }
+
   const saveDue = async (val: string) => {
     if (!dueFor) return
     setBusy(true); setError(null)
     try {
-      await setTaskDueDate(dueFor.id, val || null)
-      setDueFor(null); await load()
+      const r = await setTaskDueDate(dueFor.id, val || null, dueFor.due_action === 'request' ? dueJust : undefined)
+      if (r?.requested) { setDueMsg('Pedido enviado! Um gestor vai aprovar — você será notificado.'); await load() }
+      else { setDueFor(null); await load() }
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -271,9 +277,9 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                       {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
                       {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date}</span>}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
-                      {canEdit && t.can_manage !== false && (
-                        <button onClick={() => { setDueFor(t); setDueVal(t.due_date || '') }} disabled={busy}
-                          title={t.due_date ? 'Editar prazo' : 'Definir prazo'}
+                      {t.due_action && (
+                        <button onClick={() => openDue(t)} disabled={busy}
+                          title={t.due_action === 'request' ? 'Solicitar alteração de prazo' : (t.due_date ? 'Editar prazo' : 'Definir prazo')}
                           className="p-1 text-violet-400 hover:text-violet-600">
                           <CalendarClock className="w-4 h-4" />
                         </button>
@@ -445,32 +451,53 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
         />
       )}
 
-      {dueFor && (
+      {dueFor && (() => {
+        const isReq = dueFor.due_action === 'request'
+        return (
         <Modal isOpen onClose={() => setDueFor(null)}>
           <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-white font-bold flex items-center gap-2"><CalendarClock className="w-4 h-4" /> Prazo da tarefa</h3>
+              <h3 className="text-white font-bold flex items-center gap-2"><CalendarClock className="w-4 h-4" /> {isReq ? 'Solicitar alteração de prazo' : 'Prazo da tarefa'}</h3>
               <button onClick={() => setDueFor(null)} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-sm text-gray-600 dark:text-gray-300 truncate"><strong>{dueFor.name}</strong></p>
-              <input type="date" value={dueVal} onChange={e => setDueVal(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
-              <p className="text-xs text-gray-400">Data passada → vira "Atrasada" em ~1 min (cron). Se a tarefa estava atrasada e o novo prazo não está vencido, ela volta a "Disponível".</p>
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button onClick={() => saveDue('')} disabled={busy} className="px-3 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-600 dark:text-gray-300 text-sm font-medium disabled:opacity-50">Limpar prazo</button>
-                <div className="flex gap-2">
-                  <button onClick={() => setDueFor(null)} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 text-sm font-medium">Cancelar</button>
-                  <button onClick={() => saveDue(dueVal)} disabled={busy}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
-                    {busy && <Loader2 className="w-4 h-4 animate-spin" />} Salvar
-                  </button>
+              {dueMsg ? (
+                <div className="text-center space-y-2 py-2">
+                  <CheckCircle2 className="w-10 h-10 mx-auto text-green-500" />
+                  <p className="text-sm text-gray-700 dark:text-gray-200">{dueMsg}</p>
+                  <button onClick={() => setDueFor(null)} className="mt-1 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold">Fechar</button>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 truncate"><strong>{dueFor.name}</strong></p>
+                  <input type="date" value={dueVal} onChange={e => setDueVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
+                  {isReq ? (
+                    <>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">A alteração precisa de aprovação de um gestor. Você será notificado da decisão.</p>
+                      <textarea value={dueJust} onChange={e => setDueJust(e.target.value)} rows={2} placeholder="Justificativa (opcional)…"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">Data passada → vira "Atrasada" em ~1 min. Atrasada com novo prazo não vencido volta a "Disponível".</p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button onClick={() => saveDue('')} disabled={busy} className="px-3 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-600 dark:text-gray-300 text-sm font-medium disabled:opacity-50">{isReq ? 'Pedir sem prazo' : 'Limpar prazo'}</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => setDueFor(null)} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 text-sm font-medium">Cancelar</button>
+                      <button onClick={() => saveDue(dueVal)} disabled={busy}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
+                        {busy && <Loader2 className="w-4 h-4 animate-spin" />} {isReq ? 'Solicitar' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Modal>
-      )}
+        )
+      })()}
     </div>
   )
 }

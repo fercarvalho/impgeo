@@ -2994,6 +2994,9 @@ class Database {
       // default (precisa de ação do gestor; o executor quer saber a decisão).
       pm_pomodoro_overage_requested:  { push: true,  email: true },
       pm_pomodoro_overage_decided:    { push: true,  email: true },
+      // Alteração de prazo de tarefa (pedido/decisão) — email ON por default.
+      pm_due_date_requested:          { push: true,  email: true },
+      pm_due_date_decided:            { push: true,  email: true },
       '_meta:foreground':             { push: false, email: false },
     },
     tc: {

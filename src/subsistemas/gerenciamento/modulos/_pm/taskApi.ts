@@ -43,9 +43,19 @@ export async function fetchAvailableTasks(): Promise<PmTask[]> {
   return parse(r)
 }
 
-// Define/ajusta/limpa o prazo da tarefa (gestor). dueDate null/'' limpa.
-export const setTaskDueDate = (taskId: string, dueDate: string | null): Promise<any> =>
-  fetch(`${API}/tasks/${taskId}/due-date`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate }) }).then(parse)
+// Altera o prazo. Admin/superadmin aplica direto → { applied, task };
+// manager/usuário gera pedido de aprovação → { requested, request }.
+export const setTaskDueDate = (taskId: string, dueDate: string | null, justification?: string): Promise<any> =>
+  fetch(`${API}/tasks/${taskId}/due-date`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate, ...(justification ? { justification } : {}) }) }).then(parse)
+
+export interface DueDateRequest {
+  id: string; task_id: string; project_id: string; requester_role: 'user' | 'manager'
+  requested_due_date: string | null; current_due_date: string | null; justification: string | null
+  task_name?: string; project_name?: string; requester_name?: string
+}
+export const fetchPendingDueRequests = (): Promise<DueDateRequest[]> => fetch(`${API}/pm/due-date-requests/pending`).then(parse)
+export const decideDueRequest = (id: string, approved: boolean) =>
+  fetch(`${API}/pm/due-date-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved }) }).then(parse)
 
 // Auto-atribuir uma tarefa disponível ao usuário logado.
 export async function claimTask(taskId: string): Promise<any> {

@@ -91,6 +91,8 @@ const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
   pm_project_completed: { title: 'Projeto concluído', description: 'Quando um projeto é finalizado.' },
   pm_pomodoro_overage_requested: { title: 'Aprovação de tempo extra', description: 'Quando um colaborador pede para ultrapassar o limite diário (gestor).' },
   pm_pomodoro_overage_decided:   { title: 'Tempo extra decidido', description: 'Quando seu pedido de tempo extra é aprovado ou negado.' },
+  pm_due_date_requested:         { title: 'Alteração de prazo (aprovação)', description: 'Quando alguém pede para alterar o prazo de uma tarefa (gestor).' },
+  pm_due_date_decided:           { title: 'Prazo decidido', description: 'Quando seu pedido de alteração de prazo é aprovado ou recusado.' },
 }
 
 function labelFor(type: string): { title: string; description?: string } {

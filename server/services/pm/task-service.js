@@ -207,6 +207,131 @@ async function setTaskDueDate(db, taskId, { dueDate, userId = null }) {
   return r.rows[0];
 }
 
+// ─── Aprovação de alteração de prazo ──────────────────────────────────────────
+
+const _isAdminRole = (role) => role === 'admin' || role === 'superadmin';
+function _dateStr(d) {
+  if (!d) return null;
+  if (typeof d === 'string') return d.slice(0, 10);
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+async function _userName(db, userId) {
+  if (!userId) return null;
+  const r = await db.pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), username) AS name FROM users WHERE id=$1`, [userId]
+  );
+  return r.rows[0]?.name || null;
+}
+
+/**
+ * Usuário comum / manager pede aprovação para alterar o prazo da tarefa.
+ * 1 pedido pendente por tarefa (re-pedir atualiza). Notifica os aprovadores:
+ *  - pedido de usuário → manager do projeto + admins/superadmins.
+ *  - pedido de manager → só admins/superadmins.
+ */
+async function requestDueDateChange(db, taskId, { userId, requestedDueDate = null, justification = null }) {
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  const ur = await db.pool.query('SELECT role FROM users WHERE id=$1', [userId]);
+  const role = ur.rows[0]?.role || 'user';
+  const requesterRole = role === 'manager' ? 'manager' : 'user';
+  const requesterName = await _userName(db, userId);
+  const newDue = requestedDueDate || null;
+  const just = justification ? String(justification).trim().slice(0, 1000) || null : null;
+  const curDue = _dateStr(task.due_date);
+
+  const pr = await db.pool.query('SELECT name, manager_user_id FROM projects WHERE id=$1', [task.project_id]);
+  const projectName = pr.rows[0]?.name || null;
+  const managerId = pr.rows[0]?.manager_user_id || null;
+
+  let row;
+  const existing = await db.pool.query(`SELECT id FROM task_due_date_requests WHERE task_id=$1 AND status='pending' LIMIT 1`, [taskId]);
+  if (existing.rows[0]) {
+    row = (await db.pool.query(
+      `UPDATE task_due_date_requests SET requested_due_date=$1::date, justification=$2, requested_by_user_id=$3,
+              requester_role=$4, current_due_date=$5::date, updated_at=NOW() WHERE id=$6 RETURNING *`,
+      [newDue, just, userId, requesterRole, curDue, existing.rows[0].id]
+    )).rows[0];
+  } else {
+    row = (await db.pool.query(
+      `INSERT INTO task_due_date_requests (id, task_id, project_id, requested_by_user_id, requester_role, current_due_date, requested_due_date, justification, status)
+       VALUES ($1,$2,$3,$4,$5,$6::date,$7::date,$8,'pending') RETURNING *`,
+      [db.generateId(), taskId, task.project_id, userId, requesterRole, curDue, newDue, just]
+    )).rows[0];
+  }
+
+  const payload = { userName: requesterName, taskName: task.name, projectName, currentDue: curDue, requestedDue: newDue, justification: just };
+  if (requesterRole === 'manager') {
+    notificationService.notifyAdmins(db, { type: 'pm_due_date_requested', payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id, exceptUserId: userId }).catch(() => {});
+  } else {
+    if (managerId && managerId !== userId) {
+      notificationService.notify(db, { type: 'pm_due_date_requested', userId: managerId, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id }).catch(() => {});
+    }
+    notificationService.notifyAdmins(db, { type: 'pm_due_date_requested', payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id, exceptUserId: userId }).catch(() => {});
+  }
+  return row;
+}
+
+/** Gestor aprova/recusa. Aplica o prazo se aprovado; notifica o solicitante. */
+async function decideDueDateChange(db, requestId, reviewer, { approved }) {
+  const rr = await db.pool.query(
+    `SELECT id, task_id, project_id, requested_by_user_id, requester_role, status,
+            requested_due_date::text AS requested_due_date
+       FROM task_due_date_requests WHERE id=$1`, [requestId]
+  );
+  const reqRow = rr.rows[0];
+  if (!reqRow) throw err('Pedido não encontrado', 'not_found', 404);
+  if (reqRow.status !== 'pending') throw err('Pedido já decidido', 'invalid_state', 409);
+
+  // Autoridade: admin/superadmin sempre; manager só pedido de USUÁRIO em projeto dele.
+  let authorized = false;
+  if (_isAdminRole(reviewer?.role)) authorized = true;
+  else if (reviewer?.role === 'manager' && reqRow.requester_role === 'user') {
+    const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [reqRow.project_id]);
+    authorized = p.rows[0]?.manager_user_id === reviewer.id;
+  }
+  if (!authorized) throw err('Você não pode decidir este pedido.', 'forbidden', 403);
+
+  await db.pool.query(
+    `UPDATE task_due_date_requests SET status=$1, decided_by_user_id=$2, decided_at=NOW(), updated_at=NOW() WHERE id=$3`,
+    [approved ? 'approved' : 'rejected', reviewer?.id || null, requestId]
+  );
+  if (approved) {
+    await setTaskDueDate(db, reqRow.task_id, { dueDate: reqRow.requested_due_date, userId: reviewer?.id || null });
+  }
+
+  const decidedByName = await _userName(db, reviewer?.id);
+  const t = await getTask(db.pool, reqRow.task_id);
+  notificationService.notify(db, {
+    type: 'pm_due_date_decided', userId: reqRow.requested_by_user_id,
+    payload: { approved: !!approved, taskName: t?.name, requestedDue: reqRow.requested_due_date, decidedByName },
+    entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id,
+  }).catch(() => {});
+  return { status: approved ? 'approved' : 'rejected' };
+}
+
+/** Fila de pedidos de alteração de prazo (escopo do gestor). */
+async function listPendingDueDateRequests(db, reviewer) {
+  let where, params;
+  if (_isAdminRole(reviewer?.role)) { where = `o.status='pending'`; params = []; }
+  else if (reviewer?.role === 'manager') { where = `o.status='pending' AND o.requester_role='user' AND p.manager_user_id=$1`; params = [reviewer.id]; }
+  else return [];
+  const r = await db.pool.query(
+    `SELECT o.id, o.task_id, o.project_id, o.requester_role,
+            o.requested_due_date::text AS requested_due_date, o.current_due_date::text AS current_due_date,
+            o.justification, t.name AS task_name, p.name AS project_name,
+            COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'')||' '||COALESCE(u.last_name,'')),''), u.username) AS requester_name
+       FROM task_due_date_requests o
+       JOIN project_tasks t ON t.id=o.task_id
+       LEFT JOIN projects p ON p.id=o.project_id
+       LEFT JOIN users u ON u.id=o.requested_by_user_id
+      WHERE ${where}
+      ORDER BY o.created_at ASC`, params
+  );
+  return r.rows;
+}
+
 /** Aceita tarefa (pending_acceptance → available). */
 async function acceptTask(db, taskId, { userId }) {
   const task = await getTask(db.pool, taskId);
@@ -592,6 +717,9 @@ module.exports = {
   appendTaskEvent,
   assignTask,
   setTaskDueDate,
+  requestDueDateChange,
+  decideDueDateChange,
+  listPendingDueDateRequests,
   claimTask,
   acceptTask,
   refuseTask,

@@ -2270,14 +2270,16 @@ async function _canManageTask(db, actor, task, targetUserId) {
   return false;
 }
 
-// Anota cada tarefa do projeto com `can_manage` (escopo do ator) — para o
-// frontend esconder os botões de prazo/atribuir fora do escopo. Eficiente (lotes).
+// Anota cada tarefa do projeto com:
+//  - can_manage: escopo de ATRIBUIR (esconde o botão fora do escopo).
+//  - due_action: o que o ator pode fazer com o PRAZO → 'edit' (admin/superadmin
+//    direto) | 'request' (manager/usuário pedem aprovação) | null (não pode).
 async function _annotateCanManage(db, actor, project) {
   if (!actor || !project) return;
   const tasks = (project.stages || []).flatMap(s => s.tasks || []);
   if (!tasks.length) return;
 
-  if (actor.role === 'superadmin') { tasks.forEach(t => { t.can_manage = true; }); return; }
+  if (actor.role === 'superadmin') { tasks.forEach(t => { t.can_manage = true; t.due_action = 'edit'; }); return; }
 
   if (actor.role === 'admin') {
     const ids = [...new Set(tasks.map(t => t.assignee_user_id).filter(Boolean))];
@@ -2289,6 +2291,7 @@ async function _annotateCanManage(db, actor, project) {
     tasks.forEach(t => {
       const tid = t.assignee_user_id;
       t.can_manage = !(tid && tid !== actor.id && (roleById[tid] === 'admin' || roleById[tid] === 'superadmin'));
+      t.due_action = t.can_manage ? 'edit' : null;  // admin altera direto, menos tarefa de outro admin
     });
     return;
   }
@@ -2303,10 +2306,16 @@ async function _annotateCanManage(db, actor, project) {
     tasks.forEach(t => {
       const tid = t.assignee_user_id;
       t.can_manage = (tid === actor.id) || ownsProject || (!!tid && teamSet.has(tid));
+      t.due_action = 'request';  // manager pede aprovação de admin para alterar prazo
     });
     return;
   }
-  tasks.forEach(t => { t.can_manage = false; });
+
+  // usuário comum: só pode PEDIR alteração do prazo da própria tarefa.
+  tasks.forEach(t => {
+    t.can_manage = false;
+    t.due_action = (t.assignee_user_id === actor.id || t.captured_by_user_id === actor.id) ? 'request' : null;
+  });
 }
 
 // Guarda: admin/manager OU responsável/capturador da tarefa.
@@ -2342,15 +2351,47 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
 // Definir/ajustar/limpar o prazo da tarefa (gestor), sem reatribuir.
 app.post('/api/tasks/:taskId/due-date', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
-    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores definem prazo.' });
     const existing = await pmTaskService.getTask(db.pool, req.params.taskId);
     if (!existing) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
-    if (!await _canManageTask(db, req.user, existing)) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
-    const task = await pmTaskService.setTaskDueDate(db, req.params.taskId, { dueDate: req.body.dueDate ?? null, userId: req.user?.id || null });
-    res.json({ success: true, data: task });
+    const role = req.user?.role;
+
+    // Admin/superadmin: alteram DIRETO (admin não mexe em tarefa de outro admin).
+    if (role === 'admin' || role === 'superadmin') {
+      if (!await _canManageTask(db, req.user, existing)) return res.status(403).json({ success: false, error: 'Você não pode alterar o prazo de uma tarefa de outro admin.' });
+      const task = await pmTaskService.setTaskDueDate(db, req.params.taskId, { dueDate: req.body.dueDate ?? null, userId: req.user?.id || null });
+      return res.json({ success: true, data: { applied: true, task } });
+    }
+
+    // Usuário comum só pede na PRÓPRIA tarefa.
+    if (role !== 'manager') {
+      const mine = existing.assignee_user_id === req.user?.id || existing.captured_by_user_id === req.user?.id;
+      if (!mine) return res.status(403).json({ success: false, error: 'Você só pode pedir alteração de prazo da sua própria tarefa.' });
+    }
+
+    // Manager / usuário → pedido de aprovação.
+    const request = await pmTaskService.requestDueDateChange(db, req.params.taskId, {
+      userId: req.user.id, requestedDueDate: req.body.dueDate ?? null, justification: req.body.justification || null,
+    });
+    res.json({ success: true, data: { requested: true, request } });
   } catch (error) {
     res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
   }
+});
+
+// Fila de pedidos de alteração de prazo (gestor — escopo no service).
+app.get('/api/pm/due-date-requests/pending', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores.' });
+    res.json({ success: true, data: await pmTaskService.listPendingDueDateRequests(db, req.user) });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Aprovar/recusar um pedido (autoridade verificada no service).
+app.post('/api/pm/due-date-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const data = await pmTaskService.decideDueDateChange(db, req.params.id, req.user, { approved: req.body.approved === true });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
 });
 
 // Ações sobre a tarefa.

@@ -20,6 +20,16 @@ const STRINGS = {
     title: 'Aprovação de tempo extra',
     message: `${p.userName || 'Um colaborador'} trabalhou ${p.workedMinutes ?? '?'} min hoje, acima do teto de ${p.hard ?? 500} min (limite recomendado: ${p.limit ?? 400} min), e pediu aprovação para que o tempo extra seja contabilizado.${p.justification ? ` Justificativa: "${p.justification}"` : ' (sem justificativa)'} Aprove ou recuse em Pomodoro → Aprovações de tempo extra.`,
   }),
+  pm_due_date_requested: (p) => ({
+    title: 'Alteração de prazo (aprovação)',
+    message: `${p.userName || 'Um colaborador'} pediu para alterar o prazo de "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''}: de ${p.currentDue || 'sem prazo'} para ${p.requestedDue || 'sem prazo'}.${p.justification ? ` Justificativa: "${p.justification}"` : ''} Aprove ou recuse em Tarefas → Solicitações de prazo.`,
+  }),
+  pm_due_date_decided: (p) => ({
+    title: p.approved ? 'Alteração de prazo aprovada' : 'Alteração de prazo recusada',
+    message: p.approved
+      ? `O novo prazo de "${p.taskName}" (${p.requestedDue || 'sem prazo'}) foi aprovado${p.decidedByName ? ` por ${p.decidedByName}` : ''}.`
+      : `Seu pedido de alteração de prazo de "${p.taskName}" foi recusado${p.decidedByName ? ` por ${p.decidedByName}` : ''}.`,
+  }),
   pm_pomodoro_overage_decided:   (p) => ({
     title: p.approved ? 'Tempo extra aprovado' : 'Tempo extra recusado',
     message: p.approved
