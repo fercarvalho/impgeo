@@ -43,6 +43,10 @@ export async function fetchAvailableTasks(): Promise<PmTask[]> {
   return parse(r)
 }
 
+// Define/ajusta/limpa o prazo da tarefa (gestor). dueDate null/'' limpa.
+export const setTaskDueDate = (taskId: string, dueDate: string | null): Promise<any> =>
+  fetch(`${API}/tasks/${taskId}/due-date`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate }) }).then(parse)
+
 // Auto-atribuir uma tarefa disponível ao usuário logado.
 export async function claimTask(taskId: string): Promise<any> {
   const r = await fetch(`${API}/tasks/${taskId}/claim`, { method: 'POST' })
