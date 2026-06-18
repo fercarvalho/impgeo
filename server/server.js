@@ -2245,7 +2245,19 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores atribuem tarefas.' });
     const task = await pmTaskService.assignTask(db, req.params.taskId, {
       toUserId: req.body.userId, assignedByUserId: req.user?.id || null, reason: req.body.reason || 'assign',
+      ...(req.body.dueDate !== undefined ? { dueDate: req.body.dueDate } : {}),
     });
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Definir/ajustar/limpar o prazo da tarefa (gestor), sem reatribuir.
+app.post('/api/tasks/:taskId/due-date', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores definem prazo.' });
+    const task = await pmTaskService.setTaskDueDate(db, req.params.taskId, { dueDate: req.body.dueDate ?? null, userId: req.user?.id || null });
     res.json({ success: true, data: task });
   } catch (error) {
     res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });

@@ -116,7 +116,7 @@ async function _loadGraph(exec, projectId) {
  * tarefa exige aceite (acceptance_required) e está 'available', vai p/
  * 'pending_acceptance' (aguardando o responsável aceitar).
  */
-async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reason = 'assign' }) {
+async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reason = 'assign', dueDate = undefined }) {
   if (!toUserId) throw new Error('assignTask: toUserId obrigatório');
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
@@ -133,12 +133,14 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
     assertTransition(task, nextStatus);
   }
 
+  // dueDate: undefined → não mexe; '' → limpa; 'YYYY-MM-DD' → define o prazo.
+  const setDue = dueDate !== undefined;
   await db.pool.query(
     `UPDATE project_tasks
         SET assignee_user_id = $1, assigned_at = NOW(), status = $2,
-            accepted_at = NULL, refusal_reason = NULL, updated_at = NOW()
+            accepted_at = NULL, refusal_reason = NULL${setDue ? ', due_date = $4' : ''}, updated_at = NOW()
       WHERE id = $3`,
-    [toUserId, nextStatus, taskId]
+    setDue ? [toUserId, nextStatus, taskId, dueDate || null] : [toUserId, nextStatus, taskId]
   );
   await db.pool.query(
     `INSERT INTO task_assignments_history (id, task_id, from_user_id, to_user_id, assigned_by_user_id, reason)
@@ -180,6 +182,29 @@ async function claimTask(db, taskId, { userId }) {
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'assigned', actorId: userId, payload: { toUserId: userId, selfClaim: true } });
   return getTask(db.pool, taskId);
+}
+
+/**
+ * Define/ajusta/limpa o prazo (due_date) da tarefa, sem reatribuir. Se a tarefa
+ * estava 'overdue' e o novo prazo não está vencido (ou foi limpo), volta a 'available'.
+ * dueDate: 'YYYY-MM-DD' define · null/'' limpa.
+ */
+async function setTaskDueDate(db, taskId, { dueDate, userId = null }) {
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  const newDue = dueDate || null;
+  const r = await db.pool.query(
+    `UPDATE project_tasks
+        SET due_date = $1::date,
+            status = CASE WHEN status = 'overdue' AND ($1::date IS NULL OR $1::date >= CURRENT_DATE)
+                          THEN 'available' ELSE status END,
+            updated_at = NOW()
+      WHERE id = $2
+      RETURNING *`,
+    [newDue, taskId]
+  );
+  await appendTaskEvent(db.pool, db, { taskId, eventType: 'due_date_changed', actorId: userId, payload: { dueDate: newDue } });
+  return r.rows[0];
 }
 
 /** Aceita tarefa (pending_acceptance → available). */
@@ -566,6 +591,7 @@ module.exports = {
   getTask,
   appendTaskEvent,
   assignTask,
+  setTaskDueDate,
   claimTask,
   acceptTask,
   refuseTask,
