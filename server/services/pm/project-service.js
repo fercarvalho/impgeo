@@ -447,16 +447,48 @@ async function cloneStageAsNewVersion(db, projectId, stageId, { actorUserId = nu
 // ─── Skip de etapa ────────────────────────────────────────────────────────────
 
 async function skipStage(db, projectId, stageId, { actorUserId = null } = {}) {
-  const r = await db.pool.query(
-    `UPDATE project_stages SET status = 'skipped', updated_at = NOW()
-      WHERE id = $1 AND project_id = $2 RETURNING id`,
-    [stageId, projectId]
-  );
-  if (!r.rows.length) throw new Error('Etapa não encontrada no projeto');
-  await appendProjectEvent(db, {
-    projectId, eventType: 'status_changed', actorType: actorUserId ? 'user' : 'system',
-    actorId: actorUserId, payload: { stageId, action: 'skipped' },
-  });
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await client.query(
+      `UPDATE project_stages SET status = 'skipped', updated_at = NOW()
+        WHERE id = $1 AND project_id = $2 RETURNING id`,
+      [stageId, projectId]
+    );
+    if (!r.rows.length) throw new Error('Etapa não encontrada no projeto');
+
+    // Cancela as tarefas ABERTAS da etapa (não concluídas/não canceladas) — assim
+    // a etapa fica de fato pulada e não trava a finalização do projeto.
+    const canceled = await client.query(
+      `UPDATE project_tasks SET status = 'canceled', updated_at = NOW()
+        WHERE project_stage_id = $1 AND status NOT IN ('completed', 'canceled')
+        RETURNING id`,
+      [stageId]
+    );
+    for (const row of canceled.rows) {
+      await client.query(
+        `INSERT INTO task_events (id, task_id, event_type, actor_type, actor_id, payload)
+         VALUES ($1,$2,'canceled',$3,$4,$5::jsonb)`,
+        [db.generateId(), row.id, actorUserId ? 'user' : 'system', actorUserId, JSON.stringify({ reason: 'stage_skipped' })]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO project_events (id, project_id, event_type, actor_type, actor_id, payload)
+       VALUES ($1,$2,'status_changed',$3,$4,$5::jsonb)`,
+      [db.generateId(), projectId, actorUserId ? 'user' : 'system', actorUserId,
+       JSON.stringify({ stageId, action: 'skipped', tasksCanceled: canceled.rows.length })]
+    );
+
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+
+  // Cancelar as tarefas pode ter deixado o projeto elegível à finalização automática.
+  try {
+    const projectFinalizer = require('./project-finalizer');
+    await projectFinalizer.maybeFinalizeProject(db.pool, db, projectId);
+  } catch (e) { console.error('[skipStage] auto-finalize falhou', projectId, e.message); }
   return true;
 }
 
