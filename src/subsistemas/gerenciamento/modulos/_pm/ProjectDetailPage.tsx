@@ -20,6 +20,7 @@ interface Task {
   review_required: boolean
   acceptance_required: boolean
   actual_minutes?: number | null
+  default_days?: number | null
   can_manage?: boolean
   due_action?: 'edit' | 'request' | null
   deps?: any[]
@@ -282,7 +283,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                         </span>
                       )}
                       {t.review_required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">revisão</span>}
-                      {t.due_date && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{fmtDate(t.due_date)}</span>}
+                      {(t.due_date || t.default_days != null) && <span title={t.due_date ? 'Vence em' : 'Prazo (dias)'} className="text-[10px] text-gray-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{t.due_date ? fmtDate(t.due_date) : `${t.default_days}d`}</span>}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
                       {t.due_action && (
                         <button onClick={() => openDue(t)} disabled={busy}

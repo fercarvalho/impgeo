@@ -133,12 +133,18 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
     assertTransition(task, nextStatus);
   }
 
-  // dueDate: undefined → não mexe; '' → limpa; 'YYYY-MM-DD' → define o prazo.
+  // dueDate: undefined → liga o relógio do prazo (hoje + duração) se ainda não houver;
+  //          '' → limpa; 'YYYY-MM-DD' → define o prazo explicitamente.
   const setDue = dueDate !== undefined;
   await db.pool.query(
     `UPDATE project_tasks
         SET assignee_user_id = $1, assigned_at = NOW(), status = $2,
-            accepted_at = NULL, refusal_reason = NULL${setDue ? ', due_date = $4' : ''}, updated_at = NOW()
+            accepted_at = NULL, refusal_reason = NULL,
+            due_date = ${setDue
+              ? '$4'
+              : `CASE WHEN due_date IS NULL AND default_days IS NOT NULL
+                       THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END`},
+            updated_at = NOW()
       WHERE id = $3`,
     setDue ? [toUserId, nextStatus, taskId, dueDate || null] : [toUserId, nextStatus, taskId]
   );
@@ -171,7 +177,10 @@ async function claimTask(db, taskId, { userId }) {
   }
   await db.pool.query(
     `UPDATE project_tasks
-        SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(), updated_at = NOW()
+        SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(),
+            due_date = CASE WHEN due_date IS NULL AND default_days IS NOT NULL
+                            THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END,
+            updated_at = NOW()
       WHERE id = $2`,
     [userId, taskId]
   );

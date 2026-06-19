@@ -14,6 +14,7 @@ export interface PmTask {
   review_required: boolean
   acceptance_required: boolean
   paused_at: string | null
+  default_days?: number | null
   assignee_name?: string | null
   project_name?: string
   stage_name?: string

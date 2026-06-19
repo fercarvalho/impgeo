@@ -158,13 +158,6 @@ async function _loadTemplate(exec, serviceId) {
   return { version, stages, tasks, deps: depsRes.rows, triggers: trgRes.rows };
 }
 
-// Soma `days` a uma data 'YYYY-MM-DD' (aritmética em UTC, sem efeito de fuso).
-function _addDays(isoDate, days) {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + Number(days));
-  return d.toISOString().slice(0, 10);
-}
-
 // ─── Criação atômica a partir de template ─────────────────────────────────────
 
 /**
@@ -230,47 +223,23 @@ async function createProjectFromTemplate(db, input, opts = {}) {
         );
       }
 
-      // Prazo padrão CUMULATIVO: etapas em ordem, tarefas em ordem; soma os
-      // default_days (relativo à data de início). Tarefa sem default_days fica
-      // sem prazo e NÃO desloca a linha do tempo.
-      const dueDaysByTplTask = new Map();
-      {
-        const tasksByStage = new Map();
-        for (const t of tpl.tasks) {
-          if (!tasksByStage.has(t.template_stage_id)) tasksByStage.set(t.template_stage_id, []);
-          tasksByStage.get(t.template_stage_id).push(t);
-        }
-        let cum = 0;
-        const stagesOrdered = [...tpl.stages].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-        for (const st of stagesOrdered) {
-          const sts = (tasksByStage.get(st.id) || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-          for (const t of sts) {
-            if (t.default_days != null && Number(t.default_days) >= 0) {
-              cum += Number(t.default_days);
-              dueDaysByTplTask.set(t.id, cum);
-            }
-          }
-        }
-      }
-
-      // Copia tasks (status inicial 'pending'; resolver promove abaixo).
+      // Copia tasks. NÃO seta due_date na criação: o prazo é a DURAÇÃO (default_days)
+      // e o relógio só começa quando a tarefa é pega/atribuída (ver assignTask/claimTask).
       const taskIdMap = new Map();
       for (const t of tpl.tasks) {
         const newTaskId = db.generateId();
         taskIdMap.set(t.id, newTaskId);
-        const cumDays = dueDaysByTplTask.get(t.id);
-        const dueDate = cumDays != null ? _addDays(startDate, cumDays) : null;
         await client.query(
           `INSERT INTO project_tasks
              (id, project_id, project_stage_id, name, description, observation, sort_order, status,
               default_days, review_required, acceptance_required, reviewer_user_id,
               manager_review_allowed, admin_review_allowed, estimated_minutes, priority,
-              template_task_id, due_date, created_by_user_id, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,NULL,$11,$12,$13,$14,$15,$16::date,$17, NOW(), NOW())`,
+              template_task_id, created_by_user_id, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,NULL,$11,$12,$13,$14,$15,$16, NOW(), NOW())`,
           [newTaskId, id, stageIdMap.get(t.template_stage_id), t.name, t.description, t.observation,
            t.sort_order, t.default_days, t.requires_review, t.requires_acceptance,
            t.manager_review_allowed, t.admin_review_allowed, t.default_estimated_minutes,
-           t.default_priority || 2, t.id, dueDate, input.actorUserId || null]
+           t.default_priority || 2, t.id, input.actorUserId || null]
         );
       }
 

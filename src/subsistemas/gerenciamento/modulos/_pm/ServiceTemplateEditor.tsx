@@ -413,9 +413,9 @@ const TaskFormModal: React.FC<{
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Duração (dias)</label>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Prazo (dias)</label>
               <input type="number" min="0" value={form.defaultDays} onChange={e => setForm(f => ({ ...f, defaultDays: e.target.value }))} className={inputCls} />
-              <p className="text-[10px] text-gray-400 mt-0.5">Soma cumulativa (etapas/tarefas em ordem) define o prazo no projeto.</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Dias para concluir; o relógio começa quando a tarefa é pega/atribuída.</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Responsável padrão</label>
