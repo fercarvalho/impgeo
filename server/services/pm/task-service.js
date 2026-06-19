@@ -133,18 +133,13 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
     assertTransition(task, nextStatus);
   }
 
-  // dueDate: undefined → liga o relógio do prazo (hoje + duração) se ainda não houver;
-  //          '' → limpa; 'YYYY-MM-DD' → define o prazo explicitamente.
+  // dueDate: undefined → não mexe no prazo; '' → limpa; 'YYYY-MM-DD' → define.
+  // (O relógio do prazo só liga no primeiro Play — ver startTask.)
   const setDue = dueDate !== undefined;
   await db.pool.query(
     `UPDATE project_tasks
         SET assignee_user_id = $1, assigned_at = NOW(), status = $2,
-            accepted_at = NULL, refusal_reason = NULL,
-            due_date = ${setDue
-              ? '$4'
-              : `CASE WHEN due_date IS NULL AND default_days IS NOT NULL
-                       THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END`},
-            updated_at = NOW()
+            accepted_at = NULL, refusal_reason = NULL${setDue ? ', due_date = $4' : ''}, updated_at = NOW()
       WHERE id = $3`,
     setDue ? [toUserId, nextStatus, taskId, dueDate || null] : [toUserId, nextStatus, taskId]
   );
@@ -177,10 +172,7 @@ async function claimTask(db, taskId, { userId }) {
   }
   await db.pool.query(
     `UPDATE project_tasks
-        SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(),
-            due_date = CASE WHEN due_date IS NULL AND default_days IS NOT NULL
-                            THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END,
-            updated_at = NOW()
+        SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(), updated_at = NOW()
       WHERE id = $2`,
     [userId, taskId]
   );
@@ -436,6 +428,9 @@ async function startTask(db, taskId, { userId }) {
             captured_by_user_id = COALESCE(captured_by_user_id, $1),
             assignee_user_id = COALESCE(assignee_user_id, $1),
             paused_at = NULL,
+            -- liga o relógio do prazo no PRIMEIRO play (hoje BRT + duração), se ainda não houver
+            due_date = CASE WHEN due_date IS NULL AND default_days IS NOT NULL
+                            THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END,
             updated_at = NOW()
       WHERE id = $2`,
     [userId || null, taskId]
