@@ -2517,6 +2517,14 @@ app.get('/api/pm/reports/projects-health', requireModulePermission(REL, 'view'),
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// Equipes agrupadas por gerente (admin/superadmin: todas; manager: a dele).
+app.get('/api/pm/reports/teams', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const data = await pmReportService.teamsReport(db, { from: req.query.from, to: req.query.to, user: req.user });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/pm/reports/financials', requireModulePermission(REL, 'view'), async (req, res) => {
   try {
     if (!req.query.projectId) return res.status(400).json({ success: false, error: 'projectId obrigatório' });
@@ -2539,6 +2547,45 @@ app.get('/api/pm/reports/export', requireModulePermission(REL, 'view'), async (r
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="produtividade.xlsx"');
     res.send(buf);
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Export PDF da produtividade (pdfkit).
+app.get('/api/pm/reports/export-pdf', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit'); // lazy: não derruba o server se faltar a lib
+    const rows = await pmReportService.productivityByUser(db, { from: req.query.from, to: req.query.to, user: req.user });
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="produtividade.pdf"');
+    doc.pipe(res);
+
+    doc.fontSize(16).fillColor('#111827').text('Relatório de Produtividade');
+    doc.moveDown(0.2).fontSize(10).fillColor('#6b7280')
+      .text(`Período: ${req.query.from || '—'} a ${req.query.to || '—'}  ·  gerado em ${new Date().toLocaleString('pt-BR')}`);
+    doc.moveDown(0.8);
+
+    const colX = [40, 250, 335, 415, 480];      // x de cada coluna; tabela vai até 555
+    const right = 555;
+    const headers = ['Usuário', 'Concluídas', 'Atrasadas', 'Abertas', 'Min. ativos'];
+    let y = doc.y;
+    doc.rect(40, y, right - 40, 18).fill('#6d28d9');
+    doc.fillColor('#ffffff').fontSize(9);
+    headers.forEach((h, i) => doc.text(h, colX[i] + 3, y + 5, { width: (colX[i + 1] || right) - colX[i] - 6, align: i === 0 ? 'left' : 'right' }));
+    y += 22;
+
+    doc.fontSize(9);
+    rows.forEach(r => {
+      if (y > 790) { doc.addPage(); y = 40; }
+      const cells = [r.name, String(r.completed), String(r.overdue), String(r.open_tasks), String(r.active_minutes)];
+      doc.fillColor('#111827');
+      cells.forEach((c, i) => doc.text(c, colX[i] + 3, y, { width: (colX[i + 1] || right) - colX[i] - 6, align: i === 0 ? 'left' : 'right' }));
+      y += 15;
+      doc.moveTo(40, y - 3).lineTo(right, y - 3).strokeColor('#eef0f3').lineWidth(0.5).stroke();
+    });
+    if (!rows.length) doc.fillColor('#6b7280').text('Sem dados no período.', 40, y + 4);
+
+    doc.end();
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 

@@ -250,6 +250,65 @@ async function projectsHealth(db, { user } = {}) {
   return r.rows;
 }
 
+/**
+ * Equipes agrupadas por gerente. Admin/superadmin veem TODAS as equipes;
+ * manager vê só a dele. Membro = quem o gerente já atribuiu OU assignee de tarefa
+ * em projeto que ele gerencia. Cada membro com stats do período + totais do time.
+ */
+async function teamsReport(db, { from, to, user } = {}) {
+  const f = from || '1970-01-01', t = to || '2999-12-31';
+  const NAME = `COALESCE(NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''), username)`;
+
+  let mgrSql = `SELECT id, ${NAME} AS name FROM users WHERE role='manager' AND COALESCE(is_active,true)=true`;
+  const mgrParams = [];
+  if (user && user.role === 'manager') { mgrSql += ` AND id = $1`; mgrParams.push(user.id); }
+  mgrSql += ` ORDER BY name`;
+  const managers = (await db.pool.query(mgrSql, mgrParams)).rows;
+  if (!managers.length) return [];
+  const mgrIds = managers.map(m => m.id);
+
+  const pairs = (await db.pool.query(
+    `SELECT DISTINCT mgr, member FROM (
+        SELECT assigned_by_user_id AS mgr, to_user_id AS member FROM task_assignments_history
+          WHERE to_user_id IS NOT NULL AND assigned_by_user_id = ANY($1::varchar[])
+        UNION
+        SELECT p.manager_user_id AS mgr, tk.assignee_user_id AS member
+          FROM project_tasks tk JOIN projects p ON p.id = tk.project_id
+          WHERE tk.assignee_user_id IS NOT NULL AND p.manager_user_id = ANY($1::varchar[])
+     ) x WHERE member IS NOT NULL`, [mgrIds]
+  )).rows;
+
+  const memberIds = [...new Set(pairs.map(p => p.member))];
+  const statsByUser = {};
+  if (memberIds.length) {
+    const sr = await db.pool.query(
+      `SELECT u.id AS user_id, ${NAME} AS name,
+              COUNT(tk.id) FILTER (WHERE tk.status='completed' AND tk.completed_at::date BETWEEN $2 AND $3) AS completed,
+              COUNT(tk.id) FILTER (WHERE tk.status='overdue') AS overdue,
+              COUNT(tk.id) FILTER (WHERE tk.status IN ('available','in_progress','pending_acceptance','pending_review','pending_adjustment')) AS open_tasks,
+              COALESCE((SELECT SUM(s.total_minutes_worked) FROM pomodoro_daily_stats s WHERE s.user_id=u.id AND s.day BETWEEN $2 AND $3),0) AS active_minutes
+         FROM users u LEFT JOIN project_tasks tk ON tk.assignee_user_id = u.id
+        WHERE u.id = ANY($1::varchar[])
+        GROUP BY u.id, u.first_name, u.last_name, u.username`,
+      [memberIds, f, t]
+    );
+    sr.rows.forEach(r => { statsByUser[r.user_id] = r; });
+  }
+
+  const byMgr = {};
+  pairs.forEach(p => { (byMgr[p.mgr] = byMgr[p.mgr] || new Set()).add(p.member); });
+
+  return managers.map(m => {
+    const members = [...(byMgr[m.id] || [])].map(id => statsByUser[id]).filter(Boolean)
+      .sort((a, b) => Number(b.active_minutes) - Number(a.active_minutes));
+    const totals = members.reduce((a, x) => ({
+      completed: a.completed + Number(x.completed), overdue: a.overdue + Number(x.overdue),
+      open_tasks: a.open_tasks + Number(x.open_tasks), active_minutes: a.active_minutes + Number(x.active_minutes),
+    }), { completed: 0, overdue: 0, open_tasks: 0, active_minutes: 0 });
+    return { manager_id: m.id, manager_name: m.name, members, totals };
+  }).filter(team => team.members.length > 0 || (user && user.role === 'manager' && team.manager_id === user.id));
+}
+
 module.exports = {
   detectAndMarkOverdue,
   sendDueReports,
@@ -258,4 +317,5 @@ module.exports = {
   renderReportHtml,
   productivityByUser,
   projectsHealth,
+  teamsReport,
 };

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { BarChart3, Loader2, Download, Users, FolderKanban, AlertTriangle } from 'lucide-react'
+import { BarChart3, Loader2, Download, Users, FolderKanban, AlertTriangle, Users2, FileText } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const API = '/api'
 
 interface ProdRow { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }
 interface HealthRow { project_id: string; name: string; status: string; progress_pct: number; total_cents: number; expenses_cents: number; profit_cents: number; days_to_deadline: number | null; overdue_count: number }
+interface TeamRow { manager_id: string; manager_name: string; members: ProdRow[]; totals: { completed: number; overdue: number; open_tasks: number; active_minutes: number } }
 
 const fmtBRL = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100)
 
@@ -14,11 +15,12 @@ function daysAgoISO(n: number) { const d = new Date(); d.setDate(d.getDate() - n
 
 const RelatoriosTarefas: React.FC = () => {
   const permissions = usePermissions('relatorios_tarefas_gerenciamento')
-  const [tab, setTab] = useState<'productivity' | 'health'>('productivity')
+  const [tab, setTab] = useState<'productivity' | 'health' | 'teams'>('productivity')
   const [from, setFrom] = useState(daysAgoISO(30))
   const [to, setTo] = useState(todayISO())
   const [prod, setProd] = useState<ProdRow[]>([])
   const [health, setHealth] = useState<HealthRow[]>([])
+  const [teams, setTeams] = useState<TeamRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,6 +30,9 @@ const RelatoriosTarefas: React.FC = () => {
       if (tab === 'productivity') {
         const r = await fetch(`${API}/pm/reports/productivity?from=${from}&to=${to}`)
         const j = await r.json(); if (!j.success) throw new Error(j.error); setProd(j.data)
+      } else if (tab === 'teams') {
+        const r = await fetch(`${API}/pm/reports/teams?from=${from}&to=${to}`)
+        const j = await r.json(); if (!j.success) throw new Error(j.error); setTeams(j.data)
       } else {
         const r = await fetch(`${API}/pm/reports/projects-health`)
         const j = await r.json(); if (!j.success) throw new Error(j.error); setHealth(j.data)
@@ -43,6 +48,7 @@ const RelatoriosTarefas: React.FC = () => {
   }
 
   const exportXlsx = () => { window.open(`${API}/pm/reports/export?from=${from}&to=${to}`, '_blank') }
+  const exportPdf = () => { window.open(`${API}/pm/reports/export-pdf?from=${from}&to=${to}`, '_blank') }
 
   return (
     <div className="space-y-6">
@@ -57,14 +63,19 @@ const RelatoriosTarefas: React.FC = () => {
           </div>
         </div>
         {tab === 'productivity' && (
-          <button onClick={exportXlsx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200">
-            <Download className="w-4 h-4" /> Exportar XLSX
-          </button>
+          <div className="flex gap-2">
+            <button onClick={exportXlsx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200">
+              <Download className="w-4 h-4" /> XLSX
+            </button>
+            <button onClick={exportPdf} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200">
+              <FileText className="w-4 h-4" /> PDF
+            </button>
+          </div>
         )}
       </div>
 
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-        {([['productivity', 'Produtividade', Users], ['health', 'Saúde dos projetos', FolderKanban]] as const).map(([k, label, Icon]) => (
+        {([['productivity', 'Produtividade', Users], ['teams', 'Equipes', Users2], ['health', 'Saúde dos projetos', FolderKanban]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px ${tab === k ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-gray-500'}`}>
             <Icon className="w-4 h-4" /> {label}
@@ -72,7 +83,7 @@ const RelatoriosTarefas: React.FC = () => {
         ))}
       </div>
 
-      {tab === 'productivity' && (
+      {tab !== 'health' && (
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">De</label>
@@ -122,6 +133,45 @@ const RelatoriosTarefas: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : tab === 'teams' ? (
+        <div className="space-y-4">
+          {teams.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Nenhuma equipe (sem gerentes ou sem membros no período).</div>}
+          {teams.map(team => (
+            <div key={team.manager_id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gray-50 dark:bg-[#2d3f52] px-4 py-2.5 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{(team.manager_name || '?').charAt(0).toUpperCase()}</div>
+                <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">Equipe de {team.manager_name}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{team.members.length} membro(s) · {team.totals.completed} concl. · <span className="text-red-500">{team.totals.overdue} atras.</span> · {team.totals.active_minutes} min</span>
+              </div>
+              {team.members.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-gray-400">Sem membros no período.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-gray-500 dark:text-gray-400">
+                    <tr>
+                      <th className="text-left px-4 py-1.5 font-medium">Membro</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Concluídas</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Atrasadas</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Abertas</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Min. ativos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {team.members.map(m => (
+                      <tr key={m.user_id} className="text-gray-800 dark:text-gray-100">
+                        <td className="px-4 py-1.5">{m.name}</td>
+                        <td className="px-4 py-1.5 text-right">{m.completed}</td>
+                        <td className="px-4 py-1.5 text-right text-red-600 dark:text-red-400">{m.overdue}</td>
+                        <td className="px-4 py-1.5 text-right">{m.open_tasks}</td>
+                        <td className="px-4 py-1.5 text-right">{m.active_minutes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
