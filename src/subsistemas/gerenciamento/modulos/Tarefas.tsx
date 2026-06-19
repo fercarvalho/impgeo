@@ -14,6 +14,13 @@ import IdleAlertModal from './_pm/IdleAlertModal'
 import HelpRequestModal from './_pm/HelpRequestModal'
 import TaskReviewModal from './_pm/TaskReviewModal'
 
+// data ISO/'YYYY-MM-DD' → 'dd/mm/aaaa' (sem parse de Date, evita erro de fuso)
+const fmtDate = (v?: string | null) => {
+  if (!v) return ''
+  const [y, m, d] = String(v).slice(0, 10).split('-')
+  return d ? `${d}/${m}/${y}` : String(v).slice(0, 10)
+}
+
 // Agrupamento de exibição do dashboard pessoal.
 const GROUPS: { key: string; label: string; statuses: string[] }[] = [
   { key: 'in_progress', label: 'Em andamento',     statuses: ['in_progress'] },
@@ -236,7 +243,7 @@ const Tarefas: React.FC = () => {
                   <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.project_name}{t.stage_name ? ` · ${t.stage_name}` : ''}</div>
                 </div>
-                {t.due_date && <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{t.due_date}</span>}
+                {t.due_date && <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{fmtDate(t.due_date)}</span>}
                 {permissions.canEdit && (
                   <button onClick={() => claim(t)} disabled={busyId === t.id} title="Pegar esta tarefa para você"
                     className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 disabled:opacity-50 flex-shrink-0">
@@ -286,7 +293,7 @@ const Tarefas: React.FC = () => {
                           </div>
                         </div>
                         {t.due_date && (
-                          <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{t.due_date}</span>
+                          <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{fmtDate(t.due_date)}</span>
                         )}
                         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${st.cls}`}>{st.label}</span>
 
