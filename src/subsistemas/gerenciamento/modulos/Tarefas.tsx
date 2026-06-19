@@ -13,6 +13,7 @@ import PomodoroStartModal from './_pm/PomodoroStartModal'
 import IdleAlertModal from './_pm/IdleAlertModal'
 import HelpRequestModal from './_pm/HelpRequestModal'
 import TaskReviewModal from './_pm/TaskReviewModal'
+import TaskDueDateModal from './_pm/TaskDueDateModal'
 
 // data ISO/'YYYY-MM-DD' → 'dd/mm/aaaa' (sem parse de Date, evita erro de fuso)
 const fmtDate = (v?: string | null) => {
@@ -42,6 +43,7 @@ const Tarefas: React.FC = () => {
   const [focusTask, setFocusTask] = useState<PmTask | null>(null)  // abre PomodoroStartModal
   const [helpTask, setHelpTask] = useState<PmTask | null>(null)    // abre HelpRequestModal
   const [reviewTask, setReviewTask] = useState<PmTask | null>(null) // abre TaskReviewModal
+  const [dueTask, setDueTask] = useState<PmTask | null>(null)        // abre TaskDueDateModal
   const [showIdle, setShowIdle] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Fase 6: revisões (gestor) e ajudas recebidas.
@@ -299,6 +301,14 @@ const Tarefas: React.FC = () => {
 
                         {permissions.canEdit && (
                           <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* Prazo da tarefa (só desta tarefa): admin altera direto, demais pedem aprovação */}
+                            {t.due_action && (t.status === 'in_progress' || t.status === 'overdue') && (
+                              <button onClick={() => setDueTask(t)} disabled={busyId === t.id}
+                                title={t.due_action === 'request' ? 'Solicitar alteração de prazo' : 'Editar prazo'}
+                                className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 disabled:opacity-50">
+                                <CalendarClock className="w-4 h-4" />
+                              </button>
+                            )}
                             {(t.status === 'available' || t.status === 'overdue' || t.status === 'pending_adjustment') && (
                               <button onClick={() => startAndFocus(t)} disabled={busyId === t.id} title="Iniciar (abre o foco)"
                                 className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 disabled:opacity-50">
@@ -376,6 +386,10 @@ const Tarefas: React.FC = () => {
       {reviewTask && (
         <TaskReviewModal task={reviewTask} onClose={() => setReviewTask(null)}
           onDone={() => { setReviewTask(null); load(); try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ } }} />
+      )}
+
+      {dueTask && (
+        <TaskDueDateModal task={dueTask} onClose={() => setDueTask(null)} onDone={load} />
       )}
     </div>
   )

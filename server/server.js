@@ -2436,6 +2436,9 @@ app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'
   try {
     const statuses = req.query.status ? String(req.query.status).split(',').map(s => s.trim()).filter(Boolean) : null;
     const tasks = await pmTaskService.listMyTasks(db, req.user.id, { statuses });
+    // São tarefas do próprio usuário: admin/superadmin alteram prazo direto; demais pedem.
+    const dueAction = (req.user?.role === 'admin' || req.user?.role === 'superadmin') ? 'edit' : 'request';
+    tasks.forEach(t => { t.due_action = dueAction; });
     res.json({ success: true, data: tasks });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
