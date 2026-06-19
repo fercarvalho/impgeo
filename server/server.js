@@ -2479,6 +2479,7 @@ app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciament
 // Preferências de relatório por e-mail (opt-in).
 app.get('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Relatórios por e-mail são só para gestores.' });
     const r = await db.pool.query('SELECT pm_email_reports, pm_report_frequencies FROM users WHERE id = $1', [req.user.id]);
     const row = r.rows[0] || {};
     res.json({ success: true, data: { emailReports: row.pm_email_reports === true, frequencies: Array.isArray(row.pm_report_frequencies) ? row.pm_report_frequencies : [] } });
@@ -2487,6 +2488,7 @@ app.get('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento
 
 app.put('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Relatórios por e-mail são só para gestores.' });
     const VALID = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
     const freqs = Array.isArray(req.body.frequencies) ? req.body.frequencies.filter(f => VALID.includes(f)) : [];
     const emailReports = req.body.emailReports === true;
