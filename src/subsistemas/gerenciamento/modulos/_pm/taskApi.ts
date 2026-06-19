@@ -16,6 +16,7 @@ export interface PmTask {
   paused_at: string | null
   default_days?: number | null
   due_action?: 'edit' | 'request' | null
+  can_assign?: boolean
   assignee_name?: string | null
   project_name?: string
   stage_name?: string

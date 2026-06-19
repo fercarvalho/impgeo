@@ -2449,6 +2449,17 @@ app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'
 app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
     const tasks = await pmTaskService.listAvailableUnassignedTasks(db);
+    // can_assign: pode atribuir a OUTRA pessoa (gestor, no escopo). Usuário comum só "pega".
+    const role = req.user?.role;
+    if (role === 'superadmin' || role === 'admin') {
+      tasks.forEach(t => { t.can_assign = true; });
+    } else if (role === 'manager') {
+      const pr = await db.pool.query('SELECT id FROM projects WHERE manager_user_id = $1', [req.user.id]);
+      const mine = new Set(pr.rows.map(r => r.id));
+      tasks.forEach(t => { t.can_assign = mine.has(t.project_id); });
+    } else {
+      tasks.forEach(t => { t.can_assign = false; });
+    }
     res.json({ success: true, data: tasks });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

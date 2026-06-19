@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox, Timer, CalendarClock, Check } from 'lucide-react'
+import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox, Timer, CalendarClock, Check, Users } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import {
@@ -14,6 +14,7 @@ import IdleAlertModal from './_pm/IdleAlertModal'
 import HelpRequestModal from './_pm/HelpRequestModal'
 import TaskReviewModal from './_pm/TaskReviewModal'
 import TaskDueDateModal from './_pm/TaskDueDateModal'
+import AssignTaskModal from './_pm/AssignTaskModal'
 
 // data ISO/'YYYY-MM-DD' → 'dd/mm/aaaa' (sem parse de Date, evita erro de fuso)
 const fmtDate = (v?: string | null) => {
@@ -44,6 +45,7 @@ const Tarefas: React.FC = () => {
   const [helpTask, setHelpTask] = useState<PmTask | null>(null)    // abre HelpRequestModal
   const [reviewTask, setReviewTask] = useState<PmTask | null>(null) // abre TaskReviewModal
   const [dueTask, setDueTask] = useState<PmTask | null>(null)        // abre TaskDueDateModal
+  const [assignTask, setAssignTask] = useState<PmTask | null>(null)  // abre AssignTaskModal (atribuir a alguém)
   const [showIdle, setShowIdle] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Fase 6: revisões (gestor) e ajudas recebidas.
@@ -246,6 +248,12 @@ const Tarefas: React.FC = () => {
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.project_name}{t.stage_name ? ` · ${t.stage_name}` : ''}</div>
                 </div>
                 {t.default_days != null && <span title="Prazo (dias) — começa a contar quando você pega" className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{t.default_days}d</span>}
+                {t.can_assign && (
+                  <button onClick={() => setAssignTask(t)} disabled={busyId === t.id} title="Atribuir a outra pessoa"
+                    className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 disabled:opacity-50 flex-shrink-0">
+                    <Users className="w-4 h-4" />
+                  </button>
+                )}
                 {permissions.canEdit && (
                   <button onClick={() => claim(t)} disabled={busyId === t.id} title="Pegar esta tarefa para você"
                     className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 disabled:opacity-50 flex-shrink-0">
@@ -390,6 +398,17 @@ const Tarefas: React.FC = () => {
 
       {dueTask && (
         <TaskDueDateModal task={dueTask} onClose={() => setDueTask(null)} onDone={load} />
+      )}
+
+      {assignTask && (
+        <AssignTaskModal
+          projectId={assignTask.project_id}
+          taskId={assignTask.id}
+          taskName={assignTask.name}
+          currentAssigneeId={assignTask.assignee_user_id}
+          onClose={() => setAssignTask(null)}
+          onDone={() => { setAssignTask(null); load() }}
+        />
       )}
     </div>
   )
