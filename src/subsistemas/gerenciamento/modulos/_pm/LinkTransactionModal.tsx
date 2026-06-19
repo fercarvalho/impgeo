@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/Modal'
-import { Link2, X, Loader2 } from 'lucide-react'
+import { Link2, X, Loader2, Search } from 'lucide-react'
 
 interface Tx { id: string; date: string; description: string | null; value: number; type: string }
 
@@ -12,6 +12,18 @@ const LinkTransactionModal: React.FC<{ projectId: string; onClose: () => void; o
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    return txs.filter(t =>
+      (!s || (t.description || '').toLowerCase().includes(s) || fmtBRL(t.value).toLowerCase().includes(s)) &&
+      (!dateFrom || t.date >= dateFrom) &&
+      (!dateTo || t.date <= dateTo)
+    )
+  }, [txs, q, dateFrom, dateTo])
 
   useEffect(() => {
     fetch('/api/pm/unlinked-transactions')
@@ -42,15 +54,33 @@ const LinkTransactionModal: React.FC<{ projectId: string; onClose: () => void; o
           <h3 className="text-white font-bold flex items-center gap-2"><Link2 className="w-4 h-4" /> Vincular despesa ao projeto</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
+        {/* Filtros: busca + período */}
+        <div className="px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 flex flex-wrap items-end gap-2">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar descrição/valor…"
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">De</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">Até</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 text-sm" />
+          </div>
+        </div>
         <div className="p-5 overflow-y-auto">
           {error && <div className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</div>}
           {loading ? (
             <div className="flex items-center justify-center py-8 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
-          ) : txs.length === 0 ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Nenhuma despesa não-vinculada encontrada.</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">{txs.length === 0 ? 'Nenhuma despesa não-vinculada encontrada.' : 'Nenhuma despesa para os filtros.'}</p>
           ) : (
             <div className="space-y-2">
-              {txs.map(t => (
+              {filtered.map(t => (
                 <div key={t.id} className="flex items-center gap-3 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.description || '(sem descrição)'}</div>

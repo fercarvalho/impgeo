@@ -2597,6 +2597,15 @@ app.post('/api/transactions/:id/link-project', requireModulePermission('projects
   } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message }); }
 });
 
+// Vincular VÁRIAS transações a um projeto (ação em massa). projectId null = desvincula.
+app.post('/api/transactions/link-project-bulk', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    const data = await pmCostService.linkTransactionsToProject(db, ids, req.body.projectId || null);
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message }); }
+});
+
 // Transações vinculadas a um projeto (aba Custos).
 app.get('/api/projects/:id/transactions', requireModulePermission('projects', 'view'), async (req, res) => {
   try {

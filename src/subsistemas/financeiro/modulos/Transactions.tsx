@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, Settings, MoreHorizontal } from 'lucide-react'
+import { DollarSign, Plus, Download, Upload, Edit, Trash2, Calendar, Filter, X, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, Settings, MoreHorizontal, Link2 } from 'lucide-react'
+import ProjectPickerModal from '@/components/ProjectPickerModal'
 import { usePermissions } from '@/hooks/usePermissions'
 import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
 import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
@@ -20,6 +21,7 @@ interface Transaction {
   original_type?: string | null
   needs_confirmation?: boolean
   is_hidden?: boolean
+  project_id?: string | null
 }
 
 // Estilos por tipo de transação — usado em badge da lista, valor monetário,
@@ -115,8 +117,13 @@ const DevBtn: React.FC<DevBtnProps> = ({ label, bg, domain, initials }) => (
 
 const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) => {
   const permissions = usePermissions('transactions');
+  const projPerms = usePermissions('projects');
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
+  // Vínculo a projeto: mapa id→nome + alvo do seletor ('bulk' = selecionadas; ou um txId)
+  const [projectsMap, setProjectsMap] = useState<Record<string, string>>({})
+  const [linkPickerFor, setLinkPickerFor] = useState<null | 'bulk' | string>(null)
+  const [linkBusy, setLinkBusy] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [form, setForm] = useState<{date: string; description: string; value: string; type: TransactionType; category: string; subcategory: string}>({
@@ -469,6 +476,42 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       const r = await fetch(`${API_BASE_URL}/transactions/${id}`, { method: 'DELETE' })
       const j = await r.json(); if (j.success) setTransactions(prev => prev.filter(t => t.id !== id))
     } catch {}
+  }
+
+  // Mapa de projetos (id→nome) para exibir o vínculo.
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/projects`).then(r => r.json()).then(j => {
+      if (j.success) { const m: Record<string, string> = {}; j.data.forEach((p: any) => { m[p.id] = p.name }); setProjectsMap(m) }
+    }).catch(() => {})
+  }, [])
+
+  const refreshTransactions = async () => {
+    try { const r = await fetch(`${API_BASE_URL}/transactions`); const j = await r.json(); if (j.success) setTransactions(j.data) } catch { /* noop */ }
+  }
+
+  const handlePickProject = async (project: { id: string; name: string }) => {
+    setLinkBusy(true)
+    try {
+      if (linkPickerFor === 'bulk') {
+        const ids = Array.from(selectedTransactions)
+        await fetch(`${API_BASE_URL}/transactions/link-project-bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, projectId: project.id }) })
+        setSelectedTransactions(new Set())
+      } else if (linkPickerFor) {
+        await fetch(`${API_BASE_URL}/transactions/${linkPickerFor}/link-project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id }) })
+        setEditing(prev => prev ? { ...prev, project_id: project.id } : prev)
+      }
+      await refreshTransactions()
+      setLinkPickerFor(null)
+    } catch { /* noop */ } finally { setLinkBusy(false) }
+  }
+
+  const unlinkTransaction = async (txId: string) => {
+    setLinkBusy(true)
+    try {
+      await fetch(`${API_BASE_URL}/transactions/${txId}/link-project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: null }) })
+      setEditing(prev => prev ? { ...prev, project_id: null } : prev)
+      await refreshTransactions()
+    } catch { /* noop */ } finally { setLinkBusy(false) }
   }
 
   const deleteSelected = async () => {
@@ -884,13 +927,21 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             ))}
 
-            {selectedTransactions.size > 0 && permissions.canDelete && (
-              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/30">
-                <span className="text-sm font-semibold text-red-700 dark:text-red-400">{selectedTransactions.size} selecionada{selectedTransactions.size > 1 ? 's' : ''}</span>
-                <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
-                  <Trash2 className="h-4 w-4" />
-                  Deletar Selecionada{selectedTransactions.size > 1 ? 's' : ''} ({selectedTransactions.size})
-                </button>
+            {selectedTransactions.size > 0 && (
+              <div className="flex flex-wrap justify-between items-center gap-2 p-4 bg-gray-50 dark:bg-[#2d3f52] border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{selectedTransactions.size} selecionada{selectedTransactions.size > 1 ? 's' : ''}</span>
+                <div className="flex flex-wrap gap-2">
+                  {projPerms.canEdit && (
+                    <button onClick={() => setLinkPickerFor('bulk')} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold rounded-xl hover:-translate-y-0.5 transition-all duration-200 shadow-lg">
+                      <Link2 className="h-4 w-4" /> Vincular a projeto ({selectedTransactions.size})
+                    </button>
+                  )}
+                  {permissions.canDelete && (
+                    <button onClick={deleteSelected} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
+                      <Trash2 className="h-4 w-4" /> Deletar ({selectedTransactions.size})
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1089,12 +1140,40 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 )}
               </div>
             </div>
+            {editing && projPerms.canEdit && (
+              <div className="px-6 pb-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Projeto vinculado</label>
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 text-sm truncate">
+                    {editing.project_id ? <span className="text-gray-800 dark:text-gray-100">{projectsMap[editing.project_id] || 'Projeto vinculado'}</span> : <span className="text-gray-400">Nenhum</span>}
+                  </span>
+                  <button onClick={() => setLinkPickerFor(editing.id)} disabled={linkBusy}
+                    className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50">
+                    {editing.project_id ? 'Alterar' : 'Vincular'}
+                  </button>
+                  {editing.project_id && (
+                    <button onClick={() => unlinkTransaction(editing.id)} disabled={linkBusy}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 dark:!bg-[#2d3f52] text-gray-600 dark:text-gray-300 text-xs font-medium disabled:opacity-50">Desvincular</button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={closeModal} className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:!bg-[#2d3f52] dark:hover:!bg-[#354b60] dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
               <button onClick={saveTransaction} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">Salvar</button>
             </div>
           </div>
       </Modal>
+
+      {linkPickerFor && (
+        <ProjectPickerModal
+          title="Vincular a projeto"
+          busy={linkBusy}
+          currentProjectId={linkPickerFor !== 'bulk' ? (editing?.project_id || null) : null}
+          onPick={handlePickProject}
+          onClose={() => setLinkPickerFor(null)}
+        />
+      )}
 
       {/* Modal Importar/Exportar */}
       <Modal isOpen={isImportExportOpen} onClose={() => setIsImportExportOpen(false)}>

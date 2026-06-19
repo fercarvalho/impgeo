@@ -32,4 +32,14 @@ async function getProjectFinancials(db, projectId) {
   return { ...p.rows[0], transactions: tx.rows };
 }
 
-module.exports = { linkTransactionToProject, getProjectFinancials };
+// Vincula VÁRIAS transações a um projeto de uma vez (projectId null = desvincula).
+async function linkTransactionsToProject(db, ids, projectId) {
+  if (!Array.isArray(ids) || !ids.length) return { count: 0 };
+  const r = await db.pool.query(
+    `UPDATE transactions SET project_id = $1, updated_at = NOW() WHERE id = ANY($2::varchar[]) RETURNING id`,
+    [projectId || null, ids]
+  );
+  return { count: r.rows.length };
+}
+
+module.exports = { linkTransactionToProject, linkTransactionsToProject, getProjectFinancials };
