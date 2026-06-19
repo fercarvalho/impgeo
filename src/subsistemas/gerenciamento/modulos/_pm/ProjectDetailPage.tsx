@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft, Layers, ListTodo, History, DollarSign, Users, MapPin,
   Loader2, CopyPlus, SkipForward, CheckCircle2, Clock, AlertCircle,
-  UserPlus, Plus, Unlink, CalendarClock, X,
+  UserPlus, Plus, Unlink, CalendarClock, X, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import Modal from '@/components/Modal'
 import AssignTaskModal from './AssignTaskModal'
@@ -184,6 +184,23 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 
+  const moveStage = async (idx: number, dir: -1 | 1) => {
+    const stages = project?.stages || []
+    const j = idx + dir
+    if (j < 0 || j >= stages.length) return
+    const ids = stages.map(s => s.id)
+    ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
+    setBusy(true); setError(null)
+    try {
+      const r = await fetch(`${API}/projects/${projectId}/stages/reorder`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderedIds: ids }),
+      })
+      const jr = await r.json()
+      if (!jr.success) throw new Error(jr.error || 'Falha ao reordenar')
+      await load()
+    } catch (e: any) { setError(e.message) } finally { setBusy(false) }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
   }
@@ -260,6 +277,8 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">{STAGE_STATUS[s.status] || s.status}</span>
                 {canEdit && (
                   <div className="flex items-center gap-0.5">
+                    <button onClick={() => moveStage(i, -1)} disabled={busy || i === 0} title="Mover para cima" className="p-1 text-gray-400 hover:text-violet-600 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveStage(i, 1)} disabled={busy || i === (project.stages || []).length - 1} title="Mover para baixo" className="p-1 text-gray-400 hover:text-violet-600 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
                     <button onClick={() => cloneStage(s.id)} disabled={busy} title="Nova versão (diligência)" className="p-1 text-violet-400 hover:text-violet-600"><CopyPlus className="w-4 h-4" /></button>
                     {s.status !== 'completed' && s.status !== 'skipped' && (
                       <button onClick={() => skipStage(s.id)} disabled={busy} title="Pular etapa" className="p-1 text-gray-400 hover:text-gray-600"><SkipForward className="w-4 h-4" /></button>

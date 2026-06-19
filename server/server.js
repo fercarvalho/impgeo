@@ -2205,6 +2205,16 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 // PM Fase 3: pular etapa.
+// Reordenar etapas do projeto.
+app.post('/api/projects/:id/stages/reorder', requireModulePermission('projects', 'edit'), async (req, res) => {
+  try {
+    await pmProjectService.reorderStages(db, req.params.id, req.body.orderedIds || []);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/projects/:id/stages/:stageId/skip', requireModulePermission('projects', 'edit'), async (req, res) => {
   try {
     await pmProjectService.skipStage(db, req.params.id, req.params.stageId, { actorUserId: req.user?.id || null });

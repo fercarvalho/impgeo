@@ -460,6 +460,24 @@ async function skipStage(db, projectId, stageId, { actorUserId = null } = {}) {
   return true;
 }
 
+// Reordena as etapas do projeto (sort_order = índice). Sem unique → update direto.
+async function reorderStages(db, projectId, orderedIds) {
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return false;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query(
+        `UPDATE project_stages SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND project_id = $3`,
+        [i, orderedIds[i], projectId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+  return true;
+}
+
 module.exports = {
   TC_SERVICE_ID,
   appendProjectEvent,
@@ -471,4 +489,5 @@ module.exports = {
   createProjectFromTerraControlPayment,
   cloneStageAsNewVersion,
   skipStage,
+  reorderStages,
 };
