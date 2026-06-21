@@ -749,14 +749,17 @@ async function rejectReview(db, taskId, { userId, reviewerRole, adjustmentNotes 
 // havia concluído). Reabre também o projeto se ele tinha sido finalizado por
 // causa desta tarefa.
 async function _applyUncomplete(db, task, { target, requesterId, originalCompleter, reason, actorId }) {
-  const newAssignee = target === 'self' ? requesterId : (originalCompleter || requesterId);
+  // 'pool' = sem responsável (volta pra fila de "disponíveis para pegar").
+  const newAssignee = target === 'pool' ? null
+    : (target === 'self' ? requesterId : (originalCompleter || requesterId));
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
       `UPDATE project_tasks
-          SET status='available', assignee_user_id=$2, accepted_at=NOW(), completed_at=NULL,
-              started_at=NULL, paused_at=NULL,
+          SET status='available', assignee_user_id=$2,
+              accepted_at = CASE WHEN $2::varchar IS NULL THEN NULL ELSE NOW() END,
+              completed_at=NULL, started_at=NULL, paused_at=NULL,
               review_decision=NULL, review_decided_at=NULL, reviewer_user_id=NULL,
               submitted_for_review_by_user_id=NULL, updated_at=NOW()
         WHERE id=$1`,
@@ -787,7 +790,7 @@ async function _applyUncomplete(db, task, { target, requesterId, originalComplet
  * Desconclui (reabre) uma tarefa concluída.
  * @param {object} actor - { id, role }
  * @param {string} reason - obrigatório
- * @param {'self'|'original'} target - capturar p/ si ou devolver a quem concluiu
+ * @param {'self'|'original'|'pool'} target - capturar p/ si, devolver a quem concluiu, ou deixar disponível (sem responsável)
  * @returns {Promise<{ reopened?: object, requested?: object }>}
  */
 async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }) {
@@ -800,7 +803,7 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
     throw err('Explique o motivo da reabertura', 'reason_required', 400);
   }
   const cleanReason = String(reason).trim();
-  const tgt = target === 'self' ? 'self' : 'original';
+  const tgt = ['self', 'original', 'pool'].includes(target) ? target : 'original';
   const originalCompleter = task.assignee_user_id || null;
 
   // Usuário comum: só a tarefa que ele concluiu; volta sempre pra ele.

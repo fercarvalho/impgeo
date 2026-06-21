@@ -187,7 +187,7 @@ const Tarefas: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{u.task_name} <span className="text-xs text-gray-400">· {u.project_name}</span></div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {u.requester_name}: {u.target === 'self' ? 'capturar p/ si' : 'devolver a quem concluiu'} — {u.reason}
+                    {u.requester_name}: {u.target === 'self' ? 'capturar p/ si' : u.target === 'pool' ? 'deixar disponível' : 'devolver a quem concluiu'} — {u.reason}
                   </div>
                 </div>
                 <button onClick={async () => { await decideUncompleteRequest(u.id, true); load() }} title="Aprovar"

@@ -15,7 +15,7 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
   const isManager = role === 'manager'
 
   const [reason, setReason] = useState('')
-  const [target, setTarget] = useState<'self' | 'original'>('original')
+  const [target, setTarget] = useState<'self' | 'original' | 'pool'>('original')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +58,10 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
                   <input type="radio" name="unc-target" checked={target === 'self'} onChange={() => setTarget('self')} />
                   Capturar para mim
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                  <input type="radio" name="unc-target" checked={target === 'pool'} onChange={() => setTarget('pool')} />
+                  Deixar disponível para alguém pegar
                 </label>
               </div>
             </div>

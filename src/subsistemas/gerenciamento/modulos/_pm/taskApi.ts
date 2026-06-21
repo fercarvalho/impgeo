@@ -89,13 +89,13 @@ export async function claimTasksBulk(taskIds: string[]): Promise<{ claimed: stri
 
 // Desconcluir (reabrir) uma tarefa concluída. target: 'self' (capturar) |
 // 'original' (devolver a quem concluiu). Retorna { reopened } ou { requested }.
-export async function uncompleteTask(taskId: string, reason: string, target: 'self' | 'original'): Promise<any> {
+export async function uncompleteTask(taskId: string, reason: string, target: 'self' | 'original' | 'pool'): Promise<any> {
   const r = await fetch(`${API}/tasks/${taskId}/uncomplete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, target }) })
   return parse(r)
 }
 
 export interface UncompleteRequest {
-  id: string; task_id: string; project_id: string; reason: string; target: 'self' | 'original'
+  id: string; task_id: string; project_id: string; reason: string; target: 'self' | 'original' | 'pool'
   task_name?: string; project_name?: string; requester_name?: string
 }
 export const fetchPendingUncompleteRequests = (): Promise<UncompleteRequest[]> => fetch(`${API}/pm/uncomplete-requests`).then(parse)
