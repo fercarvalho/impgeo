@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
 import { useDialogs } from '@/components/DialogProvider'
+import TemplateImportModal from './TemplateImportModal'
 import {
   Layers, Plus, Trash2, Edit2, ChevronUp, ChevronDown, X, GitBranch, Zap,
   Loader2, AlertTriangle, CheckCircle2, ListTodo, Copy,
@@ -80,24 +81,8 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
   const [depModal, setDepModal] = useState<TemplateTask | null>(null)
   const [triggerModal, setTriggerModal] = useState<TemplateTask | null>(null)
 
-  // copiar estrutura de outro serviço
-  const [copyOpen, setCopyOpen] = useState(false)
-  const [otherServices, setOtherServices] = useState<{ id: string; name: string }[]>([])
-  const [copySourceId, setCopySourceId] = useState('')
-  const openCopy = async () => {
-    setCopyOpen(true); setCopySourceId('')
-    try {
-      const r = await fetch(`${API}/services`)
-      const j = await r.json()
-      const list = (j.success ? j.data : j) || []
-      setOtherServices(list.filter((s: any) => s.id !== serviceId).map((s: any) => ({ id: s.id, name: s.name })))
-    } catch { setOtherServices([]) }
-  }
-  const doCopy = async () => {
-    if (!copySourceId) return
-    const ok = await mutate(`/services/${serviceId}/template/copy-from`, 'POST', { sourceServiceId: copySourceId })
-    if (ok) setCopyOpen(false)
-  }
+  // copiar estrutura de outro serviço (com prévia editável)
+  const [importOpen, setImportOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -216,7 +201,7 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
           </span>
           {canEdit && (
             <div className="flex items-center gap-2">
-              <button onClick={openCopy} disabled={busy}
+              <button onClick={() => setImportOpen(true)} disabled={busy}
                 className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium flex items-center gap-1 transition-colors disabled:opacity-50">
                 <Copy className="w-3.5 h-3.5" /> Copiar de…
               </button>
@@ -367,35 +352,13 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
         />
       )}
 
-      {copyOpen && (
-        <Modal isOpen onClose={() => setCopyOpen(false)}>
-          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-white font-bold flex items-center gap-2"><Copy className="w-4 h-4" /> Copiar estrutura de outro serviço</h3>
-              <button onClick={() => setCopyOpen(false)} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 space-y-3">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Copia as etapas, tarefas, dependências e gatilhos do serviço escolhido para <strong>{serviceName}</strong> como uma <strong>nova versão</strong> (a estrutura atual é preservada).
-              </p>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Serviço de origem</label>
-                <select value={copySourceId} onChange={e => setCopySourceId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-gray-100 text-sm">
-                  <option value="">Selecione…</option>
-                  {otherServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button onClick={() => setCopyOpen(false)} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 text-sm font-medium">Cancelar</button>
-                <button onClick={doCopy} disabled={busy || !copySourceId}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" />} Copiar estrutura
-                </button>
-              </div>
-            </div>
-          </div>
-        </Modal>
+      {importOpen && (
+        <TemplateImportModal
+          targetServiceId={serviceId}
+          targetServiceName={serviceName}
+          onClose={() => setImportOpen(false)}
+          onImported={() => { setImportOpen(false); load() }}
+        />
       )}
     </Modal>
   )

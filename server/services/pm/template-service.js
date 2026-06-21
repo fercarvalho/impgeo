@@ -541,28 +541,92 @@ async function versionBump(db, serviceId) {
   }
 }
 
-// Copia a estrutura padrão de OUTRO serviço para este, como uma NOVA versão
-// (preserva o template atual do destino). Retorna a nova versão criada.
-async function copyTemplateFromService(db, targetServiceId, sourceServiceId) {
-  if (!targetServiceId || !sourceServiceId) throw new Error('copyTemplateFromService: serviços obrigatórios');
-  if (targetServiceId === sourceServiceId) {
-    const e = new Error('Origem e destino devem ser serviços diferentes'); e.code = 'same_service'; e.status = 400; throw e;
+function _jsonbParam(v) {
+  if (v == null) return '{}';
+  return typeof v === 'string' ? v : JSON.stringify(v);
+}
+
+// Importa uma estrutura (já possivelmente EDITADA no front) para este serviço,
+// como uma NOVA versão (preserva o template atual). Cada stage/task traz um
+// `refId` (id de origem ou um id local "new-*") usado só para remapear as
+// dependências/gatilhos; deps cujo alvo foi removido são descartadas.
+// Retorna a nova versão criada.
+async function importTemplateStructure(db, targetServiceId, stages) {
+  if (!targetServiceId) throw new Error('importTemplateStructure: serviço destino obrigatório');
+  if (!Array.isArray(stages) || stages.length === 0) {
+    const e = new Error('A estrutura a importar está vazia'); e.code = 'empty_structure'; e.status = 400; throw e;
   }
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
 
-    const sv = await client.query('SELECT COALESCE(MAX(version), 0) AS v FROM service_template_stages WHERE service_id = $1', [sourceServiceId]);
-    const sourceVersion = sv.rows[0].v;
-    if (sourceVersion === 0) {
-      await client.query('ROLLBACK');
-      const e = new Error('O serviço de origem não tem estrutura para copiar'); e.code = 'source_empty'; e.status = 400; throw e;
-    }
-
     const tv = await client.query('SELECT COALESCE(MAX(version), 0) AS v FROM service_template_stages WHERE service_id = $1', [targetServiceId]);
     const newVersion = tv.rows[0].v + 1;
 
-    await _copyTemplateGraph(client, db, { srcServiceId: sourceServiceId, srcVersion: sourceVersion, dstServiceId: targetServiceId, dstVersion: newVersion });
+    const stageIdMap = new Map();
+    const taskIdMap = new Map();
+
+    // 1ª passada: stages + tasks (mapeia refId → novo id).
+    let sOrder = 0;
+    for (const s of stages) {
+      const newId = db.generateId();
+      if (s.refId) stageIdMap.set(s.refId, newId);
+      await client.query(
+        `INSERT INTO service_template_stages
+           (id, service_id, name, description, version, sort_order, stage_type, default_duration_days, default_assignee_role, is_active, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, TRUE, $10::jsonb)`,
+        [newId, targetServiceId, s.name || 'Etapa', s.description || null, newVersion, sOrder++,
+         s.stage_type || 'normal', s.default_duration_days ?? null, s.default_assignee_role || null, _jsonbParam(s.metadata)]
+      );
+      let tOrder = 0;
+      for (const t of (s.tasks || [])) {
+        const newTid = db.generateId();
+        if (t.refId) taskIdMap.set(t.refId, newTid);
+        await client.query(
+          `INSERT INTO service_template_tasks
+             (id, template_stage_id, service_id, name, description, observation, sort_order, default_days,
+              default_assignee_role, default_estimated_minutes, default_priority, requires_acceptance,
+              requires_attachment, requires_review, review_type, reviewer_default_role,
+              manager_review_allowed, admin_review_allowed, gestor_only, is_active, metadata)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, TRUE, $20::jsonb)`,
+          [newTid, newId, targetServiceId, t.name || 'Tarefa', t.description || null, t.observation || null,
+           tOrder++, t.default_days ?? null, t.default_assignee_role || null, t.default_estimated_minutes ?? null,
+           t.default_priority ?? null, t.requires_acceptance === true, t.requires_attachment === true,
+           t.requires_review === true, t.review_type || null, t.reviewer_default_role || null,
+           t.manager_review_allowed !== false, t.admin_review_allowed !== false, t.gestor_only === true,
+           _jsonbParam(t.metadata)]
+        );
+      }
+    }
+
+    // 2ª passada: deps + triggers (precisa dos mapas completos).
+    for (const s of stages) {
+      for (const t of (s.tasks || [])) {
+        const srcTid = t.refId ? taskIdMap.get(t.refId) : null;
+        if (!srcTid) continue;
+        for (const d of (t.deps || [])) {
+          const tt = d.dependency_target_type;
+          const targetTask = d.target_task_id ? taskIdMap.get(d.target_task_id) : null;
+          const targetStage = d.target_stage_id ? stageIdMap.get(d.target_stage_id) : null;
+          if (tt === 'task' && !targetTask) continue;   // alvo removido na prévia
+          if (tt === 'stage' && !targetStage) continue;
+          await client.query(
+            `INSERT INTO service_template_task_deps
+               (id, task_id, dependency_type, dependency_target_type, target_task_id, target_stage_id, required_status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [db.generateId(), srcTid, d.dependency_type, tt, targetTask, targetStage, d.required_status || null]
+          );
+        }
+        for (const tr of (t.triggers || [])) {
+          await client.query(
+            `INSERT INTO service_template_task_triggers
+               (id, service_id, source_template_task_id, action, on_status, payload, is_active)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb, TRUE)`,
+            [db.generateId(), targetServiceId, srcTid, tr.action || null, tr.on_status || null, _jsonbParam(tr.payload)]
+          );
+        }
+      }
+    }
 
     await client.query('COMMIT');
     return newVersion;
@@ -599,7 +663,7 @@ module.exports = {
   deleteTrigger,
   // versionamento
   versionBump,
-  copyTemplateFromService,
+  importTemplateStructure,
   // exposto p/ teste
   _wouldCreateCycle,
 };

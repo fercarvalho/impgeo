@@ -3178,10 +3178,11 @@ app.post('/api/services/:id/template/version-bump', requireModulePermission('ser
   }
 });
 
-// Copia a estrutura padrão de outro serviço para este (como nova versão).
-app.post('/api/services/:id/template/copy-from', requireModulePermission('services', 'edit'), async (req, res) => {
+// Importa uma estrutura (copiada de outro serviço e editada na prévia) como
+// nova versão deste serviço.
+app.post('/api/services/:id/template/import', requireModulePermission('services', 'edit'), async (req, res) => {
   try {
-    const newVersion = await pmTemplateService.copyTemplateFromService(db, req.params.id, req.body.sourceServiceId);
+    const newVersion = await pmTemplateService.importTemplateStructure(db, req.params.id, req.body.stages);
     res.json({ success: true, data: { version: newVersion } });
   } catch (error) {
     res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
