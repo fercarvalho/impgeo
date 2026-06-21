@@ -3178,6 +3178,16 @@ app.post('/api/services/:id/template/version-bump', requireModulePermission('ser
   }
 });
 
+// Copia a estrutura padrão de outro serviço para este (como nova versão).
+app.post('/api/services/:id/template/copy-from', requireModulePermission('services', 'edit'), async (req, res) => {
+  try {
+    const newVersion = await pmTemplateService.copyTemplateFromService(db, req.params.id, req.body.sourceServiceId);
+    res.json({ success: true, data: { version: newVersion } });
+  } catch (error) {
+    res.status(error.status || 400).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
 // APIs para TerraControl
 app.get('/api/terracontrol', async (req, res) => {
   try {

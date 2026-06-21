@@ -432,6 +432,88 @@ async function deleteTrigger(db, triggerId) {
  * preservando a versão antiga. Projetos antigos guardam a version no momento da cópia.
  * Retorna a nova version.
  */
+// Copia a estrutura (stages/tasks/deps/triggers) de (srcService, srcVersion)
+// para (dstService, dstVersion), remapeando todos os IDs. Roda dentro da tx do
+// chamador. Compartilhado por versionBump (mesmo serviço) e
+// copyTemplateFromService (entre serviços diferentes).
+async function _copyTemplateGraph(client, db, { srcServiceId, srcVersion, dstServiceId, dstVersion }) {
+  const stageIdMap = new Map();
+  const taskIdMap = new Map();
+
+  const oldStages = await client.query(
+    'SELECT * FROM service_template_stages WHERE service_id = $1 AND version = $2 ORDER BY sort_order',
+    [srcServiceId, srcVersion]
+  );
+  for (const s of oldStages.rows) {
+    const newId = db.generateId();
+    stageIdMap.set(s.id, newId);
+    await client.query(
+      `INSERT INTO service_template_stages
+         (id, service_id, name, description, version, sort_order, stage_type, default_duration_days, default_assignee_role, is_active, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [newId, dstServiceId, s.name, s.description, dstVersion, s.sort_order, s.stage_type,
+       s.default_duration_days, s.default_assignee_role, s.is_active, s.metadata]
+    );
+  }
+
+  const oldStageIds = oldStages.rows.map(s => s.id);
+  const oldTasks = oldStageIds.length
+    ? await client.query('SELECT * FROM service_template_tasks WHERE template_stage_id = ANY($1::varchar[])', [oldStageIds])
+    : { rows: [] };
+  for (const t of oldTasks.rows) {
+    const newId = db.generateId();
+    taskIdMap.set(t.id, newId);
+    await client.query(
+      `INSERT INTO service_template_tasks
+         (id, template_stage_id, service_id, name, description, observation, sort_order, default_days,
+          default_assignee_role, default_estimated_minutes, default_priority, requires_acceptance,
+          requires_attachment, requires_review, review_type, reviewer_default_role,
+          manager_review_allowed, admin_review_allowed, gestor_only, is_active, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [newId, stageIdMap.get(t.template_stage_id), dstServiceId, t.name, t.description, t.observation,
+       t.sort_order, t.default_days, t.default_assignee_role, t.default_estimated_minutes,
+       t.default_priority, t.requires_acceptance, t.requires_attachment, t.requires_review,
+       t.review_type, t.reviewer_default_role, t.manager_review_allowed, t.admin_review_allowed,
+       t.gestor_only === true, t.is_active, t.metadata]
+    );
+  }
+
+  const oldTaskIds = oldTasks.rows.map(t => t.id);
+  if (oldTaskIds.length) {
+    // Deps (remapeia task_id, target_task_id, target_stage_id).
+    const oldDeps = await client.query(
+      'SELECT * FROM service_template_task_deps WHERE task_id = ANY($1::varchar[])', [oldTaskIds]
+    );
+    for (const d of oldDeps.rows) {
+      await client.query(
+        `INSERT INTO service_template_task_deps
+           (id, task_id, dependency_type, dependency_target_type, target_task_id, target_stage_id, required_status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [db.generateId(), taskIdMap.get(d.task_id), d.dependency_type, d.dependency_target_type,
+         d.target_task_id ? taskIdMap.get(d.target_task_id) : null,
+         d.target_stage_id ? stageIdMap.get(d.target_stage_id) : null,
+         d.required_status]
+      );
+    }
+
+    // Triggers (remapeia source).
+    const oldTriggers = await client.query(
+      'SELECT * FROM service_template_task_triggers WHERE source_template_task_id = ANY($1::varchar[])', [oldTaskIds]
+    );
+    for (const tr of oldTriggers.rows) {
+      await client.query(
+        `INSERT INTO service_template_task_triggers
+           (id, service_id, source_template_task_id, action, on_status, payload, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [db.generateId(), dstServiceId, taskIdMap.get(tr.source_template_task_id), tr.action,
+         tr.on_status, tr.payload, tr.is_active]
+      );
+    }
+  }
+
+  return oldStages.rows.length;
+}
+
 async function versionBump(db, serviceId) {
   const client = await db.pool.connect();
   try {
@@ -447,81 +529,40 @@ async function versionBump(db, serviceId) {
       throw new Error('versionBump: serviço não tem template para versionar');
     }
     const newVersion = currentVersion + 1;
+    await _copyTemplateGraph(client, db, { srcServiceId: serviceId, srcVersion: currentVersion, dstServiceId: serviceId, dstVersion: newVersion });
 
-    // Mapa de IDs antigos → novos (stages e tasks).
-    const stageIdMap = new Map();
-    const taskIdMap = new Map();
+    await client.query('COMMIT');
+    return newVersion;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
-    const oldStages = await client.query(
-      'SELECT * FROM service_template_stages WHERE service_id = $1 AND version = $2 ORDER BY sort_order',
-      [serviceId, currentVersion]
-    );
-    for (const s of oldStages.rows) {
-      const newId = db.generateId();
-      stageIdMap.set(s.id, newId);
-      await client.query(
-        `INSERT INTO service_template_stages
-           (id, service_id, name, description, version, sort_order, stage_type, default_duration_days, default_assignee_role, is_active, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [newId, serviceId, s.name, s.description, newVersion, s.sort_order, s.stage_type,
-         s.default_duration_days, s.default_assignee_role, s.is_active, s.metadata]
-      );
+// Copia a estrutura padrão de OUTRO serviço para este, como uma NOVA versão
+// (preserva o template atual do destino). Retorna a nova versão criada.
+async function copyTemplateFromService(db, targetServiceId, sourceServiceId) {
+  if (!targetServiceId || !sourceServiceId) throw new Error('copyTemplateFromService: serviços obrigatórios');
+  if (targetServiceId === sourceServiceId) {
+    const e = new Error('Origem e destino devem ser serviços diferentes'); e.code = 'same_service'; e.status = 400; throw e;
+  }
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const sv = await client.query('SELECT COALESCE(MAX(version), 0) AS v FROM service_template_stages WHERE service_id = $1', [sourceServiceId]);
+    const sourceVersion = sv.rows[0].v;
+    if (sourceVersion === 0) {
+      await client.query('ROLLBACK');
+      const e = new Error('O serviço de origem não tem estrutura para copiar'); e.code = 'source_empty'; e.status = 400; throw e;
     }
 
-    const oldStageIds = oldStages.rows.map(s => s.id);
-    const oldTasks = oldStageIds.length
-      ? await client.query('SELECT * FROM service_template_tasks WHERE template_stage_id = ANY($1::varchar[])', [oldStageIds])
-      : { rows: [] };
-    for (const t of oldTasks.rows) {
-      const newId = db.generateId();
-      taskIdMap.set(t.id, newId);
-      await client.query(
-        `INSERT INTO service_template_tasks
-           (id, template_stage_id, service_id, name, description, observation, sort_order, default_days,
-            default_assignee_role, default_estimated_minutes, default_priority, requires_acceptance,
-            requires_attachment, requires_review, review_type, reviewer_default_role,
-            manager_review_allowed, admin_review_allowed, gestor_only, is_active, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
-        [newId, stageIdMap.get(t.template_stage_id), serviceId, t.name, t.description, t.observation,
-         t.sort_order, t.default_days, t.default_assignee_role, t.default_estimated_minutes,
-         t.default_priority, t.requires_acceptance, t.requires_attachment, t.requires_review,
-         t.review_type, t.reviewer_default_role, t.manager_review_allowed, t.admin_review_allowed,
-         t.gestor_only === true, t.is_active, t.metadata]
-      );
-    }
+    const tv = await client.query('SELECT COALESCE(MAX(version), 0) AS v FROM service_template_stages WHERE service_id = $1', [targetServiceId]);
+    const newVersion = tv.rows[0].v + 1;
 
-    // Deps (remapeia task_id, target_task_id, target_stage_id).
-    const oldTaskIds = oldTasks.rows.map(t => t.id);
-    if (oldTaskIds.length) {
-      const oldDeps = await client.query(
-        'SELECT * FROM service_template_task_deps WHERE task_id = ANY($1::varchar[])', [oldTaskIds]
-      );
-      for (const d of oldDeps.rows) {
-        await client.query(
-          `INSERT INTO service_template_task_deps
-             (id, task_id, dependency_type, dependency_target_type, target_task_id, target_stage_id, required_status)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [db.generateId(), taskIdMap.get(d.task_id), d.dependency_type, d.dependency_target_type,
-           d.target_task_id ? taskIdMap.get(d.target_task_id) : null,
-           d.target_stage_id ? stageIdMap.get(d.target_stage_id) : null,
-           d.required_status]
-        );
-      }
-
-      // Triggers (remapeia source).
-      const oldTriggers = await client.query(
-        'SELECT * FROM service_template_task_triggers WHERE source_template_task_id = ANY($1::varchar[])', [oldTaskIds]
-      );
-      for (const tr of oldTriggers.rows) {
-        await client.query(
-          `INSERT INTO service_template_task_triggers
-             (id, service_id, source_template_task_id, action, on_status, payload, is_active)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [db.generateId(), serviceId, taskIdMap.get(tr.source_template_task_id), tr.action,
-           tr.on_status, tr.payload, tr.is_active]
-        );
-      }
-    }
+    await _copyTemplateGraph(client, db, { srcServiceId: sourceServiceId, srcVersion: sourceVersion, dstServiceId: targetServiceId, dstVersion: newVersion });
 
     await client.query('COMMIT');
     return newVersion;
@@ -558,6 +599,7 @@ module.exports = {
   deleteTrigger,
   // versionamento
   versionBump,
+  copyTemplateFromService,
   // exposto p/ teste
   _wouldCreateCycle,
 };
