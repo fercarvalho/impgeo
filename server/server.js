@@ -2265,19 +2265,19 @@ async function _canManageTask(db, actor, task, targetUserId) {
   }
 
   if (actor.role === 'manager') {
-    if (targetUserId && targetUserId === actor.id) return true;
+    if (!targetUserId) return true;                 // tarefa sem responsável (disponível)
+    if (targetUserId === actor.id) return true;
+    if (targetRole === 'user') return true;         // delega p/ usuário comum / age sobre tarefa dele
     if (task && task.project_id) {
       const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id = $1', [task.project_id]);
       if (p.rows[0]?.manager_user_id === actor.id) return true;
     }
-    if (targetUserId) {
-      const h = await db.pool.query(
-        `SELECT 1 FROM task_assignments_history WHERE assigned_by_user_id = $1 AND to_user_id = $2 LIMIT 1`,
-        [actor.id, targetUserId]
-      );
-      if (h.rows[0]) return true;
-    }
-    return false;
+    const h = await db.pool.query(
+      `SELECT 1 FROM task_assignments_history WHERE assigned_by_user_id = $1 AND to_user_id = $2 LIMIT 1`,
+      [actor.id, targetUserId]
+    );
+    if (h.rows[0]) return true;
+    return false;                                   // tarefa de outro gestor (admin/superadmin/manager)
   }
   return false;
 }
@@ -2315,9 +2315,17 @@ async function _annotateCanManage(db, actor, project) {
       const h = await db.pool.query('SELECT DISTINCT to_user_id FROM task_assignments_history WHERE assigned_by_user_id = $1', [actor.id]);
       teamSet = new Set(h.rows.map(r => r.to_user_id));
     }
+    // papel do responsável atual de cada tarefa (p/ permitir delegar tarefa de
+    // usuário comum e tarefa sem responsável).
+    const ids = [...new Set(tasks.map(t => t.assignee_user_id).filter(Boolean))];
+    const roleById = {};
+    if (ids.length) {
+      const rr = await db.pool.query('SELECT id, role FROM users WHERE id = ANY($1::varchar[])', [ids]);
+      rr.rows.forEach(r => { roleById[r.id] = r.role; });
+    }
     tasks.forEach(t => {
       const tid = t.assignee_user_id;
-      t.can_manage = (tid === actor.id) || ownsProject || (!!tid && teamSet.has(tid));
+      t.can_manage = !tid || tid === actor.id || roleById[tid] === 'user' || ownsProject || teamSet.has(tid);
       t.due_action = 'request';  // manager pede aprovação de admin para alterar prazo
     });
     return;
@@ -2478,9 +2486,9 @@ app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciament
     if (role === 'superadmin' || role === 'admin') {
       tasks.forEach(t => { t.can_assign = true; });
     } else if (role === 'manager') {
-      const pr = await db.pool.query('SELECT id FROM projects WHERE manager_user_id = $1', [req.user.id]);
-      const mine = new Set(pr.rows.map(r => r.id));
-      tasks.forEach(t => { t.can_assign = mine.has(t.project_id); });
+      // Tarefas disponíveis são sem responsável → o manager pode delegar a um
+      // usuário comum (escopo validado no assign).
+      tasks.forEach(t => { t.can_assign = true; });
     } else {
       tasks.forEach(t => { t.can_assign = false; });
     }
@@ -2740,7 +2748,7 @@ app.get('/api/pm/assignable-users', requireModulePermission('tarefas_gerenciamen
     const data = users.filter(u => {
       if (actor.role === 'superadmin') return true;
       if (actor.role === 'admin') return u.id === actor.id || !(u.role === 'admin' || u.role === 'superadmin');
-      if (actor.role === 'manager') return u.id === actor.id || ownsProject || teamSet.has(u.id);
+      if (actor.role === 'manager') return u.id === actor.id || u.role === 'user' || ownsProject || teamSet.has(u.id);
       return false;
     }).map(u => ({ id: u.id, name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username, role: u.role }));
 
