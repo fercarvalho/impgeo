@@ -815,6 +815,13 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
   // Admin/superadmin: aplica direto, com o target escolhido.
   if (_isAdminRole(actor.role)) {
     const reopened = await _applyUncomplete(db, task, { target: tgt, requesterId: actor.id, originalCompleter, reason: cleanReason, actorId: actor.id });
+    // Ao reabrir PARA SI MESMO, os DEMAIS admins/superadmins são apenas
+    // notificados (sino + e-mail) de que ele fez isso, com a justificativa.
+    if (tgt === 'self') {
+      const meta = await _taskMeta(db, task);
+      const actorName = await _userName(db, actor.id);
+      _notifyAdmins(db, { type: 'pm_uncomplete_self_notice', exceptUserId: actor.id, payload: { ...meta, reason: cleanReason, actorName }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+    }
     return { reopened };
   }
 

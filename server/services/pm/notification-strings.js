@@ -47,8 +47,12 @@ const STRINGS = {
   pm_uncomplete_decided: (p) => ({
     title: p.approved ? 'Reabertura aprovada' : 'Reabertura recusada',
     message: p.approved
-      ? `Seu pedido para reabrir "${p.taskName}" foi aprovado — a tarefa voltou a ficar em andamento.`
+      ? `Seu pedido para reabrir "${p.taskName}" foi aprovado — a tarefa voltou a ficar disponível.`
       : `Seu pedido para reabrir "${p.taskName}" foi recusado.`,
+  }),
+  pm_uncomplete_self_notice: (p) => ({
+    title: 'Tarefa reaberta por um admin',
+    message: `${p.actorName || 'Um admin'} reabriu a tarefa "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} para si${p.reason ? `. Motivo: "${p.reason}"` : ''}.`,
   }),
 };
 
