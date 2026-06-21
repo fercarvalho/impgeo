@@ -46,21 +46,46 @@ interface DraftStage {
 
 const API = '/api'
 
+type MergeMode = 'replace' | 'merge-before' | 'merge-after'
+
 const TemplateImportModal: React.FC<{
   targetServiceId: string
   targetServiceName: string
+  /** Estrutura atual do destino (etapas com tarefas/deps/triggers). Vazia se não houver. */
+  currentStages: any[]
   onClose: () => void
   onImported: () => void
-}> = ({ targetServiceId, targetServiceName, onClose, onImported }) => {
-  const [step, setStep] = useState<'pick' | 'preview'>('pick')
+}> = ({ targetServiceId, targetServiceName, currentStages, onClose, onImported }) => {
+  const hasCurrent = (currentStages?.length || 0) > 0
+  const [step, setStep] = useState<'pick' | 'mode' | 'preview'>('pick')
+  const [mode, setMode] = useState<MergeMode>('replace')
   const [services, setServices] = useState<{ id: string; name: string }[]>([])
   const [sourceId, setSourceId] = useState('')
   const [sourceName, setSourceName] = useState('')
+  const [sourceRaw, setSourceRaw] = useState<any[]>([])
   const [draft, setDraft] = useState<DraftStage[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const uidRef = useRef(0)
   const uid = () => `new-${uidRef.current++}`
+
+  // Converte etapas cruas (do GET /template) em rascunho editável.
+  const toDraft = (stages: any[]): DraftStage[] => (stages || []).map((s: any) => ({
+    refId: s.id || uid(), name: s.name || 'Etapa', stage_type: s.stage_type || 'normal',
+    description: s.description ?? null, default_duration_days: s.default_duration_days ?? null,
+    default_assignee_role: s.default_assignee_role ?? null, metadata: s.metadata ?? {},
+    tasks: (s.tasks || []).map((t: any) => ({
+      refId: t.id || uid(), name: t.name || 'Tarefa', default_days: t.default_days ?? null,
+      default_assignee_role: t.default_assignee_role ?? null,
+      requires_review: t.requires_review === true, requires_acceptance: t.requires_acceptance === true,
+      gestor_only: t.gestor_only === true,
+      description: t.description ?? null, observation: t.observation ?? null,
+      default_estimated_minutes: t.default_estimated_minutes ?? null, default_priority: t.default_priority ?? null,
+      review_type: t.review_type ?? null, reviewer_default_role: t.reviewer_default_role ?? null,
+      manager_review_allowed: t.manager_review_allowed !== false, admin_review_allowed: t.admin_review_allowed !== false,
+      metadata: t.metadata ?? {}, deps: t.deps || [], triggers: t.triggers || [],
+    })),
+  }))
 
   // Carrega a lista de serviços (exceto o atual) ao montar.
   React.useEffect(() => {
@@ -74,35 +99,33 @@ const TemplateImportModal: React.FC<{
     })()
   }, [targetServiceId])
 
-  const loadPreview = async () => {
+  // Passo 1 → busca a estrutura da origem. Se o destino já tem estrutura, vai
+  // para a escolha Substituir/Mesclar; senão, monta a prévia direto.
+  const advanceFromPick = async () => {
     if (!sourceId) return
     setBusy(true); setError(null)
     try {
       const r = await fetch(`${API}/services/${sourceId}/template`)
       const j = await r.json()
       if (!j.success) throw new Error(j.error || 'Falha ao carregar estrutura')
-      const stages: DraftStage[] = (j.data?.stages || []).map((s: any) => ({
-        refId: s.id, name: s.name || 'Etapa', stage_type: s.stage_type || 'normal',
-        description: s.description ?? null, default_duration_days: s.default_duration_days ?? null,
-        default_assignee_role: s.default_assignee_role ?? null, metadata: s.metadata ?? {},
-        tasks: (s.tasks || []).map((t: any) => ({
-          refId: t.id, name: t.name || 'Tarefa', default_days: t.default_days ?? null,
-          default_assignee_role: t.default_assignee_role ?? null,
-          requires_review: t.requires_review === true, requires_acceptance: t.requires_acceptance === true,
-          gestor_only: t.gestor_only === true,
-          description: t.description ?? null, observation: t.observation ?? null,
-          default_estimated_minutes: t.default_estimated_minutes ?? null, default_priority: t.default_priority ?? null,
-          review_type: t.review_type ?? null, reviewer_default_role: t.reviewer_default_role ?? null,
-          manager_review_allowed: t.manager_review_allowed !== false, admin_review_allowed: t.admin_review_allowed !== false,
-          metadata: t.metadata ?? {}, deps: t.deps || [], triggers: t.triggers || [],
-        })),
-      }))
-      if (!stages.length) throw new Error('O serviço de origem não tem estrutura para copiar.')
-      setDraft(stages)
+      const raw = j.data?.stages || []
+      if (!raw.length) throw new Error('O serviço de origem não tem estrutura para copiar.')
+      setSourceRaw(raw)
       setSourceName(services.find(s => s.id === sourceId)?.name || '')
-      setStep('preview')
+      if (hasCurrent) { setMode('replace'); setStep('mode') }
+      else { setDraft(toDraft(raw)); setStep('preview') }
     } catch (e: any) { setError(e.message || 'Erro ao carregar') }
     finally { setBusy(false) }
+  }
+
+  // Passo 2 (só quando há estrutura atual) → monta a prévia conforme o modo.
+  const buildPreview = () => {
+    const incoming = toDraft(sourceRaw)
+    const existing = toDraft(currentStages)
+    if (mode === 'replace') setDraft(incoming)
+    else if (mode === 'merge-before') setDraft([...incoming, ...existing])
+    else setDraft([...existing, ...incoming])
+    setStep('preview')
   }
 
   // ─── mutadores locais (não afetam a origem) ─────────────────────────────────
@@ -148,7 +171,7 @@ const TemplateImportModal: React.FC<{
         <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-5 py-3 flex items-center justify-between flex-shrink-0">
           <h3 className="text-white font-bold flex items-center gap-2 min-w-0">
             <Copy className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">{step === 'pick' ? 'Copiar estrutura de outro serviço' : `Prévia · ${sourceName} → ${targetServiceName}`}</span>
+            <span className="truncate">{step === 'preview' ? `Prévia · ${sourceName} → ${targetServiceName}` : 'Copiar estrutura de outro serviço'}</span>
           </h3>
           <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
@@ -161,7 +184,7 @@ const TemplateImportModal: React.FC<{
           {step === 'pick' ? (
             <>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Escolha o serviço de origem. A estrutura abre numa <strong>prévia editável</strong> — suas alterações não afetam o serviço original. Ao importar, ela entra como <strong>nova versão</strong> de <strong>{targetServiceName}</strong>.
+                Escolha o serviço de origem. A estrutura abre numa <strong>prévia editável</strong> — suas alterações não afetam o serviço original.
               </p>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Serviço de origem</label>
@@ -171,6 +194,28 @@ const TemplateImportModal: React.FC<{
                   {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+            </>
+          ) : step === 'mode' ? (
+            <>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>{targetServiceName}</strong> já tem uma estrutura ({currentStages.length} etapa(s)). O que fazer com a estrutura de <strong>{sourceName}</strong>?
+              </p>
+              <div className="space-y-2">
+                {[
+                  { v: 'replace', t: 'Substituir', d: 'Descarta a estrutura atual e usa só a de origem.' },
+                  { v: 'merge-before', t: 'Mesclar — nova antes da atual', d: 'Etapas de origem entram primeiro, depois as atuais.' },
+                  { v: 'merge-after', t: 'Mesclar — nova depois da atual', d: 'Mantém as etapas atuais e adiciona as de origem ao final.' },
+                ].map(o => (
+                  <label key={o.v} className={`flex items-start gap-2 rounded-xl border p-3 cursor-pointer transition-colors ${mode === o.v ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-[#2d3f52]/40'}`}>
+                    <input type="radio" name="mergemode" className="mt-0.5" checked={mode === o.v} onChange={() => setMode(o.v as MergeMode)} />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">{o.t}</span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">{o.d}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400">A estrutura final entra como nova versão (a atual fica preservada no histórico).</p>
             </>
           ) : (
             <>
@@ -221,15 +266,22 @@ const TemplateImportModal: React.FC<{
         </div>
 
         <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
-          {step === 'preview'
+          {step === 'mode'
             ? <button onClick={() => { setStep('pick'); setError(null) }} className="text-sm text-gray-500 dark:text-gray-400 hover:underline flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> Trocar origem</button>
-            : <span />}
+            : step === 'preview'
+              ? <button onClick={() => { setStep(hasCurrent ? 'mode' : 'pick'); setError(null) }} className="text-sm text-gray-500 dark:text-gray-400 hover:underline flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> Voltar</button>
+              : <span />}
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 text-sm font-medium">Cancelar</button>
             {step === 'pick' ? (
-              <button onClick={loadPreview} disabled={busy || !sourceId}
+              <button onClick={advanceFromPick} disabled={busy || !sourceId}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
-                {busy && <Loader2 className="w-4 h-4 animate-spin" />} Ver prévia
+                {busy && <Loader2 className="w-4 h-4 animate-spin" />} {hasCurrent ? 'Avançar' : 'Ver prévia'}
+              </button>
+            ) : step === 'mode' ? (
+              <button onClick={buildPreview} disabled={busy}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold disabled:opacity-50">
+                Ver prévia
               </button>
             ) : (
               <button onClick={doImport} disabled={busy || !draft.length}

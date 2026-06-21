@@ -356,6 +356,7 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
         <TemplateImportModal
           targetServiceId={serviceId}
           targetServiceName={serviceName}
+          currentStages={tpl?.stages || []}
           onClose={() => setImportOpen(false)}
           onImported={() => { setImportOpen(false); load() }}
         />
