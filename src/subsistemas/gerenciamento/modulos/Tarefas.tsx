@@ -9,6 +9,7 @@ import {
   fetchAvailableTasks,
   fetchPendingDueRequests, decideDueRequest, DueDateRequest,
   fetchPendingUncompleteRequests, decideUncompleteRequest, UncompleteRequest,
+  fetchPendingDelegations, decideDelegation, DelegationRequest,
 } from './_pm/taskApi'
 import { useActiveSession, markTaskAreaOpened, getActive } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
@@ -60,6 +61,7 @@ const Tarefas: React.FC = () => {
   const [incomingHelp, setIncomingHelp] = useState<HelpRequest[]>([])
   const [dueReqs, setDueReqs] = useState<DueDateRequest[] | null>(null) // null = não-gestor
   const [uncReqs, setUncReqs] = useState<UncompleteRequest[]>([]) // pedidos de reabertura (admin)
+  const [delReqs, setDelReqs] = useState<DelegationRequest[]>([]) // pedidos de delegação (admin)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -73,6 +75,7 @@ const Tarefas: React.FC = () => {
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
     fetchPendingDueRequests().then(setDueReqs).catch(() => setDueReqs(null))
     fetchPendingUncompleteRequests().then(setUncReqs).catch(() => setUncReqs([]))
+    fetchPendingDelegations().then(setDelReqs).catch(() => setDelReqs([]))
   }, [])
 
   useEffect(() => {
@@ -193,6 +196,29 @@ const Tarefas: React.FC = () => {
                 <button onClick={async () => { await decideUncompleteRequest(u.id, true); load() }} title="Aprovar"
                   className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100"><Check className="w-4 h-4" /></button>
                 <button onClick={async () => { await decideUncompleteRequest(u.id, false); load() }} title="Recusar"
+                  className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"><X className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {delReqs.length > 0 && (
+        <section className="rounded-xl border border-sky-200 dark:border-sky-900 bg-sky-50/50 dark:bg-sky-900/10 p-4">
+          <h2 className="text-sm font-semibold text-sky-700 dark:text-sky-300 mb-1 flex items-center gap-2">
+            <UserPlus className="w-4 h-4" /> Solicitações de delegação ({delReqs.length})
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente quer delegar uma tarefa de um projeto que não é dele. Aprove para a tarefa ir ao usuário.</p>
+          <div className="space-y-2">
+            {delReqs.map(d => (
+              <div key={d.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{d.task_name} <span className="text-xs text-gray-400">· {d.project_name}</span></div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{d.requester_name} → <strong>{d.to_name}</strong>{d.due_date ? ` · prazo ${fmtDate(d.due_date)}` : ''}</div>
+                </div>
+                <button onClick={async () => { await decideDelegation(d.id, true); load() }} title="Aprovar"
+                  className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100"><Check className="w-4 h-4" /></button>
+                <button onClick={async () => { await decideDelegation(d.id, false); load() }} title="Recusar"
                   className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"><X className="w-4 h-4" /></button>
               </div>
             ))}

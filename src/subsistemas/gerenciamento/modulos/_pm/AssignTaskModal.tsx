@@ -17,6 +17,7 @@ const AssignTaskModal: React.FC<{
   const [dueDate, setDueDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => { fetchAssignableUsers(taskId).then(setUsers).catch(() => {}) }, [taskId])
 
@@ -30,6 +31,7 @@ const AssignTaskModal: React.FC<{
       })
       const j = await r.json()
       if (!j.success) throw new Error(j.error || 'Falha ao atribuir')
+      if (j.data?.requested) { setNotice('Pedido de delegação enviado — um admin precisa aprovar antes de a tarefa ir para o usuário.'); setBusy(false); return }
       onDone()
     } catch (e: any) { setError(e.message); setBusy(false) }
   }
@@ -42,6 +44,15 @@ const AssignTaskModal: React.FC<{
           <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-3">
+          {notice ? (
+            <>
+              <div className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">{notice}</div>
+              <div className="flex justify-end pt-1">
+                <button onClick={onDone} className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold">Ok</button>
+              </div>
+            </>
+          ) : (
+          <>
           {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
           <p className="text-sm text-gray-600 dark:text-gray-300">Tarefa: <strong>{taskName}</strong></p>
           <div>
@@ -66,6 +77,8 @@ const AssignTaskModal: React.FC<{
               {busy && <Loader2 className="w-4 h-4 animate-spin" />} Atribuir
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </Modal>

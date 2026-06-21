@@ -408,6 +408,87 @@ async function listPendingDueDateRequests(db, reviewer) {
   return r.rows;
 }
 
+// ─── Delegação com aprovação (manager fora do projeto → admin aprova) ─────────
+
+/**
+ * Cria um pedido de delegação: manager (não dono do projeto) delegando uma
+ * tarefa a um usuário comum. A tarefa NÃO é atribuída agora — só após aprovação.
+ */
+async function requestDelegation(db, { taskId, projectId, managerId, toUserId, dueDate = null }) {
+  const existing = await db.pool.query(`SELECT id FROM task_delegation_requests WHERE task_id=$1 AND status='pending' LIMIT 1`, [taskId]);
+  if (existing.rows[0]) {
+    await db.pool.query(
+      `UPDATE task_delegation_requests SET to_user_id=$1, due_date=$2::date, requested_by_user_id=$3, updated_at=NOW() WHERE id=$4`,
+      [toUserId, dueDate, managerId, existing.rows[0].id]
+    );
+  } else {
+    await db.pool.query(
+      `INSERT INTO task_delegation_requests (id, task_id, project_id, requested_by_user_id, to_user_id, due_date, status)
+       VALUES ($1,$2,$3,$4,$5,$6::date,'pending')`,
+      [db.generateId(), taskId, projectId, managerId, toUserId, dueDate]
+    );
+  }
+  const task = await getTask(db.pool, taskId);
+  const toName = await _userName(db, toUserId);
+  const mgrName = await _userName(db, managerId);
+  notificationService.notifyAdmins(db, {
+    type: 'pm_delegation_requested',
+    payload: { taskName: task?.name, projectName: task?.project_name, toName, managerName: mgrName },
+    entityType: 'project_task', entityId: taskId, ctaProjectId: projectId, exceptUserId: managerId,
+  }).catch(() => {});
+  return { requested: true };
+}
+
+/** Decide um pedido de delegação (só admin/superadmin). approved → atribui. */
+async function decideDelegation(db, requestId, reviewer, { approved }) {
+  if (!_isAdminRole(reviewer?.role)) throw err('Apenas admin aprova delegações.', 'forbidden', 403);
+  const rr = await db.pool.query(
+    `SELECT id, task_id, project_id, requested_by_user_id, to_user_id, due_date::text AS due_date, status
+       FROM task_delegation_requests WHERE id=$1`, [requestId]
+  );
+  const reqRow = rr.rows[0];
+  if (!reqRow) throw err('Pedido não encontrado', 'not_found', 404);
+  if (reqRow.status !== 'pending') throw err('Pedido já decidido', 'invalid_state', 409);
+
+  await db.pool.query(
+    `UPDATE task_delegation_requests SET status=$1, decided_by_user_id=$2, decided_at=NOW(), updated_at=NOW() WHERE id=$3`,
+    [approved ? 'approved' : 'rejected', reviewer?.id || null, requestId]
+  );
+  if (approved) {
+    await assignTask(db, reqRow.task_id, {
+      toUserId: reqRow.to_user_id, assignedByUserId: reviewer?.id || null, reason: 'delegation_approved',
+      ...(reqRow.due_date ? { dueDate: reqRow.due_date } : {}),
+    });
+  }
+  const decidedByName = await _userName(db, reviewer?.id);
+  const t = await getTask(db.pool, reqRow.task_id);
+  notificationService.notify(db, {
+    type: 'pm_delegation_decided', userId: reqRow.requested_by_user_id,
+    payload: { approved: !!approved, taskName: t?.name, toName: await _userName(db, reqRow.to_user_id), decidedByName },
+    entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id,
+  }).catch(() => {});
+  return { status: approved ? 'approved' : 'rejected' };
+}
+
+/** Fila de pedidos de delegação pendentes (só admin/superadmin). */
+async function listPendingDelegations(db, viewer) {
+  if (!_isAdminRole(viewer?.role)) return [];
+  const NAME = (a) => `COALESCE(NULLIF(TRIM(COALESCE(${a}.first_name,'')||' '||COALESCE(${a}.last_name,'')),''), ${a}.username)`;
+  const r = await db.pool.query(
+    `SELECT o.id, o.task_id, o.project_id, o.due_date::text AS due_date,
+            t.name AS task_name, p.name AS project_name,
+            ${NAME('mu')} AS requester_name, ${NAME('tu')} AS to_name
+       FROM task_delegation_requests o
+       JOIN project_tasks t ON t.id=o.task_id
+       LEFT JOIN projects p ON p.id=o.project_id
+       LEFT JOIN users mu ON mu.id=o.requested_by_user_id
+       LEFT JOIN users tu ON tu.id=o.to_user_id
+      WHERE o.status='pending'
+      ORDER BY o.created_at ASC`
+  );
+  return r.rows;
+}
+
 /** Aceita tarefa (pending_acceptance → available). */
 async function acceptTask(db, taskId, { userId }) {
   const task = await getTask(db.pool, taskId);
@@ -974,6 +1055,9 @@ module.exports = {
   requestDueDateChange,
   decideDueDateChange,
   listPendingDueDateRequests,
+  requestDelegation,
+  decideDelegation,
+  listPendingDelegations,
   claimTask,
   claimTasksBulk,
   completionPrereqs,

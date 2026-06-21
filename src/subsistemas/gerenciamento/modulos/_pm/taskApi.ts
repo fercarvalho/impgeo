@@ -102,6 +102,14 @@ export const fetchPendingUncompleteRequests = (): Promise<UncompleteRequest[]> =
 export const decideUncompleteRequest = (id: string, approve: boolean) =>
   fetch(`${API}/pm/uncomplete-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approve }) }).then(parse)
 
+export interface DelegationRequest {
+  id: string; task_id: string; project_id: string; due_date: string | null
+  task_name?: string; project_name?: string; requester_name?: string; to_name?: string
+}
+export const fetchPendingDelegations = (): Promise<DelegationRequest[]> => fetch(`${API}/pm/delegation-requests`).then(parse)
+export const decideDelegation = (id: string, approved: boolean) =>
+  fetch(`${API}/pm/delegation-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved }) }).then(parse)
+
 export async function taskAction(
   taskId: string,
   action: 'accept' | 'refuse' | 'start' | 'pause' | 'resume' | 'complete' | 'cancel' | 'submit-review',

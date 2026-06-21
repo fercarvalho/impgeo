@@ -58,6 +58,16 @@ const STRINGS = {
     title: 'Revisão final disponível',
     message: `"${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} aguarda revisão final — qualquer admin/superadmin pode pegar e concluir em Tarefas → disponíveis.`,
   }),
+  pm_delegation_requested: (p) => ({
+    title: 'Delegação aguardando aprovação',
+    message: `${p.managerName || 'Um gerente'} quer delegar "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} para ${p.toName || 'um usuário'}. Aprove ou recuse em Tarefas → Solicitações de delegação.`,
+  }),
+  pm_delegation_decided: (p) => ({
+    title: p.approved ? 'Delegação aprovada' : 'Delegação recusada',
+    message: p.approved
+      ? `Sua delegação de "${p.taskName}" para ${p.toName || 'o usuário'} foi aprovada — a tarefa já está com ${p.toName || 'ele'}.`
+      : `Sua delegação de "${p.taskName}" para ${p.toName || 'o usuário'} foi recusada.`,
+  }),
 };
 
 function build(type, payload = {}) {

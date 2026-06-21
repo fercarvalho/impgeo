@@ -2358,6 +2358,23 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
     const okCurrent = await _canManageTask(db, req.user, existing, existing.assignee_user_id);
     const okTarget = await _canManageTask(db, req.user, existing, req.body.userId);
     if (!okCurrent || !okTarget) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
+
+    // Trava: manager que NÃO é dono do projeto delegando p/ usuário comum →
+    // vira pedido pendente que admin/superadmin aprova antes de ir ao usuário.
+    if (req.user.role === 'manager' && req.body.userId) {
+      const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [existing.project_id]);
+      const ownsProject = pr.rows[0]?.manager_user_id === req.user.id;
+      const tr = await db.pool.query('SELECT role FROM users WHERE id=$1', [req.body.userId]);
+      const targetIsCommon = tr.rows[0]?.role === 'user';
+      if (!ownsProject && targetIsCommon) {
+        await pmTaskService.requestDelegation(db, {
+          taskId: req.params.taskId, projectId: existing.project_id, managerId: req.user.id,
+          toUserId: req.body.userId, dueDate: req.body.dueDate ?? null,
+        });
+        return res.json({ success: true, data: { requested: true } });
+      }
+    }
+
     const task = await pmTaskService.assignTask(db, req.params.taskId, {
       toUserId: req.body.userId, assignedByUserId: req.user?.id || null, reason: req.body.reason || 'assign',
       ...(req.body.dueDate !== undefined ? { dueDate: req.body.dueDate } : {}),
@@ -2410,6 +2427,19 @@ app.get('/api/pm/due-date-requests/pending', requireModulePermission('tarefas_ge
 app.post('/api/pm/due-date-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
     const data = await pmTaskService.decideDueDateChange(db, req.params.id, req.user, { approved: req.body.approved === true });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+// Delegação com aprovação (manager fora do projeto → admin aprova).
+app.get('/api/pm/delegation-requests', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    res.json({ success: true, data: await pmTaskService.listPendingDelegations(db, req.user) });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+app.post('/api/pm/delegation-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const data = await pmTaskService.decideDelegation(db, req.params.id, req.user, { approved: req.body.approved === true });
     res.json({ success: true, data });
   } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
 });
