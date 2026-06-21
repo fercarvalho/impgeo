@@ -705,6 +705,12 @@ async function approveReview(db, taskId, reviewer) {
       const metaA = await _taskMeta(db, pre);
       _notify(db, { type: 'pm_review_decided', userId: pre.assignee_user_id, payload: { ...metaA, approved: true }, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
     }
+    // Revisão por gerente gerou "Revisão final" disponível: avisa TODOS os
+    // admins/superadmins — quem puder, pega e conclui.
+    if (followUp) {
+      const metaF = await _taskMeta(db, pre);
+      _notifyAdmins(db, { type: 'pm_review_followup', payload: { ...metaF, taskName: followUp.taskName }, entityType: 'project_task', entityId: followUp.taskId, ctaProjectId: pre.project_id });
+    }
     await _notifyProjectCompleted(db, pre.project_id, _approveFinalized);
     return { task: await getTask(db.pool, taskId), followUp, ...effects };
   } catch (e) {

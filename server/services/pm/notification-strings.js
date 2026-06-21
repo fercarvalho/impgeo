@@ -54,6 +54,10 @@ const STRINGS = {
     title: 'Tarefa reaberta por um admin',
     message: `${p.actorName || 'Um admin'} reabriu a tarefa "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} para si${p.reason ? `. Motivo: "${p.reason}"` : ''}.`,
   }),
+  pm_review_followup: (p) => ({
+    title: 'Revisão final disponível',
+    message: `"${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} aguarda revisão final — qualquer admin/superadmin pode pegar e concluir em Tarefas → disponíveis.`,
+  }),
 };
 
 function build(type, payload = {}) {

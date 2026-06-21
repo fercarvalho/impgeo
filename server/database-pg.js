@@ -3003,6 +3003,7 @@ class Database {
       pm_uncomplete_requested:        { push: true,  email: true },
       pm_uncomplete_decided:          { push: true,  email: true },
       pm_uncomplete_self_notice:      { push: true,  email: true },
+      pm_review_followup:             { push: true,  email: true },
       '_meta:foreground':             { push: false, email: false },
     },
     tc: {
