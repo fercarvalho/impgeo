@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { BarChart3, Loader2, Download, Users, FolderKanban, AlertTriangle, Users2, FileText } from 'lucide-react'
+import { BarChart3, Loader2, Download, Users, FolderKanban, AlertTriangle, Users2, FileText, ChevronRight, ChevronDown } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const API = '/api'
 
-interface ProdRow { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }
+interface ProjBreakdown { project_id: string; project_name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }
+interface ProdRow { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number; projects?: ProjBreakdown[] }
 interface HealthRow { project_id: string; name: string; status: string; progress_pct: number; total_cents: number; expenses_cents: number; profit_cents: number; days_to_deadline: number | null; overdue_count: number }
 interface TeamRow { manager_id: string; manager_name: string; manager_role?: string; members: ProdRow[]; totals: { completed: number; overdue: number; open_tasks: number; active_minutes: number } }
 
@@ -23,6 +24,11 @@ const RelatoriosTarefas: React.FC = () => {
   const [teams, setTeams] = useState<TeamRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Membros expandidos na aba Equipes — chave `${manager_id}:${user_id}`.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleMember = (key: string) => setExpanded(prev => {
+    const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n
+  })
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -136,6 +142,7 @@ const RelatoriosTarefas: React.FC = () => {
         </div>
       ) : tab === 'teams' ? (
         <div className="space-y-4">
+          {teams.length > 0 && <p className="text-xs text-gray-400">Clique num membro para ver o detalhamento por projeto. Min. por projeto = tempo creditado às tarefas; o total do membro é o foco no Pomodoro no período.</p>}
           {teams.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Nenhuma equipe (sem gerentes ou sem membros no período).</div>}
           {teams.map(team => (
             <div key={team.manager_id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -163,15 +170,44 @@ const RelatoriosTarefas: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {team.members.map(m => (
-                      <tr key={m.user_id} className="text-gray-800 dark:text-gray-100">
-                        <td className="px-4 py-1.5">{m.name}</td>
-                        <td className="px-4 py-1.5 text-right">{m.completed}</td>
-                        <td className="px-4 py-1.5 text-right text-red-600 dark:text-red-400">{m.overdue}</td>
-                        <td className="px-4 py-1.5 text-right">{m.open_tasks}</td>
-                        <td className="px-4 py-1.5 text-right">{m.active_minutes}</td>
-                      </tr>
-                    ))}
+                    {team.members.map(m => {
+                      const key = `${team.manager_id}:${m.user_id}`
+                      const hasProjects = !!(m.projects && m.projects.length)
+                      const isOpen = expanded.has(key)
+                      return (
+                        <React.Fragment key={m.user_id}>
+                          <tr
+                            className={`text-gray-800 dark:text-gray-100 ${hasProjects ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2d3f52]/50' : ''}`}
+                            onClick={() => hasProjects && toggleMember(key)}
+                          >
+                            <td className="px-4 py-1.5">
+                              <span className="inline-flex items-center gap-1.5">
+                                {hasProjects
+                                  ? (isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />)
+                                  : <span className="w-3.5 h-3.5 inline-block" />}
+                                {m.name}
+                                {hasProjects && <span className="text-xs text-gray-400">({m.projects!.length} proj.)</span>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-1.5 text-right">{m.completed}</td>
+                            <td className="px-4 py-1.5 text-right text-red-600 dark:text-red-400">{m.overdue}</td>
+                            <td className="px-4 py-1.5 text-right">{m.open_tasks}</td>
+                            <td className="px-4 py-1.5 text-right">{m.active_minutes}</td>
+                          </tr>
+                          {isOpen && m.projects!.map(p => (
+                            <tr key={`${m.user_id}:${p.project_id}`} className="text-gray-600 dark:text-gray-300 bg-gray-50/60 dark:bg-[#2d3f52]/30">
+                              <td className="pl-10 pr-4 py-1 text-xs truncate flex items-center gap-1.5">
+                                <FolderKanban className="w-3 h-3 text-violet-400 flex-shrink-0" />{p.project_name}
+                              </td>
+                              <td className="px-4 py-1 text-right text-xs">{p.completed}</td>
+                              <td className="px-4 py-1 text-right text-xs text-red-500/80">{p.overdue}</td>
+                              <td className="px-4 py-1 text-right text-xs">{p.open_tasks}</td>
+                              <td className="px-4 py-1 text-right text-xs">{p.active_minutes}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}

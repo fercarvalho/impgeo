@@ -294,7 +294,33 @@ async function teamsReport(db, { from, to, user } = {}) {
         GROUP BY u.id, u.first_name, u.last_name, u.username`,
       [memberIds, f, t]
     );
-    sr.rows.forEach(r => { statsByUser[r.user_id] = r; });
+    sr.rows.forEach(r => { statsByUser[r.user_id] = { ...r, projects: [] }; });
+
+    // Detalhamento por projeto dentro de cada membro. Tempo aqui = segundos
+    // creditados às tarefas (actual_seconds), por isso pode não bater 1:1 com o
+    // active_minutes do membro (que é o total de foco no Pomodoro no período).
+    const pr = await db.pool.query(
+      `SELECT tk.assignee_user_id AS user_id, tk.project_id, p.name AS project_name,
+              COUNT(tk.id) FILTER (WHERE tk.status='completed' AND tk.completed_at::date BETWEEN $2 AND $3) AS completed,
+              COUNT(tk.id) FILTER (WHERE tk.status='overdue') AS overdue,
+              COUNT(tk.id) FILTER (WHERE tk.status IN ('available','in_progress','pending_acceptance','pending_review','pending_adjustment')) AS open_tasks,
+              COALESCE(SUM(tk.actual_seconds),0) AS active_seconds
+         FROM project_tasks tk JOIN projects p ON p.id = tk.project_id
+        WHERE tk.assignee_user_id = ANY($1::varchar[])
+        GROUP BY tk.assignee_user_id, tk.project_id, p.name`,
+      [memberIds, f, t]
+    );
+    pr.rows.forEach(r => {
+      const completed = Number(r.completed), overdue = Number(r.overdue), open_tasks = Number(r.open_tasks);
+      const active_minutes = Math.round(Number(r.active_seconds) / 60);
+      // Ignora projeto sem nada relevante no período (tudo zero).
+      if (!completed && !overdue && !open_tasks && !active_minutes) return;
+      const bucket = statsByUser[r.user_id];
+      if (bucket) bucket.projects.push({ project_id: r.project_id, project_name: r.project_name, completed, overdue, open_tasks, active_minutes });
+    });
+    Object.values(statsByUser).forEach(u => {
+      u.projects.sort((a, b) => b.completed - a.completed || b.active_minutes - a.active_minutes);
+    });
   }
 
   const byMgr = {};
