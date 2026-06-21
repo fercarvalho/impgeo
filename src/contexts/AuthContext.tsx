@@ -117,6 +117,54 @@ interface AuthProviderProps {
 const authFetch = (url: string, options: RequestInit = {}) =>
   fetch(url, { ...options, credentials: 'include' });
 
+// ─── Transporte de impersonation entre subdomínios ───────────────────────────
+// O estado de "capturar usuário" vive em sessionStorage, que é POR-ORIGEM —
+// então ao trocar de subsistema (outro subdomínio) ele se perderia e a sessão
+// cairia de volta no superadmin real. Espelhamos o estado em cookies escopados
+// no domínio-pai compartilhado (.impgeo.*) só para REPOPULAR o sessionStorage
+// ao chegar no novo subdomínio. O backend NÃO lê esses cookies (segue usando o
+// Bearer/Authorization); são puro transporte client-side.
+const IMP_COOKIE = { on: 'imp_on', tok: 'imp_tok', orig: 'imp_orig' } as const;
+
+function impgeoCookieDomain(): string | null {
+  const h = window.location.hostname;
+  if (h === 'impgeo.local' || h.endsWith('.impgeo.local')) return '.impgeo.local';
+  if (h === 'impgeo.sistemas.viverdepj.com.br' || h.endsWith('.impgeo.sistemas.viverdepj.com.br')) return '.impgeo.sistemas.viverdepj.com.br';
+  return null; // localhost puro: same-origin, sessionStorage já basta
+}
+function readCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function writeImpCookies(tokenJwt: string, originalUserJson: string): void {
+  const domain = impgeoCookieDomain();
+  if (!domain) return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  const base = `; domain=${domain}; path=/; max-age=7200; SameSite=Lax${secure}`;
+  document.cookie = `${IMP_COOKIE.on}=1${base}`;
+  document.cookie = `${IMP_COOKIE.tok}=${encodeURIComponent(tokenJwt)}${base}`;
+  document.cookie = `${IMP_COOKIE.orig}=${encodeURIComponent(originalUserJson)}${base}`;
+}
+function clearImpCookies(): void {
+  const domain = impgeoCookieDomain();
+  if (!domain) return;
+  const base = `; domain=${domain}; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${IMP_COOKIE.on}=${base}`;
+  document.cookie = `${IMP_COOKIE.tok}=${base}`;
+  document.cookie = `${IMP_COOKIE.orig}=${base}`;
+}
+// Repopula o sessionStorage a partir do cookie ao abrir um subdomínio novo.
+function hydrateImpFromCookie(): void {
+  if (sessionStorage.getItem('impersonationToken')) return; // já presente nesta origem
+  if (readCookie(IMP_COOKIE.on) !== '1') return;
+  const tok = readCookie(IMP_COOKIE.tok);
+  if (!tok) return;
+  sessionStorage.setItem('impersonationToken', tok);
+  sessionStorage.setItem('isImpersonating', 'true');
+  const orig = readCookie(IMP_COOKIE.orig);
+  if (orig) sessionStorage.setItem('originalUser', orig);
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   // `token` agora vive APENAS em state (sessão) — não em localStorage.
@@ -194,10 +242,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // F5 / mount inicial: tenta validar a sessão (cookie httpOnly).
-    // Se houver impersonationToken em sessionStorage, restauramos no state.
+    // Antes, repopula a impersonation a partir do cookie (caso tenhamos acabado
+    // de chegar de outro subdomínio, onde o sessionStorage não existe).
+    hydrateImpFromCookie();
     const impersonationToken = sessionStorage.getItem('impersonationToken');
     if (impersonationToken) {
       persistToken(impersonationToken);
+      if (sessionStorage.getItem('isImpersonating') === 'true') {
+        setIsImpersonating(true);
+        setOriginalUser(safeParseUser(sessionStorage.getItem('originalUser')));
+      }
     }
     verifyToken({ updateLoading: true });
   }, [verifyToken]);
@@ -280,6 +334,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sessionStorage.removeItem('isImpersonating');
     sessionStorage.removeItem('originalUser');
     sessionStorage.removeItem('impersonationToken');
+    clearImpCookies();
   }, []);
 
   const updateUser = useCallback((userData: Partial<User>, newToken?: string) => {
@@ -342,9 +397,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!data?.token) { impersonatingRef.current = false; return false; }
 
         // Persistimos antes de qualquer mudança em state
-        sessionStorage.setItem('originalUser', JSON.stringify(currentUser));
+        const originalUserJson = JSON.stringify(currentUser);
+        sessionStorage.setItem('originalUser', originalUserJson);
         sessionStorage.setItem('isImpersonating', 'true');
         sessionStorage.setItem('impersonationToken', data.token);
+        // Transporte entre subdomínios (ver helpers no topo do arquivo).
+        writeImpCookies(data.token, originalUserJson);
 
         // Validamos o token impersonado fazendo verify (header tem prioridade
         // — vai usar o impersonationToken via Authorization).
@@ -364,6 +422,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           sessionStorage.removeItem('isImpersonating');
           sessionStorage.removeItem('originalUser');
           sessionStorage.removeItem('impersonationToken');
+          clearImpCookies();
           persistToken(null);
           setUser(currentUser);
           impersonatingRef.current = false;
@@ -381,6 +440,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem('isImpersonating');
         sessionStorage.removeItem('originalUser');
         sessionStorage.removeItem('impersonationToken');
+        clearImpCookies();
         persistToken(null);
         setUser(currentUser);
         impersonatingRef.current = false;
@@ -393,10 +453,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const stopImpersonation = useCallback(async (): Promise<void> => {
     const storedOriginalUser = safeParseUser(sessionStorage.getItem('originalUser'));
 
-    // Limpa sessionStorage e state da impersonation imediatamente.
+    // Limpa sessionStorage, cookies de transporte e state da impersonation.
     sessionStorage.removeItem('isImpersonating');
     sessionStorage.removeItem('originalUser');
     sessionStorage.removeItem('impersonationToken');
+    clearImpCookies();
 
     setIsImpersonating(false);
     setOriginalUser(null);
