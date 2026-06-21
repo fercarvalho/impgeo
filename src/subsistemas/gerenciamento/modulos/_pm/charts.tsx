@@ -228,6 +228,26 @@ export const AreaTrend: React.FC<{
   )
 }
 
+// ─── Medidor conic-gradient (estilo Metas do Financeiro) ──────────────────────
+export const ConicGauge: React.FC<{ pct: number; color: string; size?: number; label?: string }> = ({ pct, color, size = 140, label = 'da meta' }) => {
+  const p = Math.max(0, Math.min(100, Number(pct) || 0))
+  const deg = (p / 100) * 360
+  const inner = Math.round(size * 0.70)
+  return (
+    <div className="flex-shrink-0 flex items-center justify-center" style={{ width: size, height: size }}>
+      <div
+        className="rounded-full flex items-center justify-center [--track:#e5e7eb] dark:[--track:#334155]"
+        style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, var(--track) ${deg}deg)` }}
+      >
+        <div className="rounded-full bg-white dark:bg-[#1e293b] flex flex-col items-center justify-center" style={{ width: inner, height: inner }}>
+          <span className="text-2xl font-black leading-none" style={{ color }}>{Math.round(p)}%</span>
+          <span className="text-[10px] font-medium text-gray-500 dark:text-slate-400 mt-0.5">{label}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Barra de progresso (metas / saúde) ───────────────────────────────────────
 export const ProgressBar: React.FC<{ pct: number; color?: string; height?: string }> = ({ pct, color = 'bg-violet-500', height = 'h-2' }) => (
   <div className={`w-full ${height} bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden`}>

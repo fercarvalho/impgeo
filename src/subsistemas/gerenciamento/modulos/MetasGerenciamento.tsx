@@ -5,7 +5,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { useDialogs } from '@/components/DialogProvider'
 import Modal from '@/components/Modal'
-import { ProgressBar, fmtNum, fmtMin } from './_pm/charts'
+import { ConicGauge, fmtNum, fmtMin } from './_pm/charts'
 
 const API = '/api'
 
@@ -33,6 +33,8 @@ const STATUS_META: Record<Goal['status'], { label: string; bar: string; badge: s
   at_risk: { label: 'Em risco', bar: 'bg-amber-500', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   missed: { label: 'Não batida', bar: 'bg-rose-500', badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
 }
+
+const DONUT_COLOR: Record<Goal['status'], string> = { hit: '#22c55e', on_track: '#8b5cf6', at_risk: '#f59e0b', missed: '#ef4444' }
 
 const fmtVal = (m: Metric, v: number) => METRIC_META[m].unit === 'min' ? fmtMin(v) : METRIC_META[m].unit === 'pct' ? `${Math.round(v)}%` : fmtNum(v)
 const fmtDate = (v: string) => { const [y, m, d] = String(v).slice(0, 10).split('-'); return `${d}/${m}/${y.slice(2)}` }
@@ -95,19 +97,13 @@ const MetasGerenciamento: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/25">
-            <Target className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Metas</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Defina alvos e acompanhe o progresso real</p>
-          </div>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
+          <Target className="w-8 h-8 text-violet-600" /> Metas
+        </h1>
         <button onClick={() => { setEditing(null); setModalOpen(true) }}
-          className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
-          <Plus className="w-4 h-4" /> Nova meta
+          className="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+          <Plus className="h-5 w-5" /> Nova meta
         </button>
       </div>
 
@@ -135,39 +131,51 @@ const MetasGerenciamento: React.FC = () => {
           <button onClick={() => { setEditing(null); setModalOpen(true) }} className="mt-3 text-sm text-violet-600 dark:text-violet-400 font-medium hover:underline">Criar a primeira</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
           {shown.map(g => {
             const sm = STATUS_META[g.status]
             const mm = METRIC_META[g.metric]
             const canEdit = isAdmin || g.scope === 'self'
+            const remaining = Math.max(0, g.target - g.current)
             return (
-              <div key={g.id} className="bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 hover:shadow-md transition-all">
-                <div className="flex items-start gap-2">
-                  <div className="p-2 rounded-lg bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 flex-shrink-0">{mm.icon}</div>
+              <div key={g.id} className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-5">
+                {/* Cabeçalho */}
+                <div className="flex items-start gap-2 mb-4">
+                  <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300 flex items-center justify-center flex-shrink-0">{mm.icon}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">{g.title || mm.label}</p>
-                    <p className="text-xs text-gray-400 truncate">{mm.label} · {scopeLabel(g)}</p>
+                    <p className="text-base font-bold text-gray-800 dark:text-gray-100 truncate">{g.title || mm.label}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{mm.label} · {scopeLabel(g)}</p>
                   </div>
-                  <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${sm.badge} flex-shrink-0`}>{sm.label}</span>
-                </div>
-
-                <div className="mt-3 flex items-end justify-between">
-                  <div>
-                    <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">{fmtVal(g.metric, g.current)}</span>
-                    <span className="text-sm text-gray-400"> / {fmtVal(g.metric, g.target)}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">{g.pct}%</span>
-                </div>
-                <div className="mt-1.5"><ProgressBar pct={g.pct} color={sm.bar} /></div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">{PERIOD_LABEL[g.period]} · {fmtDate(g.period_start)}–{fmtDate(g.period_end)}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${sm.badge} flex-shrink-0`}>{sm.label}</span>
                   {canEdit && (
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditing(g); setModalOpen(true) }} className="p-1 text-gray-400 hover:text-violet-600" title="Editar"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => remove(g)} className="p-1 text-gray-400 hover:text-rose-600" title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => { setEditing(g); setModalOpen(true) }} className="p-1 text-gray-400 hover:text-violet-600" title="Editar"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => remove(g)} className="p-1 text-gray-400 hover:text-rose-600" title="Excluir"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   )}
+                </div>
+
+                {/* Donut + mini-stats */}
+                <div className="flex flex-col sm:flex-row items-center gap-5">
+                  <ConicGauge pct={g.pct} color={DONUT_COLOR[g.status]} size={132} />
+                  <div className="flex-1 grid grid-cols-3 gap-2.5 w-full">
+                    <div className="bg-white dark:!bg-[#243040] rounded-xl p-3 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Alvo</div>
+                      <div className="text-lg font-black text-gray-800 dark:text-gray-100">{fmtVal(g.metric, g.target)}</div>
+                    </div>
+                    <div className="bg-white dark:!bg-[#243040] rounded-xl p-3 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Atual</div>
+                      <div className="text-lg font-black text-emerald-700 dark:text-emerald-400">{fmtVal(g.metric, g.current)}</div>
+                    </div>
+                    <div className="bg-white dark:!bg-[#243040] rounded-xl p-3 text-center shadow-md border border-gray-100 dark:border-gray-700">
+                      <div className="text-[10px] font-bold text-violet-600 uppercase tracking-wide mb-1">Falta</div>
+                      <div className="text-lg font-black text-gray-800 dark:text-gray-100">{g.status === 'hit' ? '—' : fmtVal(g.metric, remaining)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 text-xs text-gray-400">
+                  {PERIOD_LABEL[g.period]} · {fmtDate(g.period_start)} – {fmtDate(g.period_end)}
                 </div>
               </div>
             )
