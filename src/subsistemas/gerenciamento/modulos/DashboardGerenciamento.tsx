@@ -1,261 +1,204 @@
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  FolderOpen,
-  Briefcase,
-  Users,
-  TrendingUp,
-  Activity,
-  CheckCircle2,
-  PauseCircle,
-  AlertCircle,
-} from 'lucide-react';
-import PendingTasksBanner from './_pm/PendingTasksBanner';
+  LayoutDashboard, CheckCircle2, Activity, AlertTriangle, Timer, Target,
+  FolderKanban, TrendingUp, CalendarClock, Loader2, AlertCircle, Trophy,
+} from 'lucide-react'
+import PendingTasksBanner from './_pm/PendingTasksBanner'
+import {
+  StatCard, ChartShell, Donut, DonutLegend, Bars, AreaTrend, ProgressBar,
+  STATUS_COLORS, STATUS_LABELS, fmtNum, fmtMin,
+} from './_pm/charts'
 
-const API_BASE_URL = '/api';
+const API = '/api'
 
-// Tipos mínimos — qualquer ampliação fica para os próprios módulos detalhados.
-interface Project {
-  id: string;
-  name?: string;
-  status?: 'ativo' | 'pausado' | 'concluido' | string;
-  value?: number;
-  client?: string;
-  endDate?: string;
-}
-interface Service {
-  id: string;
-  name?: string;
-  status?: 'ativo' | 'inativo' | string;
-  price?: number;
-}
-interface Client {
-  id: string;
-  name?: string;
-  email?: string;
-  createdAt?: string;
+interface DashUpcoming { id: string; name: string; status: string; due_date: string | null; project_name?: string; stage_name?: string }
+interface DashData {
+  role: string
+  isGestor: boolean
+  personal: {
+    kpis: { open: number; in_progress: number; available: number; overdue: number; completed_period: number; focus_minutes: number; on_time_pct: number | null }
+    by_status: Record<string, number>
+    completions_by_day: { day: string; value: number }[]
+    focus_by_day: { day: string; value: number }[]
+    upcoming: DashUpcoming[]
+  }
+  global?: {
+    kpis: { active_projects: number; completed_projects: number; overdue_tasks: number; throughput: number }
+    throughput_by_day: { day: string; value: number }[]
+    projects_health: { project_id: string; name: string; status: string; progress_pct: number; overdue_count: number; days_to_deadline: number | null; total_cents?: number; profit_cents?: number }[]
+    top_users: { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }[]
+  }
 }
 
-interface CountCard {
-  label: string;
-  value: number | string;
-  hint?: string;
-  icon: React.ElementType;
-  tone: 'violet' | 'emerald' | 'sky' | 'amber';
-}
+const todayISO = () => new Date().toISOString().slice(0, 10)
+const daysAgoISO = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
+const fmtDate = (v?: string | null) => { if (!v) return '—'; const [y, m, d] = String(v).slice(0, 10).split('-'); return d ? `${d}/${m}/${y}` : v }
 
-const TONE_CLASSES: Record<CountCard['tone'], { iconBg: string; iconText: string; accent: string }> = {
-  violet:  { iconBg: 'bg-violet-50 dark:bg-violet-900/30',   iconText: 'text-violet-700 dark:text-violet-300',   accent: 'border-l-violet-500' },
-  emerald: { iconBg: 'bg-emerald-50 dark:bg-emerald-900/30', iconText: 'text-emerald-700 dark:text-emerald-300', accent: 'border-l-emerald-500' },
-  sky:     { iconBg: 'bg-sky-50 dark:bg-sky-900/30',         iconText: 'text-sky-700 dark:text-sky-300',         accent: 'border-l-sky-500' },
-  amber:   { iconBg: 'bg-amber-50 dark:bg-amber-900/30',     iconText: 'text-amber-700 dark:text-amber-300',     accent: 'border-l-amber-500' },
-};
+const PRESETS = [{ k: '7', label: '7 dias' }, { k: '30', label: '30 dias' }, { k: '90', label: '90 dias' }]
 
-export default function DashboardGerenciamento() {
-  const [projects, setProjects] = useState<Project[] | null>(null);
-  const [services, setServices] = useState<Service[] | null>(null);
-  const [clients, setClients]   = useState<Client[] | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+const DashboardGerenciamento: React.FC = () => {
+  const [period, setPeriod] = useState('30')
+  const [data, setData] = useState<DashData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+  const { from, to } = useMemo(() => ({ from: daysAgoISO(Number(period)), to: todayISO() }), [period])
 
-    Promise.all([
-      fetch(`${API_BASE_URL}/projects`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API_BASE_URL}/services`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API_BASE_URL}/clients`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ])
-      .then(([p, s, c]) => {
-        if (cancelled) return;
-        setProjects(Array.isArray(p) ? p : []);
-        setServices(Array.isArray(s) ? s : []);
-        setClients(Array.isArray(c) ? c : []);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(e?.message || 'Falha ao carregar dados do gerenciamento');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await fetch(`${API}/pm/dashboard?from=${from}&to=${to}`)
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error || 'Falha ao carregar')
+      setData(j.data)
+    } catch (e: any) { setError(e.message || 'Erro ao carregar o painel') }
+    finally { setLoading(false) }
+  }, [from, to])
 
-    return () => { cancelled = true; };
-  }, []);
+  useEffect(() => { load() }, [load])
 
-  const totalProjects = projects?.length ?? 0;
-  const projetosAtivos    = projects?.filter(p => p.status === 'ativo').length ?? 0;
-  const projetosPausados  = projects?.filter(p => p.status === 'pausado').length ?? 0;
-  const projetosConcluidos = projects?.filter(p => p.status === 'concluido').length ?? 0;
-
-  const totalServices = services?.length ?? 0;
-  const servicosAtivos = services?.filter(s => s.status !== 'inativo').length ?? 0;
-
-  const totalClients = clients?.length ?? 0;
-  const clientesNovosMes = clients?.filter(c => {
-    if (!c.createdAt) return false;
-    const created = new Date(c.createdAt);
-    const ago30 = new Date();
-    ago30.setDate(ago30.getDate() - 30);
-    return created >= ago30;
-  }).length ?? 0;
-
-  const taxaConclusao = totalProjects > 0
-    ? Math.round((projetosConcluidos / totalProjects) * 100)
-    : 0;
-
-  const cards: CountCard[] = [
-    { label: 'Projetos',  value: totalProjects, hint: `${projetosAtivos} ativo${projetosAtivos === 1 ? '' : 's'}`, icon: FolderOpen, tone: 'violet'  },
-    { label: 'Serviços',  value: totalServices, hint: `${servicosAtivos} ativo${servicosAtivos === 1 ? '' : 's'}`, icon: Briefcase,  tone: 'sky'     },
-    { label: 'Clientes',  value: totalClients,  hint: clientesNovosMes > 0 ? `+${clientesNovosMes} no último mês` : 'sem novos no último mês', icon: Users, tone: 'emerald' },
-    { label: 'Conclusão', value: `${taxaConclusao}%`, hint: `${projetosConcluidos} de ${totalProjects} projetos`,  icon: TrendingUp, tone: 'amber' },
-  ];
+  const statusDonut = useMemo(() => {
+    const bs = data?.personal.by_status || {}
+    return Object.keys(bs)
+      .filter(k => k !== 'canceled' && k !== 'refused')
+      .map(k => ({ name: STATUS_LABELS[k] || k, value: bs[k], color: STATUS_COLORS[k] || '#94a3b8' }))
+      .sort((a, b) => b.value - a.value)
+  }, [data])
+  const totalTasks = useMemo(() => statusDonut.reduce((a, d) => a + d.value, 0), [statusDonut])
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-          Dashboard de Gerenciamento
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Visão consolidada da operação: projetos, serviços e clientes em um só lugar.
-        </p>
-      </header>
-
-      <div className="mb-6">
-        <PendingTasksBanner />
+    <div className="space-y-6">
+      {/* Header + filtro de período */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/25">
+            <LayoutDashboard className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Suas tarefas, seu tempo e o panorama dos projetos</p>
+          </div>
+        </div>
+        <div className="inline-flex rounded-xl bg-gray-100 dark:bg-[#243040] p-1 self-start">
+          {PRESETS.map(p => (
+            <button key={p.k} onClick={() => setPeriod(p.k)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${period === p.k ? 'bg-white dark:bg-violet-600 text-violet-700 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
+        <div role="alert" className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
+          <AlertCircle className="w-4 h-4" /> {error}
         </div>
       )}
 
-      {/* Cards de contagem */}
-      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {cards.map((card) => {
-          const tone = TONE_CLASSES[card.tone];
-          const Icon = card.icon;
-          return (
-            <li
-              key={card.label}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 border-l-4 ${tone.accent} p-5`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {card.label}
-                </span>
-                <div className={`flex-shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${tone.iconBg} ${tone.iconText}`}>
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
-                {loading ? <span className="inline-block w-12 h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /> : card.value}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {loading ? <span className="inline-block w-24 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /> : card.hint}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <PendingTasksBanner onChanged={load} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Projetos por status */}
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-violet-600" />
-            Projetos por status
-          </h2>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-10 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-              ))}
+      {loading || !data ? (
+        <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+      ) : (
+        <>
+          {/* ── Visão pessoal ── */}
+          <section className="space-y-4">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Minha produtividade</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+              <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Concluídas" value={fmtNum(data.personal.kpis.completed_period)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-green-600" />
+              <StatCard icon={<Activity className="w-4 h-4" />} label="Em andamento" value={fmtNum(data.personal.kpis.in_progress)} gradient="from-amber-500 to-orange-500" />
+              <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Atrasadas" value={fmtNum(data.personal.kpis.overdue)} gradient="from-rose-500 to-red-500" />
+              <StatCard icon={<Target className="w-4 h-4" />} label="No prazo" value={data.personal.kpis.on_time_pct == null ? '—' : `${data.personal.kpis.on_time_pct}%`} progress={data.personal.kpis.on_time_pct} gradient="from-sky-500 to-blue-600" />
+              <StatCard icon={<Timer className="w-4 h-4" />} label="Foco" value={fmtMin(data.personal.kpis.focus_minutes)} sub={`últimos ${period} dias`} gradient="from-violet-500 to-indigo-600" />
             </div>
-          ) : totalProjects === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
-              Nenhum projeto cadastrado ainda.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              <StatusRow icon={CheckCircle2} label="Ativos"     count={projetosAtivos}     total={totalProjects} tone="emerald" />
-              <StatusRow icon={PauseCircle}  label="Pausados"   count={projetosPausados}   total={totalProjects} tone="amber" />
-              <StatusRow icon={CheckCircle2} label="Concluídos" count={projetosConcluidos} total={totalProjects} tone="sky" />
-            </ul>
-          )}
-        </section>
 
-        {/* Últimos clientes */}
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <Users className="h-4 w-4 text-emerald-600" />
-            Clientes mais recentes
-          </h2>
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-8 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <ChartShell title="Minhas tarefas por status">
+                <Donut data={statusDonut} centerValue={totalTasks} centerLabel="tarefas" />
+                <DonutLegend data={statusDonut} />
+              </ChartShell>
+              <ChartShell title="Concluídas por dia" className="lg:col-span-2">
+                <AreaTrend data={data.personal.completions_by_day} xKey="day" yKey="value" color="#10b981" />
+              </ChartShell>
             </div>
-          ) : totalClients === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
-              Nenhum cliente cadastrado ainda.
-            </p>
-          ) : (
-            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-              {[...(clients ?? [])]
-                .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-                .slice(0, 5)
-                .map(c => (
-                  <li key={c.id} className="py-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-900 dark:text-gray-100 truncate font-medium">
-                      {c.name || 'Cliente sem nome'}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
-                      {c.email || '—'}
-                    </span>
-                  </li>
-                ))}
-            </ul>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <ChartShell title="Foco por dia" subtitle="minutos ativos no Pomodoro" className="lg:col-span-2">
+                <AreaTrend data={data.personal.focus_by_day} xKey="day" yKey="value" color="#6366f1" suffix="min" />
+              </ChartShell>
+              <ChartShell title="A vencer / atrasadas">
+                {data.personal.upcoming.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">Nada com prazo por aqui 🎉</div>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700 -my-1">
+                    {data.personal.upcoming.map(t => (
+                      <div key={t.id} className="py-2 flex items-center gap-2">
+                        <CalendarClock className={`w-4 h-4 flex-shrink-0 ${t.status === 'overdue' ? 'text-rose-500' : 'text-gray-400'}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{t.project_name}</p>
+                        </div>
+                        <span className={`text-xs font-medium ${t.status === 'overdue' ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{fmtDate(t.due_date)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ChartShell>
+            </div>
+          </section>
+
+          {/* ── Visão de gestão ── */}
+          {data.isGestor && data.global && (
+            <section className="space-y-4 pt-2">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Visão geral {data.role === 'manager' ? '(minha equipe)' : '(todos os projetos)'}</h2>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <StatCard icon={<FolderKanban className="w-4 h-4" />} label="Projetos ativos" value={fmtNum(data.global.kpis.active_projects)} gradient="from-violet-500 to-purple-600" />
+                <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Projetos concluídos" value={fmtNum(data.global.kpis.completed_projects)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-teal-600" />
+                <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Tarefas concluídas" value={fmtNum(data.global.kpis.throughput)} sub={`últimos ${period} dias`} gradient="from-sky-500 to-cyan-600" />
+                <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Tarefas atrasadas" value={fmtNum(data.global.kpis.overdue_tasks)} gradient="from-rose-500 to-red-500" />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ChartShell title="Conclusões por dia" subtitle="throughput da operação">
+                  <AreaTrend data={data.global.throughput_by_day} xKey="day" yKey="value" color="#0ea5e9" />
+                </ChartShell>
+                <ChartShell title="Ranking de produtividade" subtitle="tarefas concluídas por pessoa" right={<Trophy className="w-4 h-4 text-amber-400" />}>
+                  {data.global.top_users.filter(u => u.completed > 0).length === 0 ? (
+                    <div className="py-12 text-center text-sm text-gray-400">Sem conclusões no período</div>
+                  ) : (
+                    <Bars layout="vertical" data={data.global.top_users.filter(u => u.completed > 0).slice(0, 7).map(u => ({ name: u.name, completed: u.completed }))} xKey="name" yKey="completed" color="#8b5cf6" height={Math.max(160, data.global.top_users.filter(u => u.completed > 0).slice(0, 7).length * 34)} />
+                  )}
+                </ChartShell>
+              </div>
+
+              <ChartShell title="Saúde dos projetos" subtitle="progresso e atrasos" right={<FolderKanban className="w-4 h-4 text-gray-400" />}>
+                {data.global.projects_health.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-gray-400">Nenhum projeto</div>
+                ) : (
+                  <div className="space-y-3">
+                    {data.global.projects_health.map(p => (
+                      <div key={p.project_id} className="flex items-center gap-3">
+                        <div className="min-w-0 w-40 sm:w-52">
+                          <p className="text-sm text-gray-800 dark:text-gray-100 truncate">{p.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {p.status}
+                            {p.overdue_count > 0 && <span className="text-rose-500"> · {p.overdue_count} atrasada(s)</span>}
+                            {p.days_to_deadline != null && <span> · {p.days_to_deadline < 0 ? `${-p.days_to_deadline}d vencido` : `${p.days_to_deadline}d`}</span>}
+                          </p>
+                        </div>
+                        <div className="flex-1"><ProgressBar pct={Number(p.progress_pct)} color={p.overdue_count > 0 ? 'bg-rose-500' : 'bg-emerald-500'} /></div>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 w-10 text-right">{Math.round(Number(p.progress_pct))}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ChartShell>
+            </section>
           )}
-        </section>
-      </div>
+        </>
+      )}
     </div>
-  );
+  )
 }
 
-function StatusRow({ icon: Icon, label, count, total, tone }: {
-  icon: React.ElementType;
-  label: string;
-  count: number;
-  total: number;
-  tone: 'emerald' | 'amber' | 'sky';
-}) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  const toneMap = {
-    emerald: { text: 'text-emerald-700 dark:text-emerald-300', bar: 'bg-emerald-500' },
-    amber:   { text: 'text-amber-700 dark:text-amber-300',     bar: 'bg-amber-500' },
-    sky:     { text: 'text-sky-700 dark:text-sky-300',         bar: 'bg-sky-500' },
-  }[tone];
-
-  return (
-    <li>
-      <div className="flex items-center justify-between text-sm mb-1">
-        <span className={`flex items-center gap-2 ${toneMap.text}`}>
-          <Icon className="h-4 w-4" />
-          {label}
-        </span>
-        <span className="text-gray-900 dark:text-gray-100 font-medium">
-          {count} <span className="text-xs text-gray-500 dark:text-gray-400">({pct}%)</span>
-        </span>
-      </div>
-      <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
-        <div className={`h-full ${toneMap.bar} transition-all`} style={{ width: `${pct}%` }} />
-      </div>
-    </li>
-  );
-}
+export default DashboardGerenciamento

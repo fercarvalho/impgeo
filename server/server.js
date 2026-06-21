@@ -60,6 +60,7 @@ const pmPomodoroService = require('./services/pm/pomodoro-service');
 const pmHelpService = require('./services/pm/help-service');
 const pmReportService = require('./services/pm/report-service');
 const pmCostService = require('./services/pm/cost-service');
+const pmDashboardService = require('./services/pm/dashboard-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2526,6 +2527,14 @@ app.put('/api/me/pm-email-prefs', requireModulePermission('tarefas_gerenciamento
     );
     res.json({ success: true, data: { emailReports, frequencies: freqs } });
   } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// Dashboard do Gerenciamento (adaptável ao papel) — todos os usuários do módulo.
+app.get('/api/pm/dashboard', requireModulePermission('dashboard_gerenciamento', 'view'), async (req, res) => {
+  try {
+    const data = await pmDashboardService.getDashboard(db, req.user, { from: req.query.from, to: req.query.to });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // ─── PM Fase 8: relatórios administrativos + custos ───────────────────────────
