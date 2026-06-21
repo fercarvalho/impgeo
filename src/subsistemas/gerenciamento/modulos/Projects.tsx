@@ -20,7 +20,10 @@ interface Project {
   total_cents?: number | null
   progress_pct?: number | null
   start_date?: string | null
+  manager_user_id?: string | null
 }
+
+interface ProjectLead { id: string; name: string; role: string }
 
 interface Service {
   id: string
@@ -63,9 +66,10 @@ const Projects: React.FC = () => {
     value: string
     progress: string
     selectedServices: string[]
+    managerUserId: string
   }>({
-    name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], 
-    endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: []
+    name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0],
+    endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: ''
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -73,6 +77,7 @@ const Projects: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // PM Fase 3: serviço-template escolhido na criação (materializa etapas/tarefas).
   const [createServiceId, setCreateServiceId] = useState<string>('')
+  const [leads, setLeads] = useState<ProjectLead[]>([])
   // PM Fase 3: deep-link ?project=ID → página de detalhe (padrão TerraControl).
   const [detailId, setDetailId] = useState<string | null>(() => {
     try { return new URLSearchParams(window.location.search).get('project') } catch { return null }
@@ -139,6 +144,20 @@ const Projects: React.FC = () => {
       } catch (err) { console.error('Erro ao carregar serviços:', err) }
     }
     loadServices()
+  }, [])
+
+  // Elegíveis a responsável pelo projeto (manager/admin/superadmin). Silencioso
+  // em 403 — usuário sem permissão simplesmente não vê o seletor preenchido.
+  useEffect(() => {
+    const loadLeads = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/pm/project-leads`)
+        if (!r.ok) return
+        const j = await r.json()
+        if (j.success) setLeads(j.data)
+      } catch { /* noop */ }
+    }
+    loadLeads()
   }, [])
 
   // Controla overlay global (classe no body) ao abrir/fechar modais
@@ -246,7 +265,8 @@ const Projects: React.FC = () => {
       status: form.status,
       value: parseFloat(form.value),
       progress: parseInt(form.progress, 10),
-      services: form.selectedServices
+      services: form.selectedServices,
+      managerUserId: form.managerUserId || null
     }
 
     // PM Fase 3: ao criar com um serviço-template, o backend materializa
@@ -268,7 +288,7 @@ const Projects: React.FC = () => {
       }
       if (editing) setProjects(prev => prev.map(p => p.id === editing.id ? j.data : p))
       else setProjects(prev => [j.data, ...prev])
-      setIsModalOpen(false); setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({})
+      setIsModalOpen(false); setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: '' }); setFormErrors({})
     } catch (error: any) {
       setSaveError(error?.message || 'Erro de rede ao salvar.')
     }
@@ -425,7 +445,7 @@ const Projects: React.FC = () => {
           )}
           {permissions.canCreate && (
             <button
-              onClick={() => { setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}); setIsModalOpen(true) }}
+              onClick={() => { setEditing(null); setCreateServiceId(''); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: '' }); setFormErrors({}); setIsModalOpen(true) }}
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
             >
               <Plus className="h-5 w-5" />
@@ -621,7 +641,7 @@ const Projects: React.FC = () => {
                       </button>
                       {permissions.canEdit && (
                         <button
-                          onClick={() => { setEditing(project); setForm({ name: project.name || '', description: project.description || '', client: clientNameOf(project), startDate: projStart(project), endDate: project.endDate || '', status: (project.status as any) || 'ativo', value: String(projValue(project)), progress: String(Math.round(projProgress(project))), selectedServices: project.services || [] }); setIsModalOpen(true) }}
+                          onClick={() => { setEditing(project); setForm({ name: project.name || '', description: project.description || '', client: clientNameOf(project), startDate: projStart(project), endDate: project.endDate || '', status: (project.status as any) || 'ativo', value: String(projValue(project)), progress: String(Math.round(projProgress(project))), selectedServices: project.services || [], managerUserId: project.manager_user_id || '' }); setIsModalOpen(true) }}
                           className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
                           title="Editar projeto"
                         >
@@ -705,11 +725,11 @@ const Projects: React.FC = () => {
       </Modal>
 
       {/* Modal Novo/Editar Projeto */}
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }}>
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: '' }); setFormErrors({}) }}>
         <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">{editing ? <Edit className="w-5 h-5" aria-hidden="true" /> : <Plus className="w-5 h-5" aria-hidden="true" />}{editing ? 'Editar Projeto' : 'Novo Projeto'}</h2>
-              <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setIsModalOpen(false); setEditing(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: '' }); setFormErrors({}) }} className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" /></button>
             </div>
             <div className="overflow-y-auto">
             <div className="p-6 space-y-4">
@@ -868,6 +888,23 @@ const Projects: React.FC = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Responsável pelo projeto</label>
+                <select
+                  value={form.managerUserId}
+                  onChange={(e) => setForm(prev => ({ ...prev, managerUserId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
+                >
+                  <option value="">— Sem responsável —</option>
+                  {leads.map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}{l.role !== 'manager' ? ` (${l.role === 'superadmin' ? 'superadmin' : l.role === 'admin' ? 'admin' : l.role})` : ' (gerente)'}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Define o dono da equipe nos relatórios e o escopo de aprovações.</p>
+              </div>
+
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Progresso (%) <span className="text-red-500">*</span>
@@ -896,7 +933,7 @@ const Projects: React.FC = () => {
                 </div>
               )}
               <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => { setIsModalOpen(false); setEditing(null); setSaveError(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [] }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+                <button onClick={() => { setIsModalOpen(false); setEditing(null); setSaveError(null); setForm({ name: '', description: '', client: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 'ativo', value: '', progress: '0', selectedServices: [], managerUserId: '' }); setFormErrors({}) }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
                 <button onClick={saveProject} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
               </div>
             </div>

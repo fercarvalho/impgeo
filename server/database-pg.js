@@ -1462,8 +1462,8 @@ class Database {
     try {
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO projects (id, name, client, status, description, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO projects (id, name, client, status, description, manager_user_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
         [
           id,
@@ -1471,6 +1471,7 @@ class Database {
           projectData.client || null,
           projectData.status || null,
           projectData.description || null,
+          projectData.managerUserId || null,
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -1483,19 +1484,18 @@ class Database {
 
   async updateProject(id, updatedData) {
     try {
+      // manager_user_id só é tocado quando a chave vier no payload (permite
+      // definir um responsável OU desvincular passando null/'').
+      const setsManager = Object.prototype.hasOwnProperty.call(updatedData, 'managerUserId');
+      const managerVal = updatedData.managerUserId || null;
       const result = await this.queryWithRetry(
-        `UPDATE projects 
-         SET name = $1, client = $2, status = $3, description = $4, updated_at = $5
+        `UPDATE projects
+         SET name = $1, client = $2, status = $3, description = $4, updated_at = $5${setsManager ? ', manager_user_id = $7' : ''}
          WHERE id = $6
          RETURNING *`,
-        [
-          updatedData.name || null,
-          updatedData.client || null,
-          updatedData.status || null,
-          updatedData.description || null,
-          new Date().toISOString(),
-          id
-        ]
+        setsManager
+          ? [updatedData.name || null, updatedData.client || null, updatedData.status || null, updatedData.description || null, new Date().toISOString(), id, managerVal]
+          : [updatedData.name || null, updatedData.client || null, updatedData.status || null, updatedData.description || null, new Date().toISOString(), id]
       );
       if (result.rows.length === 0) {
         throw new Error('Projeto não encontrado');

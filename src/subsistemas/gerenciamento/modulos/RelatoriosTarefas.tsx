@@ -6,7 +6,7 @@ const API = '/api'
 
 interface ProdRow { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }
 interface HealthRow { project_id: string; name: string; status: string; progress_pct: number; total_cents: number; expenses_cents: number; profit_cents: number; days_to_deadline: number | null; overdue_count: number }
-interface TeamRow { manager_id: string; manager_name: string; members: ProdRow[]; totals: { completed: number; overdue: number; open_tasks: number; active_minutes: number } }
+interface TeamRow { manager_id: string; manager_name: string; manager_role?: string; members: ProdRow[]; totals: { completed: number; overdue: number; open_tasks: number; active_minutes: number } }
 
 const fmtBRL = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100)
 
@@ -141,7 +141,12 @@ const RelatoriosTarefas: React.FC = () => {
             <div key={team.manager_id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="bg-gray-50 dark:bg-[#2d3f52] px-4 py-2.5 flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{(team.manager_name || '?').charAt(0).toUpperCase()}</div>
-                <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">Equipe de {team.manager_name}</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-100 flex-1 truncate">
+                  Equipe de {team.manager_name}
+                  {team.manager_role && team.manager_role !== 'manager' && (
+                    <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{team.manager_role}</span>
+                  )}
+                </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">{team.members.length} membro(s) · {team.totals.completed} concl. · <span className="text-red-500">{team.totals.overdue} atras.</span> · {team.totals.active_minutes} min</span>
               </div>
               {team.members.length === 0 ? (

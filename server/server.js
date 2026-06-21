@@ -2653,6 +2653,22 @@ app.get('/api/pm/users', requireModulePermission('tarefas_gerenciamento', 'view'
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// Elegíveis a "Responsável pelo projeto": manager, admin ou superadmin (ativos).
+// Usado no seletor do modal de criar/editar projeto (módulo projects).
+app.get('/api/pm/project-leads', requireModulePermission('projects', 'view'), async (req, res) => {
+  try {
+    const data = (await db.getAllUsers() || [])
+      .filter(u => u.is_active !== false && ['manager', 'admin', 'superadmin'].includes(u.role))
+      .map(u => ({
+        id: u.id,
+        name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
+        role: u.role,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // Usuários a quem o ator PODE atribuir a tarefa (escopo) — para o dropdown do assign.
 app.get('/api/pm/assignable-users', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {

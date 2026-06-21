@@ -259,8 +259,10 @@ async function teamsReport(db, { from, to, user } = {}) {
   const f = from || '1970-01-01', t = to || '2999-12-31';
   const NAME = `COALESCE(NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''), username)`;
 
-  let mgrSql = `SELECT id, ${NAME} AS name FROM users WHERE role='manager' AND COALESCE(is_active,true)=true`;
+  // "Dono de time" = quem lidera pessoas: manager, admin ou superadmin.
+  let mgrSql = `SELECT id, ${NAME} AS name, role FROM users WHERE role IN ('manager','admin','superadmin') AND COALESCE(is_active,true)=true`;
   const mgrParams = [];
+  // Manager só enxerga o próprio time; admin/superadmin enxergam todos.
   if (user && user.role === 'manager') { mgrSql += ` AND id = $1`; mgrParams.push(user.id); }
   mgrSql += ` ORDER BY name`;
   const managers = (await db.pool.query(mgrSql, mgrParams)).rows;
@@ -305,7 +307,7 @@ async function teamsReport(db, { from, to, user } = {}) {
       completed: a.completed + Number(x.completed), overdue: a.overdue + Number(x.overdue),
       open_tasks: a.open_tasks + Number(x.open_tasks), active_minutes: a.active_minutes + Number(x.active_minutes),
     }), { completed: 0, overdue: 0, open_tasks: 0, active_minutes: 0 });
-    return { manager_id: m.id, manager_name: m.name, members, totals };
+    return { manager_id: m.id, manager_name: m.name, manager_role: m.role, members, totals };
   }).filter(team => team.members.length > 0 || (user && user.role === 'manager' && team.manager_id === user.id));
 }
 
