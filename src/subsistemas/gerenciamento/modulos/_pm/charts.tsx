@@ -30,7 +30,7 @@ export const STATUS_LABELS: Record<string, string> = {
   refused: 'Recusadas', canceled: 'Canceladas', pending: 'Pendentes',
 }
 
-// ─── KPI card em gradiente ────────────────────────────────────────────────────
+// ─── KPI card em gradiente (estilo dos cards grandes do Financeiro) ───────────
 export const StatCard: React.FC<{
   icon: React.ReactNode
   label: string
@@ -39,20 +39,42 @@ export const StatCard: React.FC<{
   gradient: string // ex.: 'from-emerald-500 to-green-600'
   progress?: number | null // 0..100
 }> = ({ icon, label, value, sub, gradient, progress }) => (
-  <div className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-4 sm:p-5 text-white hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200`}>
-    <div className="flex items-center gap-2 mb-1.5">
-      <div className="bg-white/20 rounded-lg p-1.5">{icon}</div>
-      <p className="text-xs font-semibold text-white/80 uppercase tracking-wide truncate">{label}</p>
-    </div>
-    <p className="text-2xl font-bold leading-tight">{value}</p>
-    {sub != null && <p className="text-xs text-white/80 mt-0.5">{sub}</p>}
+  <div className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-5 text-white hover:-translate-y-1 hover:shadow-xl transition-all duration-200`}>
+    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">{icon}</div>
+    <p className="text-3xl font-bold leading-none">{value}</p>
+    <p className="text-xs font-semibold text-white/80 uppercase tracking-wide mt-1.5 truncate">{label}</p>
+    {sub != null && <p className="text-xs text-white/70 mt-0.5">{sub}</p>}
     {progress != null && (
-      <div className="mt-2 h-1.5 bg-white/25 rounded-full overflow-hidden">
+      <div className="mt-2.5 h-1.5 bg-white/25 rounded-full overflow-hidden">
         <div className="h-full bg-white rounded-full transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
       </div>
     )}
   </div>
 )
+
+// ─── Painel de seção com fundo tingido (estilo Financeiro) ────────────────────
+export const SectionPanel: React.FC<{
+  title: string
+  icon: React.ReactNode
+  tint: string // ex.: 'violet' | 'cyan'
+  right?: React.ReactNode
+  children: React.ReactNode
+}> = ({ title, icon, tint, right, children }) => {
+  const tints: Record<string, string> = {
+    violet: 'from-violet-50/60 to-indigo-50/40 dark:from-violet-900/20 dark:to-indigo-900/10 border-violet-100 dark:border-violet-900/30',
+    cyan: 'from-cyan-50/60 to-sky-50/40 dark:from-cyan-900/20 dark:to-sky-900/10 border-cyan-100 dark:border-cyan-900/30',
+    emerald: 'from-emerald-50/60 to-green-50/40 dark:from-emerald-900/20 dark:to-green-900/10 border-emerald-100 dark:border-emerald-900/30',
+  }
+  return (
+    <div className={`bg-gradient-to-br ${tints[tint] || tints.violet} rounded-2xl p-4 sm:p-5 border space-y-4`}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">{icon} {title}</h2>
+        {right}
+      </div>
+      {children}
+    </div>
+  )
+}
 
 // ─── Card-moldura para gráficos ───────────────────────────────────────────────
 export const ChartShell: React.FC<{

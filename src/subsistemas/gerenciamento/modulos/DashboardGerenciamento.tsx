@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import {
-  StatCard, ChartShell, Donut, DonutLegend, Bars, AreaTrend, ProgressBar,
+  StatCard, SectionPanel, ChartShell, Donut, DonutLegend, Bars, AreaTrend, ProgressBar,
   STATUS_COLORS, STATUS_LABELS, fmtNum, fmtMin,
 } from './_pm/charts'
 
@@ -69,20 +69,14 @@ const DashboardGerenciamento: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header + filtro de período */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/25">
-            <LayoutDashboard className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Suas tarefas, seu tempo e o panorama dos projetos</p>
-          </div>
-        </div>
-        <div className="inline-flex rounded-xl bg-gray-100 dark:bg-[#243040] p-1 self-start">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
+          <LayoutDashboard className="w-8 h-8 text-violet-600" /> Dashboard
+        </h1>
+        <div className="inline-flex items-center gap-1 bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 rounded-lg overflow-hidden self-start">
           {PRESETS.map(p => (
             <button key={p.k} onClick={() => setPeriod(p.k)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${period === p.k ? 'bg-white dark:bg-violet-600 text-violet-700 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+              className={`px-3.5 py-1.5 text-sm font-semibold transition-all ${period === p.k ? 'bg-violet-600 text-white' : 'text-violet-700 dark:text-violet-300 hover:bg-violet-200/60 dark:hover:bg-violet-800/40'}`}>
               {p.label}
             </button>
           ))}
@@ -102,14 +96,13 @@ const DashboardGerenciamento: React.FC = () => {
       ) : (
         <>
           {/* ── Visão pessoal ── */}
-          <section className="space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Minha produtividade</h2>
+          <SectionPanel title="Minha produtividade" tint="violet" icon={<Activity className="w-6 h-6 text-violet-600" />}>
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-              <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Concluídas" value={fmtNum(data.personal.kpis.completed_period)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-green-600" />
-              <StatCard icon={<Activity className="w-4 h-4" />} label="Em andamento" value={fmtNum(data.personal.kpis.in_progress)} gradient="from-amber-500 to-orange-500" />
-              <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Atrasadas" value={fmtNum(data.personal.kpis.overdue)} gradient="from-rose-500 to-red-500" />
-              <StatCard icon={<Target className="w-4 h-4" />} label="No prazo" value={data.personal.kpis.on_time_pct == null ? '—' : `${data.personal.kpis.on_time_pct}%`} progress={data.personal.kpis.on_time_pct} gradient="from-sky-500 to-blue-600" />
-              <StatCard icon={<Timer className="w-4 h-4" />} label="Foco" value={fmtMin(data.personal.kpis.focus_minutes)} sub={`últimos ${period} dias`} gradient="from-violet-500 to-indigo-600" />
+              <StatCard icon={<CheckCircle2 className="w-5 h-5" />} label="Concluídas" value={fmtNum(data.personal.kpis.completed_period)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-green-600" />
+              <StatCard icon={<Activity className="w-5 h-5" />} label="Em andamento" value={fmtNum(data.personal.kpis.in_progress)} gradient="from-amber-500 to-orange-500" />
+              <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Atrasadas" value={fmtNum(data.personal.kpis.overdue)} gradient="from-rose-500 to-red-500" />
+              <StatCard icon={<Target className="w-5 h-5" />} label="No prazo" value={data.personal.kpis.on_time_pct == null ? '—' : `${data.personal.kpis.on_time_pct}%`} progress={data.personal.kpis.on_time_pct} gradient="from-sky-500 to-blue-600" />
+              <StatCard icon={<Timer className="w-5 h-5" />} label="Foco" value={fmtMin(data.personal.kpis.focus_minutes)} sub={`últimos ${period} dias`} gradient="from-violet-500 to-indigo-600" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -145,17 +138,16 @@ const DashboardGerenciamento: React.FC = () => {
                 )}
               </ChartShell>
             </div>
-          </section>
+          </SectionPanel>
 
           {/* ── Visão de gestão ── */}
           {data.isGestor && data.global && (
-            <section className="space-y-4 pt-2">
-              <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Visão geral {data.role === 'manager' ? '(minha equipe)' : '(todos os projetos)'}</h2>
+            <SectionPanel title={`Visão geral ${data.role === 'manager' ? '(minha equipe)' : '(todos os projetos)'}`} tint="cyan" icon={<FolderKanban className="w-6 h-6 text-cyan-600" />}>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <StatCard icon={<FolderKanban className="w-4 h-4" />} label="Projetos ativos" value={fmtNum(data.global.kpis.active_projects)} gradient="from-violet-500 to-purple-600" />
-                <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Projetos concluídos" value={fmtNum(data.global.kpis.completed_projects)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-teal-600" />
-                <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Tarefas concluídas" value={fmtNum(data.global.kpis.throughput)} sub={`últimos ${period} dias`} gradient="from-sky-500 to-cyan-600" />
-                <StatCard icon={<AlertTriangle className="w-4 h-4" />} label="Tarefas atrasadas" value={fmtNum(data.global.kpis.overdue_tasks)} gradient="from-rose-500 to-red-500" />
+                <StatCard icon={<FolderKanban className="w-5 h-5" />} label="Projetos ativos" value={fmtNum(data.global.kpis.active_projects)} gradient="from-violet-500 to-purple-600" />
+                <StatCard icon={<CheckCircle2 className="w-5 h-5" />} label="Projetos concluídos" value={fmtNum(data.global.kpis.completed_projects)} sub={`últimos ${period} dias`} gradient="from-emerald-500 to-teal-600" />
+                <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Tarefas concluídas" value={fmtNum(data.global.kpis.throughput)} sub={`últimos ${period} dias`} gradient="from-sky-500 to-cyan-600" />
+                <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Tarefas atrasadas" value={fmtNum(data.global.kpis.overdue_tasks)} gradient="from-rose-500 to-red-500" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -193,7 +185,7 @@ const DashboardGerenciamento: React.FC = () => {
                   </div>
                 )}
               </ChartShell>
-            </section>
+            </SectionPanel>
           )}
         </>
       )}
