@@ -744,9 +744,10 @@ async function rejectReview(db, taskId, { userId, reviewerRole, adjustmentNotes 
 
 // ─── Desconcluir (reabrir) tarefa (req item 5) ────────────────────────────────
 
-// Aplica a reabertura: tarefa volta para 'in_progress' com o responsável
-// escolhido (self = quem pediu; original = quem havia concluído). Reabre também
-// o projeto se ele tinha sido finalizado por causa desta tarefa.
+// Aplica a reabertura: tarefa volta para 'available' (o responsável precisa dar
+// play de novo) com o responsável escolhido (self = quem pediu; original = quem
+// havia concluído). Reabre também o projeto se ele tinha sido finalizado por
+// causa desta tarefa.
 async function _applyUncomplete(db, task, { target, requesterId, originalCompleter, reason, actorId }) {
   const newAssignee = target === 'self' ? requesterId : (originalCompleter || requesterId);
   const client = await db.pool.connect();
@@ -754,7 +755,8 @@ async function _applyUncomplete(db, task, { target, requesterId, originalComplet
     await client.query('BEGIN');
     await client.query(
       `UPDATE project_tasks
-          SET status='in_progress', assignee_user_id=$2, accepted_at=NOW(), completed_at=NULL,
+          SET status='available', assignee_user_id=$2, accepted_at=NOW(), completed_at=NULL,
+              started_at=NULL, paused_at=NULL,
               review_decision=NULL, review_decided_at=NULL, reviewer_user_id=NULL,
               submitted_for_review_by_user_id=NULL, updated_at=NOW()
         WHERE id=$1`,

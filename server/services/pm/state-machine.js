@@ -89,8 +89,9 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   overdue:            ['in_progress', 'completed', 'pending_review', 'canceled'],
   refused:            ['available', 'pending_acceptance', 'canceled'],
   // 'completed' deixou de ser terminal: pode ser REABERTA (desconcluída) por
-  // gestor/usuário, voltando para 'in_progress' (req item 5).
-  completed:          ['in_progress'],
+  // gestor/usuário, voltando para 'available' (req item 5) — o responsável
+  // precisa dar play de novo.
+  completed:          ['available'],
   canceled:           [],   // terminal
 });
 

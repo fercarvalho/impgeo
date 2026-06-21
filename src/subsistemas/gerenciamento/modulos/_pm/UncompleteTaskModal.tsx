@@ -65,7 +65,7 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
 
           {isManager && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-              Como gerente, sua reabertura precisa da aprovação de um admin antes de a tarefa voltar a ficar em andamento.
+              Como gerente, sua reabertura precisa da aprovação de um admin antes de a tarefa voltar a ficar disponível.
             </div>
           )}
 
