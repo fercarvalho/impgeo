@@ -61,6 +61,7 @@ const pmHelpService = require('./services/pm/help-service');
 const pmReportService = require('./services/pm/report-service');
 const pmCostService = require('./services/pm/cost-service');
 const pmDashboardService = require('./services/pm/dashboard-service');
+const pmGoalsService = require('./services/pm/goals-service');
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2535,6 +2536,25 @@ app.get('/api/pm/dashboard', requireModulePermission('dashboard_gerenciamento', 
     const data = await pmDashboardService.getDashboard(db, req.user, { from: req.query.from, to: req.query.to });
     res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ─── Metas operacionais (módulo Metas do Gerenciamento) ───────────────────────
+const GOALS = 'metas_gerenciamento';
+app.get('/api/pm/goals', requireModulePermission(GOALS, 'view'), async (req, res) => {
+  try { res.json({ success: true, data: await pmGoalsService.listGoals(db, req.user) }); }
+  catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+app.post('/api/pm/goals', requireModulePermission(GOALS, 'edit'), async (req, res) => {
+  try { res.json({ success: true, data: await pmGoalsService.createGoal(db, req.user, req.body) }); }
+  catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+app.patch('/api/pm/goals/:id', requireModulePermission(GOALS, 'edit'), async (req, res) => {
+  try { res.json({ success: true, data: await pmGoalsService.updateGoal(db, req.user, req.params.id, req.body) }); }
+  catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+app.delete('/api/pm/goals/:id', requireModulePermission(GOALS, 'edit'), async (req, res) => {
+  try { await pmGoalsService.deleteGoal(db, req.user, req.params.id); res.json({ success: true }); }
+  catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
 });
 
 // ─── PM Fase 8: relatórios administrativos + custos ───────────────────────────
