@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Download, Upload, Edit, Trash2, X, Eye } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useDialogs } from '@/components/DialogProvider'
 import Modal from '@/components/Modal'
 import ProjectDetailPage from './_pm/ProjectDetailPage'
 
@@ -50,6 +51,7 @@ interface Client {
 
 const Projects: React.FC = () => {
   const permissions = usePermissions('projects');
+  const { confirm, alert } = useDialogs()
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -295,7 +297,7 @@ const Projects: React.FC = () => {
   }
 
   const deleteOne = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este projeto?')) return
+    if (!await confirm({ title: 'Excluir projeto', message: 'Tem certeza que deseja excluir este projeto?', confirmLabel: 'Excluir', destructive: true })) return
     try {
       const r = await fetch(`${API_BASE_URL}/projects/${id}`, { method: 'DELETE' })
       if (!r.ok) { console.error('Erro ao excluir projeto:', r.status); return }
@@ -308,7 +310,7 @@ const Projects: React.FC = () => {
 
   const deleteMultiple = async () => {
     if (selectedProjects.size === 0) return
-    if (!confirm(`Tem certeza que deseja excluir ${selectedProjects.size} projeto(s)?`)) return
+    if (!await confirm({ title: 'Excluir projetos', message: `Tem certeza que deseja excluir ${selectedProjects.size} projeto(s)?`, confirmLabel: 'Excluir', destructive: true })) return
     try {
       const r = await fetch(`${API_BASE_URL}/projects`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: Array.from(selectedProjects) }) })
       if (!r.ok) { console.error('Erro ao excluir projetos:', r.status); return }
@@ -342,12 +344,12 @@ const Projects: React.FC = () => {
             const novos = data.data.filter((p: { id: string }) => !existingIds.has(p.id))
             return [...novos, ...prev]
           })
-          alert(`${data.data.length} projetos importados com sucesso!`)
+          alert({ title: 'Importação', message: `${data.data.length} projetos importados com sucesso!`, variant: 'success' })
         } else {
-          alert('Erro ao importar: ' + data.error)
+          alert({ title: 'Importação', message: 'Erro ao importar: ' + data.error, variant: 'error' })
         }
       })
-      .catch(() => { if (mounted) alert('Erro ao importar arquivo') })
+      .catch(() => { if (mounted) alert({ title: 'Importação', message: 'Erro ao importar arquivo', variant: 'error' }) })
       .finally(() => {
         mounted = false
         if (fileInputRef.current) fileInputRef.current.value = ''
@@ -357,7 +359,7 @@ const Projects: React.FC = () => {
 
   const handleExport = () => {
     if (filteredProjects.length === 0) {
-      alert('Não há projetos para exportar.')
+      alert({ title: 'Exportar', message: 'Não há projetos para exportar.', variant: 'info' })
       return
     }
 

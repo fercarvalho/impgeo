@@ -234,12 +234,12 @@ async function createProjectFromTemplate(db, input, opts = {}) {
              (id, project_id, project_stage_id, name, description, observation, sort_order, status,
               default_days, review_required, acceptance_required, reviewer_user_id,
               manager_review_allowed, admin_review_allowed, estimated_minutes, priority,
-              template_task_id, created_by_user_id, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,NULL,$11,$12,$13,$14,$15,$16, NOW(), NOW())`,
+              template_task_id, created_by_user_id, gestor_only, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,NULL,$11,$12,$13,$14,$15,$16,$17, NOW(), NOW())`,
           [newTaskId, id, stageIdMap.get(t.template_stage_id), t.name, t.description, t.observation,
            t.sort_order, t.default_days, t.requires_review, t.requires_acceptance,
            t.manager_review_allowed, t.admin_review_allowed, t.default_estimated_minutes,
-           t.default_priority || 2, t.id, input.actorUserId || null]
+           t.default_priority || 2, t.id, input.actorUserId || null, t.gestor_only === true]
         );
       }
 
@@ -419,11 +419,11 @@ async function cloneStageAsNewVersion(db, projectId, stageId, { actorUserId = nu
         `INSERT INTO project_tasks
            (id, project_id, project_stage_id, name, description, observation, sort_order, status,
             default_days, review_required, acceptance_required, manager_review_allowed, admin_review_allowed,
-            estimated_minutes, priority, template_task_id, created_by_user_id, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'available',$8,$9,$10,$11,$12,$13,$14,$15,$16, NOW(), NOW())`,
+            estimated_minutes, priority, template_task_id, created_by_user_id, gestor_only, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'available',$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, NOW(), NOW())`,
         [db.generateId(), projectId, newStageId, t.name, t.description, t.observation, t.sort_order,
          t.default_days, t.review_required, t.acceptance_required, t.manager_review_allowed,
-         t.admin_review_allowed, t.estimated_minutes, t.priority, t.template_task_id, actorUserId]
+         t.admin_review_allowed, t.estimated_minutes, t.priority, t.template_task_id, actorUserId, t.gestor_only === true]
       );
     }
 

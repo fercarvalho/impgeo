@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Modal from '@/components/Modal'
+import { useDialogs } from '@/components/DialogProvider'
 import { Pause, Play, Square, Coffee, Loader2, GripVertical, Timer, PictureInPicture2, X } from 'lucide-react'
 import { useActiveSession, sessionAction, fmtClock, notifyPomodoroChanged } from './pomodoroApi'
 import { taskAction } from './taskApi'
@@ -35,6 +36,7 @@ function copyStylesToPip(pip: Window) {
 // sessão ativa. Durante a pausa obrigatória vira o modal grande "VÁ DESCANSAR".
 // Pode ser destacado numa janela Picture-in-Picture (always-on-top do SO).
 const PomodoroFloatingWidget: React.FC = () => {
+  const { alert } = useDialogs()
   const { session, refetch, remainingActive, remainingBreak } = useActiveSession()
   const [busy, setBusy] = useState(false)
   const transitioningRef = useRef(false)
@@ -134,10 +136,10 @@ const PomodoroFloatingWidget: React.FC = () => {
       } else {
         w = window.open('', 'impgeo-pomodoro', 'width=300,height=240')
       }
-      if (!w) { alert('Não foi possível abrir a janela. Permita pop-ups para este site e tente de novo.'); return }
+      if (!w) { await alert({ title: 'Pop-up bloqueado', message: 'Não foi possível abrir a janela. Permita pop-ups para este site e tente de novo.', variant: 'error' }); return }
       setupDetachedWindow(w)
     } catch { /* usuário cancelou ou indisponível */ }
-  }, [setupDetachedWindow])
+  }, [setupDetachedWindow, alert])
 
   const closePip = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }

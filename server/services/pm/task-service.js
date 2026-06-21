@@ -162,13 +162,16 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
  * usuário do módulo pode capturar uma tarefa que ninguém pegou ainda. Não passa
  * pelo fluxo de aceite (quem pega já está aceitando).
  */
-async function claimTask(db, taskId, { userId }) {
+async function claimTask(db, taskId, { userId, actorRole = null }) {
   if (!userId) throw new Error('claimTask: userId obrigatório');
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
   if (task.assignee_user_id) throw err('Esta tarefa já tem um responsável', 'already_assigned', 409);
   if (task.status !== TASK_STATUSES.AVAILABLE) {
     throw err('Só é possível pegar tarefas disponíveis', 'invalid_transition', 409);
+  }
+  if (task.gestor_only && !_isGestorRole(actorRole)) {
+    throw err('Esta tarefa é restrita a gestores (gerente/admin).', 'gestor_only', 403);
   }
   await db.pool.query(
     `UPDATE project_tasks
@@ -183,6 +186,58 @@ async function claimTask(db, taskId, { userId }) {
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'assigned', actorId: userId, payload: { toUserId: userId, selfClaim: true } });
   return getTask(db.pool, taskId);
+}
+
+// Pré-requisitos de CONCLUSÃO ainda pendentes de uma tarefa (item 4): as tarefas
+// (ou etapas) que precisam estar concluídas antes desta. Cada item indica se o
+// `viewer` pode "pegar também" (claimable). `graph` opcional p/ reuso em lote.
+async function completionPrereqs(db, task, viewer, graph = null) {
+  const g = graph || await _loadGraph(db.pool, task.project_id);
+  const comp = dependencyResolver.canCompleteTask(task.id, g);
+  if (comp.ok || !comp.blockedBy.length) return [];
+
+  const taskIds = comp.blockedBy.filter(d => d.target_task_id).map(d => d.target_task_id);
+  const stageIds = comp.blockedBy.filter(d => d.target_stage_id && !d.target_task_id).map(d => d.target_stage_id);
+  const out = [];
+  const role = viewer?.role || null;
+
+  if (taskIds.length) {
+    const r = await db.pool.query(
+      `SELECT t.id, t.name, t.status, t.assignee_user_id, t.gestor_only,
+              s.name AS stage_name, p.name AS project_name
+         FROM project_tasks t
+         LEFT JOIN project_stages s ON s.id = t.project_stage_id
+         LEFT JOIN projects p ON p.id = t.project_id
+        WHERE t.id = ANY($1::varchar[])`, [taskIds]
+    );
+    r.rows.forEach(t => out.push({
+      kind: 'task', id: t.id, name: t.name, stage_name: t.stage_name, project_name: t.project_name,
+      status: t.status, assignee_user_id: t.assignee_user_id, gestor_only: t.gestor_only === true,
+      claimable: t.status === 'available' && !t.assignee_user_id && (!t.gestor_only || _isGestorRole(role)),
+    }));
+  }
+  if (stageIds.length) {
+    const r = await db.pool.query(
+      `SELECT s.id, s.name, p.name AS project_name FROM project_stages s
+         LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ANY($1::varchar[])`, [stageIds]
+    );
+    r.rows.forEach(s => out.push({
+      kind: 'stage', id: s.id, name: s.name, project_name: s.project_name, claimable: false,
+    }));
+  }
+  return out;
+}
+
+// Pega várias tarefas de uma vez (a principal + pré-requisitos sugeridos).
+// Best-effort: ignora as que não dão mais pra pegar (já atribuídas, restritas,
+// etc.) e retorna { claimed: [ids], skipped: [{id, error}] }.
+async function claimTasksBulk(db, taskIds, { userId, actorRole = null }) {
+  const claimed = [], skipped = [];
+  for (const id of [...new Set(taskIds)]) {
+    try { await claimTask(db, id, { userId, actorRole }); claimed.push(id); }
+    catch (e) { skipped.push({ id, error: e.message, code: e.code }); }
+  }
+  return { claimed, skipped };
 }
 
 /**
@@ -211,6 +266,26 @@ async function setTaskDueDate(db, taskId, { dueDate, userId = null }) {
 // ─── Aprovação de alteração de prazo ──────────────────────────────────────────
 
 const _isAdminRole = (role) => role === 'admin' || role === 'superadmin';
+const _isGestorRole = (role) => role === 'manager' || _isAdminRole(role);
+
+async function _userRole(db, userId) {
+  if (!userId) return null;
+  const r = await db.pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+  return r.rows[0]?.role || null;
+}
+
+// Quem pode revisar, dado o papel de QUEM enviou a tarefa para revisão (item 1):
+//   - tarefa enviada por manager → só admin/superadmin revisa.
+//   - tarefa enviada por usuário → manager (se manager_review_allowed) ou admin.
+//   - admin/superadmin sempre pode (se admin_review_allowed).
+function _canReview(submitterRole, task, reviewerRole) {
+  if (_isAdminRole(reviewerRole)) return task.admin_review_allowed !== false;
+  if (reviewerRole === 'manager') {
+    if (submitterRole === 'manager') return false;
+    return task.manager_review_allowed !== false;
+  }
+  return false;
+}
 function _dateStr(d) {
   if (!d) return null;
   if (typeof d === 'string') return d.slice(0, 10);
@@ -407,6 +482,11 @@ async function refuseTask(db, taskId, { userId, reason }) {
 async function startTask(db, taskId, { userId }) {
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
+  // completed → in_progress só é permitido via uncompleteTask (com motivo e,
+  // p/ manager, aprovação). "Iniciar" não pode reabrir uma concluída.
+  if (task.status === TASK_STATUSES.COMPLETED) {
+    throw err('Tarefa concluída — use "Desconcluir" para reabrir', 'invalid_transition', 409);
+  }
   assertTransition(task, TASK_STATUSES.IN_PROGRESS);
 
   const graph = await _loadGraph(db.pool, task.project_id);
@@ -484,7 +564,7 @@ async function cancelTask(db, taskId, { userId, reason = null }) {
  * Senão → 'completed' e dispara efeitos: promove dependentes a available,
  * executa gatilhos (cria tarefas novas) e tenta finalizar o projeto.
  */
-async function completeTask(db, taskId, { userId } = {}) {
+async function completeTask(db, taskId, { userId, actorRole } = {}) {
   const pre = await getTask(db.pool, taskId);
   if (!pre) throw new Error('Tarefa não encontrada');
 
@@ -501,13 +581,16 @@ async function completeTask(db, taskId, { userId } = {}) {
     throw err;
   }
 
-  // Se exige revisão, não conclui agora — vai p/ pending_review (Fase 6 aprova).
-  if (pre.review_required) {
+  // Revisão por papel (req item 1): admin/superadmin concluindo NÃO passa por
+  // revisão — vai direto a 'completed'. Para os demais, se a tarefa exige
+  // revisão, vai p/ pending_review guardando QUEM enviou (gatear o revisor).
+  if (pre.review_required && !_isAdminRole(actorRole)) {
     assertTransition(pre, TASK_STATUSES.PENDING_REVIEW);
     await db.pool.query(
-      `UPDATE project_tasks SET status = 'pending_review', updated_at = NOW() WHERE id = $1`, [taskId]
+      `UPDATE project_tasks SET status = 'pending_review', submitted_for_review_by_user_id = $2, updated_at = NOW() WHERE id = $1`,
+      [taskId, userId || null]
     );
-    await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: {} });
+    await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: { submitterRole: actorRole || null } });
     const metaC = await _taskMeta(db, pre);
     _notifyAdmins(db, { type: 'pm_review_requested', payload: metaC, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
     return { task: await getTask(db.pool, taskId), promoted: [], triggered: [], projectFinalized: false };
@@ -594,6 +677,10 @@ async function approveReview(db, taskId, reviewer) {
   if (pre.status !== TASK_STATUSES.PENDING_REVIEW) {
     throw err('Tarefa não está aguardando revisão', 'invalid_transition', 409);
   }
+  const submitterRole = await _userRole(db, pre.submitted_for_review_by_user_id);
+  if (!_canReview(submitterRole, pre, reviewer.role)) {
+    throw err('Esta tarefa foi concluída por um gerente; só admin pode revisá-la.', 'review_forbidden', 403);
+  }
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -629,11 +716,15 @@ async function approveReview(db, taskId, reviewer) {
 }
 
 /** Reprova a revisão → pending_adjustment (com notas). */
-async function rejectReview(db, taskId, { userId, adjustmentNotes }) {
+async function rejectReview(db, taskId, { userId, reviewerRole, adjustmentNotes }) {
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
   if (task.status !== TASK_STATUSES.PENDING_REVIEW) {
     throw err('Tarefa não está aguardando revisão', 'invalid_transition', 409);
+  }
+  const submitterRole = await _userRole(db, task.submitted_for_review_by_user_id);
+  if (!_canReview(submitterRole, task, reviewerRole)) {
+    throw err('Esta tarefa foi concluída por um gerente; só admin pode revisá-la.', 'review_forbidden', 403);
   }
   if (!adjustmentNotes || !String(adjustmentNotes).trim()) {
     throw err('Descreva os ajustes necessários', 'reason_required', 400);
@@ -651,17 +742,158 @@ async function rejectReview(db, taskId, { userId, adjustmentNotes }) {
   return getTask(db.pool, taskId);
 }
 
-/** Lista tarefas aguardando revisão (fila do gestor). */
-async function listPendingReviews(db) {
+// ─── Desconcluir (reabrir) tarefa (req item 5) ────────────────────────────────
+
+// Aplica a reabertura: tarefa volta para 'in_progress' com o responsável
+// escolhido (self = quem pediu; original = quem havia concluído). Reabre também
+// o projeto se ele tinha sido finalizado por causa desta tarefa.
+async function _applyUncomplete(db, task, { target, requesterId, originalCompleter, reason, actorId }) {
+  const newAssignee = target === 'self' ? requesterId : (originalCompleter || requesterId);
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE project_tasks
+          SET status='in_progress', assignee_user_id=$2, accepted_at=NOW(), completed_at=NULL,
+              review_decision=NULL, review_decided_at=NULL, reviewer_user_id=NULL,
+              submitted_for_review_by_user_id=NULL, updated_at=NOW()
+        WHERE id=$1`,
+      [task.id, newAssignee]
+    );
+    await appendTaskEvent(client, db, { taskId: task.id, eventType: 'uncompleted', actorId, payload: { reason, target, toUserId: newAssignee } });
+    // Se o projeto havia sido finalizado, reabre (tem tarefa em andamento de novo).
+    await client.query(
+      `UPDATE projects SET status='ativo', completed_at=NULL, updated_at=NOW()
+        WHERE id=$1 AND status='concluido'`,
+      [task.project_id]
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+  if (newAssignee) {
+    const meta = await _taskMeta(db, task);
+    _notify(db, { type: 'pm_task_uncompleted', userId: newAssignee, payload: { ...meta, reason }, entityType: 'project_task', entityId: task.id, ctaProjectId: task.project_id });
+  }
+  return getTask(db.pool, task.id);
+}
+
+/**
+ * Desconclui (reabre) uma tarefa concluída.
+ * @param {object} actor - { id, role }
+ * @param {string} reason - obrigatório
+ * @param {'self'|'original'} target - capturar p/ si ou devolver a quem concluiu
+ * @returns {Promise<{ reopened?: object, requested?: object }>}
+ */
+async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }) {
+  const task = await getTask(db.pool, taskId);
+  if (!task) throw new Error('Tarefa não encontrada');
+  if (task.status !== TASK_STATUSES.COMPLETED) {
+    throw err('Só é possível desconcluir tarefas concluídas', 'invalid_transition', 409);
+  }
+  if (!reason || !String(reason).trim()) {
+    throw err('Explique o motivo da reabertura', 'reason_required', 400);
+  }
+  const cleanReason = String(reason).trim();
+  const tgt = target === 'self' ? 'self' : 'original';
+  const originalCompleter = task.assignee_user_id || null;
+
+  // Usuário comum: só a tarefa que ele concluiu; volta sempre pra ele.
+  if (!_isGestorRole(actor.role)) {
+    if (originalCompleter !== actor.id) {
+      throw err('Você só pode desconcluir tarefas que você concluiu', 'forbidden', 403);
+    }
+    const reopened = await _applyUncomplete(db, task, { target: 'self', requesterId: actor.id, originalCompleter, reason: cleanReason, actorId: actor.id });
+    return { reopened };
+  }
+
+  // Admin/superadmin: aplica direto, com o target escolhido.
+  if (_isAdminRole(actor.role)) {
+    const reopened = await _applyUncomplete(db, task, { target: tgt, requesterId: actor.id, originalCompleter, reason: cleanReason, actorId: actor.id });
+    return { reopened };
+  }
+
+  // Manager: só nos projetos dele E precisa de aprovação de admin.
+  const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id = $1', [task.project_id]);
+  if (pr.rows[0]?.manager_user_id !== actor.id) {
+    throw err('Gerente só desconclui tarefas dos projetos que gerencia', 'forbidden', 403);
+  }
+  const reqId = db.generateId();
+  await db.pool.query(
+    `INSERT INTO task_uncomplete_requests
+       (id, task_id, project_id, requested_by_user_id, requester_role, reason, target, original_completer_user_id)
+     VALUES ($1,$2,$3,$4,'manager',$5,$6,$7)`,
+    [reqId, taskId, task.project_id, actor.id, cleanReason, tgt, originalCompleter]
+  );
+  const meta = await _taskMeta(db, task);
+  _notifyAdmins(db, { type: 'pm_uncomplete_requested', payload: { ...meta, reason: cleanReason }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+  return { requested: { id: reqId } };
+}
+
+/** Lista pedidos de reabertura pendentes (só admin/superadmin decide). */
+async function listPendingUncompleteRequests(db, viewer = null) {
+  if (!_isAdminRole(viewer?.role)) return [];
   const r = await db.pool.query(
-    `SELECT t.*, p.name AS project_name, s.name AS stage_name
+    `SELECT ur.*, t.name AS task_name, p.name AS project_name,
+            COALESCE(NULLIF(TRIM(COALESCE(ru.first_name,'')||' '||COALESCE(ru.last_name,'')),''), ru.username) AS requester_name
+       FROM task_uncomplete_requests ur
+       JOIN project_tasks t ON t.id = ur.task_id
+       LEFT JOIN projects p ON p.id = ur.project_id
+       LEFT JOIN users ru ON ru.id = ur.requested_by_user_id
+      WHERE ur.status = 'pending'
+      ORDER BY ur.created_at ASC`
+  );
+  return r.rows;
+}
+
+/** Decide um pedido de reabertura (admin). approve=true reabre; senão rejeita. */
+async function decideUncomplete(db, reqId, { admin, approve }) {
+  if (!_isAdminRole(admin?.role)) throw err('Apenas admin decide reaberturas', 'forbidden', 403);
+  const rr = await db.pool.query('SELECT * FROM task_uncomplete_requests WHERE id = $1', [reqId]);
+  const req = rr.rows[0];
+  if (!req) throw new Error('Pedido não encontrado');
+  if (req.status !== 'pending') throw err('Pedido já decidido', 'invalid_transition', 409);
+
+  await db.pool.query(
+    `UPDATE task_uncomplete_requests SET status=$2, decided_by_user_id=$3, decided_at=NOW(), updated_at=NOW() WHERE id=$1`,
+    [reqId, approve ? 'approved' : 'rejected', admin.id]
+  );
+
+  // Notifica o manager que pediu.
+  const task = await getTask(db.pool, req.task_id);
+  if (task) {
+    const meta = await _taskMeta(db, task);
+    _notify(db, { type: 'pm_uncomplete_decided', userId: req.requested_by_user_id, payload: { ...meta, approved: !!approve }, entityType: 'project_task', entityId: req.task_id, ctaProjectId: req.project_id });
+  }
+
+  if (approve && task && task.status === TASK_STATUSES.COMPLETED) {
+    const reopened = await _applyUncomplete(db, task, {
+      target: req.target, requesterId: req.requested_by_user_id,
+      originalCompleter: req.original_completer_user_id, reason: req.reason, actorId: admin.id,
+    });
+    return { approved: true, reopened };
+  }
+  return { approved: !!approve };
+}
+
+/** Lista tarefas aguardando revisão (fila do gestor).
+ *  Anota `can_review` por tarefa conforme o papel do `viewer` e de quem enviou
+ *  (item 1): manager não revisa tarefa enviada por outro manager. */
+async function listPendingReviews(db, viewer = null) {
+  const r = await db.pool.query(
+    `SELECT t.*, p.name AS project_name, s.name AS stage_name, su.role AS submitter_role
        FROM project_tasks t
        JOIN projects p ON p.id = t.project_id
        LEFT JOIN project_stages s ON s.id = t.project_stage_id
+       LEFT JOIN users su ON su.id = t.submitted_for_review_by_user_id
       WHERE t.status = 'pending_review'
       ORDER BY t.submitted_for_review_at ASC NULLS LAST`
   );
-  return r.rows;
+  const role = viewer?.role || null;
+  return r.rows.map(t => ({ ...t, can_review: _canReview(t.submitter_role, t, role) }));
 }
 
 // ─── Leituras p/ dashboard ────────────────────────────────────────────────────
@@ -725,6 +957,8 @@ module.exports = {
   decideDueDateChange,
   listPendingDueDateRequests,
   claimTask,
+  claimTasksBulk,
+  completionPrereqs,
   acceptTask,
   refuseTask,
   startTask,
@@ -735,6 +969,9 @@ module.exports = {
   submitForReview,
   approveReview,
   rejectReview,
+  uncompleteTask,
+  listPendingUncompleteRequests,
+  decideUncomplete,
   listPendingReviews,
   listMyTasks,
   listAvailableUnassignedTasks,

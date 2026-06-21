@@ -2997,6 +2997,11 @@ class Database {
       // Alteração de prazo de tarefa (pedido/decisão) — email ON por default.
       pm_due_date_requested:          { push: true,  email: true },
       pm_due_date_decided:            { push: true,  email: true },
+      // Reabertura de tarefa concluída (desconcluir) — afeta o responsável e o
+      // gestor que pediu; email ON por default.
+      pm_task_uncompleted:            { push: true,  email: true },
+      pm_uncomplete_requested:        { push: true,  email: true },
+      pm_uncomplete_decided:          { push: true,  email: true },
       '_meta:foreground':             { push: false, email: false },
     },
     tc: {

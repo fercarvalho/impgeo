@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
+import { useDialogs } from '@/components/DialogProvider'
 import {
   Layers, Plus, Trash2, Edit2, ChevronUp, ChevronDown, X, GitBranch, Zap,
   Loader2, AlertTriangle, CheckCircle2, ListTodo,
@@ -36,6 +37,7 @@ interface TemplateTask {
   reviewer_default_role: 'admin' | 'manager' | 'user' | null
   manager_review_allowed: boolean
   admin_review_allowed: boolean
+  gestor_only?: boolean
   deps: TemplateDep[]
   triggers: TemplateTrigger[]
 }
@@ -67,6 +69,7 @@ interface Props {
 const ROLE_LABELS: Record<string, string> = { admin: 'Admin', manager: 'Gerente', user: 'Usuário' }
 
 const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdit, onClose }) => {
+  const { confirm, prompt } = useDialogs()
   const [tpl, setTpl] = useState<TemplateData | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -123,12 +126,12 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
 
   // ─── Stage ops ──────────────────────────────────────────────────────────────
   const addStage = async () => {
-    const name = window.prompt('Nome da nova etapa:')
+    const name = await prompt({ title: 'Nova etapa', label: 'Nome da nova etapa', required: true, confirmLabel: 'Criar' })
     if (!name?.trim()) return
     await mutate(`/services/${serviceId}/template/stages`, 'POST', { name: name.trim(), version: tpl?.version || 1 })
   }
   const renameStage = async (s: TemplateStage) => {
-    const name = window.prompt('Novo nome da etapa:', s.name)
+    const name = await prompt({ title: 'Renomear etapa', label: 'Novo nome da etapa', defaultValue: s.name, required: true, confirmLabel: 'Salvar' })
     if (!name?.trim() || name === s.name) return
     await mutate(`/services/${serviceId}/template/stages/${s.id}`, 'PATCH', { name: name.trim() })
   }
@@ -148,13 +151,13 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
     })
   }
   const deleteStage = async (s: TemplateStage) => {
-    if (!window.confirm(`Excluir a etapa "${s.name}" e suas tarefas?`)) return
+    if (!await confirm({ title: 'Excluir etapa', message: `Excluir a etapa "${s.name}" e suas tarefas?`, confirmLabel: 'Excluir', destructive: true })) return
     await mutate(`/services/${serviceId}/template/stages/${s.id}`, 'DELETE')
   }
 
   // ─── Task ops ───────────────────────────────────────────────────────────────
   const deleteTask = async (t: TemplateTask) => {
-    if (!window.confirm(`Excluir a tarefa "${t.name}"?`)) return
+    if (!await confirm({ title: 'Excluir tarefa', message: `Excluir a tarefa "${t.name}"?`, confirmLabel: 'Excluir', destructive: true })) return
     await mutate(`/services/${serviceId}/template/tasks/${t.id}`, 'DELETE')
   }
   const deleteDep = async (depId: string) => {
@@ -164,7 +167,7 @@ const ServiceTemplateEditor: React.FC<Props> = ({ serviceId, serviceName, canEdi
     await mutate(`/services/${serviceId}/template/triggers/${trId}`, 'DELETE')
   }
   const versionBump = async () => {
-    if (!window.confirm('Criar uma nova versão do template (preserva a atual)?')) return
+    if (!await confirm({ title: 'Nova versão do template', message: 'Criar uma nova versão do template (preserva a atual)?', confirmLabel: 'Criar versão' })) return
     await mutate(`/services/${serviceId}/template/version-bump`, 'POST')
   }
 
@@ -359,6 +362,7 @@ const TaskFormModal: React.FC<{
     requiresAcceptance: task?.requires_acceptance || false,
     managerReviewAllowed: task?.manager_review_allowed ?? true,
     adminReviewAllowed: task?.admin_review_allowed ?? true,
+    gestorOnly: task?.gestor_only || false,
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -376,6 +380,7 @@ const TaskFormModal: React.FC<{
       requiresAcceptance: form.requiresAcceptance,
       managerReviewAllowed: form.managerReviewAllowed,
       adminReviewAllowed: form.adminReviewAllowed,
+      gestorOnly: form.gestorOnly,
     }
     try {
       const url = task
@@ -435,6 +440,10 @@ const TaskFormModal: React.FC<{
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input type="checkbox" checked={form.requiresAcceptance} onChange={e => setForm(f => ({ ...f, requiresAcceptance: e.target.checked }))} className="rounded" />
               Exige aceite
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" checked={form.gestorOnly} onChange={e => setForm(f => ({ ...f, gestorOnly: e.target.checked }))} className="rounded" />
+              Restrita a gestor <span className="text-xs text-gray-400">(só gerente/admin pega)</span>
             </label>
             {form.requiresReview && (
               <div className="ml-6 space-y-1.5">

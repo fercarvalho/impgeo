@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft, Layers, ListTodo, History, DollarSign, Users, MapPin,
   Loader2, CopyPlus, SkipForward, CheckCircle2, Clock, AlertCircle,
-  UserPlus, Plus, Unlink, CalendarClock, X, ChevronUp, ChevronDown,
+  UserPlus, Plus, Unlink, CalendarClock, X, ChevronUp, ChevronDown, Undo2,
 } from 'lucide-react'
 import Modal from '@/components/Modal'
+import { useDialogs } from '@/components/DialogProvider'
 import AssignTaskModal from './AssignTaskModal'
+import UncompleteTaskModal from './UncompleteTaskModal'
 import LinkTransactionModal from './LinkTransactionModal'
 import { setTaskDueDate } from './taskApi'
 
@@ -102,12 +104,14 @@ interface Props {
 type Tab = 'stages' | 'costs' | 'events' | 'team' | 'terra'
 
 const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
+  const { confirm } = useDialogs()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('stages')
   const [assignFor, setAssignFor] = useState<Task | null>(null)
+  const [uncFor, setUncFor] = useState<Task | null>(null)
   const [dueFor, setDueFor] = useState<Task | null>(null)
   const [dueVal, setDueVal] = useState('')
   const [dueJust, setDueJust] = useState('')
@@ -164,7 +168,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
   }
 
   const cloneStage = async (stageId: string) => {
-    if (!window.confirm('Criar uma nova versão desta etapa (com as tarefas copiadas)?')) return
+    if (!await confirm({ title: 'Duplicar etapa', message: 'Criar uma nova versão desta etapa (com as tarefas copiadas)?', confirmLabel: 'Duplicar' })) return
     setBusy(true)
     try {
       const r = await fetch(`${API}/projects/${projectId}/stages/${stageId}/clone-as-version`, { method: 'POST' })
@@ -174,7 +178,7 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
   const skipStage = async (stageId: string) => {
-    if (!window.confirm('Pular esta etapa?')) return
+    if (!await confirm({ title: 'Pular etapa', message: 'Pular esta etapa? As tarefas abertas dela serão canceladas (as já concluídas permanecem).', confirmLabel: 'Pular etapa', destructive: true })) return
     setBusy(true)
     try {
       const r = await fetch(`${API}/projects/${projectId}/stages/${stageId}/skip`, { method: 'POST' })
@@ -311,11 +315,17 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
                           <CalendarClock className="w-4 h-4" />
                         </button>
                       )}
-                      {canEdit && t.can_manage !== false && (
+                      {canEdit && t.can_manage !== false && t.status !== 'completed' && (
                         <button onClick={() => setAssignFor(t)} disabled={busy}
                           title={t.assignee_user_id ? 'Reatribuir' : 'Atribuir responsável'}
                           className="p-1 text-violet-400 hover:text-violet-600">
                           <UserPlus className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canEdit && t.can_manage !== false && t.status === 'completed' && (
+                        <button onClick={() => setUncFor(t)} disabled={busy} title="Desconcluir (reabrir)"
+                          className="p-1 text-orange-400 hover:text-orange-600">
+                          <Undo2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -468,6 +478,12 @@ const ProjectDetailPage: React.FC<Props> = ({ projectId, canEdit, onBack }) => {
           onClose={() => setAssignFor(null)}
           onDone={() => { setAssignFor(null); load() }}
         />
+      )}
+
+      {uncFor && (
+        <UncompleteTaskModal task={{ id: uncFor.id, name: uncFor.name }}
+          onClose={() => setUncFor(null)}
+          onDone={() => { setUncFor(null); load() }} />
       )}
 
       {showLink && (

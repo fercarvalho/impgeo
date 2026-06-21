@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox, Timer, CalendarClock, Check, Users } from 'lucide-react'
+import { ListTodo, Play, Pause, RotateCcw, CheckCircle2, Clock, Loader2, AlertTriangle, X, HelpCircle, ClipboardCheck, UserPlus, Inbox, Timer, CalendarClock, Check, Users, Undo2 } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useDialogs } from '@/components/DialogProvider'
 import PendingTasksBanner from './_pm/PendingTasksBanner'
 import {
   fetchMyTasks, taskAction, TASK_STATUS_META, PmTask,
   fetchPendingReviews, fetchIncomingHelp, helpAction, HelpRequest,
-  fetchAvailableTasks, claimTask,
+  fetchAvailableTasks,
   fetchPendingDueRequests, decideDueRequest, DueDateRequest,
+  fetchPendingUncompleteRequests, decideUncompleteRequest, UncompleteRequest,
 } from './_pm/taskApi'
 import { useActiveSession, markTaskAreaOpened, getActive } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
@@ -15,6 +17,8 @@ import HelpRequestModal from './_pm/HelpRequestModal'
 import TaskReviewModal from './_pm/TaskReviewModal'
 import TaskDueDateModal from './_pm/TaskDueDateModal'
 import AssignTaskModal from './_pm/AssignTaskModal'
+import ClaimTaskModal from './_pm/ClaimTaskModal'
+import UncompleteTaskModal from './_pm/UncompleteTaskModal'
 
 // data ISO/'YYYY-MM-DD' → 'dd/mm/aaaa' (sem parse de Date, evita erro de fuso)
 const fmtDate = (v?: string | null) => {
@@ -35,6 +39,7 @@ const GROUPS: { key: string; label: string; statuses: string[] }[] = [
 
 const Tarefas: React.FC = () => {
   const permissions = usePermissions('tarefas_gerenciamento')
+  const { prompt } = useDialogs()
   const { session } = useActiveSession()
   const [tasks, setTasks] = useState<PmTask[]>([])
   const [available, setAvailable] = useState<PmTask[]>([])
@@ -46,12 +51,15 @@ const Tarefas: React.FC = () => {
   const [reviewTask, setReviewTask] = useState<PmTask | null>(null) // abre TaskReviewModal
   const [dueTask, setDueTask] = useState<PmTask | null>(null)        // abre TaskDueDateModal
   const [assignTask, setAssignTask] = useState<PmTask | null>(null)  // abre AssignTaskModal (atribuir a alguém)
+  const [claimFor, setClaimFor] = useState<PmTask | null>(null)      // abre ClaimTaskModal (pegar p/ si)
+  const [uncompleteFor, setUncompleteFor] = useState<PmTask | null>(null) // abre UncompleteTaskModal
   const [showIdle, setShowIdle] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Fase 6: revisões (gestor) e ajudas recebidas.
   const [pendingReviews, setPendingReviews] = useState<PmTask[] | null>(null) // null = não-gestor
   const [incomingHelp, setIncomingHelp] = useState<HelpRequest[]>([])
   const [dueReqs, setDueReqs] = useState<DueDateRequest[] | null>(null) // null = não-gestor
+  const [uncReqs, setUncReqs] = useState<UncompleteRequest[]>([]) // pedidos de reabertura (admin)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -64,6 +72,7 @@ const Tarefas: React.FC = () => {
     fetchPendingReviews().then(setPendingReviews).catch(() => setPendingReviews(null))
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
     fetchPendingDueRequests().then(setDueReqs).catch(() => setDueReqs(null))
+    fetchPendingUncompleteRequests().then(setUncReqs).catch(() => setUncReqs([]))
   }, [])
 
   useEffect(() => {
@@ -99,16 +108,8 @@ const Tarefas: React.FC = () => {
     finally { setBusyId(null) }
   }
 
-  const claim = async (t: PmTask) => {
-    if (!window.confirm(`Pegar a tarefa "${t.name}" para você?`)) return
-    setBusyId(t.id); setError(null)
-    try {
-      await claimTask(t.id)
-      await load()
-      try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ }
-    } catch (e: any) { setError(e.message) }
-    finally { setBusyId(null) }
-  }
+  // Abre o modal de pegar tarefa (aviso de revisão + sugestão de pré-requisitos).
+  const claim = (t: PmTask) => setClaimFor(t)
 
   const act = async (t: PmTask, action: 'start' | 'pause' | 'resume' | 'complete', body?: any) => {
     setBusyId(t.id); setError(null)
@@ -173,6 +174,32 @@ const Tarefas: React.FC = () => {
         </section>
       )}
 
+      {/* Solicitações de reabertura (admin aprova manager) */}
+      {uncReqs.length > 0 && (
+        <section className="rounded-xl border border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10 p-4">
+          <h2 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-1 flex items-center gap-2">
+            <Undo2 className="w-4 h-4" /> Solicitações de reabertura ({uncReqs.length})
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente pediu para reabrir uma tarefa concluída. Aprove para a tarefa voltar a ficar em andamento.</p>
+          <div className="space-y-2">
+            {uncReqs.map(u => (
+              <div key={u.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{u.task_name} <span className="text-xs text-gray-400">· {u.project_name}</span></div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {u.requester_name}: {u.target === 'self' ? 'capturar p/ si' : 'devolver a quem concluiu'} — {u.reason}
+                  </div>
+                </div>
+                <button onClick={async () => { await decideUncompleteRequest(u.id, true); load() }} title="Aprovar"
+                  className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100"><Check className="w-4 h-4" /></button>
+                <button onClick={async () => { await decideUncompleteRequest(u.id, false); load() }} title="Recusar"
+                  className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"><X className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Revisões pendentes (admin/manager) */}
       {pendingReviews && pendingReviews.length > 0 && (
         <section className="rounded-xl border border-violet-200 dark:border-violet-900 bg-violet-50/50 dark:bg-violet-900/10 p-4">
@@ -186,8 +213,12 @@ const Tarefas: React.FC = () => {
                   <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.project_name}{t.stage_name ? ` · ${t.stage_name}` : ''}</div>
                 </div>
-                <button onClick={() => setReviewTask(t)}
-                  className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold">Revisar</button>
+                {t.can_review === false ? (
+                  <span className="px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs font-medium">Só admin revisa</span>
+                ) : (
+                  <button onClick={() => setReviewTask(t)}
+                    className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold">Revisar</button>
+                )}
               </div>
             ))}
           </div>
@@ -210,7 +241,7 @@ const Tarefas: React.FC = () => {
                     <>
                       <button onClick={async () => { await helpAction(h.id, 'accept'); load() }}
                         className="px-3 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold">Aceitar</button>
-                      <button onClick={async () => { const r = window.prompt('Motivo da recusa:'); if (r?.trim()) { await helpAction(h.id, 'refuse', { reason: r.trim() }); load() } }}
+                      <button onClick={async () => { const r = await prompt({ title: 'Recusar pedido de ajuda', label: 'Motivo da recusa', multiline: true, required: true, confirmLabel: 'Recusar' }); if (r?.trim()) { await helpAction(h.id, 'refuse', { reason: r.trim() }); load() } }}
                         className="px-3 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-100">Recusar</button>
                     </>
                   ) : (
@@ -244,7 +275,11 @@ const Tarefas: React.FC = () => {
             {available.map(t => (
               <div key={t.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</div>
+                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate flex items-center gap-1.5">
+                    {t.name}
+                    {t.gestor_only && <span title="Restrita a gestor (gerente/admin)" className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">gestor</span>}
+                    {t.review_required && <span title="Exige revisão para concluir" className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">revisão</span>}
+                  </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.project_name}{t.stage_name ? ` · ${t.stage_name}` : ''}</div>
                 </div>
                 {t.default_days != null && <span title="Prazo (dias) — começa a contar quando você pega" className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{t.default_days}d</span>}
@@ -354,6 +389,12 @@ const Tarefas: React.FC = () => {
                                 <CheckCircle2 className="w-4 h-4" />
                               </button>
                             )}
+                            {t.status === 'completed' && (
+                              <button onClick={() => setUncompleteFor(t)} disabled={busyId === t.id} title="Desconcluir (reabrir)"
+                                className="p-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 hover:bg-orange-100 disabled:opacity-50">
+                                <Undo2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -398,6 +439,16 @@ const Tarefas: React.FC = () => {
 
       {dueTask && (
         <TaskDueDateModal task={dueTask} onClose={() => setDueTask(null)} onDone={load} />
+      )}
+
+      {claimFor && (
+        <ClaimTaskModal task={claimFor} onClose={() => setClaimFor(null)}
+          onDone={() => { setClaimFor(null); load(); try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ } }} />
+      )}
+
+      {uncompleteFor && (
+        <UncompleteTaskModal task={uncompleteFor} onClose={() => setUncompleteFor(null)}
+          onDone={() => { setUncompleteFor(null); load(); try { window.dispatchEvent(new CustomEvent('pm-tasks-changed')) } catch { /* noop */ } }} />
       )}
 
       {assignTask && (

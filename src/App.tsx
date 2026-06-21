@@ -81,12 +81,14 @@ import { TcAuthProvider } from './contexts/TcAuthContext'
 import { detectTcEntryMode } from '@/subsistemas/especial/tc-domains'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import ThemeToggle from '@/components/ThemeToggle'
+import { DialogProvider } from '@/components/DialogProvider'
 import SubsystemPicker from '@/subsistemas/SubsystemPicker'
 import SubsystemSwitcher from '@/subsistemas/SubsystemSwitcher'
 import AcessoNegado from '@/subsistemas/AcessoNegado'
 import { useCurrentSubsystem } from '@/subsistemas/useCurrentSubsystem'
 import {
   userCanAccessSubsystem,
+  userCanAccessSubsystems,
   supportsSubdomainNavigation,
   getRootUrl,
   clearSubsystemOverride,
@@ -307,6 +309,13 @@ const AppContentRouter: React.FC<{ user: any; logout: () => void }> = ({ user, l
     return <SubsystemPicker />;
   }
   if (!userCanAccessSubsystem(user, subsystem)) {
+    // O usuário (ex.: durante impersonation) caiu num subsistema sem acesso.
+    // Se ele tem OUTROS subsistemas acessíveis, leva pro seletor em vez de um
+    // beco sem saída de "Acesso negado". Só mostra AcessoNegado quando ele não
+    // tem acesso a nenhum subsistema.
+    if (userCanAccessSubsystems(user)) {
+      return <SubsystemPicker />;
+    }
     return <AcessoNegado attemptedSubsystem={subsystem} />;
   }
   // key={subsystem.key} força remount do AppMain a cada troca de subsistema.
@@ -3738,8 +3747,10 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
-        <ThemeToggle />
+        <DialogProvider>
+          <AppContent />
+          <ThemeToggle />
+        </DialogProvider>
       </AuthProvider>
     </ThemeProvider>
   );

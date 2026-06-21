@@ -253,7 +253,7 @@ async function createTask(db, templateStageId, data) {
     defaultDays = null, defaultAssigneeRole = null, defaultEstimatedMinutes = null,
     defaultPriority = 2, requiresAcceptance = false, requiresAttachment = false,
     requiresReview = false, reviewType = null, reviewerDefaultRole = null,
-    managerReviewAllowed = true, adminReviewAllowed = true,
+    managerReviewAllowed = true, adminReviewAllowed = true, gestorOnly = false,
   } = data;
   if (!name) throw new Error('createTask: name obrigatório');
 
@@ -272,12 +272,12 @@ async function createTask(db, templateStageId, data) {
        (id, template_stage_id, service_id, name, description, observation, sort_order, default_days,
         default_assignee_role, default_estimated_minutes, default_priority, requires_acceptance,
         requires_attachment, requires_review, review_type, reviewer_default_role,
-        manager_review_allowed, admin_review_allowed)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+        manager_review_allowed, admin_review_allowed, gestor_only)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
     [id, templateStageId, stage.service_id, name, description, observation, order, defaultDays,
      defaultAssigneeRole, defaultEstimatedMinutes, defaultPriority, requiresAcceptance,
      requiresAttachment, requiresReview, reviewType, reviewerDefaultRole,
-     managerReviewAllowed, adminReviewAllowed]
+     managerReviewAllowed, adminReviewAllowed, gestorOnly === true]
   );
   return res.rows[0];
 }
@@ -290,7 +290,7 @@ async function updateTask(db, taskId, data) {
     requiresAcceptance: 'requires_acceptance', requiresAttachment: 'requires_attachment',
     requiresReview: 'requires_review', reviewType: 'review_type', reviewerDefaultRole: 'reviewer_default_role',
     managerReviewAllowed: 'manager_review_allowed', adminReviewAllowed: 'admin_review_allowed',
-    isActive: 'is_active',
+    gestorOnly: 'gestor_only', isActive: 'is_active',
   };
   const fields = [];
   const values = [];
@@ -480,13 +480,13 @@ async function versionBump(db, serviceId) {
            (id, template_stage_id, service_id, name, description, observation, sort_order, default_days,
             default_assignee_role, default_estimated_minutes, default_priority, requires_acceptance,
             requires_attachment, requires_review, review_type, reviewer_default_role,
-            manager_review_allowed, admin_review_allowed, is_active, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+            manager_review_allowed, admin_review_allowed, gestor_only, is_active, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
         [newId, stageIdMap.get(t.template_stage_id), serviceId, t.name, t.description, t.observation,
          t.sort_order, t.default_days, t.default_assignee_role, t.default_estimated_minutes,
          t.default_priority, t.requires_acceptance, t.requires_attachment, t.requires_review,
          t.review_type, t.reviewer_default_role, t.manager_review_allowed, t.admin_review_allowed,
-         t.is_active, t.metadata]
+         t.gestor_only === true, t.is_active, t.metadata]
       );
     }
 

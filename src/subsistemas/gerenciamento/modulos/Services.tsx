@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Modal from '@/components/Modal'
 import { Target, Plus, Edit, Trash2, X, Layers } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useDialogs } from '@/components/DialogProvider'
 import ServiceTemplateEditor from './_pm/ServiceTemplateEditor'
 
 interface Service {
@@ -19,6 +20,7 @@ const EMPTY_FORM = {
 
 const Services: React.FC = () => {
   const permissions = usePermissions('services');
+  const { confirm } = useDialogs()
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -158,7 +160,7 @@ const Services: React.FC = () => {
   }
 
   const deleteService = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este serviço?')) return
+    if (!await confirm({ title: 'Excluir serviço', message: 'Tem certeza que deseja excluir este serviço?', confirmLabel: 'Excluir', destructive: true })) return
     setDeletingId(id)
     setErrorMsg(null)
     try {

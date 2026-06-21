@@ -2,6 +2,18 @@
 
 const API = '/api'
 
+export interface CompletionPrereq {
+  kind: 'task' | 'stage'
+  id: string
+  name: string
+  stage_name?: string | null
+  project_name?: string | null
+  status?: string
+  assignee_user_id?: string | null
+  gestor_only?: boolean
+  claimable: boolean
+}
+
 export interface PmTask {
   id: string
   project_id: string
@@ -17,6 +29,9 @@ export interface PmTask {
   default_days?: number | null
   due_action?: 'edit' | 'request' | null
   can_assign?: boolean
+  can_review?: boolean
+  gestor_only?: boolean
+  completion_prereqs?: CompletionPrereq[]
   assignee_name?: string | null
   project_name?: string
   stage_name?: string
@@ -65,6 +80,27 @@ export async function claimTask(taskId: string): Promise<any> {
   const r = await fetch(`${API}/tasks/${taskId}/claim`, { method: 'POST' })
   return parse(r)
 }
+
+// Pega várias tarefas de uma vez (principal + pré-requisitos). Best-effort.
+export async function claimTasksBulk(taskIds: string[]): Promise<{ claimed: string[]; skipped: { id: string; error: string }[] }> {
+  const r = await fetch(`${API}/tasks/claim-bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskIds }) })
+  return parse(r)
+}
+
+// Desconcluir (reabrir) uma tarefa concluída. target: 'self' (capturar) |
+// 'original' (devolver a quem concluiu). Retorna { reopened } ou { requested }.
+export async function uncompleteTask(taskId: string, reason: string, target: 'self' | 'original'): Promise<any> {
+  const r = await fetch(`${API}/tasks/${taskId}/uncomplete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, target }) })
+  return parse(r)
+}
+
+export interface UncompleteRequest {
+  id: string; task_id: string; project_id: string; reason: string; target: 'self' | 'original'
+  task_name?: string; project_name?: string; requester_name?: string
+}
+export const fetchPendingUncompleteRequests = (): Promise<UncompleteRequest[]> => fetch(`${API}/pm/uncomplete-requests`).then(parse)
+export const decideUncompleteRequest = (id: string, approve: boolean) =>
+  fetch(`${API}/pm/uncomplete-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approve }) }).then(parse)
 
 export async function taskAction(
   taskId: string,

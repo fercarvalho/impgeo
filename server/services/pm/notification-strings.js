@@ -36,6 +36,20 @@ const STRINGS = {
       ? `Seu tempo extra de hoje foi aprovado${p.decidedByName ? ` por ${p.decidedByName}` : ''} — o tempo passa a ser contabilizado normalmente.`
       : `Seu pedido de tempo extra de hoje foi recusado${p.decidedByName ? ` por ${p.decidedByName}` : ''}. O tempo acima do teto não será contabilizado hoje.`,
   }),
+  pm_task_uncompleted: (p) => ({
+    title: 'Tarefa reaberta',
+    message: `"${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''} foi reaberta e está com você de novo${p.reason ? `. Motivo: "${p.reason}"` : ''}.`,
+  }),
+  pm_uncomplete_requested: (p) => ({
+    title: 'Reabertura de tarefa (aprovação)',
+    message: `Um gerente pediu para reabrir "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''}${p.reason ? `. Motivo: "${p.reason}"` : ''}. Aprove ou recuse em Tarefas → Solicitações de reabertura.`,
+  }),
+  pm_uncomplete_decided: (p) => ({
+    title: p.approved ? 'Reabertura aprovada' : 'Reabertura recusada',
+    message: p.approved
+      ? `Seu pedido para reabrir "${p.taskName}" foi aprovado — a tarefa voltou a ficar em andamento.`
+      : `Seu pedido para reabrir "${p.taskName}" foi recusado.`,
+  }),
 };
 
 function build(type, payload = {}) {
