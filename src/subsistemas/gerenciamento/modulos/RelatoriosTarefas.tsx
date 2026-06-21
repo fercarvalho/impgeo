@@ -4,7 +4,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 
 const API = '/api'
 
-interface ProjBreakdown { project_id: string; project_name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number }
+interface ProjBreakdown { project_id: string; project_name: string; role: 'lead' | 'member'; completed: number; overdue: number; open_tasks: number; active_minutes: number }
 interface ProdRow { user_id: string; name: string; completed: number; overdue: number; open_tasks: number; active_minutes: number; projects?: ProjBreakdown[] }
 interface HealthRow { project_id: string; name: string; status: string; progress_pct: number; total_cents: number; expenses_cents: number; profit_cents: number; days_to_deadline: number | null; overdue_count: number }
 interface TeamRow { manager_id: string; manager_name: string; manager_role?: string; members: ProdRow[]; totals: { completed: number; overdue: number; open_tasks: number; active_minutes: number } }
@@ -186,6 +186,7 @@ const RelatoriosTarefas: React.FC = () => {
                                   ? (isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />)
                                   : <span className="w-3.5 h-3.5 inline-block" />}
                                 {m.name}
+                                {m.user_id === team.manager_id && <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Líder</span>}
                                 {hasProjects && <span className="text-xs text-gray-400">({m.projects!.length} proj.)</span>}
                               </span>
                             </td>
@@ -198,6 +199,9 @@ const RelatoriosTarefas: React.FC = () => {
                             <tr key={`${m.user_id}:${p.project_id}`} className="text-gray-600 dark:text-gray-300 bg-gray-50/60 dark:bg-[#2d3f52]/30">
                               <td className="pl-10 pr-4 py-1 text-xs truncate flex items-center gap-1.5">
                                 <FolderKanban className="w-3 h-3 text-violet-400 flex-shrink-0" />{p.project_name}
+                                {p.role === 'lead'
+                                  ? <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Responsável</span>
+                                  : <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Membro</span>}
                               </td>
                               <td className="px-4 py-1 text-right text-xs">{p.completed}</td>
                               <td className="px-4 py-1 text-right text-xs text-red-500/80">{p.overdue}</td>

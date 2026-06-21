@@ -301,13 +301,14 @@ async function teamsReport(db, { from, to, user } = {}) {
     // active_minutes do membro (que é o total de foco no Pomodoro no período).
     const pr = await db.pool.query(
       `SELECT tk.assignee_user_id AS user_id, tk.project_id, p.name AS project_name,
+              (p.manager_user_id = tk.assignee_user_id) AS is_lead,
               COUNT(tk.id) FILTER (WHERE tk.status='completed' AND tk.completed_at::date BETWEEN $2 AND $3) AS completed,
               COUNT(tk.id) FILTER (WHERE tk.status='overdue') AS overdue,
               COUNT(tk.id) FILTER (WHERE tk.status IN ('available','in_progress','pending_acceptance','pending_review','pending_adjustment')) AS open_tasks,
               COALESCE(SUM(tk.actual_seconds),0) AS active_seconds
          FROM project_tasks tk JOIN projects p ON p.id = tk.project_id
         WHERE tk.assignee_user_id = ANY($1::varchar[])
-        GROUP BY tk.assignee_user_id, tk.project_id, p.name`,
+        GROUP BY tk.assignee_user_id, tk.project_id, p.name, p.manager_user_id`,
       [memberIds, f, t]
     );
     pr.rows.forEach(r => {
@@ -316,7 +317,7 @@ async function teamsReport(db, { from, to, user } = {}) {
       // Ignora projeto sem nada relevante no período (tudo zero).
       if (!completed && !overdue && !open_tasks && !active_minutes) return;
       const bucket = statsByUser[r.user_id];
-      if (bucket) bucket.projects.push({ project_id: r.project_id, project_name: r.project_name, completed, overdue, open_tasks, active_minutes });
+      if (bucket) bucket.projects.push({ project_id: r.project_id, project_name: r.project_name, role: r.is_lead ? 'lead' : 'member', completed, overdue, open_tasks, active_minutes });
     });
     Object.values(statsByUser).forEach(u => {
       u.projects.sort((a, b) => b.completed - a.completed || b.active_minutes - a.active_minutes);
