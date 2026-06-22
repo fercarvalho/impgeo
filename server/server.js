@@ -2441,10 +2441,30 @@ app.get('/api/pm/due-date-requests/pending', requireModulePermission('tarefas_ge
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// Aprovar/recusar um pedido (autoridade verificada no service).
+// Decisor age sobre o pedido: approve | reject | force | propose (autoridade no service).
 app.post('/api/pm/due-date-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
-    const data = await pmTaskService.decideDueDateChange(db, req.params.id, req.user, { approved: req.body.approved === true });
+    const data = await pmTaskService.decideDueDateChange(db, req.params.id, req.user, {
+      action: req.body.action, approved: req.body.approved === true,
+      newDueDate: req.body.newDueDate ?? null, note: req.body.note ?? null,
+    });
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
+});
+
+// Contrapropostas pendentes de resposta do solicitante.
+app.get('/api/pm/due-date-requests/mine', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
+  try {
+    res.json({ success: true, data: await pmTaskService.listMyDueProposals(db, req.user?.id) });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Solicitante responde a uma contraproposta: accept | reject | propose.
+app.post('/api/pm/due-date-requests/:id/respond', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
+  try {
+    const data = await pmTaskService.respondDueDateProposal(db, req.params.id, req.user, {
+      action: req.body.action, newDueDate: req.body.newDueDate ?? null, justification: req.body.justification ?? null,
+    });
     res.json({ success: true, data });
   } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
 });

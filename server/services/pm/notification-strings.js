@@ -24,11 +24,15 @@ const STRINGS = {
     title: 'Alteração de prazo (aprovação)',
     message: `${p.userName || 'Um colaborador'} pediu para alterar o prazo de "${p.taskName}"${p.projectName ? ` (${p.projectName})` : ''}: de ${p.currentDue || 'sem prazo'} para ${p.requestedDue || 'sem prazo'}.${p.justification ? ` Justificativa: "${p.justification}"` : ''} Aprove ou recuse em Tarefas → Solicitações de prazo.`,
   }),
+  pm_due_date_proposed: (p) => ({
+    title: 'Contraproposta de prazo',
+    message: `${p.byName || 'Um gestor'} propôs o prazo ${p.proposedDue || 'sem prazo'} para "${p.taskName}"${p.note ? `: "${p.note}"` : ''}. Aceite, recuse ou contraproponha em Tarefas → Propostas de prazo.`,
+  }),
   pm_due_date_decided: (p) => ({
-    title: p.approved ? 'Alteração de prazo aprovada' : 'Alteração de prazo recusada',
+    title: p.approved ? (p.forced ? 'Prazo definido' : 'Alteração de prazo aprovada') : 'Alteração de prazo recusada',
     message: p.approved
-      ? `O novo prazo de "${p.taskName}" (${p.requestedDue || 'sem prazo'}) foi aprovado${p.decidedByName ? ` por ${p.decidedByName}` : ''}.`
-      : `Seu pedido de alteração de prazo de "${p.taskName}" foi recusado${p.decidedByName ? ` por ${p.decidedByName}` : ''}.`,
+      ? `${p.forced ? `${p.decidedByName || 'Um gestor'} definiu o prazo de "${p.taskName}" para ${p.requestedDue || 'sem prazo'}` : `O novo prazo de "${p.taskName}" (${p.requestedDue || 'sem prazo'}) foi aprovado${p.decidedByName ? ` por ${p.decidedByName}` : ''}`}.${p.note ? ` Obs.: "${p.note}"` : ''}`
+      : `${p.byRequester ? `${p.decidedByName || 'O solicitante'} recusou a proposta de prazo de "${p.taskName}"` : `Seu pedido de alteração de prazo de "${p.taskName}" foi recusado${p.decidedByName ? ` por ${p.decidedByName}` : ''}`}${p.note ? `: "${p.note}"` : ''}.`,
   }),
   pm_pomodoro_overage_decided:   (p) => ({
     title: p.approved ? 'Tempo extra aprovado' : 'Tempo extra recusado',

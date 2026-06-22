@@ -67,13 +67,18 @@ export const setTaskDueDate = (taskId: string, dueDate: string | null, justifica
   fetch(`${API}/tasks/${taskId}/due-date`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate, ...(justification ? { justification } : {}) }) }).then(parse)
 
 export interface DueDateRequest {
-  id: string; task_id: string; project_id: string; requester_role: 'user' | 'manager'
-  requested_due_date: string | null; current_due_date: string | null; justification: string | null
-  task_name?: string; project_name?: string; requester_name?: string
+  id: string; task_id: string; project_id: string; requester_role: 'user' | 'manager'; status?: string
+  requested_due_date: string | null; current_due_date: string | null; justification: string | null; decision_note?: string | null
+  task_name?: string; project_name?: string; requester_name?: string; decided_by_name?: string
 }
 export const fetchPendingDueRequests = (): Promise<DueDateRequest[]> => fetch(`${API}/pm/due-date-requests/pending`).then(parse)
-export const decideDueRequest = (id: string, approved: boolean) =>
-  fetch(`${API}/pm/due-date-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved }) }).then(parse)
+// Decisor: action = 'approve' | 'reject' | 'force' | 'propose'.
+export const decideDueRequest = (id: string, body: { action: 'approve' | 'reject' | 'force' | 'propose'; newDueDate?: string | null; note?: string | null }) =>
+  fetch(`${API}/pm/due-date-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(parse)
+// Solicitante responde a uma contraproposta: 'accept' | 'reject' | 'propose'.
+export const fetchMyDueProposals = (): Promise<DueDateRequest[]> => fetch(`${API}/pm/due-date-requests/mine`).then(parse)
+export const respondDueProposal = (id: string, body: { action: 'accept' | 'reject' | 'propose'; newDueDate?: string | null; justification?: string | null }) =>
+  fetch(`${API}/pm/due-date-requests/${id}/respond`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(parse)
 
 // Auto-atribuir uma tarefa disponível ao usuário logado.
 export async function claimTask(taskId: string): Promise<any> {

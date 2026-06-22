@@ -8,9 +8,11 @@ import {
   fetchPendingReviews, fetchIncomingHelp, helpAction, HelpRequest,
   fetchAvailableTasks,
   fetchPendingDueRequests, decideDueRequest, DueDateRequest,
+  fetchMyDueProposals, respondDueProposal,
   fetchPendingUncompleteRequests, decideUncompleteRequest, UncompleteRequest,
   fetchPendingDelegations, decideDelegation, DelegationRequest,
 } from './_pm/taskApi'
+import DueProposalModal from './_pm/DueProposalModal'
 import { useActiveSession, markTaskAreaOpened, getActive } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
 import IdleAlertModal from './_pm/IdleAlertModal'
@@ -60,6 +62,8 @@ const Tarefas: React.FC = () => {
   const [pendingReviews, setPendingReviews] = useState<PmTask[] | null>(null) // null = não-gestor
   const [incomingHelp, setIncomingHelp] = useState<HelpRequest[]>([])
   const [dueReqs, setDueReqs] = useState<DueDateRequest[] | null>(null) // null = não-gestor
+  const [dueProps, setDueProps] = useState<DueDateRequest[]>([]) // contrapropostas de prazo p/ mim
+  const [dueModal, setDueModal] = useState<{ mode: 'decider' | 'requester'; request: DueDateRequest } | null>(null)
   const [uncReqs, setUncReqs] = useState<UncompleteRequest[]>([]) // pedidos de reabertura (admin)
   const [delReqs, setDelReqs] = useState<DelegationRequest[]>([]) // pedidos de delegação (admin)
 
@@ -74,6 +78,7 @@ const Tarefas: React.FC = () => {
     fetchPendingReviews().then(setPendingReviews).catch(() => setPendingReviews(null))
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
     fetchPendingDueRequests().then(setDueReqs).catch(() => setDueReqs(null))
+    fetchMyDueProposals().then(setDueProps).catch(() => setDueProps([]))
     fetchPendingUncompleteRequests().then(setUncReqs).catch(() => setUncReqs([]))
     fetchPendingDelegations().then(setDelReqs).catch(() => setDelReqs([]))
   }, [])
@@ -156,10 +161,10 @@ const Tarefas: React.FC = () => {
           <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1 flex items-center gap-2">
             <CalendarClock className="w-4 h-4" /> Solicitações de prazo ({dueReqs.length})
           </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Alterações de prazo pedem aprovação. Aprove para aplicar o novo prazo na tarefa.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Aprove para aplicar o prazo pedido, recuse (mantém o atual), ou proponha/force outra data.</p>
           <div className="space-y-2">
             {dueReqs.map(d => (
-              <div key={d.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+              <div key={d.id} className="flex items-center gap-2 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{d.task_name} <span className="text-xs text-gray-400">· {d.project_name}</span></div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -167,10 +172,41 @@ const Tarefas: React.FC = () => {
                   </div>
                   {d.justification && <div className="text-xs text-gray-500 dark:text-gray-400">Justificativa: {d.justification}</div>}
                 </div>
-                <button onClick={async () => { await decideDueRequest(d.id, true); load() }} title="Aprovar"
+                <button onClick={async () => { await decideDueRequest(d.id, { action: 'approve' }); load() }} title="Aprovar"
                   className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100"><Check className="w-4 h-4" /></button>
-                <button onClick={async () => { await decideDueRequest(d.id, false); load() }} title="Recusar"
+                <button onClick={async () => { const note = await prompt({ title: 'Recusar pedido de prazo', label: 'Motivo (opcional)', multiline: true, confirmLabel: 'Recusar' }); if (note === null) return; await decideDueRequest(d.id, { action: 'reject', note }); load() }} title="Recusar (mantém o prazo atual)"
                   className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"><X className="w-4 h-4" /></button>
+                <button onClick={() => setDueModal({ mode: 'decider', request: d })} title="Propor / forçar outra data"
+                  className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100"><CalendarClock className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Contrapropostas de prazo para mim (solicitante responde) */}
+      {dueProps.length > 0 && (
+        <section className="rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-900/10 p-4">
+          <h2 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-1 flex items-center gap-2">
+            <CalendarClock className="w-4 h-4" /> Propostas de prazo para você ({dueProps.length})
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gestor propôs outra data para o seu pedido. Aceite, recuse (mantém o atual) ou contraproponha.</p>
+          <div className="space-y-2">
+            {dueProps.map(d => (
+              <div key={d.id} className="flex items-center gap-2 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{d.task_name} <span className="text-xs text-gray-400">· {d.project_name}</span></div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {d.decided_by_name || 'Gestor'} propõe: {d.current_due_date || 'sem prazo'} → <strong>{d.requested_due_date || 'sem prazo'}</strong>
+                  </div>
+                  {d.decision_note && <div className="text-xs text-gray-500 dark:text-gray-400">Obs. do gestor: {d.decision_note}</div>}
+                </div>
+                <button onClick={async () => { await respondDueProposal(d.id, { action: 'accept' }); load() }} title="Aceitar"
+                  className="p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100"><Check className="w-4 h-4" /></button>
+                <button onClick={async () => { const note = await prompt({ title: 'Recusar proposta de prazo', label: 'Motivo (opcional)', multiline: true, confirmLabel: 'Recusar' }); if (note === null) return; await respondDueProposal(d.id, { action: 'reject', justification: note }); load() }} title="Recusar (mantém o prazo atual)"
+                  className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"><X className="w-4 h-4" /></button>
+                <button onClick={() => setDueModal({ mode: 'requester', request: d })} title="Contrapropor outra data"
+                  className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100"><CalendarClock className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
@@ -465,6 +501,11 @@ const Tarefas: React.FC = () => {
 
       {dueTask && (
         <TaskDueDateModal task={dueTask} onClose={() => setDueTask(null)} onDone={load} />
+      )}
+
+      {dueModal && (
+        <DueProposalModal mode={dueModal.mode} request={dueModal.request}
+          onClose={() => setDueModal(null)} onDone={() => { setDueModal(null); load() }} />
       )}
 
       {claimFor && (

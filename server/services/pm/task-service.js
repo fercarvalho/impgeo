@@ -356,8 +356,13 @@ async function requestDueDateChange(db, taskId, { userId, requestedDueDate = nul
   return row;
 }
 
-/** Gestor aprova/recusa. Aplica o prazo se aprovado; notifica o solicitante. */
-async function decideDueDateChange(db, requestId, reviewer, { approved }) {
+/**
+ * DECISOR age sobre um pedido PENDENTE. action ∈ approve|reject|force|propose.
+ * Compat: { approved: bool } → approve/reject. force/propose exigem newDueDate.
+ * propose → vira contraproposta (status countered, volta ao solicitante).
+ */
+async function decideDueDateChange(db, requestId, reviewer, { action, approved, newDueDate = null, note = null } = {}) {
+  if (!action) action = approved ? 'approve' : 'reject';
   const rr = await db.pool.query(
     `SELECT id, task_id, project_id, requested_by_user_id, requester_role, status,
             requested_due_date::text AS requested_due_date
@@ -365,7 +370,7 @@ async function decideDueDateChange(db, requestId, reviewer, { approved }) {
   );
   const reqRow = rr.rows[0];
   if (!reqRow) throw err('Pedido não encontrado', 'not_found', 404);
-  if (reqRow.status !== 'pending') throw err('Pedido já decidido', 'invalid_state', 409);
+  if (reqRow.status !== 'pending') throw err('Pedido não está aguardando sua decisão', 'invalid_state', 409);
 
   // Autoridade: admin/superadmin sempre; manager só pedido de USUÁRIO em projeto dele.
   let authorized = false;
@@ -376,22 +381,119 @@ async function decideDueDateChange(db, requestId, reviewer, { approved }) {
   }
   if (!authorized) throw err('Você não pode decidir este pedido.', 'forbidden', 403);
 
-  await db.pool.query(
-    `UPDATE task_due_date_requests SET status=$1, decided_by_user_id=$2, decided_at=NOW(), updated_at=NOW() WHERE id=$3`,
-    [approved ? 'approved' : 'rejected', reviewer?.id || null, requestId]
-  );
-  if (approved) {
-    await setTaskDueDate(db, reqRow.task_id, { dueDate: reqRow.requested_due_date, userId: reviewer?.id || null });
-  }
-
+  const cleanNote = note ? String(note).trim().slice(0, 1000) || null : null;
   const decidedByName = await _userName(db, reviewer?.id);
   const t = await getTask(db.pool, reqRow.task_id);
+
+  if (action === 'propose') {
+    if (!newDueDate) throw err('Informe a data proposta', 'date_required', 400);
+    await db.pool.query(
+      `UPDATE task_due_date_requests SET status='countered', requested_due_date=$1::date, decision_note=$2,
+              decided_by_user_id=$3, updated_at=NOW() WHERE id=$4`,
+      [newDueDate, cleanNote, reviewer?.id || null, requestId]
+    );
+    notificationService.notify(db, {
+      type: 'pm_due_date_proposed', userId: reqRow.requested_by_user_id,
+      payload: { taskName: t?.name, proposedDue: newDueDate, byName: decidedByName, note: cleanNote },
+      entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id,
+    }).catch(() => {});
+    return { status: 'countered' };
+  }
+
+  if (action === 'force' && !newDueDate) throw err('Informe a data', 'date_required', 400);
+  const finalStatus = action === 'reject' ? 'rejected' : 'approved';
+  const applyDate = action === 'force' ? newDueDate : reqRow.requested_due_date;
+  await db.pool.query(
+    `UPDATE task_due_date_requests
+        SET status=$1, decision_note=$2${action === 'force' ? ', requested_due_date=$5::date' : ''},
+            decided_by_user_id=$3, decided_at=NOW(), updated_at=NOW() WHERE id=$4`,
+    action === 'force'
+      ? [finalStatus, cleanNote, reviewer?.id || null, requestId, newDueDate]
+      : [finalStatus, cleanNote, reviewer?.id || null, requestId]
+  );
+  if (finalStatus === 'approved') {
+    await setTaskDueDate(db, reqRow.task_id, { dueDate: applyDate, userId: reviewer?.id || null });
+  }
   notificationService.notify(db, {
     type: 'pm_due_date_decided', userId: reqRow.requested_by_user_id,
-    payload: { approved: !!approved, taskName: t?.name, requestedDue: reqRow.requested_due_date, decidedByName },
+    payload: { approved: finalStatus === 'approved', forced: action === 'force', taskName: t?.name, requestedDue: applyDate, decidedByName, note: cleanNote },
     entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id,
   }).catch(() => {});
-  return { status: approved ? 'approved' : 'rejected' };
+  return { status: finalStatus };
+}
+
+/**
+ * SOLICITANTE responde a uma contraproposta (status countered).
+ * action ∈ accept|reject|propose. propose volta ao decisor (status pending).
+ */
+async function respondDueDateProposal(db, requestId, actor, { action, newDueDate = null, justification = null } = {}) {
+  const rr = await db.pool.query(
+    `SELECT id, task_id, project_id, requested_by_user_id, requester_role, status, decided_by_user_id,
+            requested_due_date::text AS requested_due_date
+       FROM task_due_date_requests WHERE id=$1`, [requestId]
+  );
+  const reqRow = rr.rows[0];
+  if (!reqRow) throw err('Pedido não encontrado', 'not_found', 404);
+  if (reqRow.status !== 'countered') throw err('Não há proposta para responder', 'invalid_state', 409);
+  if (reqRow.requested_by_user_id !== actor?.id) throw err('Apenas quem pediu pode responder', 'forbidden', 403);
+
+  const cleanJust = justification ? String(justification).trim().slice(0, 1000) || null : null;
+  const actorName = await _userName(db, actor?.id);
+  const t = await getTask(db.pool, reqRow.task_id);
+
+  if (action === 'propose') {
+    if (!newDueDate) throw err('Informe a nova data', 'date_required', 400);
+    await db.pool.query(
+      `UPDATE task_due_date_requests SET status='pending', requested_due_date=$1::date, justification=$2, updated_at=NOW() WHERE id=$3`,
+      [newDueDate, cleanJust, requestId]
+    );
+    const payload = { userName: actorName, taskName: t?.name, projectName: null, requestedDue: newDueDate, justification: cleanJust };
+    if (reqRow.requester_role === 'manager') {
+      notificationService.notifyAdmins(db, { type: 'pm_due_date_requested', payload, entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id, exceptUserId: actor?.id }).catch(() => {});
+    } else {
+      const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [reqRow.project_id]);
+      const mgr = p.rows[0]?.manager_user_id;
+      if (mgr && mgr !== actor?.id) notificationService.notify(db, { type: 'pm_due_date_requested', userId: mgr, payload, entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id }).catch(() => {});
+      notificationService.notifyAdmins(db, { type: 'pm_due_date_requested', payload, entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id, exceptUserId: actor?.id }).catch(() => {});
+    }
+    return { status: 'pending' };
+  }
+
+  const finalStatus = action === 'accept' ? 'approved' : 'rejected';
+  await db.pool.query(
+    `UPDATE task_due_date_requests SET status=$1, justification=COALESCE($2, justification), updated_at=NOW() WHERE id=$3`,
+    [finalStatus, cleanJust, requestId]
+  );
+  if (finalStatus === 'approved') {
+    await setTaskDueDate(db, reqRow.task_id, { dueDate: reqRow.requested_due_date, userId: actor?.id || null });
+  }
+  if (reqRow.decided_by_user_id) {
+    notificationService.notify(db, {
+      type: 'pm_due_date_decided', userId: reqRow.decided_by_user_id,
+      payload: { approved: finalStatus === 'approved', taskName: t?.name, requestedDue: reqRow.requested_due_date, decidedByName: actorName, note: cleanJust, byRequester: true },
+      entityType: 'project_task', entityId: reqRow.task_id, ctaProjectId: reqRow.project_id,
+    }).catch(() => {});
+  }
+  return { status: finalStatus };
+}
+
+/** Contrapropostas pendentes de resposta do solicitante (status countered). */
+async function listMyDueProposals(db, userId) {
+  if (!userId) return [];
+  const r = await db.pool.query(
+    `SELECT o.id, o.task_id, o.project_id, o.requester_role, o.status,
+            o.requested_due_date::text AS requested_due_date, o.current_due_date::text AS current_due_date,
+            o.justification, o.decision_note,
+            t.name AS task_name, p.name AS project_name,
+            COALESCE(NULLIF(TRIM(COALESCE(du.first_name,'')||' '||COALESCE(du.last_name,'')),''), du.username) AS decided_by_name
+       FROM task_due_date_requests o
+       JOIN project_tasks t ON t.id=o.task_id
+       LEFT JOIN projects p ON p.id=o.project_id
+       LEFT JOIN users du ON du.id=o.decided_by_user_id
+      WHERE o.requested_by_user_id=$1 AND o.status='countered'
+      ORDER BY o.updated_at DESC`, [userId]
+  );
+  return r.rows;
 }
 
 /** Fila de pedidos de alteração de prazo (escopo do gestor). */
@@ -1077,7 +1179,9 @@ module.exports = {
   setTaskDueDate,
   requestDueDateChange,
   decideDueDateChange,
+  respondDueDateProposal,
   listPendingDueDateRequests,
+  listMyDueProposals,
   requestDelegation,
   decideDelegation,
   listPendingDelegations,

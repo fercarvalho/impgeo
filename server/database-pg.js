@@ -2996,6 +2996,7 @@ class Database {
       pm_pomodoro_overage_decided:    { push: true,  email: true },
       // Alteração de prazo de tarefa (pedido/decisão) — email ON por default.
       pm_due_date_requested:          { push: true,  email: true },
+      pm_due_date_proposed:           { push: true,  email: true },
       pm_due_date_decided:            { push: true,  email: true },
       // Reabertura de tarefa concluída (desconcluir) — afeta o responsável e o
       // gestor que pediu; email ON por default.
