@@ -2361,22 +2361,29 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
 
     // Trava: manager que NÃO é dono do projeto delegando p/ usuário comum →
     // vira pedido pendente que admin/superadmin aprova antes de ir ao usuário.
+    // Delegação de manager → usuário comum SEMPRE passa pelo aceite (o usuário
+    // pode aceitar/recusar), mesmo que a tarefa não exija aceite.
+    let forceAcceptance = false;
     if (req.user.role === 'manager' && req.body.userId) {
       const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [existing.project_id]);
       const ownsProject = pr.rows[0]?.manager_user_id === req.user.id;
       const tr = await db.pool.query('SELECT role FROM users WHERE id=$1', [req.body.userId]);
       const targetIsCommon = tr.rows[0]?.role === 'user';
-      if (!ownsProject && targetIsCommon) {
-        await pmTaskService.requestDelegation(db, {
-          taskId: req.params.taskId, projectId: existing.project_id, managerId: req.user.id,
-          toUserId: req.body.userId, dueDate: req.body.dueDate ?? null,
-        });
-        return res.json({ success: true, data: { requested: true } });
+      if (targetIsCommon) {
+        if (!ownsProject) {
+          await pmTaskService.requestDelegation(db, {
+            taskId: req.params.taskId, projectId: existing.project_id, managerId: req.user.id,
+            toUserId: req.body.userId, dueDate: req.body.dueDate ?? null,
+          });
+          return res.json({ success: true, data: { requested: true } });
+        }
+        forceAcceptance = true;  // manager dono delegando a usuário comum
       }
     }
 
     const task = await pmTaskService.assignTask(db, req.params.taskId, {
       toUserId: req.body.userId, assignedByUserId: req.user?.id || null, reason: req.body.reason || 'assign',
+      forceAcceptance,
       ...(req.body.dueDate !== undefined ? { dueDate: req.body.dueDate } : {}),
     });
     res.json({ success: true, data: task });

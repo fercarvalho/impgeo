@@ -116,7 +116,7 @@ async function _loadGraph(exec, projectId) {
  * tarefa exige aceite (acceptance_required) e está 'available', vai p/
  * 'pending_acceptance' (aguardando o responsável aceitar).
  */
-async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reason = 'assign', dueDate = undefined }) {
+async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reason = 'assign', dueDate = undefined, forceAcceptance = false }) {
   if (!toUserId) throw new Error('assignTask: toUserId obrigatório');
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
@@ -124,8 +124,10 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
   const fromUserId = task.assignee_user_id;
   // Reatribuir uma tarefa recusada a outra pessoa a "reabre": volta a aguardar
   // aceite (se exige) ou a ficar disponível, para o novo responsável agir.
+  // forceAcceptance: delegação (manager → usuário) sempre passa pelo aceite,
+  // mesmo que a tarefa não tenha acceptance_required, para o usuário poder recusar.
   let nextStatus = task.status;
-  if (task.acceptance_required && (task.status === 'available' || task.status === 'pending' || task.status === 'refused')) {
+  if ((task.acceptance_required || forceAcceptance) && (task.status === 'available' || task.status === 'pending' || task.status === 'refused')) {
     nextStatus = TASK_STATUSES.PENDING_ACCEPTANCE;
     assertTransition(task, nextStatus);
   } else if (task.status === 'refused') {
@@ -460,6 +462,7 @@ async function decideDelegation(db, requestId, reviewer, { approved }) {
     // para o admin que só aprovou.
     await assignTask(db, reqRow.task_id, {
       toUserId: reqRow.to_user_id, assignedByUserId: reqRow.requested_by_user_id, reason: 'assign',
+      forceAcceptance: true,  // delegação: o usuário pode aceitar/recusar
       ...(reqRow.due_date ? { dueDate: reqRow.due_date } : {}),
     });
   }
