@@ -31,7 +31,14 @@ const AssignTaskModal: React.FC<{
       })
       const j = await r.json()
       if (!j.success) throw new Error(j.error || 'Falha ao atribuir')
-      if (j.data?.requested) { setNotice('Pedido de delegação enviado — um admin precisa aprovar antes de a tarefa ir para o usuário.'); setBusy(false); return }
+      if (j.data?.requested) {
+        setNotice('✅ Tarefa enviada! Um admin/superadmin precisa aprovar a delegação antes de a tarefa ir para o responsável.')
+        setBusy(false); return
+      }
+      if (j.data?.status === 'pending_acceptance') {
+        setNotice('✅ Tarefa enviada! Aguardando o responsável aceitar (ele pode aceitar ou recusar).')
+        setBusy(false); return
+      }
       onDone()
     } catch (e: any) { setError(e.message); setBusy(false) }
   }
