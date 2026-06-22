@@ -987,7 +987,9 @@ async function _applyUncomplete(db, task, { target, requesterId, originalComplet
   } finally {
     client.release();
   }
-  if (newAssignee) {
+  // Notifica quem recebe a tarefa — mas não quando é o próprio ator (reabrir
+  // pra si: não faz sentido se autonotificar).
+  if (newAssignee && newAssignee !== actorId) {
     const meta = await _taskMeta(db, task);
     const byName = await _userName(db, actorId);
     _notify(db, { type: 'pm_task_uncompleted', userId: newAssignee, payload: { ...meta, reason, byName }, entityType: 'project_task', entityId: task.id, ctaProjectId: task.project_id });
@@ -1021,6 +1023,15 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
       throw err('Você só pode desconcluir tarefas que você concluiu', 'forbidden', 403);
     }
     const reopened = await _applyUncomplete(db, task, { target: 'self', requesterId: actor.id, originalCompleter, reason: cleanReason, actorId: actor.id });
+    // Avisa a GESTÃO (gerente do projeto + admins/superadmins) que o usuário
+    // reabriu a própria tarefa concluída, com o motivo.
+    const meta = await _taskMeta(db, task);
+    const actorName = await _userName(db, actor.id);
+    const payload = { ...meta, reason: cleanReason, actorName };
+    const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [task.project_id]);
+    const mgr = pr.rows[0]?.manager_user_id;
+    if (mgr && mgr !== actor.id) _notify(db, { type: 'pm_uncomplete_self_notice', userId: mgr, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+    _notifyAdmins(db, { type: 'pm_uncomplete_self_notice', exceptUserId: actor.id, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
     return { reopened };
   }
 
