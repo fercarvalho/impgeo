@@ -2874,7 +2874,7 @@ app.get('/api/pm/uncomplete-requests', requireModulePermission('tarefas_gerencia
 
 app.post('/api/pm/uncomplete-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
   try {
-    const result = await pmTaskService.decideUncomplete(db, req.params.id, { admin: { id: req.user.id, role: req.user.role }, approve: req.body.approve === true });
+    const result = await pmTaskService.decideUncomplete(db, req.params.id, { reviewer: { id: req.user.id, role: req.user.role }, approve: req.body.approve === true });
     res.json({ success: true, data: result });
   } catch (error) { res.status(error.status || 400).json({ success: false, error: error.message, code: error.code }); }
 });

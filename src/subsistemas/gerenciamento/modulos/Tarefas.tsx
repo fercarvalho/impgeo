@@ -228,14 +228,14 @@ const Tarefas: React.FC = () => {
           <h2 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-1 flex items-center gap-2">
             <Undo2 className="w-4 h-4" /> Solicitações de reabertura ({uncReqs.length})
           </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente pediu para reabrir uma tarefa concluída. Aprove para a tarefa voltar a ficar em andamento.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente ou usuário pediu para reabrir uma tarefa concluída. Aprove para a tarefa voltar a ficar disponível.</p>
           <div className="space-y-2">
             {uncReqs.map(u => (
               <div key={u.id} className="flex items-center gap-3 bg-white dark:!bg-[#243040] rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{u.task_name} <span className="text-xs text-gray-400">· {u.project_name}</span></div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {u.requester_name}: {u.target === 'self' ? 'capturar p/ si' : u.target === 'pool' ? 'deixar disponível' : 'devolver a quem concluiu'} — {u.reason}
+                    {u.requester_name}: {u.target === 'self' ? 'volta pra quem pediu' : u.target === 'pool' ? 'deixar disponível' : 'devolver a quem concluiu'} — {u.reason}
                   </div>
                 </div>
                 <button onClick={async () => { await decideUncompleteRequest(u.id, true); load() }} title="Aprovar"

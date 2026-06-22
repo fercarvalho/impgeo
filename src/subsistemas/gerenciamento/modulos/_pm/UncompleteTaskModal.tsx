@@ -18,14 +18,15 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
   const [target, setTarget] = useState<'self' | 'original' | 'pool'>('original')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const submit = async () => {
     if (!reason.trim()) { setError('Explique o motivo da reabertura'); return }
     setBusy(true); setError(null)
     try {
       const r = await uncompleteTask(task.id, reason.trim(), isGestor ? target : 'self')
-      if (r?.requested) { setError(null); onDone(); }
-      else onDone()
+      if (r?.requested) { setNotice('✅ Pedido de reabertura enviado — um gerente do projeto ou admin precisa aprovar antes de a tarefa voltar.'); setBusy(false); return }
+      onDone()
     } catch (e: any) { setError(e.message); setBusy(false) }
   }
 
@@ -38,6 +39,15 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
         </div>
         <div className="p-5 space-y-3">
           {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+          {notice ? (
+            <>
+              <div className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">{notice}</div>
+              <div className="flex justify-end pt-1">
+                <button onClick={onDone} className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-sm font-semibold">Ok</button>
+              </div>
+            </>
+          ) : (
+          <>
           <p className="text-sm text-gray-700 dark:text-gray-200">Reabrir a tarefa <strong>{task.name}</strong>?</p>
 
           <div>
@@ -67,9 +77,11 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
             </div>
           )}
 
-          {isManager && (
+          {(isManager || !isGestor) && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-              Como gerente, sua reabertura precisa da aprovação de um admin antes de a tarefa voltar a ficar disponível.
+              {isManager
+                ? 'Como gerente, sua reabertura precisa da aprovação de um admin antes de a tarefa voltar a ficar disponível.'
+                : 'Sua reabertura precisa da aprovação do gerente do projeto ou de um admin antes de a tarefa voltar pra você.'}
             </div>
           )}
 
@@ -77,9 +89,11 @@ const UncompleteTaskModal: React.FC<{ task: { id: string; name: string }; onClos
             <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] text-gray-700 dark:text-gray-200 text-sm font-medium">Cancelar</button>
             <button onClick={submit} disabled={busy}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
-              {busy && <Loader2 className="w-4 h-4 animate-spin" />} {isManager ? 'Solicitar reabertura' : 'Desconcluir'}
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />} {isGestor && !isManager ? 'Desconcluir' : 'Solicitar reabertura'}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </Modal>

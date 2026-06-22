@@ -1017,22 +1017,27 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
   const tgt = ['self', 'original', 'pool'].includes(target) ? target : 'original';
   const originalCompleter = task.assignee_user_id || null;
 
-  // Usuário comum: só a tarefa que ele concluiu; volta sempre pra ele.
+  // Usuário comum: só a tarefa que ele concluiu; vira PEDIDO pendente que o
+  // gerente do projeto OU um admin aprova antes de a tarefa voltar pra ele.
   if (!_isGestorRole(actor.role)) {
     if (originalCompleter !== actor.id) {
       throw err('Você só pode desconcluir tarefas que você concluiu', 'forbidden', 403);
     }
-    const reopened = await _applyUncomplete(db, task, { target: 'self', requesterId: actor.id, originalCompleter, reason: cleanReason, actorId: actor.id });
-    // Avisa a GESTÃO (gerente do projeto + admins/superadmins) que o usuário
-    // reabriu a própria tarefa concluída, com o motivo.
+    const reqId = db.generateId();
+    await db.pool.query(
+      `INSERT INTO task_uncomplete_requests
+         (id, task_id, project_id, requested_by_user_id, requester_role, reason, target, original_completer_user_id)
+       VALUES ($1,$2,$3,$4,'user',$5,'self',$6)`,
+      [reqId, taskId, task.project_id, actor.id, cleanReason, originalCompleter]
+    );
     const meta = await _taskMeta(db, task);
-    const actorName = await _userName(db, actor.id);
-    const payload = { ...meta, reason: cleanReason, actorName };
+    const requesterName = await _userName(db, actor.id);
+    const payload = { ...meta, reason: cleanReason, requesterName };
     const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [task.project_id]);
     const mgr = pr.rows[0]?.manager_user_id;
-    if (mgr && mgr !== actor.id) _notify(db, { type: 'pm_uncomplete_self_notice', userId: mgr, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
-    _notifyAdmins(db, { type: 'pm_uncomplete_self_notice', exceptUserId: actor.id, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
-    return { reopened };
+    if (mgr && mgr !== actor.id) _notify(db, { type: 'pm_uncomplete_requested', userId: mgr, payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+    _notifyAdmins(db, { type: 'pm_uncomplete_requested', payload, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id, exceptUserId: actor.id });
+    return { requested: { id: reqId } };
   }
 
   // Admin/superadmin: aplica direto, com o target escolhido.
@@ -1068,7 +1073,11 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
 
 /** Lista pedidos de reabertura pendentes (só admin/superadmin decide). */
 async function listPendingUncompleteRequests(db, viewer = null) {
-  if (!_isAdminRole(viewer?.role)) return [];
+  // admin/superadmin → todos; manager → só pedidos de USUÁRIO nos projetos dele.
+  let where, params;
+  if (_isAdminRole(viewer?.role)) { where = `ur.status='pending'`; params = []; }
+  else if (viewer?.role === 'manager') { where = `ur.status='pending' AND ur.requester_role='user' AND p.manager_user_id=$1`; params = [viewer.id]; }
+  else return [];
   const r = await db.pool.query(
     `SELECT ur.*, t.name AS task_name, p.name AS project_name,
             COALESCE(NULLIF(TRIM(COALESCE(ru.first_name,'')||' '||COALESCE(ru.last_name,'')),''), ru.username) AS requester_name
@@ -1076,37 +1085,45 @@ async function listPendingUncompleteRequests(db, viewer = null) {
        JOIN project_tasks t ON t.id = ur.task_id
        LEFT JOIN projects p ON p.id = ur.project_id
        LEFT JOIN users ru ON ru.id = ur.requested_by_user_id
-      WHERE ur.status = 'pending'
-      ORDER BY ur.created_at ASC`
+      WHERE ${where}
+      ORDER BY ur.created_at ASC`, params
   );
   return r.rows;
 }
 
 /** Decide um pedido de reabertura (admin). approve=true reabre; senão rejeita. */
-async function decideUncomplete(db, reqId, { admin, approve }) {
-  if (!_isAdminRole(admin?.role)) throw err('Apenas admin decide reaberturas', 'forbidden', 403);
+async function decideUncomplete(db, reqId, { reviewer, approve }) {
   const rr = await db.pool.query('SELECT * FROM task_uncomplete_requests WHERE id = $1', [reqId]);
   const req = rr.rows[0];
   if (!req) throw new Error('Pedido não encontrado');
   if (req.status !== 'pending') throw err('Pedido já decidido', 'invalid_transition', 409);
 
+  // Autoridade: admin/superadmin sempre; manager só pedido de USUÁRIO em projeto dele.
+  let authorized = false;
+  if (_isAdminRole(reviewer?.role)) authorized = true;
+  else if (reviewer?.role === 'manager' && req.requester_role === 'user') {
+    const p = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [req.project_id]);
+    authorized = p.rows[0]?.manager_user_id === reviewer.id;
+  }
+  if (!authorized) throw err('Você não pode decidir esta reabertura.', 'forbidden', 403);
+
   await db.pool.query(
     `UPDATE task_uncomplete_requests SET status=$2, decided_by_user_id=$3, decided_at=NOW(), updated_at=NOW() WHERE id=$1`,
-    [reqId, approve ? 'approved' : 'rejected', admin.id]
+    [reqId, approve ? 'approved' : 'rejected', reviewer.id]
   );
 
-  // Notifica o manager que pediu.
+  // Notifica quem pediu (manager ou usuário).
   const task = await getTask(db.pool, req.task_id);
   if (task) {
     const meta = await _taskMeta(db, task);
-    const decidedByName = await _userName(db, admin?.id);
+    const decidedByName = await _userName(db, reviewer?.id);
     _notify(db, { type: 'pm_uncomplete_decided', userId: req.requested_by_user_id, payload: { ...meta, approved: !!approve, decidedByName }, entityType: 'project_task', entityId: req.task_id, ctaProjectId: req.project_id });
   }
 
   if (approve && task && task.status === TASK_STATUSES.COMPLETED) {
     const reopened = await _applyUncomplete(db, task, {
       target: req.target, requesterId: req.requested_by_user_id,
-      originalCompleter: req.original_completer_user_id, reason: req.reason, actorId: admin.id,
+      originalCompleter: req.original_completer_user_id, reason: req.reason, actorId: reviewer.id,
     });
     return { approved: true, reopened };
   }
