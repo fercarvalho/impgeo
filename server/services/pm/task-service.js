@@ -175,6 +175,10 @@ async function claimTask(db, taskId, { userId, actorRole = null }) {
   if (task.gestor_only && !_isGestorRole(actorRole)) {
     throw err('Esta tarefa é restrita a gestores (gerente/admin).', 'gestor_only', 403);
   }
+  const pendingDeleg = await db.pool.query(`SELECT 1 FROM task_delegation_requests WHERE task_id=$1 AND status='pending' LIMIT 1`, [taskId]);
+  if (pendingDeleg.rows[0]) {
+    throw err('Esta tarefa está aguardando aprovação de uma delegação.', 'pending_delegation', 409);
+  }
   await db.pool.query(
     `UPDATE project_tasks
         SET assignee_user_id = $1, assigned_at = NOW(), accepted_at = NOW(), updated_at = NOW()
@@ -521,9 +525,12 @@ async function refuseTask(db, taskId, { userId, reason }) {
   }
   const task = await getTask(db.pool, taskId);
   if (!task) throw new Error('Tarefa não encontrada');
-  assertTransition(task, TASK_STATUSES.REFUSED);
+  // Recusar devolve a tarefa para o POOL: disponível e SEM responsável, para
+  // qualquer um pegar de novo.
+  assertTransition(task, TASK_STATUSES.AVAILABLE);
   await db.pool.query(
-    `UPDATE project_tasks SET status = 'refused', refusal_reason = $1, updated_at = NOW() WHERE id = $2`,
+    `UPDATE project_tasks SET status = 'available', assignee_user_id = NULL, accepted_at = NULL,
+            started_at = NULL, paused_at = NULL, refusal_reason = $1, updated_at = NOW() WHERE id = $2`,
     [String(reason).trim(), taskId]
   );
   await db.pool.query(
@@ -1037,6 +1044,7 @@ async function listAvailableUnassignedTasks(db) {
       WHERE t.assignee_user_id IS NULL
         AND t.status = 'available'
         AND p.status NOT IN ('concluido', 'cancelado', 'inativo')
+        AND NOT EXISTS (SELECT 1 FROM task_delegation_requests dr WHERE dr.task_id = t.id AND dr.status = 'pending')
       ORDER BY t.due_date ASC NULLS LAST, t.updated_at DESC`
   );
   return r.rows;
