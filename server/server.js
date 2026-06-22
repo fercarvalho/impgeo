@@ -2354,31 +2354,42 @@ app.post('/api/projects/:id/tasks/:taskId/assign', requireModulePermission('tare
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores atribuem tarefas.' });
     const existing = await pmTaskService.getTask(db.pool, req.params.taskId);
     if (!existing) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
-    // Escopo: pode agir nesta tarefa E atribuir ao novo responsável.
-    const okCurrent = await _canManageTask(db, req.user, existing, existing.assignee_user_id);
-    const okTarget = await _canManageTask(db, req.user, existing, req.body.userId);
-    if (!okCurrent || !okTarget) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
+    if (!req.body.userId) return res.status(400).json({ success: false, error: 'Selecione um responsável.' });
 
-    // Trava: manager que NÃO é dono do projeto delegando p/ usuário comum →
-    // vira pedido pendente que admin/superadmin aprova antes de ir ao usuário.
-    // Delegação de manager → usuário comum SEMPRE passa pelo aceite (o usuário
-    // pode aceitar/recusar), mesmo que a tarefa não exija aceite.
+    // okCurrent: o ator pode AGIR sobre a tarefa no estado atual?
+    const okCurrent = await _canManageTask(db, req.user, existing, existing.assignee_user_id);
+    if (!okCurrent) return res.status(403).json({ success: false, error: 'Fora do seu escopo: gerencie apenas tarefas da sua equipe.' });
+
     let forceAcceptance = false;
-    if (req.user.role === 'manager' && req.body.userId) {
+    if (req.user.role === 'manager') {
       const pr = await db.pool.query('SELECT manager_user_id FROM projects WHERE id=$1', [existing.project_id]);
       const ownsProject = pr.rows[0]?.manager_user_id === req.user.id;
       const tr = await db.pool.query('SELECT role FROM users WHERE id=$1', [req.body.userId]);
-      const targetIsCommon = tr.rows[0]?.role === 'user';
-      if (targetIsCommon) {
-        if (!ownsProject) {
-          await pmTaskService.requestDelegation(db, {
-            taskId: req.params.taskId, projectId: existing.project_id, managerId: req.user.id,
-            toUserId: req.body.userId, dueDate: req.body.dueDate ?? null,
-          });
-          return res.json({ success: true, data: { requested: true } });
-        }
-        forceAcceptance = true;  // manager dono delegando a usuário comum
+      const targetRole = tr.rows[0]?.role;
+      const targetIsSelf = req.body.userId === req.user.id;
+      const targetIsCommon = targetRole === 'user';
+      const targetIsGestor = targetRole === 'admin' || targetRole === 'superadmin';
+
+      // Manager delega para: usuário comum, admin/superadmin, ou qualquer um nos
+      // projetos dele. Não pode "empurrar" para outro manager fora do escopo.
+      if (!targetIsSelf && !targetIsCommon && !targetIsGestor && !ownsProject) {
+        return res.status(403).json({ success: false, error: 'Fora do seu escopo de delegação.' });
       }
+      // Usuário comum em projeto que ele NÃO gerencia → pré-aprovação de admin.
+      if (targetIsCommon && !ownsProject) {
+        await pmTaskService.requestDelegation(db, {
+          taskId: req.params.taskId, projectId: existing.project_id, managerId: req.user.id,
+          toUserId: req.body.userId, dueDate: req.body.dueDate ?? null,
+        });
+        return res.json({ success: true, data: { requested: true } });
+      }
+      // Toda delegação de manager passa pelo ACEITE do alvo (aceita/recusa;
+      // recusou → volta para o pool de disponíveis). Inclui admin/superadmin.
+      if (!targetIsSelf) forceAcceptance = true;
+    } else {
+      // admin/superadmin: respeita o escopo do alvo (não mexe em tarefa de outro admin).
+      const okTarget = await _canManageTask(db, req.user, existing, req.body.userId);
+      if (!okTarget) return res.status(403).json({ success: false, error: 'Fora do seu escopo.' });
     }
 
     const task = await pmTaskService.assignTask(db, req.params.taskId, {
@@ -2785,7 +2796,7 @@ app.get('/api/pm/assignable-users', requireModulePermission('tarefas_gerenciamen
     const data = users.filter(u => {
       if (actor.role === 'superadmin') return true;
       if (actor.role === 'admin') return u.id === actor.id || !(u.role === 'admin' || u.role === 'superadmin');
-      if (actor.role === 'manager') return u.id === actor.id || u.role === 'user' || ownsProject || teamSet.has(u.id);
+      if (actor.role === 'manager') return u.id === actor.id || u.role === 'user' || u.role === 'admin' || u.role === 'superadmin' || ownsProject || teamSet.has(u.id);
       return false;
     }).map(u => ({ id: u.id, name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username, role: u.role }));
 
