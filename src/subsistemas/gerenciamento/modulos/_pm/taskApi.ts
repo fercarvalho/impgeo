@@ -44,7 +44,7 @@ async function parse(r: Response) {
       : j.code === 'start_blocked' ? (j.error || 'Tarefa bloqueada por dependências de início.')
       : j.code === 'completion_blocked' ? (j.error || 'Tarefa não pode concluir: dependências pendentes.')
       : (j.error || `Erro (HTTP ${r.status})`)
-    throw new Error(msg)
+    const e: any = new Error(msg); e.code = j.code; throw e
   }
   return j.data
 }

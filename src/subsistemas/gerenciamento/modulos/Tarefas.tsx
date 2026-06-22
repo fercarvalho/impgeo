@@ -42,7 +42,7 @@ const GROUPS: { key: string; label: string; statuses: string[] }[] = [
 
 const Tarefas: React.FC = () => {
   const permissions = usePermissions('tarefas_gerenciamento')
-  const { prompt } = useDialogs()
+  const { prompt, alert } = useDialogs()
   const { session } = useActiveSession()
   const [tasks, setTasks] = useState<PmTask[]>([])
   const [available, setAvailable] = useState<PmTask[]>([])
@@ -134,7 +134,16 @@ const Tarefas: React.FC = () => {
         const fresh = await getActive().catch(() => null)
         if (!fresh) setFocusTask(t)
       }
-    } catch (e: any) { setError(e.message) }
+    } catch (e: any) {
+      // Bloqueio por dependências (não dá pra iniciar/concluir ainda) → modal claro.
+      if (e?.code === 'completion_blocked' || e?.code === 'start_blocked') {
+        await alert({
+          title: action === 'complete' ? 'Não dá para concluir ainda' : 'Não dá para iniciar ainda',
+          message: `${e.message}\n\nPegue e conclua a(s) tarefa(s) acima antes — elas estão em "Disponíveis para pegar".`,
+          variant: 'error',
+        })
+      } else { setError(e.message) }
+    }
     finally { setBusyId(null) }
   }
 
