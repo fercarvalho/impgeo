@@ -18,6 +18,15 @@ async function _taskName(db, taskId) {
   return { taskName: r.rows[0]?.name || 'tarefa', projectId: r.rows[0]?.project_id || null };
 }
 
+async function _userName(db, userId) {
+  if (!userId) return null;
+  const r = await db.pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), username) AS name FROM users WHERE id=$1`,
+    [userId]
+  );
+  return r.rows[0]?.name || null;
+}
+
 async function createHelpRequest(db, taskId, { requesterUserId, targetUserId, message = null }) {
   if (!targetUserId) throw err('Selecione quem vai ajudar', 'target_required');
   if (targetUserId === requesterUserId) throw err('Você não pode pedir ajuda a si mesmo', 'invalid_target');
@@ -36,7 +45,8 @@ async function createHelpRequest(db, taskId, { requesterUserId, targetUserId, me
     [db.generateId(), taskId, requesterUserId, JSON.stringify({ helpId: id, targetUserId })]
   );
   const meta = await _taskName(db, taskId);
-  _notify(db, { type: 'pm_help_requested', userId: targetUserId, payload: { taskName: meta.taskName }, entityType: 'project_task', entityId: taskId, ctaProjectId: meta.projectId });
+  const requesterName = await _userName(db, requesterUserId);
+  _notify(db, { type: 'pm_help_requested', userId: targetUserId, payload: { taskName: meta.taskName, requesterName }, entityType: 'project_task', entityId: taskId, ctaProjectId: meta.projectId });
 
   const r = await db.pool.query('SELECT * FROM task_help_requests WHERE id = $1', [id]);
   return r.rows[0];
@@ -60,7 +70,8 @@ async function acceptHelp(db, helpId, { userId }) {
     [db.generateId(), h.task_id, userId, h.requester_user_id]
   );
   const metaA = await _taskName(db, h.task_id);
-  _notify(db, { type: 'pm_help_accepted', userId: h.requester_user_id, payload: { taskName: metaA.taskName }, entityType: 'project_task', entityId: h.task_id, ctaProjectId: metaA.projectId });
+  const helperName = await _userName(db, userId);
+  _notify(db, { type: 'pm_help_accepted', userId: h.requester_user_id, payload: { taskName: metaA.taskName, helperName }, entityType: 'project_task', entityId: h.task_id, ctaProjectId: metaA.projectId });
   return _load(db, helpId);
 }
 

@@ -155,7 +155,8 @@ async function assignTask(db, taskId, { toUserId, assignedByUserId = null, reaso
     payload: { toUserId, fromUserId, statusAfter: nextStatus },
   });
   const meta = await _taskMeta(db, task);
-  _notify(db, { type: 'pm_task_assigned', userId: toUserId, payload: meta, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+  const assignedByName = await _userName(db, assignedByUserId);
+  _notify(db, { type: 'pm_task_assigned', userId: toUserId, payload: { ...meta, assignedByName }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return getTask(db.pool, taskId);
 }
 
@@ -560,10 +561,11 @@ async function refuseTask(db, taskId, { userId, reason }) {
     recips.delete(userId); // quem recusou não precisa ser avisado
 
     const metaR = await _taskMeta(db, task);
+    const refuserName = await _userName(db, userId);
     for (const uid of recips) {
       _notify(db, {
         type: 'pm_task_refused', userId: uid,
-        payload: { ...metaR, reason: String(reason).trim() },
+        payload: { ...metaR, reason: String(reason).trim(), refuserName },
         entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id,
       });
     }
@@ -686,7 +688,8 @@ async function completeTask(db, taskId, { userId, actorRole } = {}) {
     );
     await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: { submitterRole: actorRole || null } });
     const metaC = await _taskMeta(db, pre);
-    _notifyAdmins(db, { type: 'pm_review_requested', payload: metaC, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
+    const submitterName = await _userName(db, userId);
+    _notifyAdmins(db, { type: 'pm_review_requested', payload: { ...metaC, submitterName }, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
     return { task: await getTask(db.pool, taskId), promoted: [], triggered: [], projectFinalized: false };
   }
 
@@ -756,7 +759,8 @@ async function submitForReview(db, taskId, { userId }) {
   );
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'submitted_for_review', actorId: userId, payload: {} });
   const metaS = await _taskMeta(db, task);
-  _notifyAdmins(db, { type: 'pm_review_requested', payload: metaS, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+  const submitterName = await _userName(db, userId);
+  _notifyAdmins(db, { type: 'pm_review_requested', payload: { ...metaS, submitterName }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return getTask(db.pool, taskId);
 }
 
@@ -795,15 +799,16 @@ async function approveReview(db, taskId, reviewer) {
 
     await client.query('COMMIT');
     try { await pomodoroService.autoCompleteSessionForTask(db, taskId, { userId: reviewer.id }); } catch { /* best-effort */ }
+    const reviewerName = await _userName(db, reviewer.id);
     if (pre.assignee_user_id) {
       const metaA = await _taskMeta(db, pre);
-      _notify(db, { type: 'pm_review_decided', userId: pre.assignee_user_id, payload: { ...metaA, approved: true }, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
+      _notify(db, { type: 'pm_review_decided', userId: pre.assignee_user_id, payload: { ...metaA, approved: true, reviewerName }, entityType: 'project_task', entityId: taskId, ctaProjectId: pre.project_id });
     }
     // Revisão por gerente gerou "Revisão final" disponível: avisa TODOS os
     // admins/superadmins — quem puder, pega e conclui.
     if (followUp) {
       const metaF = await _taskMeta(db, pre);
-      _notifyAdmins(db, { type: 'pm_review_followup', payload: { ...metaF, taskName: followUp.taskName }, entityType: 'project_task', entityId: followUp.taskId, ctaProjectId: pre.project_id });
+      _notifyAdmins(db, { type: 'pm_review_followup', payload: { ...metaF, taskName: followUp.taskName, reviewerName }, entityType: 'project_task', entityId: followUp.taskId, ctaProjectId: pre.project_id });
     }
     await _notifyProjectCompleted(db, pre.project_id, _approveFinalized);
     return { task: await getTask(db.pool, taskId), followUp, ...effects };
@@ -837,7 +842,8 @@ async function rejectReview(db, taskId, { userId, reviewerRole, adjustmentNotes 
   await appendTaskEvent(db.pool, db, { taskId, eventType: 'review_rejected', actorId: userId, payload: { adjustmentNotes: String(adjustmentNotes).trim() } });
   if (task.assignee_user_id) {
     const metaRj = await _taskMeta(db, task);
-    _notify(db, { type: 'pm_review_decided', userId: task.assignee_user_id, payload: { ...metaRj, approved: false, notes: String(adjustmentNotes).trim() }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+    const reviewerName = await _userName(db, userId);
+    _notify(db, { type: 'pm_review_decided', userId: task.assignee_user_id, payload: { ...metaRj, approved: false, notes: String(adjustmentNotes).trim(), reviewerName }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   }
   return getTask(db.pool, taskId);
 }
@@ -881,7 +887,8 @@ async function _applyUncomplete(db, task, { target, requesterId, originalComplet
   }
   if (newAssignee) {
     const meta = await _taskMeta(db, task);
-    _notify(db, { type: 'pm_task_uncompleted', userId: newAssignee, payload: { ...meta, reason }, entityType: 'project_task', entityId: task.id, ctaProjectId: task.project_id });
+    const byName = await _userName(db, actorId);
+    _notify(db, { type: 'pm_task_uncompleted', userId: newAssignee, payload: { ...meta, reason, byName }, entityType: 'project_task', entityId: task.id, ctaProjectId: task.project_id });
   }
   return getTask(db.pool, task.id);
 }
@@ -941,7 +948,8 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
     [reqId, taskId, task.project_id, actor.id, cleanReason, tgt, originalCompleter]
   );
   const meta = await _taskMeta(db, task);
-  _notifyAdmins(db, { type: 'pm_uncomplete_requested', payload: { ...meta, reason: cleanReason }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
+  const requesterName = await _userName(db, actor.id);
+  _notifyAdmins(db, { type: 'pm_uncomplete_requested', payload: { ...meta, reason: cleanReason, requesterName }, entityType: 'project_task', entityId: taskId, ctaProjectId: task.project_id });
   return { requested: { id: reqId } };
 }
 
@@ -978,7 +986,8 @@ async function decideUncomplete(db, reqId, { admin, approve }) {
   const task = await getTask(db.pool, req.task_id);
   if (task) {
     const meta = await _taskMeta(db, task);
-    _notify(db, { type: 'pm_uncomplete_decided', userId: req.requested_by_user_id, payload: { ...meta, approved: !!approve }, entityType: 'project_task', entityId: req.task_id, ctaProjectId: req.project_id });
+    const decidedByName = await _userName(db, admin?.id);
+    _notify(db, { type: 'pm_uncomplete_decided', userId: req.requested_by_user_id, payload: { ...meta, approved: !!approve, decidedByName }, entityType: 'project_task', entityId: req.task_id, ctaProjectId: req.project_id });
   }
 
   if (approve && task && task.status === TASK_STATUSES.COMPLETED) {
