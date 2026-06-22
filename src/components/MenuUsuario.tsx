@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { User, Edit, Key, ChevronDown, Bell } from 'lucide-react';
+import { User, Edit, Key, ChevronDown, Bell, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileModal from './UserProfileModal';
 import AlterarUsernameModal from './AlterarUsernameModal';
 import AlterarSenhaModal from './AlterarSenhaModal';
 import EditarPerfilModal from './EditarPerfilModal';
 import NotificacoesModal from './NotificacoesModal';
+import CapturarUsuarioModal from './CapturarUsuarioModal';
 import LazyAvatar from './LazyAvatar';
 
 interface MenuUsuarioProps {
@@ -21,6 +22,7 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showCaptureModal, setShowCaptureModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
@@ -112,6 +114,12 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
     buttonRef.current?.focus();
   };
 
+  const handleCaptureClick = () => {
+    setShowCaptureModal(true);
+    setShowMenu(false);
+    buttonRef.current?.focus();
+  };
+
   const getUserDisplayName = () => {
     if (user.firstName && user.lastName) {
       return `${user.firstName} ${user.lastName}`;
@@ -197,6 +205,18 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
           <Bell className="w-4 h-4 text-blue-600" aria-hidden="true" />
           <span className="text-sm font-medium">Notificações</span>
         </button>
+
+        {user.role === 'superadmin' && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleCaptureClick}
+            className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors text-gray-700 dark:text-gray-300 min-h-[44px] border-t border-gray-100 dark:border-gray-700"
+          >
+            <UserCircle2 className="w-4 h-4 text-amber-600" aria-hidden="true" />
+            <span className="text-sm font-medium">Capturar usuário</span>
+          </button>
+        )}
       </div>
     </div>
   ) : null;
@@ -275,6 +295,10 @@ const MenuUsuario: React.FC<MenuUsuarioProps> = ({ onLogout: _onLogout }) => {
         isOpen={showNotificationsModal}
         onClose={() => setShowNotificationsModal(false)}
       />
+
+      {showCaptureModal && (
+        <CapturarUsuarioModal onClose={() => setShowCaptureModal(false)} />
+      )}
     </>
   );
 };
