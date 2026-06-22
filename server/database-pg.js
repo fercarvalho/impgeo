@@ -2988,6 +2988,7 @@ class Database {
       pm_review_decided:              { push: true,  email: false },
       pm_help_requested:              { push: true,  email: false },
       pm_help_accepted:               { push: true,  email: false },
+      pm_help_refused:                { push: true,  email: true },
       pm_project_paid:                { push: true,  email: false },
       pm_project_completed:           { push: true,  email: false },
       // Excedente de tempo diário (Pomodoro) — pedido/decisão: email ON por

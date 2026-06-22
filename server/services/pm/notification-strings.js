@@ -14,6 +14,7 @@ const STRINGS = {
   pm_review_decided:    (p) => ({ title: p.approved ? 'Revisão aprovada' : 'Revisão reprovada', message: p.approved ? `${p.reviewerName || 'Um gestor'} aprovou "${p.taskName}".` : `${p.reviewerName || 'Um gestor'} pediu ajustes em "${p.taskName}"${p.notes ? `: ${p.notes}` : ''}.` }),
   pm_help_requested:    (p) => ({ title: 'Pedido de ajuda',       message: `${p.requesterName || 'Um colega'} pediu sua ajuda em "${p.taskName}".` }),
   pm_help_accepted:     (p) => ({ title: 'Ajuda aceita',          message: `${p.helperName || 'Um colega'} vai ajudar em "${p.taskName}".` }),
+  pm_help_refused:      (p) => ({ title: 'Ajuda recusada',        message: `${p.helperName || 'Um colega'} recusou ajudar em "${p.taskName}"${p.reason ? `: ${p.reason}` : ''}.` }),
   pm_project_paid:      (p) => ({ title: 'Pagamento recebido',    message: `Projeto "${p.projectName}" foi pago e iniciado.` }),
   pm_project_completed: (p) => ({ title: 'Projeto concluído',     message: `Projeto "${p.projectName}" foi concluído.` }),
   pm_pomodoro_overage_requested: (p) => ({

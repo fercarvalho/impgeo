@@ -84,6 +84,9 @@ async function refuseHelp(db, helpId, { userId, reason }) {
     `UPDATE task_help_requests SET status='refused', refused_at=NOW(), refusal_reason=$1, updated_at=NOW() WHERE id=$2`,
     [String(reason).trim(), helpId]
   );
+  const meta = await _taskName(db, h.task_id);
+  const helperName = await _userName(db, userId);
+  _notify(db, { type: 'pm_help_refused', userId: h.requester_user_id, payload: { taskName: meta.taskName, helperName, reason: String(reason).trim() }, entityType: 'project_task', entityId: h.task_id, ctaProjectId: meta.projectId });
   return _load(db, helpId);
 }
 
