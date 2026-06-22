@@ -455,8 +455,11 @@ async function decideDelegation(db, requestId, reviewer, { approved }) {
     [approved ? 'approved' : 'rejected', reviewer?.id || null, requestId]
   );
   if (approved) {
+    // Atribui EM NOME DO MANAGER que delegou (reason 'assign'): assim a tarefa
+    // fica registrada como dele e uma eventual recusa volta para o manager, não
+    // para o admin que só aprovou.
     await assignTask(db, reqRow.task_id, {
-      toUserId: reqRow.to_user_id, assignedByUserId: reviewer?.id || null, reason: 'delegation_approved',
+      toUserId: reqRow.to_user_id, assignedByUserId: reqRow.requested_by_user_id, reason: 'assign',
       ...(reqRow.due_date ? { dueDate: reqRow.due_date } : {}),
     });
   }
