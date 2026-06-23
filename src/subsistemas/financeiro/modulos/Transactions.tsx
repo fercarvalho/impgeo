@@ -170,6 +170,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [manageEditingName, setManageEditingName] = useState<string | null>(null)
   const [manageEditValue, setManageEditValue] = useState('')
   const [manageBusy, setManageBusy] = useState(false)
+  // Fluxo "subcategoria em uso por regra(s)": aviso → editar regras → exclui
+  const [subcatInUseWarning, setSubcatInUseWarning] = useState<{ name: string; rules: { id: string; name: string }[] } | null>(null)
+  const [pendingDeleteSubcat, setPendingDeleteSubcat] = useState<string | null>(null)
+  const [subcatDeleteSuccess, setSubcatDeleteSuccess] = useState<string | null>(null)
   // Modal de resolução de conflito (clique na badge "A confirmar")
   const [resolveTarget, setResolveTarget] = useState<{ id: string; description: string } | null>(null)
   // Toggle: mostrar transações ocultas (is_hidden=true), por padrão escondidas
@@ -273,10 +277,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen || isEditSubcategoryOpen || isManageSubcategoriesOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen || isEditSubcategoryOpen || isManageSubcategoriesOpen || subcatInUseWarning || subcatDeleteSuccess) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen, isEditSubcategoryOpen, isManageSubcategoriesOpen])
+  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen, isEditSubcategoryOpen, isManageSubcategoriesOpen, subcatInUseWarning, subcatDeleteSuccess])
 
   // ESC vem do <Modal> via stack global — apenas o modal no topo da pilha
   // responde, preservando hierarquia RemoveSubcategory > AddSubcategory >
@@ -392,26 +396,56 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     }
   }
 
-  // Remove a subcategoria do banco (DELETE). É a única fonte de verdade —
-  // some também do modal de Regras. Transações já cadastradas mantêm o valor
-  // (coluna é texto livre), apenas deixa de ser opção nos dropdowns.
-  const removeSubcategoryFromList = async () => {
-    const target = form.subcategory
-    if (!target) return
+  // Exclusão de fato no DB. É a única fonte de verdade — some também do modal
+  // de Regras. Transações já cadastradas mantêm o valor (texto livre), apenas
+  // deixa de ser opção nos dropdowns. Retorna o status pra quem chamou decidir
+  // a UX (sucesso/aviso). O backend recusa (409 'in_use') se ainda houver regra
+  // dependente — não deveria acontecer porque pré-checamos, mas é a rede de
+  // segurança do invariante.
+  const performDeleteSubcategory = async (name: string): Promise<'ok' | 'in_use' | 'error'> => {
     try {
-      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(target)}`, {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(name)}`, {
         method: 'DELETE',
       })
-      const j = await r.json().catch(() => ({}))
+      const j = await r.json().catch(() => ({} as { success?: boolean; error?: string }))
       if (r.ok && j.success) {
-        setSubcategories(prev => prev.filter(subcat => subcat !== target))
-        setForm(prev => ({ ...prev, subcategory: '' }))
+        setSubcategories(prev => prev.filter(s => s !== name))
+        setForm(prev => (prev.subcategory === name ? { ...prev, subcategory: '' } : prev))
+        return 'ok'
       }
+      if (r.status === 409 || j.error === 'in_use') return 'in_use'
+      return 'error'
     } catch {
-      // silencioso — mantém a lista atual se o backend falhar
-    } finally {
-      setIsRemoveSubcategoryOpen(false)
+      return 'error'
     }
+  }
+
+  // Gate único de exclusão: checa regras dependentes antes. Se houver, abre o
+  // aviso "em uso"; senão, exclui direto. Usado tanto pelo botão de excluir do
+  // form quanto pela lixeira do modal de Gerenciar.
+  const attemptDeleteSubcategory = async (name: string) => {
+    if (!name) return
+    let dependentRules: { id: string; name: string }[] = []
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(name)}/rules`)
+      const j = await r.json().catch(() => ({} as { success?: boolean; data?: { id: string; name: string }[] }))
+      if (j.success && Array.isArray(j.data)) dependentRules = j.data
+    } catch {
+      // se a checagem falhar, tenta excluir — o backend ainda barra se preciso
+    }
+
+    if (dependentRules.length > 0) {
+      setSubcatInUseWarning({ name, rules: dependentRules })
+      return
+    }
+    await performDeleteSubcategory(name)
+  }
+
+  // Botão "Excluir Subcategoria" do modal de confirmação (campo do form).
+  const removeSubcategoryFromList = async () => {
+    const target = form.subcategory
+    setIsRemoveSubcategoryOpen(false)
+    await attemptDeleteSubcategory(target)
   }
 
   // Renomeia a subcategoria atualmente selecionada no form (PUT no DB).
@@ -503,25 +537,43 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     }
   }
 
+  // Lixeira do modal Gerenciar: passa pelo mesmo gate (checa regras → exclui
+  // ou abre aviso "em uso").
   const manageDelete = async (name: string) => {
     setManageBusy(true)
     setManageError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(name)}`, {
-        method: 'DELETE',
-      })
-      const j = await r.json().catch(() => ({}))
-      if (r.ok && j.success) {
-        setSubcategories(prev => prev.filter(s => s !== name))
-        setForm(prev => (prev.subcategory === name ? { ...prev, subcategory: '' } : prev))
-        if (manageEditingName === name) { setManageEditingName(null); setManageEditValue('') }
-      } else {
-        setManageError(j.error || 'Erro ao excluir subcategoria')
-      }
-    } catch {
-      setManageError('Erro ao excluir subcategoria')
+      if (manageEditingName === name) { setManageEditingName(null); setManageEditValue('') }
+      await attemptDeleteSubcategory(name)
     } finally {
       setManageBusy(false)
+    }
+  }
+
+  // Fechamento do modal de Regras. Se havia uma exclusão de subcategoria
+  // pendente (usuário veio do aviso "em uso" e foi editar as regras), recheca:
+  // se nenhuma regra usa mais a subcategoria, exclui e mostra modal de sucesso;
+  // se ainda usa, reabre o aviso.
+  const handleRulesModalClose = async () => {
+    setIsRulesModalOpen(false)
+    const target = pendingDeleteSubcat
+    if (!target) return
+    setPendingDeleteSubcat(null)
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(target)}/rules`)
+      const j = await r.json().catch(() => ({} as { success?: boolean; data?: { id: string; name: string }[] }))
+      const remaining = (j.success && Array.isArray(j.data)) ? j.data : []
+      if (remaining.length > 0) {
+        // Ainda há regras dependentes → reabre o aviso pra concluir.
+        setSubcatInUseWarning({ name: target, rules: remaining })
+        return
+      }
+      const status = await performDeleteSubcategory(target)
+      if (status === 'ok') {
+        setSubcatDeleteSuccess(target)
+      }
+    } catch {
+      // silencioso
     }
   }
 
@@ -791,7 +843,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
       <TransactionRulesModal
         isOpen={isRulesModalOpen}
-        onClose={() => setIsRulesModalOpen(false)}
+        onClose={handleRulesModalClose}
         onRulesChanged={() => {
           // Recarrega transações para refletir regras aplicadas retroativamente
           fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).then(j => {
@@ -1489,6 +1541,80 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             </div>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal aviso: subcategoria em uso por regra(s) — destrutivo */}
+      <Modal isOpen={!!subcatInUseWarning} onClose={() => setSubcatInUseWarning(null)} zIndexClass="z-[10060]" destructive>
+        {subcatInUseWarning && (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Settings className="w-5 h-5" aria-hidden="true" /> Subcategoria em uso</h2>
+              <button onClick={() => setSubcatInUseWarning(null)} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-700 dark:text-gray-200">
+                A subcategoria <strong>"{subcatInUseWarning.name}"</strong> é usada por{' '}
+                <strong>{subcatInUseWarning.rules.length} regra(s)</strong>. Para excluí-la, você precisa
+                primeiro editar essa(s) regra(s) (para usar outra subcategoria) ou removê-la(s).
+              </p>
+              <ul className="mt-3 space-y-1 max-h-40 overflow-y-auto">
+                {subcatInUseWarning.rules.map(rule => (
+                  <li key={rule.id} className="text-sm text-gray-600 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                    {rule.name || '(regra sem nome)'}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+                Deseja editar a(s) regra(s) agora? Ao terminar, a subcategoria será excluída automaticamente.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setSubcatInUseWarning(null)}
+                  className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    const name = subcatInUseWarning.name
+                    setSubcatInUseWarning(null)
+                    setPendingDeleteSubcat(name)
+                    setIsManageSubcategoriesOpen(false)
+                    setIsRulesModalOpen(true)
+                  }}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold shadow-lg shadow-amber-500/25 hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  Editar regras
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal sucesso: regras editadas + subcategoria excluída */}
+      <Modal isOpen={!!subcatDeleteSuccess} onClose={() => setSubcatDeleteSuccess(null)} zIndexClass="z-[10060]">
+        {subcatDeleteSuccess && (
+          <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><CheckCircle2 className="w-5 h-5" aria-hidden="true" /> Concluído</h2>
+              <button onClick={() => setSubcatDeleteSuccess(null)} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-700 dark:text-gray-200">
+                A(s) regra(s) foi(ram) editada(s) e a subcategoria <strong>"{subcatDeleteSuccess}"</strong> foi excluída com sucesso.
+              </p>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setSubcatDeleteSuccess(null)}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold shadow-md transition-all duration-200"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Modal Gerenciar Subcategorias — criar / renomear / excluir */}

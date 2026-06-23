@@ -2115,11 +2115,39 @@ app.put('/api/subcategories/:name', async (req, res) => {
   }
 });
 
+// Regras que dependem desta subcategoria (set_subcategory). Frontend usa pra
+// avisar antes de excluir e abrir o fluxo de edição das regras.
+app.get('/api/subcategories/:name/rules', async (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
+    }
+    const rules = await db.getRulesUsingSubcategory(name);
+    res.json({ success: true, data: rules });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.delete('/api/subcategories/:name', async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name || '').trim();
     if (!name) {
       return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
+    }
+
+    // Invariante: subcategoria usada por uma regra não pode ser excluída até a
+    // regra ser editada (passar a usar outra) ou removida. Guard server-side
+    // independente do frontend.
+    const dependentRules = await db.getRulesUsingSubcategory(name);
+    if (dependentRules.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'in_use',
+        message: 'Subcategoria está em uso por uma ou mais regras.',
+        rules: dependentRules,
+      });
     }
 
     const deleted = await db.deleteSubcategory(name);

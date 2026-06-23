@@ -3269,6 +3269,21 @@ class Database {
     }
   }
 
+  // Lista regras que referenciam a subcategoria em set_subcategory.
+  // Usado para bloquear a exclusão enquanto houver regra dependente.
+  async getRulesUsingSubcategory(name) {
+    try {
+      const result = await this.queryWithRetry(
+        'SELECT id, name FROM transaction_rules WHERE set_subcategory = $1 ORDER BY name',
+        [name]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao listar regras da subcategoria:', error);
+      throw error;
+    }
+  }
+
   // Renomeia uma subcategoria e propaga o novo nome para tudo que a referencia
   // por texto: transações (subcategory + original_subcategory) e regras
   // (set_subcategory). Atômico — ou tudo muda, ou nada.
