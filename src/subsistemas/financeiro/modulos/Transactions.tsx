@@ -135,7 +135,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [newSubcategory, setNewSubcategory] = useState('')
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
   const [subcategories, setSubcategories] = useState<string[]>([])
-  const [hiddenSubcategories, setHiddenSubcategories] = useState<string[]>([])
   const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -236,21 +235,15 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     load()
   }, [])
 
-  // Carregar subcategorias do backend e subcategorias ocultas do localStorage
+  // Carregar subcategorias do backend. O DB (tabela subcategories) é a única
+  // fonte de verdade — a mesma consumida pelo modal de Regras. Adicionar/remover
+  // aqui reflete lá automaticamente (cada modal recarrega do DB ao abrir).
   useEffect(() => {
     const loadSubcategories = async () => {
       try {
         const r = await fetch(`${API_BASE_URL}/subcategories`)
         const j = await r.json()
-        if (j.success) {
-          // Carregar subcategorias ocultas do localStorage
-          const hidden = JSON.parse(localStorage.getItem('hiddenSubcategories') || '[]')
-          setHiddenSubcategories(hidden)
-          
-          // Filtrar subcategorias ocultas
-          const visibleSubcategories = j.data.filter((subcat: string) => !hidden.includes(subcat))
-          setSubcategories(visibleSubcategories)
-        }
+        if (j.success) setSubcategories(j.data as string[])
       } catch {}
     }
     loadSubcategories()
@@ -370,15 +363,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       const j = await r.json()
       
       if (j.success) {
-        // Recarregar subcategorias do backend
+        // Recarregar subcategorias do backend (fonte única — sem filtro local)
         const subcategoriesResponse = await fetch(`${API_BASE_URL}/subcategories`)
         const subcategoriesData = await subcategoriesResponse.json()
         if (subcategoriesData.success) {
-          // FIX [L267]: aplicar filtro de hiddenSubcategories ao recarregar, igual ao carregamento inicial
-          const currentHidden = JSON.parse(localStorage.getItem('hiddenSubcategories') || '[]') as string[]
-          setSubcategories((subcategoriesData.data as string[]).filter(s => !currentHidden.includes(s)))
+          setSubcategories(subcategoriesData.data as string[])
         }
-        
+
         setForm(prev => ({ ...prev, subcategory: trimmedSubcategory }))
         setNewSubcategory('')
         setNewSubcategoryError('')
@@ -391,19 +382,24 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     }
   }
 
-  // Função para remover subcategoria da lista local (salva no localStorage)
-  const removeSubcategoryFromList = () => {
-    if (form.subcategory) {
-      // Adicionar à lista de subcategorias ocultas
-      const newHidden = [...hiddenSubcategories, form.subcategory]
-      setHiddenSubcategories(newHidden)
-      
-      // Salvar no localStorage
-      localStorage.setItem('hiddenSubcategories', JSON.stringify(newHidden))
-      
-      // Remover da lista visível
-      setSubcategories(prev => prev.filter(subcat => subcat !== form.subcategory))
-      setForm(prev => ({ ...prev, subcategory: '' }))
+  // Remove a subcategoria do banco (DELETE). É a única fonte de verdade —
+  // some também do modal de Regras. Transações já cadastradas mantêm o valor
+  // (coluna é texto livre), apenas deixa de ser opção nos dropdowns.
+  const removeSubcategoryFromList = async () => {
+    const target = form.subcategory
+    if (!target) return
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(target)}`, {
+        method: 'DELETE',
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.success) {
+        setSubcategories(prev => prev.filter(subcat => subcat !== target))
+        setForm(prev => ({ ...prev, subcategory: '' }))
+      }
+    } catch {
+      // silencioso — mantém a lista atual se o backend falhar
+    } finally {
       setIsRemoveSubcategoryOpen(false)
     }
   }
@@ -1300,16 +1296,16 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     <h3 className="font-semibold text-yellow-800 dark:text-yellow-300">Atenção</h3>
                   </div>
                   <p className="text-yellow-700 dark:text-yellow-400 text-sm">
-                    Você está ocultando a subcategoria <strong>"{form.subcategory}"</strong> da sua lista.
+                    Você está excluindo a subcategoria <strong>"{form.subcategory}"</strong> do sistema.
                   </p>
                   <p className="text-yellow-700 dark:text-yellow-400 text-sm mt-2">
-                    <strong>Importante:</strong> Esta ação não afeta o banco de dados. A subcategoria continuará disponível para outras transações já cadastradas, mas não aparecerá mais na sua lista mesmo após atualizar a página.
+                    <strong>Importante:</strong> Esta ação remove a subcategoria do banco de dados para <strong>todos os usuários</strong> — ela deixa de aparecer aqui e também no modal de Regras. Transações já cadastradas mantêm o valor; ela apenas não estará mais disponível para novas seleções.
                   </p>
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => setIsRemoveSubcategoryOpen(false)} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
-                <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">Remover da Lista</button>
+                <button onClick={removeSubcategoryFromList} className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/35 hover:-translate-y-0.5 transition-all duration-200">Excluir Subcategoria</button>
               </div>
             </div>
           </div>

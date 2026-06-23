@@ -3253,6 +3253,22 @@ class Database {
     }
   }
 
+  // Remove a subcategoria da lista de opções selecionáveis. A coluna
+  // `subcategory` em transactions é texto livre (sem FK), então transações já
+  // cadastradas mantêm o valor — apenas deixa de aparecer nos dropdowns.
+  async deleteSubcategory(name) {
+    try {
+      const result = await this.queryWithRetry(
+        'DELETE FROM subcategories WHERE name = $1',
+        [name]
+      );
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error('Erro ao deletar subcategoria:', error);
+      throw error;
+    }
+  }
+
   // Métodos para Usuários
   async getAllUsers() {
     try {

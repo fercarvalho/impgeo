@@ -2091,6 +2091,23 @@ app.post('/api/subcategories', async (req, res) => {
   }
 });
 
+app.delete('/api/subcategories/:name', async (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'Nome da subcategoria é obrigatório' });
+    }
+
+    const deleted = await db.deleteSubcategory(name);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Subcategoria não encontrada' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // APIs para Clientes
 app.get('/api/clients', async (req, res) => {
   try {
