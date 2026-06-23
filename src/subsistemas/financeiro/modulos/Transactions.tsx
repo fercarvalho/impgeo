@@ -563,9 +563,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   }
 
   const allSelected = subcategories.length > 0 && manageSelected.size === subcategories.length
-  const toggleSelectAll = () => {
-    setManageSelected(allSelected ? new Set() : new Set(subcategories))
-  }
 
   // Exclui as selecionadas de uma vez. O backend pula as que estão em uso por
   // regra(s) e devolve em `blocked` — mostramos o resultado pro usuário.
@@ -1731,16 +1728,26 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
             {/* Lista */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <button
                   type="button"
-                  onClick={toggleSelectAll}
-                  disabled={subcategories.length === 0 || manageBusy}
+                  onClick={() => setManageSelected(new Set(subcategories))}
+                  disabled={subcategories.length === 0 || manageBusy || allSelected}
                   className="text-[11px] font-semibold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50"
                 >
-                  {allSelected ? 'Limpar seleção' : 'Selecionar todas'}
+                  Selecionar todas
                 </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                {manageSelected.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setManageSelected(new Set())}
+                    disabled={manageBusy}
+                    className="text-[11px] font-semibold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                  >
+                    Desselecionar
+                  </button>
+                )}
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
                   {manageSelected.size > 0 ? `${manageSelected.size} selecionada(s)` : `${subcategories.length} subcategoria(s)`}
                 </span>
                 <button
