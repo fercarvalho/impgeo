@@ -136,6 +136,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [newSubcategoryError, setNewSubcategoryError] = useState('')
   const [subcategories, setSubcategories] = useState<string[]>([])
   const [isRemoveSubcategoryOpen, setIsRemoveSubcategoryOpen] = useState(false)
+  const [isEditSubcategoryOpen, setIsEditSubcategoryOpen] = useState(false)
+  const [editSubcategoryName, setEditSubcategoryName] = useState('')
+  const [editSubcategoryError, setEditSubcategoryError] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // ── Estados do modal de importar extrato / fatura ──────────────────────────
@@ -270,10 +273,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen || isManageSubcategoriesOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen || isEditSubcategoryOpen || isManageSubcategoriesOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen, isManageSubcategoriesOpen])
+  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen, isEditSubcategoryOpen, isManageSubcategoriesOpen])
 
   // ESC vem do <Modal> via stack global — apenas o modal no topo da pilha
   // responde, preservando hierarquia RemoveSubcategory > AddSubcategory >
@@ -408,6 +411,35 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       // silencioso — mantém a lista atual se o backend falhar
     } finally {
       setIsRemoveSubcategoryOpen(false)
+    }
+  }
+
+  // Renomeia a subcategoria atualmente selecionada no form (PUT no DB).
+  // Propaga pra transações e regras; reflete no modal de Regras.
+  const renameSubcategoryFromForm = async () => {
+    const oldName = form.subcategory
+    const newName = editSubcategoryName.trim()
+    if (!oldName) return
+    if (!newName) { setEditSubcategoryError('Campo obrigatório'); return }
+    if (newName === oldName) { setIsEditSubcategoryOpen(false); return }
+    if (subcategories.includes(newName)) { setEditSubcategoryError('Já existe uma subcategoria com esse nome'); return }
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(oldName)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.success) {
+        setSubcategories(prev => prev.map(s => (s === oldName ? newName : s)).sort((a, b) => a.localeCompare(b, 'pt-BR')))
+        setForm(prev => ({ ...prev, subcategory: newName }))
+        setEditSubcategoryError('')
+        setIsEditSubcategoryOpen(false)
+      } else {
+        setEditSubcategoryError(j.error || 'Erro ao renomear subcategoria')
+      }
+    } catch {
+      setEditSubcategoryError('Erro ao renomear subcategoria')
     }
   }
 
@@ -1201,15 +1233,27 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                         <option key={subcat} value={subcat}>{subcat}</option>
                       ))}
                     </select>
+                    {form.subcategory && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditSubcategoryName(form.subcategory); setEditSubcategoryError(''); setIsEditSubcategoryOpen(true) }}
+                        className="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        title="Editar subcategoria"
+                        aria-label="Editar subcategoria"
+                      >
+                        <Edit className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => form.subcategory ? setIsRemoveSubcategoryOpen(true) : setIsAddSubcategoryOpen(true)}
                       className={`px-3 py-2 rounded-lg transition-colors ${
-                        form.subcategory 
-                          ? 'bg-red-600 text-white hover:bg-red-700' 
+                        form.subcategory
+                          ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
-                      title={form.subcategory ? "Remover subcategoria da lista" : "Adicionar nova subcategoria"}
+                      title={form.subcategory ? "Excluir subcategoria do sistema" : "Adicionar nova subcategoria"}
+                      aria-label={form.subcategory ? "Excluir subcategoria" : "Adicionar nova subcategoria"}
                     >
                       {form.subcategory ? <Trash2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                     </button>
@@ -1406,6 +1450,45 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             </div>
           </div>
+      </Modal>
+
+      {/* Modal Editar (renomear) Subcategoria */}
+      <Modal isOpen={isEditSubcategoryOpen} onClose={() => { setIsEditSubcategoryOpen(false); setEditSubcategoryError('') }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Edit className="w-5 h-5" aria-hidden="true" /> Editar Subcategoria</h2>
+            <button onClick={() => { setIsEditSubcategoryOpen(false); setEditSubcategoryError('') }} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              <div className="relative">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                  Novo nome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editSubcategoryName}
+                  onChange={(e) => { setEditSubcategoryName(e.target.value); if (editSubcategoryError) setEditSubcategoryError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') renameSubcategoryFromForm() }}
+                  autoFocus
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
+                    editSubcategoryError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
+                />
+                {editSubcategoryError && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{editSubcategoryError}</p>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Renomear atualiza as transações já cadastradas e reflete no modal de Regras.
+              </p>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => { setIsEditSubcategoryOpen(false); setEditSubcategoryError('') }} className="px-4 py-2 rounded-xl bg-gray-100 dark:!bg-[#2d3f52] hover:bg-gray-200 dark:hover:!bg-[#354b60] text-gray-700 dark:text-gray-200 font-medium transition-all duration-200">Cancelar</button>
+              <button onClick={renameSubcategoryFromForm} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-200">Salvar</button>
+            </div>
+          </div>
+        </div>
       </Modal>
 
       {/* Modal Gerenciar Subcategorias — criar / renomear / excluir */}
