@@ -2115,6 +2115,37 @@ app.put('/api/subcategories/:name', async (req, res) => {
   }
 });
 
+// Exclusão em massa. Respeita o invariante: subcategoria usada por regra(s)
+// não é excluída — volta em `blocked` com as regras. As livres são excluídas
+// e voltam em `deleted`. Rota POST (path fixo) declarada antes das rotas :name
+// pra não colidir.
+app.post('/api/subcategories/bulk-delete', async (req, res) => {
+  try {
+    const names = Array.isArray(req.body?.names)
+      ? req.body.names.map((n) => String(n || '').trim()).filter(Boolean)
+      : [];
+    if (names.length === 0) {
+      return res.status(400).json({ success: false, error: 'Lista de subcategorias é obrigatória' });
+    }
+
+    const deleted = [];
+    const blocked = [];
+    for (const name of names) {
+      const rules = await db.getRulesUsingSubcategory(name);
+      if (rules.length > 0) {
+        blocked.push({ name, rules });
+        continue;
+      }
+      const ok = await db.deleteSubcategory(name);
+      if (ok) deleted.push(name);
+    }
+
+    res.json({ success: true, deleted, blocked });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Regras que dependem desta subcategoria (set_subcategory). Frontend usa pra
 // avisar antes de excluir e abrir o fluxo de edição das regras.
 app.get('/api/subcategories/:name/rules', async (req, res) => {

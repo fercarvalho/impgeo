@@ -170,6 +170,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const [manageEditingName, setManageEditingName] = useState<string | null>(null)
   const [manageEditValue, setManageEditValue] = useState('')
   const [manageBusy, setManageBusy] = useState(false)
+  // Seleção múltipla pra exclusão em massa no modal Gerenciar
+  const [manageSelected, setManageSelected] = useState<Set<string>>(new Set())
+  const [manageBulkResult, setManageBulkResult] = useState<{ deleted: string[]; blocked: { name: string; rules: { id: string; name: string }[] }[] } | null>(null)
   // Fluxo "subcategoria em uso por regra(s)": aviso → editar regras → exclui
   const [subcatInUseWarning, setSubcatInUseWarning] = useState<{ name: string; rules: { id: string; name: string }[] } | null>(null)
   const [pendingDeleteSubcat, setPendingDeleteSubcat] = useState<string | null>(null)
@@ -550,6 +553,55 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     }
   }
 
+  // ── Seleção múltipla + exclusão em massa ──
+  const toggleManageSelected = (name: string) => {
+    setManageSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
+
+  const allSelected = subcategories.length > 0 && manageSelected.size === subcategories.length
+  const toggleSelectAll = () => {
+    setManageSelected(allSelected ? new Set() : new Set(subcategories))
+  }
+
+  // Exclui as selecionadas de uma vez. O backend pula as que estão em uso por
+  // regra(s) e devolve em `blocked` — mostramos o resultado pro usuário.
+  const manageBulkDelete = async () => {
+    const names = [...manageSelected]
+    if (names.length === 0) return
+    setManageBusy(true)
+    setManageError('')
+    setManageBulkResult(null)
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names }),
+      })
+      const j = await r.json().catch(() => ({} as { success?: boolean; error?: string; deleted?: string[]; blocked?: { name: string; rules: { id: string; name: string }[] }[] }))
+      if (r.ok && j.success) {
+        const deleted = j.deleted || []
+        const blocked = j.blocked || []
+        if (deleted.length) {
+          setSubcategories(prev => prev.filter(s => !deleted.includes(s)))
+          setForm(prev => (deleted.includes(prev.subcategory) ? { ...prev, subcategory: '' } : prev))
+        }
+        setManageSelected(new Set())
+        // Só mostra o resumo se algo foi bloqueado (senão, exclusão silenciosa ok).
+        if (blocked.length) setManageBulkResult({ deleted, blocked })
+      } else {
+        setManageError(j.error || 'Erro ao excluir em massa')
+      }
+    } catch {
+      setManageError('Erro ao excluir em massa')
+    } finally {
+      setManageBusy(false)
+    }
+  }
+
   // Fechamento do modal de Regras. Se havia uma exclusão de subcategoria
   // pendente (usuário veio do aviso "em uso" e foi editar as regras), recheca:
   // se nenhuma regra usa mais a subcategoria, exclui e mostra modal de sucesso;
@@ -817,7 +869,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 </button>
                 <button
                   role="menuitem"
-                  onClick={() => { setIsManageSubcategoriesOpen(true); setManageNewName(''); setManageError(''); setManageEditingName(null); setIsActionsMenuOpen(false) }}
+                  onClick={() => { setIsManageSubcategoriesOpen(true); setManageNewName(''); setManageError(''); setManageEditingName(null); setManageSelected(new Set()); setManageBulkResult(null); setIsActionsMenuOpen(false) }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
                 >
                   <Link2 className="h-4 w-4 text-amber-600 flex-shrink-0" />
@@ -1655,17 +1707,68 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               </div>
             )}
 
+            {manageBulkResult && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-sm" role="status">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-amber-800 dark:text-amber-300 font-semibold">
+                    {manageBulkResult.deleted.length > 0
+                      ? `${manageBulkResult.deleted.length} subcategoria(s) excluída(s).`
+                      : 'Nenhuma subcategoria excluída.'}
+                  </p>
+                  <button onClick={() => setManageBulkResult(null)} aria-label="Fechar aviso" className="text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded p-0.5 flex-shrink-0"><X className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                </div>
+                <p className="text-amber-700 dark:text-amber-400 mt-1">
+                  {manageBulkResult.blocked.length} não pôde(puderam) ser excluída(s) por estar(em) em uso por regras:
+                </p>
+                <p className="text-amber-700 dark:text-amber-400 mt-0.5 font-medium break-words">
+                  {manageBulkResult.blocked.map(b => b.name).join(', ')}
+                </p>
+                <p className="text-amber-600 dark:text-amber-500 mt-1 text-xs">
+                  Edite ou exclua essas regras (botão 🗑️ individual abre o fluxo) antes de removê-las.
+                </p>
+              </div>
+            )}
+
             {/* Lista */}
             <div className="flex flex-col min-h-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                {subcategories.length} subcategoria(s)
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  disabled={subcategories.length === 0 || manageBusy}
+                  className="text-[11px] font-semibold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                >
+                  {allSelected ? 'Limpar seleção' : 'Selecionar todas'}
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {manageSelected.size > 0 ? `${manageSelected.size} selecionada(s)` : `${subcategories.length} subcategoria(s)`}
+                </span>
+                <button
+                  type="button"
+                  onClick={manageBulkDelete}
+                  disabled={manageSelected.size === 0 || manageBusy}
+                  className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  Excluir selecionadas{manageSelected.size > 0 ? ` (${manageSelected.size})` : ''}
+                </button>
+              </div>
               <div className="overflow-y-auto max-h-[40vh] -mx-1 px-1 space-y-1">
                 {subcategories.length === 0 && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Nenhuma subcategoria cadastrada.</p>
                 )}
                 {subcategories.map((name) => (
                   <div key={name} className="flex items-center gap-2 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    {manageEditingName !== name && (
+                      <input
+                        type="checkbox"
+                        checked={manageSelected.has(name)}
+                        onChange={() => toggleManageSelected(name)}
+                        disabled={manageBusy}
+                        aria-label={`Selecionar ${name}`}
+                        className="w-4 h-4 flex-shrink-0 accent-blue-600 cursor-pointer disabled:opacity-50"
+                      />
+                    )}
                     {manageEditingName === name ? (
                       <>
                         <input
