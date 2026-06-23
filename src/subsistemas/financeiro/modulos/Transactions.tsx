@@ -160,6 +160,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   // Modal "Conjunto de Regras"
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
+  // Modal "Gerenciar Subcategorias" (criar / renomear / excluir)
+  const [isManageSubcategoriesOpen, setIsManageSubcategoriesOpen] = useState(false)
+  const [manageNewName, setManageNewName] = useState('')
+  const [manageError, setManageError] = useState('')
+  const [manageEditingName, setManageEditingName] = useState<string | null>(null)
+  const [manageEditValue, setManageEditValue] = useState('')
+  const [manageBusy, setManageBusy] = useState(false)
   // Modal de resolução de conflito (clique na badge "A confirmar")
   const [resolveTarget, setResolveTarget] = useState<{ id: string; description: string } | null>(null)
   // Toggle: mostrar transações ocultas (is_hidden=true), por padrão escondidas
@@ -263,10 +270,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   useEffect(() => {
     const body = document?.body
     if (!body) return
-    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen) body.classList.add('modal-open')
+    if (isImportExportOpen || isModalOpen || isAddSubcategoryOpen || isRemoveSubcategoryOpen || isManageSubcategoriesOpen) body.classList.add('modal-open')
     else body.classList.remove('modal-open')
     return () => { body.classList.remove('modal-open') }
-  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen])
+  }, [isImportExportOpen, isModalOpen, isAddSubcategoryOpen, isRemoveSubcategoryOpen, isManageSubcategoriesOpen])
 
   // ESC vem do <Modal> via stack global — apenas o modal no topo da pilha
   // responde, preservando hierarquia RemoveSubcategory > AddSubcategory >
@@ -401,6 +408,88 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       // silencioso — mantém a lista atual se o backend falhar
     } finally {
       setIsRemoveSubcategoryOpen(false)
+    }
+  }
+
+  // ── Gerenciamento de subcategorias (modal dedicado no menu de Ações) ──
+  // Todas as operações batem direto no DB (fonte única, compartilhada com o
+  // modal de Regras) e atualizam o estado local em seguida.
+
+  const manageCreate = async () => {
+    const name = manageNewName.trim()
+    if (!name) { setManageError('Digite um nome'); return }
+    if (subcategories.includes(name)) { setManageError('Esta subcategoria já existe'); return }
+    setManageBusy(true)
+    setManageError('')
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.success) {
+        setSubcategories(prev => [...prev, name].sort((a, b) => a.localeCompare(b, 'pt-BR')))
+        setManageNewName('')
+      } else {
+        setManageError(j.error || 'Erro ao criar subcategoria')
+      }
+    } catch {
+      setManageError('Erro ao criar subcategoria')
+    } finally {
+      setManageBusy(false)
+    }
+  }
+
+  const manageSaveRename = async (oldName: string) => {
+    const newName = manageEditValue.trim()
+    if (!newName) { setManageError('Digite um nome'); return }
+    if (newName === oldName) { setManageEditingName(null); return }
+    if (subcategories.includes(newName)) { setManageError('Já existe uma subcategoria com esse nome'); return }
+    setManageBusy(true)
+    setManageError('')
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(oldName)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.success) {
+        setSubcategories(prev => prev.map(s => (s === oldName ? newName : s)).sort((a, b) => a.localeCompare(b, 'pt-BR')))
+        // Se a subcategoria renomeada estava selecionada no form, acompanha.
+        setForm(prev => (prev.subcategory === oldName ? { ...prev, subcategory: newName } : prev))
+        setManageEditingName(null)
+        setManageEditValue('')
+      } else {
+        setManageError(j.error || 'Erro ao renomear subcategoria')
+      }
+    } catch {
+      setManageError('Erro ao renomear subcategoria')
+    } finally {
+      setManageBusy(false)
+    }
+  }
+
+  const manageDelete = async (name: string) => {
+    setManageBusy(true)
+    setManageError('')
+    try {
+      const r = await fetch(`${API_BASE_URL}/subcategories/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.success) {
+        setSubcategories(prev => prev.filter(s => s !== name))
+        setForm(prev => (prev.subcategory === name ? { ...prev, subcategory: '' } : prev))
+        if (manageEditingName === name) { setManageEditingName(null); setManageEditValue('') }
+      } else {
+        setManageError(j.error || 'Erro ao excluir subcategoria')
+      }
+    } catch {
+      setManageError('Erro ao excluir subcategoria')
+    } finally {
+      setManageBusy(false)
     }
   }
 
@@ -641,6 +730,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 >
                   <Settings className="h-4 w-4 text-purple-600 flex-shrink-0" />
                   Conjunto de Regras
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setIsManageSubcategoriesOpen(true); setManageNewName(''); setManageError(''); setManageEditingName(null); setIsActionsMenuOpen(false) }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-800 dark:text-gray-100 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
+                >
+                  <Link2 className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  Gerenciar Subcategorias
                 </button>
               </div>
             )}
@@ -1310,6 +1407,103 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
             </div>
           </div>
       </Modal>
+
+      {/* Modal Gerenciar Subcategorias — criar / renomear / excluir */}
+      <Modal isOpen={isManageSubcategoriesOpen} onClose={() => { setIsManageSubcategoriesOpen(false); setManageEditingName(null); setManageError('') }}>
+        <div className="bg-white dark:!bg-[#243040] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Settings className="w-5 h-5" aria-hidden="true" /> Gerenciar Subcategorias</h2>
+            <button onClick={() => { setIsManageSubcategoriesOpen(false); setManageEditingName(null); setManageError('') }} aria-label="Fechar modal" className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200"><X className="w-5 h-5" aria-hidden="true" /></button>
+          </div>
+
+          <div className="p-6 flex flex-col gap-4 overflow-hidden">
+            {/* Criar nova */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Nova subcategoria</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manageNewName}
+                  onChange={(e) => { setManageNewName(e.target.value); if (manageError) setManageError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') manageCreate() }}
+                  placeholder="Digite o nome e clique em Adicionar"
+                  disabled={manageBusy}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                />
+                <button
+                  onClick={manageCreate}
+                  disabled={manageBusy || !manageNewName.trim()}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" /> Adicionar
+                </button>
+              </div>
+            </div>
+
+            {manageError && (
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm" role="alert">
+                {manageError}
+              </div>
+            )}
+
+            {/* Lista */}
+            <div className="flex flex-col min-h-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                {subcategories.length} subcategoria(s)
+              </p>
+              <div className="overflow-y-auto max-h-[40vh] -mx-1 px-1 space-y-1">
+                {subcategories.length === 0 && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Nenhuma subcategoria cadastrada.</p>
+                )}
+                {subcategories.map((name) => (
+                  <div key={name} className="flex items-center gap-2 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    {manageEditingName === name ? (
+                      <>
+                        <input
+                          type="text"
+                          value={manageEditValue}
+                          onChange={(e) => { setManageEditValue(e.target.value); if (manageError) setManageError('') }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') manageSaveRename(name); if (e.key === 'Escape') { setManageEditingName(null); setManageError('') } }}
+                          autoFocus
+                          disabled={manageBusy}
+                          className="flex-1 min-w-0 px-2 py-1.5 border border-blue-300 dark:border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 text-sm"
+                        />
+                        <button onClick={() => manageSaveRename(name)} disabled={manageBusy} aria-label="Salvar" className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50">Salvar</button>
+                        <button onClick={() => { setManageEditingName(null); setManageError('') }} disabled={manageBusy} aria-label="Cancelar" className="px-2 py-1.5 rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"><X className="w-4 h-4" aria-hidden="true" /></button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-100" title={name}>{name}</span>
+                        <button
+                          onClick={() => { setManageEditingName(name); setManageEditValue(name); setManageError('') }}
+                          disabled={manageBusy}
+                          aria-label={`Renomear ${name}`}
+                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                        >
+                          <Edit className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          onClick={() => manageDelete(name)}
+                          disabled={manageBusy}
+                          aria-label={`Excluir ${name}`}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Alterações valem para todo o sistema e refletem no modal de Regras. Renomear atualiza as transações já cadastradas; excluir mantém o valor nas transações antigas, só remove das opções.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
       {/* Modal de Importar Extrato / Fatura */}
       <Modal
         isOpen={isImportExtratoModalOpen}

@@ -2091,6 +2091,30 @@ app.post('/api/subcategories', async (req, res) => {
   }
 });
 
+app.put('/api/subcategories/:name', async (req, res) => {
+  try {
+    const oldName = decodeURIComponent(req.params.name || '').trim();
+    const newName = (req.body?.newName || '').trim();
+    if (!oldName || !newName) {
+      return res.status(400).json({ success: false, error: 'Nome atual e novo nome são obrigatórios' });
+    }
+    if (oldName === newName) {
+      return res.json({ success: true });
+    }
+
+    const result = await db.renameSubcategory(oldName, newName);
+    if (result === 'not_found') {
+      return res.status(404).json({ success: false, error: 'Subcategoria não encontrada' });
+    }
+    if (result === 'conflict') {
+      return res.status(409).json({ success: false, error: 'Já existe uma subcategoria com esse nome' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.delete('/api/subcategories/:name', async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name || '').trim();

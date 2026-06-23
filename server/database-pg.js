@@ -3269,6 +3269,44 @@ class Database {
     }
   }
 
+  // Renomeia uma subcategoria e propaga o novo nome para tudo que a referencia
+  // por texto: transações (subcategory + original_subcategory) e regras
+  // (set_subcategory). Atômico — ou tudo muda, ou nada.
+  // Retorna: 'ok' | 'not_found' | 'conflict'.
+  async renameSubcategory(oldName, newName) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const exists = await client.query('SELECT 1 FROM subcategories WHERE name = $1', [oldName]);
+      if (exists.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return 'not_found';
+      }
+
+      // Nome novo já em uso por outra subcategoria → conflito.
+      const clash = await client.query('SELECT 1 FROM subcategories WHERE name = $1', [newName]);
+      if (clash.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return 'conflict';
+      }
+
+      await client.query('UPDATE subcategories SET name = $1 WHERE name = $2', [newName, oldName]);
+      await client.query('UPDATE transactions SET subcategory = $1 WHERE subcategory = $2', [newName, oldName]);
+      await client.query('UPDATE transactions SET original_subcategory = $1 WHERE original_subcategory = $2', [newName, oldName]);
+      await client.query('UPDATE transaction_rules SET set_subcategory = $1 WHERE set_subcategory = $2', [newName, oldName]);
+
+      await client.query('COMMIT');
+      return 'ok';
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Erro ao renomear subcategoria:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // Métodos para Usuários
   async getAllUsers() {
     try {
