@@ -278,7 +278,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[70vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col overflow-hidden">
+          <div className="fixed left-2 right-2 top-16 max-h-[calc(100vh-5rem)] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-96 sm:max-w-[calc(100vw-2rem)] sm:max-h-[70vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-[60] flex flex-col overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Notificações {items.length > 0 && <span className="text-xs text-gray-500 dark:text-gray-400">({items.length})</span>}</h3>
@@ -381,8 +381,9 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
                         </div>
                       </div>
 
-                      {/* Ações de hover */}
-                      <div className="absolute top-2 right-2 hidden group-hover:flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-0.5" onClick={stop}>
+                      {/* Ações: sempre visíveis no mobile (sem hover em touch),
+                          aparecem no hover a partir de sm */}
+                      <div className="absolute top-2 right-2 flex sm:hidden sm:group-hover:flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-0.5" onClick={stop}>
                         {!n.is_read && (
                           <button
                             onClick={() => markRead(n.id)}
