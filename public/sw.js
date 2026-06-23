@@ -37,8 +37,11 @@ const CACHE_PRECACHE = `${APP_ID}-precache-${VERSION}`;
 const CACHE_RUNTIME  = `${APP_ID}-runtime-${VERSION}`;
 
 // Recursos do shell pré-cacheados em install.
-// index.html é cacheado em runtime (depende do navigation handler).
+// index.html ENTRA no precache: serve de app-shell pra navegação responder
+// instantaneamente no launch (sem isso, PWA standalone com SW "frio" — iOS
+// mata o SW agressivamente — pintava branco e exigia abrir duas vezes).
 const PRECACHE_URLS = [
+  '/index.html',
   '/offline.html',
   `/manifests/${APP_ID}.webmanifest`,
 ];
@@ -97,10 +100,14 @@ function syntheticOfflineResponse() {
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_PRECACHE);
-    await cache.addAll(PRECACHE_URLS).catch(() => {
-      // Alguns arquivos podem não existir num PWA específico (ex: offline.html
-      // só importa pro impgeo). Falhar silenciosamente em vez de bloquear o install.
-    });
+    // Precache INDIVIDUAL (não atômico): cache.addAll rejeita o lote inteiro se
+    // um único arquivo faltar — aí nem o index.html entrava. Adicionando um a um
+    // com catch próprio, o index.html (crítico pro app-shell) sempre entra mesmo
+    // se offline.html/manifest faltarem num PWA específico. Como o nome do cache
+    // inclui a VERSION, o install de cada deploy busca o index.html FRESCO.
+    await Promise.all(
+      PRECACHE_URLS.map((u) => cache.add(u).catch(() => {}))
+    );
     await self.skipWaiting();
   })());
 });
@@ -157,14 +164,35 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function handleNavigation(request) {
+  // App-shell: SPA serve sempre o mesmo index.html (o router resolve a rota no
+  // cliente lendo window.location). Servimos o shell PRÉ-CACHEADO na hora —
+  // paint instantâneo no launch standalone, sem esperar rede fria. Isso elimina
+  // a tela branca / "abrir duas vezes" no PWA (iOS/Chrome/macOS/iPadOS).
+  //
+  // A URL fica preservada na barra (o SW devolver o shell não muda location),
+  // então deep-links (?token=, ?budget=, ?source=pwa) continuam legíveis pelo app.
+  const precache = await caches.open(CACHE_PRECACHE);
+  const cachedShell = await precache.match('/index.html');
+
+  // Revalida em background pra próxima abertura pegar deploys novos.
+  const revalidate = fetch('/index.html', { cache: 'no-store' })
+    .then((fresh) => {
+      if (fresh && fresh.ok) precache.put('/index.html', fresh.clone()).catch(() => {});
+      return fresh;
+    })
+    .catch(() => null);
+
+  if (cachedShell) {
+    revalidate.catch(() => {});
+    return cachedShell;
+  }
+
+  // Sem shell em cache (1ª navegação antes do install concluir) → tenta rede.
   try {
     const fresh = await fetch(request);
-    const cache = await caches.open(CACHE_RUNTIME);
-    cache.put(request, fresh.clone()).catch(() => {});
+    if (fresh && fresh.ok) precache.put('/index.html', fresh.clone()).catch(() => {});
     return fresh;
   } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
     const offline = await caches.match('/offline.html');
     if (offline) return offline;
     return new Response('<h1>Sem conexão</h1>', {
