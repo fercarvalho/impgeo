@@ -22,7 +22,19 @@ interface Transaction {
   needs_confirmation?: boolean
   is_hidden?: boolean
   project_id?: string | null
+  source?: string | null
 }
+
+// Rótulo + estilo do badge de ORIGEM da transação (migration 068).
+export const SOURCE_LABELS: Record<string, { label: string; badge: string }> = {
+  manual:      { label: 'Manual',  badge: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+  import_xlsx: { label: 'Planilha', badge: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300' },
+  extrato:     { label: 'Extrato',  badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300' },
+  fatura:      { label: 'Fatura',   badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300' },
+  asaas:       { label: 'Asaas',    badge: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300' },
+}
+export const getSourceMeta = (s: string | null | undefined) =>
+  SOURCE_LABELS[s || 'manual'] || SOURCE_LABELS.manual
 
 // Estilos por tipo de transação — usado em badge da lista, valor monetário,
 // filtros, etc. Centralizar aqui evita inconsistência de cores.
@@ -256,7 +268,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
 
   // filtros / ordenação
   const [sortConfig, setSortConfig] = useState<{ field: keyof Transaction | null, direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' })
-  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string, description: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '' })
+  const [filters, setFilters] = useState<{ type: '' | TransactionType, category: string, subcategory: string, dateFrom: string, dateTo: string, description: string, source: string }>({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '', source: '' })
 
   // calendários de filtro
 
@@ -337,6 +349,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     if (!showHidden) list = list.filter(t => !t.is_hidden)
     if (filters.description) list = list.filter(t => t.description.toLowerCase().includes(filters.description.toLowerCase()))
     if (filters.type) list = list.filter(t => t.type === filters.type)
+    if (filters.source) list = list.filter(t => (t.source || 'manual') === filters.source)
     if (filters.category) list = list.filter(t => t.category.toLowerCase().includes(filters.category.toLowerCase()))
     if (filters.subcategory) list = list.filter(t => (t.subcategory || '').toLowerCase().includes(filters.subcategory.toLowerCase()))
     // FIX [L209]: comparar strings ISO diretamente para evitar bug de timezone
@@ -373,7 +386,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     })
   }
 
-  const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '' })
+  const clearFilters = () => setFilters({ type: '', category: '', subcategory: '', dateFrom: '', dateTo: '', description: '', source: '' })
 
 
   // Função para adicionar nova subcategoria
@@ -986,6 +999,24 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 <option value="A confirmar">A confirmar</option>
               </select>
             </div>
+            <div className="flex flex-col flex-shrink-0 min-w-[110px]">
+              <label htmlFor="transaction-source-filter" className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">Origem</label>
+              <select
+                id="transaction-source-filter"
+                name="transaction-source-filter"
+                aria-label="Filtrar por origem"
+                value={filters.source}
+                onChange={(e) => setFilters(prev => ({ ...prev, source: e.target.value }))}
+                className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:!bg-[#243040] dark:text-gray-100 w-full"
+              >
+                <option value="">Todas as origens</option>
+                <option value="manual">Manual</option>
+                <option value="import_xlsx">Planilha</option>
+                <option value="extrato">Extrato</option>
+                <option value="fatura">Fatura</option>
+                <option value="asaas">Asaas</option>
+              </select>
+            </div>
             {hiddenCount > 0 && (
               <div className="flex flex-col flex-shrink-0">
                 <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">&nbsp;</label>
@@ -1136,6 +1167,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                       {t.is_hidden && <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200" title="Ocultada por regra">OCULTA</span>}
                       {t.description}
                     </h3>
+                    {/* Origem da transação (migration 068) */}
+                    <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${getSourceMeta(t.source).badge}`} title={`Origem: ${getSourceMeta(t.source).label}`}>
+                      {getSourceMeta(t.source).label}
+                    </span>
                   </div>
                   <div className="flex-shrink-0 w-16 sm:w-20 text-center">
                     {t.type === 'A confirmar' ? (
@@ -2098,7 +2133,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               // FIX [L1226]: remover campos internos (_id, _selected) usando tipos corretos
-                              body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, _selected: _s, ...rest }) => rest) })
+                              body: JSON.stringify({ transactions: extratoPreview.map(({ _id: _r, _selected: _s, ...rest }) => rest), importType: importType || 'extrato' })
                             })
                             if (response.ok) {
                               const result = await response.json()

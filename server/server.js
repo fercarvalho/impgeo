@@ -1127,7 +1127,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
       for (const t of parsed) {
         // O id gerado pelo parser não vai para o DB (saveTransaction gera UUID próprio)
         const { id: _ignored, ...rest } = t;
-        const savedT = await db.saveTransaction(rest);
+        const savedT = await db.saveTransaction({ ...rest, source: 'import_xlsx' });
         const { transaction: finalTx, applied } = await applyRulesAndPersist(savedT, { actingUserId: req.user?.id || null });
         if (applied === 'rule') appliedCount++;
         if (applied === 'pending') pendingCount++;
@@ -1354,15 +1354,17 @@ app.post('/api/import/extrato', authenticateToken, uploadMemory.single('file'), 
 // Confirm: recebe a lista (possivelmente editada) do sandbox e salva no banco
 app.post('/api/import/extrato/confirm', authenticateToken, async (req, res) => {
   try {
-    const { transactions } = req.body;
+    const { transactions, importType } = req.body;
     if (!Array.isArray(transactions) || transactions.length === 0) {
       return res.status(400).json({ success: false, error: 'Nenhuma transação para importar.' });
     }
+    // Origem: 'fatura' (cartão) ou 'extrato' (banco). Default 'extrato'.
+    const importSource = importType === 'fatura' ? 'fatura' : 'extrato';
     const saved = [];
     let pendingCount = 0;
     let appliedCount = 0;
     for (const t of transactions) {
-      const savedT = await db.saveTransaction({ ...t, userId: req.user.id });
+      const savedT = await db.saveTransaction({ ...t, userId: req.user.id, source: importSource });
       const { transaction: finalTx, applied } = await applyRulesAndPersist(savedT, { actingUserId: req.user.id });
       if (applied === 'rule') appliedCount++;
       if (applied === 'pending') pendingCount++;

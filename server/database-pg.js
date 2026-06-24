@@ -160,6 +160,8 @@ class Database {
     }
 
     this.profileSchemaEnsuring = (async () => {
+      // Origem da transação (migration 068) — self-heal.
+      await this.queryWithRetry("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'manual'");
       await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT');
       await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE');
       await this.queryWithRetry('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
@@ -575,8 +577,8 @@ class Database {
     try {
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, source, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING *`,
         [
           id,
@@ -588,6 +590,7 @@ class Database {
           transaction.subcategory || null,
           transaction.asaas_id || null,
           transaction.asaas_type || null,
+          transaction.source || 'manual',
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -603,8 +606,8 @@ class Database {
     try {
       const id = this.generateId();
       const result = await this.queryWithRetry(
-        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO transactions (id, date, description, value, type, category, subcategory, asaas_id, asaas_type, source, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'asaas', $10, $11)
          ON CONFLICT (asaas_id) DO NOTHING
          RETURNING *`,
         [
