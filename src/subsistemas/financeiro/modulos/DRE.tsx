@@ -21,7 +21,7 @@ interface Transaction {
   date: string
   description: string
   value: number
-  type: 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
+  type: 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar' | 'Reforço de caixa' | 'Retirada de caixa'
   category: string
   is_hidden?: boolean
   createdAt?: string

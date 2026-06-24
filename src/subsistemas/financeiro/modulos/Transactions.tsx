@@ -7,7 +7,7 @@ import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal
 import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
 import Modal from '@/components/Modal'
 
-type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
+type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar' | 'Reforço de caixa' | 'Retirada de caixa'
 
 interface Transaction {
   id: string
@@ -47,6 +47,18 @@ export const TRANSACTION_TYPE_STYLES: Record<TransactionType, { badge: string; v
     valueText: 'text-purple-600',
     sign: '',
   },
+  // Movimentações de caixa (aporte/sangria). Afetam o saldo/caixa, mas NÃO o
+  // resultado operacional (DRE) nem as metas.
+  'Reforço de caixa': {
+    badge: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+    valueText: 'text-teal-600',
+    sign: '+',
+  },
+  'Retirada de caixa': {
+    badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    valueText: 'text-orange-600',
+    sign: '-',
+  },
 }
 
 // Tipos efetivamente financeiros (entram em DRE/Dashboard). Os outros 2 são
@@ -54,6 +66,13 @@ export const TRANSACTION_TYPE_STYLES: Record<TransactionType, { badge: string; v
 export const FINANCIAL_TRANSACTION_TYPES: TransactionType[] = ['Receita', 'Despesa']
 export const isFinancialType = (t: TransactionType | string | undefined): boolean =>
   FINANCIAL_TRANSACTION_TYPES.includes(t as TransactionType)
+
+// Movimentações de caixa: aporte (reforço) e sangria (retirada). Afetam o
+// saldo/caixa (reforço soma, retirada subtrai), mas ficam FORA do DRE, das
+// metas e dos cards de Receita/Despesa (não são operacionais).
+export const CAIXA_TRANSACTION_TYPES: TransactionType[] = ['Reforço de caixa', 'Retirada de caixa']
+export const isReforcoType = (t: string | undefined): boolean => t === 'Reforço de caixa'
+export const isRetiradaType = (t: string | undefined): boolean => t === 'Retirada de caixa'
 
 // FIX [L52]: PreviewTx definido no escopo do módulo (não dentro do componente)
 type PreviewTx = { _id: string; date: string; description: string; value: number; type: 'Receita' | 'Despesa'; category: string }
@@ -636,7 +655,10 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     const parsedValue = parseFloat(form.value)
     if (!form.value || isNaN(parsedValue) || parsedValue <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
-    if (!form.category) errors.category = 'Campo obrigatório'
+    // Categoria não é obrigatória para movimentações de caixa (aporte/sangria).
+    if (!form.category && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)) {
+      errors.category = 'Campo obrigatório'
+    }
     // Subcategoria é obrigatória apenas para Despesas
     if (form.type === 'Despesa' && !form.subcategory.trim()) {
       errors.subcategory = 'Campo obrigatório'
@@ -958,6 +980,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                 <option value="">Todos os tipos</option>
                 <option value="Receita">Receitas</option>
                 <option value="Despesa">Despesas</option>
+                <option value="Reforço de caixa">Reforço de caixa</option>
+                <option value="Retirada de caixa">Retirada de caixa</option>
                 <option value="Transferência entre contas">Transferências</option>
                 <option value="A confirmar">A confirmar</option>
               </select>
@@ -1266,6 +1290,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   >
                     <option value="Receita">Receita</option>
                     <option value="Despesa">Despesa</option>
+                    <option value="Reforço de caixa">Reforço de caixa</option>
+                    <option value="Retirada de caixa">Retirada de caixa</option>
                     <option value="Transferência entre contas">Transferência entre contas</option>
                   </select>
                   {formErrors.type && (
@@ -1292,7 +1318,6 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   <option value="">Selecione uma categoria</option>
                   {form.type === 'Receita' ? (
                     <>
-                      <option value="Reforço de Caixa">Reforço de Caixa</option>
                       <option value="REURB">REURB</option>
                       <option value="GEO">GEO</option>
                       <option value="PLAN">PLAN</option>

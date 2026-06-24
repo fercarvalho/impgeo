@@ -11,7 +11,7 @@ import {
   Legend
 } from 'recharts'
 
-export type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar'
+export type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar' | 'Reforço de caixa' | 'Retirada de caixa'
 
 export interface Transaction {
   id: string

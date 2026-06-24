@@ -58,7 +58,7 @@ interface Props {
   onRulesChanged?: () => void
 }
 
-const VALID_ACTION_VALUES = ['Receita', 'Despesa', 'Transferência entre contas']
+const VALID_ACTION_VALUES = ['Receita', 'Despesa', 'Reforço de caixa', 'Retirada de caixa', 'Transferência entre contas']
 
 interface FormState {
   name: string
@@ -574,6 +574,8 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                     <option value="">Qualquer tipo</option>
                     <option value="Receita">Receita</option>
                     <option value="Despesa">Despesa</option>
+                    <option value="Reforço de caixa">Reforço de caixa</option>
+                    <option value="Retirada de caixa">Retirada de caixa</option>
                     <option value="Transferência entre contas">Transferência entre contas</option>
                   </select>
                 </div>

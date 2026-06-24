@@ -114,7 +114,7 @@ interface NewTransaction {
   date: string;
   description: string;
   value: number;
-  type: 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar';
+  type: 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar' | 'Reforço de caixa' | 'Retirada de caixa';
   category: string;
   is_hidden?: boolean;
   createdAt?: string;
@@ -1330,11 +1330,20 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
     
     const receitasAnteriores = transacoesAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const despesasAnteriores = transacoesAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
-    const saldoInicial = receitasAnteriores - despesasAnteriores
-    
-    // Calcular reforço e saída de caixa (movimentações líquidas)
-    const reforcoCaixa = totalReceitas
-    const saidaCaixa = totalDespesas
+    // Movimentações de caixa (aporte/sangria) afetam o SALDO, mas não receita/despesa.
+    const reforcosAnteriores = transacoesAnteriores.filter(t => t.type === 'Reforço de caixa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const retiradasAnteriores = transacoesAnteriores.filter(t => t.type === 'Retirada de caixa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    // Saldo inicial OPERACIONAL (só receita/despesa) e TOTAL (com caixa anterior).
+    const saldoInicialOperacional = receitasAnteriores - despesasAnteriores
+    const saldoInicial = saldoInicialOperacional + reforcosAnteriores - retiradasAnteriores
+
+    // Reforço/retirada do mês — entram no saldo total, fora do DRE/metas.
+    const totalReforcos = transacoesDoMes.filter(t => t.type === 'Reforço de caixa' && !t.is_hidden).reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalRetiradas = transacoesDoMes.filter(t => t.type === 'Retirada de caixa' && !t.is_hidden).reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    // Saldo SEM movimentações de caixa (resultado operacional acumulado).
+    const saldoOperacional = saldoInicialOperacional + totalReceitas - totalDespesas
+    // Saldo COM caixa (total geral em caixa).
+    const saldoTotal = saldoInicial + totalReceitas - totalDespesas + totalReforcos - totalRetiradas
 
     // Debug: Log das transações para verificar se estão sendo carregadas
     console.log(`📊 MÊS ${monthIndex} (${_monthName}):`, {
@@ -1432,18 +1441,6 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
             {/* Quadrante Financeiro */}
             <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
               <div className="space-y-3">
-                {/* REFORÇO DE CAIXA */}
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="font-semibold text-gray-700">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-gray-800">R$ {reforcoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-                
-                {/* SAÍDA DE CAIXA */}
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="font-semibold text-gray-700">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-gray-800">R$ {saidaCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-                
                 {/* RECEITA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-emerald-700">RECEITA</span>
@@ -1451,7 +1448,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
                     R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                
+
                 {/* DESPESA */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-red-700">DESPESA</span>
@@ -1459,20 +1456,44 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
                     -R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                
+
+                {/* SALDO OPERACIONAL (sem movimentações de caixa) */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">SALDO OPERACIONAL</span>
+                  <span className={`font-bold ${saldoOperacional >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                    R$ {saldoOperacional.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* REFORÇO DE CAIXA (aporte) */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-teal-700">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-teal-800">
+                    +R$ {totalReforcos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* RETIRADA DE CAIXA (sangria) */}
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="font-semibold text-orange-700">RETIRADA DE CAIXA</span>
+                  <span className="font-bold text-orange-800">
+                    -R$ {totalRetiradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
                 {/* SALDO INICIAL */}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="font-semibold text-cyan-700">SALDO INICIAL</span>
                   <span className="font-bold text-cyan-800">R$ {saldoInicial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
-                
-                {/* TOTAL GERAL */}
+
+                {/* TOTAL GERAL (saldo em caixa, com reforço/retirada) */}
                 <div className="flex justify-between items-center py-4 bg-gray-50 px-4 rounded-lg border-2 border-gray-300 mt-4">
-                  <span className="font-bold text-gray-900 text-lg">Total geral</span>
+                  <span className="font-bold text-gray-900 text-lg">Total geral (em caixa)</span>
                   <span className={`font-bold text-xl ${
-                    (saldoInicial + totalReceitas - totalDespesas) >= 0 ? 'text-emerald-800' : 'text-red-800'
+                    saldoTotal >= 0 ? 'text-emerald-800' : 'text-red-800'
                   }`}>
-                    R$ {(saldoInicial + totalReceitas - totalDespesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {saldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -1952,11 +1973,18 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
     
     const receitasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Receita').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
     const despesasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Despesa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
-    const saldoInicialAno = receitasAnosAnteriores - despesasAnosAnteriores
-    
-    // Calcular reforço e saída de caixa anual
-    const reforcoCaixaAno = totalReceitasAno
-    const saidaCaixaAno = totalDespesasAno
+    // Movimentações de caixa de anos anteriores entram no saldo inicial.
+    const reforcosAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Reforço de caixa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const retiradasAnosAnteriores = transacoesAnosAnteriores.filter(t => t.type === 'Retirada de caixa').reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    // Saldo inicial OPERACIONAL (só receita/despesa) e TOTAL (com caixa anterior).
+    const saldoInicialOperacionalAno = receitasAnosAnteriores - despesasAnosAnteriores
+    const saldoInicialAno = saldoInicialOperacionalAno + reforcosAnosAnteriores - retiradasAnosAnteriores
+    // Reforço/retirada do ano — entram no saldo total, fora do DRE/metas.
+    const totalReforcosAno = transacoesDoAno.filter(t => t.type === 'Reforço de caixa' && !t.is_hidden).reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    const totalRetiradasAno = transacoesDoAno.filter(t => t.type === 'Retirada de caixa' && !t.is_hidden).reduce((sum, t) => sum + (parseFloat(String(t.value)) || 0), 0)
+    // Saldo SEM caixa (operacional acumulado) e COM caixa (total em caixa).
+    const saldoOperacionalAno = saldoInicialOperacionalAno + totalReceitasAno - totalDespesasAno
+    const saldoTotalAno = saldoInicialAno + totalReceitasAno - totalDespesasAno + totalReforcosAno - totalRetiradasAno
 
     // Debug: Log das transações anuais
     console.log(`📊 ANO ${currentYear}:`, {
@@ -1995,18 +2023,6 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
             {/* Quadrante Financeiro Anual */}
             <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl shadow-lg border border-blue-100 dark:border-slate-700">
               <div className="space-y-4">
-                {/* REFORÇO DE CAIXA */}
-                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
-                  <span className="font-bold text-blue-800 dark:text-blue-300 text-lg">REFORÇO DE CAIXA</span>
-                  <span className="font-bold text-blue-900 dark:text-blue-200 text-lg">R$ {reforcoCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-
-                {/* SAÍDA DE CAIXA */}
-                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
-                  <span className="font-bold text-blue-800 dark:text-blue-300 text-lg">SAÍDA DE CAIXA</span>
-                  <span className="font-bold text-blue-900 dark:text-blue-200 text-lg">R$ {saidaCaixaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-
                 {/* RECEITA ANUAL */}
                 <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
                   <span className="font-bold text-emerald-700 text-lg">RECEITA ANUAL</span>
@@ -2023,17 +2039,41 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
                   </span>
                 </div>
 
+                {/* SALDO OPERACIONAL (sem movimentações de caixa) */}
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 text-lg">SALDO OPERACIONAL</span>
+                  <span className={`font-bold text-lg ${saldoOperacionalAno >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                    R$ {saldoOperacionalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* REFORÇO DE CAIXA (aporte) */}
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-teal-700 text-lg">REFORÇO DE CAIXA</span>
+                  <span className="font-bold text-teal-800 text-lg">
+                    +R$ {totalReforcosAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* RETIRADA DE CAIXA (sangria) */}
+                <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
+                  <span className="font-bold text-orange-700 text-lg">RETIRADA DE CAIXA</span>
+                  <span className="font-bold text-orange-800 text-lg">
+                    -R$ {totalRetiradasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
                 {/* SALDO INICIAL */}
                 <div className="flex justify-between items-center py-3 border-b border-blue-100 dark:border-slate-700">
                   <span className="font-bold text-indigo-700 dark:text-indigo-400 text-lg">SALDO INICIAL</span>
                   <span className="font-bold text-indigo-800 dark:text-indigo-300 text-lg">R$ {saldoInicialAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                {/* TOTAL GERAL ANUAL */}
+                {/* TOTAL GERAL ANUAL (saldo em caixa, com reforço/retirada) */}
                 <div className="flex justify-between items-center py-6 bg-gradient-to-r from-blue-500 to-indigo-600 px-6 rounded-xl mt-6">
-                  <span className="font-bold text-white text-2xl">Total Geral Anual</span>
+                  <span className="font-bold text-white text-2xl">Total Geral Anual (em caixa)</span>
                   <span className="font-bold text-2xl text-white">
-                    R$ {(saldoInicialAno + totalReceitasAno - totalDespesasAno).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {saldoTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>

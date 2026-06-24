@@ -1386,7 +1386,7 @@ app.post('/api/import/extrato/confirm', authenticateToken, async (req, res) => {
 // REGRAS AUTOMÁTICAS DE TRANSAÇÕES (migration 018)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VALID_TRANSACTION_TYPES = ['Receita', 'Despesa', 'Transferência entre contas', 'A confirmar'];
+const VALID_TRANSACTION_TYPES = ['Receita', 'Despesa', 'Reforço de caixa', 'Retirada de caixa', 'Transferência entre contas', 'A confirmar'];
 
 function _truncateForNotif(s, n = 80) {
   if (!s) return '';
