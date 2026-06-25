@@ -6,6 +6,7 @@ import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
 import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
 import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
 import Modal from '@/components/Modal'
+import { CATEGORIES_BY_TYPE } from '@/config/categorias'
 
 type TransactionType = 'Receita' | 'Despesa' | 'Transferência entre contas' | 'A confirmar' | 'Reforço de caixa' | 'Retirada de caixa'
 
@@ -1351,22 +1352,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   }`}
                 >
                   <option value="">Selecione uma categoria</option>
-                  {form.type === 'Receita' ? (
-                    <>
-                      <option value="REURB">REURB</option>
-                      <option value="GEO">GEO</option>
-                      <option value="PLAN">PLAN</option>
-                      <option value="REG">REG</option>
-                      <option value="NN">NN</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Fixo">Fixo</option>
-                      <option value="Variavel">Variavel</option>
-                      <option value="Investimento">Investimento</option>
-                      <option value="Mkt">Mkt</option>
-                    </>
-                  )}
+                  {(form.type === 'Receita' ? CATEGORIES_BY_TYPE.Receita : CATEGORIES_BY_TYPE.Despesa).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
                 {formErrors.category && (
                   <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
