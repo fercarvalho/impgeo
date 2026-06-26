@@ -51,7 +51,7 @@ flowchart TD
 | 05 | [API-ENDPOINTS](05-API-ENDPOINTS.md) | Rotas, gates, payloads |
 | 06 | [FRONTEND-COMPONENTES](06-FRONTEND-COMPONENTES.md) | Módulos, `_pm/`, compartilhados |
 | 07 | [PERMISSOES](07-PERMISSOES.md) | Módulos, defaults por papel, escopos |
-| 08 | [NOTIFICACOES](08-NOTIFICACOES.md) | 28 tipos `pm_*`, fanout 3-way |
+| 08 | [NOTIFICACOES](08-NOTIFICACOES.md) | 23 tipos `pm_*`, fanout 3-way |
 | 09 | [INTEGRACAO-SISTEMA](09-INTEGRACAO-SISTEMA.md) | 3 pontos de sincronização, auth, navegação |
 | 10 | [INTEGRACAO-FINANCEIRO](10-INTEGRACAO-FINANCEIRO.md) | `project_id`, trigger de custo, lucro |
 | 11 | [PORTABILIDADE-ALYA](11-PORTABILIDADE-ALYA.md) | Reusar / adicionar / adaptar / podar |
