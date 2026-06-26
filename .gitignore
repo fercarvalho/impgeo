@@ -71,6 +71,7 @@ server/backup-json-data.js
 !TECH-DEBT.md
 !DEPLOY.md
 !docs/*.md
+!docs/**/*.md
 
 # Documentos para Importação (PDFs locais)
 /server/importar/
