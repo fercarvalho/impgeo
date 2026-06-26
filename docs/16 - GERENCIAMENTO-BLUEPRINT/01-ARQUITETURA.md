@@ -26,7 +26,7 @@ flowchart TB
         MW --> RT --> SVC
     end
 
-    subgraph DB[(PostgreSQL)]
+    subgraph DB[PostgreSQL]
         TBL[Tabelas PM · projects/project_tasks/...]
         TRG[Triggers · custo + progresso]
         VW[Views · pm_project_health_v]
