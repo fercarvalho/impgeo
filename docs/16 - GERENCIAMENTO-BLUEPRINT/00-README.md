@@ -30,11 +30,12 @@ flowchart TD
     K --> L[11 · Portabilidade Alya]
     L --> M[12 · Melhorias técnicas<br/>backlog IMPGEO]
     L --> N[13 · Roadmap Alya<br/>fases acionáveis]
+    N --> O[14 · Manifesto de port<br/>checklist arquivo-a-arquivo]
 
     classDef impgeo fill:#ede9fe,stroke:#7c3aed,color:#4c1d95;
     classDef alya fill:#e0f2fe,stroke:#0284c7,color:#075985;
     class A,B,C,D,E,F,G,H,I,J,K impgeo;
-    class L,M,N alya;
+    class L,M,N,O alya;
 ```
 
 - **Quer entender o IMPGEO atual?** Leia 01 → 10 na ordem.
@@ -57,6 +58,7 @@ flowchart TD
 | 11 | [PORTABILIDADE-ALYA](11-PORTABILIDADE-ALYA.md) | Reusar / adicionar / adaptar / podar |
 | 12 | [MELHORIAS-TECNICAS](12-MELHORIAS-TECNICAS.md) | Backlog priorizado do IMPGEO |
 | 13 | [ROADMAP-ALYA](13-ROADMAP-ALYA.md) | Fases F0→F6 + QA |
+| 14 | [MANIFESTO-PORT](14-MANIFESTO-PORT.md) | Checklist arquivo-por-arquivo (verbatim/adaptar/podar/criar) |
 
 ---
 

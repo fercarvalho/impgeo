@@ -103,19 +103,25 @@ flowchart LR
     subgraph compartilhados[src/components/*]
         Modal[Modal.tsx<br/>portal · z-10050 · ESC · click-outside]
         Dialog[DialogProvider.tsx<br/>useDialogs · confirm/alert/prompt]
-        Capt[CapturarUsuarioModal.tsx]
     end
     PMmodais[Todos os modais _pm/*] --> Modal
     Tarefas --> Dialog
     Projects --> Dialog
-    AssignTaskModal --> Capt
+    AssignTaskModal -. select fetchAssignableUsers .-> taskApi[(taskApi.ts)]
+    HelpRequestModal -. select fetchPmUsers .-> taskApi
 ```
 
 - **`Modal.tsx`** — wrapper obrigatório (memória do projeto): `createPortal` para `body`, z-index alto
   (`z-[10050]`), ESC/click-outside (bloqueáveis com `destructive`), scroll lock. **Não existe no Alya → portar (F0).**
 - **`DialogProvider.tsx`** — `useDialogs()` → `confirm`/`alert`/`prompt` baseados em promessa (substitui
   `window.*`). **Não existe no Alya → portar (F0).**
-- **`CapturarUsuarioModal.tsx`** — seleção de usuário (usado em atribuição/ajuda).
+- **Seleção de usuário** (atribuir/ajudar): não há componente seletor compartilhado — `AssignTaskModal`
+  usa um `<select>` populado por `fetchAssignableUsers(taskId)` e `HelpRequestModal` por `fetchPmUsers()`
+  (ambos de `taskApi.ts`).
+
+> **Fora do PM**: `src/components/CapturarUsuarioModal.tsx` **não** é dependência do Gerenciamento — é o
+> atalho de **impersonation** do superadmin (`startImpersonation`, acionado pelo MenuUsuario). Nenhum
+> componente `_pm/*` o importa. No Alya ele é **podado** (sem impersonation real no backend).
 
 ---
 
