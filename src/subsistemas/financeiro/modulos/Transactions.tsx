@@ -669,8 +669,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     const parsedValue = parseFloat(form.value)
     if (!form.value || isNaN(parsedValue) || parsedValue <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
-    // Categoria não é obrigatória para movimentações de caixa (aporte/sangria).
-    if (!form.category && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)) {
+    // Categoria não é obrigatória para transferência entre contas nem para
+    // movimentações de caixa (esses tipos não têm categoria no sistema).
+    if (!form.category && form.type !== 'Transferência entre contas' && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)) {
       errors.category = 'Campo obrigatório'
     }
     // Subcategoria é obrigatória apenas para Despesas
@@ -687,14 +688,20 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
       return
     }
     
+    // Tipos sem categoria (transferência/caixa) não têm categoria nem
+    // subcategoria: zera ambos ao salvar — inclusive ao editar uma transação
+    // antiga que ainda as tivesse.
+    const typeUsesCategory =
+      form.type !== 'Transferência entre contas' &&
+      !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)
     const payload = {
       ...(editing?.id && { id: editing.id }),
       date: form.date,
       description: form.description,
       value: parseFloat(form.value),
       type: form.type,
-      category: form.category,
-      subcategory: form.subcategory
+      category: typeUsesCategory ? form.category : '',
+      subcategory: typeUsesCategory ? form.subcategory : ''
     }
     try {
       if (editing) {
@@ -1338,6 +1345,8 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   )}
                 </div>
               </div>
+              {/* Categoria — não se aplica a transferência entre contas nem caixa */}
+              {form.type !== 'Transferência entre contas' && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType) && (
               <div className="relative">
                 <label htmlFor="transaction-form-category" className="block text-sm font-semibold text-gray-700 mb-1">
                   Categoria <span className="text-red-500">*</span>
@@ -1363,6 +1372,9 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   </div>
                 )}
               </div>
+              )}
+              {/* Subcategoria — também não se aplica a transferência/caixa */}
+              {form.type !== 'Transferência entre contas' && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType) && (
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Subcategoria {form.type === 'Despesa' && <span className="text-red-500">*</span>}
@@ -1425,6 +1437,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   </div>
                 )}
               </div>
+              )}
             </div>
             {editing && projPerms.canEdit && (
               <div className="px-6 pb-1">

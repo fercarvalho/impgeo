@@ -900,8 +900,13 @@ class Database {
 
     // Aplica cada campo definido pela regra; senão mantém base.
     const newType        = rule.action_value     ? rule.action_value     : baseType;
-    const newCategory    = rule.set_category     ? rule.set_category     : baseCategory;
-    const newSubcategory = rule.set_subcategory  ? rule.set_subcategory  : baseSubcategory;
+    // Tipos sem categoria: transferência entre contas e movimentações de caixa
+    // não têm categoria NEM subcategoria. Se a regra leva a transação a um
+    // desses tipos, ambas são zeradas — não pode sobrar/aplicar nelas.
+    const TYPES_WITHOUT_CATEGORY = ['Transferência entre contas', 'Reforço de caixa', 'Retirada de caixa'];
+    const typeUsesCategory = !TYPES_WITHOUT_CATEGORY.includes(newType);
+    const newCategory    = typeUsesCategory ? (rule.set_category    ? rule.set_category    : baseCategory)    : null;
+    const newSubcategory = typeUsesCategory ? (rule.set_subcategory ? rule.set_subcategory : baseSubcategory) : null;
     const newHidden      = rule.hide_transaction ? true                  : tx.is_hidden;
 
     // Preserva os "original_*" apenas na primeira aplicação (para permitir

@@ -40,6 +40,7 @@ interface RetroactivePreviewTx {
   value: number | string
   type: string
   category: string
+  original_type?: string | null
   applied_rule_id: string | null
   existing_rule_id: string | null
   existing_rule_name: string | null
@@ -60,6 +61,10 @@ interface Props {
 }
 
 const VALID_ACTION_VALUES = ['Receita', 'Despesa', 'Reforço de caixa', 'Retirada de caixa', 'Transferência entre contas']
+
+// Tipos sem categoria nem subcategoria: as ações de categorizar/subcategorizar
+// não fazem sentido quando a regra muda o tipo para um deles.
+const TYPES_WITHOUT_CATEGORY = ['Transferência entre contas', 'Reforço de caixa', 'Retirada de caixa']
 
 interface FormState {
   name: string
@@ -267,9 +272,25 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
           .filter((t: RetroactivePreviewTx) => !t.existing_rule_id || t.existing_rule_id === savedRule!.id)
           .filter((t: RetroactivePreviewTx) => t.applied_rule_id !== savedRule!.id) // já governadas pela regra ficam de fora (não há nada a aplicar)
 
-        // Órfãs: governadas pela regra mas cuja descrição não contém mais a nova condição
+        // Órfãs: governadas pela regra que NÃO satisfazem mais a condição
+        // COMPLETA da regra (descrição + faixa de valor + tipo casado), não só
+        // a descrição. Espelha o evaluateRulesForTransaction do backend. O tipo
+        // casado é comparado com o tipo de ENTRADA da transação (original_type,
+        // antes da regra ter mexido no tipo); descrição e valor não são
+        // alterados por regra, então usam os valores atuais.
+        const stillMatchesRule = (t: RetroactivePreviewTx) => {
+          if (!(t.description || '').toLowerCase().includes(newDesc)) return false
+          const absVal = Math.abs(Number(t.value) || 0)
+          if (savedRule!.min_value != null && absVal < Number(savedRule!.min_value)) return false
+          if (savedRule!.max_value != null && absVal > Number(savedRule!.max_value)) return false
+          if (savedRule!.match_type) {
+            const incomingType = t.original_type ?? t.type
+            if (savedRule!.match_type !== incomingType) return false
+          }
+          return true
+        }
         const orphans: RetroactivePreviewTx[] = (affectedResp.success ? (affectedResp.data || []) : [])
-          .filter((t: RetroactivePreviewTx) => !(t.description || '').toLowerCase().includes(newDesc))
+          .filter((t: RetroactivePreviewTx) => !stillMatchesRule(t))
 
         if (matches.length > 0 || orphans.length > 0) {
           setRetroPreview({
@@ -589,13 +610,13 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                 {/* Ação: mudar tipo */}
                 <div>
                   <label className="flex items-center gap-2 select-none">
-                    <input type="checkbox" checked={form.applyType} onChange={(e) => setForm((f) => ({ ...f, applyType: e.target.checked }))} />
+                    <input type="checkbox" checked={form.applyType} onChange={(e) => setForm((f) => { const noCat = e.target.checked && TYPES_WITHOUT_CATEGORY.includes(f.action_value); return ({ ...f, applyType: e.target.checked, applyCategory: noCat ? false : f.applyCategory, applySubcategory: noCat ? false : f.applySubcategory }); })} />
                     <span className="text-sm font-medium">Mudar tipo para</span>
                   </label>
                   {form.applyType && (
                     <select
                       value={form.action_value}
-                      onChange={(e) => setForm((f) => ({ ...f, action_value: e.target.value }))}
+                      onChange={(e) => setForm((f) => { const noCat = TYPES_WITHOUT_CATEGORY.includes(e.target.value); return ({ ...f, action_value: e.target.value, applyCategory: noCat ? false : f.applyCategory, applySubcategory: noCat ? false : f.applySubcategory }); })}
                       className={`mt-2 ml-6 w-[calc(100%-1.5rem)] px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors.action_value ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       {VALID_ACTION_VALUES.map((v) => (
@@ -605,7 +626,9 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                   )}
                 </div>
 
-                {/* Ação: categorizar */}
+                {/* Ação: categorizar — não se aplica quando a regra muda o tipo
+                    para transferência/caixa (tipos sem categoria). */}
+                {!(form.applyType && TYPES_WITHOUT_CATEGORY.includes(form.action_value)) && (
                 <div>
                   <label className="flex items-center gap-2 select-none">
                     <input type="checkbox" checked={form.applyCategory} onChange={(e) => setForm((f) => ({ ...f, applyCategory: e.target.checked }))} />
@@ -632,8 +655,10 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                   )}
                   {form.applyCategory && errors.set_category && <p className="text-xs text-red-500 mt-1 ml-6">{errors.set_category}</p>}
                 </div>
+                )}
 
-                {/* Ação: subcategorizar */}
+                {/* Ação: subcategorizar — também não se aplica a transferência/caixa */}
+                {!(form.applyType && TYPES_WITHOUT_CATEGORY.includes(form.action_value)) && (
                 <div>
                   <label className="flex items-center gap-2 select-none">
                     <input type="checkbox" checked={form.applySubcategory} onChange={(e) => setForm((f) => ({ ...f, applySubcategory: e.target.checked }))} />
@@ -656,6 +681,7 @@ const TransactionRulesModal: React.FC<Props> = ({ isOpen, onClose, onRulesChange
                   )}
                   {form.applySubcategory && errors.set_subcategory && <p className="text-xs text-red-500 mt-1 ml-6">{errors.set_subcategory}</p>}
                 </div>
+                )}
 
                 {/* Ação: ignorar/ocultar */}
                 <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
