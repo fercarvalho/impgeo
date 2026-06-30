@@ -669,10 +669,13 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     const parsedValue = parseFloat(form.value)
     if (!form.value || isNaN(parsedValue) || parsedValue <= 0) errors.value = 'Campo obrigatório'
     if (!form.type) errors.type = 'Campo obrigatório'
-    // Categoria não é obrigatória para transferência entre contas nem para
-    // movimentações de caixa (esses tipos não têm categoria no sistema).
-    if (!form.category && form.type !== 'Transferência entre contas' && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)) {
-      errors.category = 'Campo obrigatório'
+    // Categoria deve ser uma das válidas do tipo. Vazio OU valor fora do
+    // catálogo (ex.: importação antiga que gravou o tipo como categoria)
+    // bloqueia o salvamento. Transferência/caixa não têm categoria.
+    if (form.type !== 'Transferência entre contas'
+      && !CAIXA_TRANSACTION_TYPES.includes(form.type as TransactionType)
+      && !(form.type === 'Receita' ? CATEGORIES_BY_TYPE.Receita : CATEGORIES_BY_TYPE.Despesa).includes(form.category)) {
+      errors.category = 'Selecione uma categoria válida'
     }
     // Subcategoria é obrigatória apenas para Despesas
     if (form.type === 'Despesa' && !form.subcategory.trim()) {
@@ -1194,7 +1197,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                     )}
                   </div>
                   <div className="flex-shrink-0 w-20 sm:w-24 text-center">
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.category}</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.category || <span className="italic text-gray-400 dark:text-gray-500">Sem categoria</span>}</span>
                   </div>
                   <div className="flex-shrink-0 w-24 sm:w-28 text-center">
                     <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-lg truncate">{t.subcategory || '-'}</span>
@@ -1361,6 +1364,12 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
                   }`}
                 >
                   <option value="">Selecione uma categoria</option>
+                  {/* Valor fora do catálogo (ex.: importação antiga que gravou o
+                      tipo como categoria): mostra como opção real para o select
+                      não cair na primeira opção e enganar o usuário. */}
+                  {form.category && !(form.type === 'Receita' ? CATEGORIES_BY_TYPE.Receita : CATEGORIES_BY_TYPE.Despesa).includes(form.category) && (
+                    <option value={form.category}>{form.category} (fora do catálogo)</option>
+                  )}
                   {(form.type === 'Receita' ? CATEGORIES_BY_TYPE.Receita : CATEGORIES_BY_TYPE.Despesa).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}

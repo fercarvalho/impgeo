@@ -117,7 +117,7 @@ function parseBBFormat1(text) {
         description: desc || "Sem descrição",
         value,
         type,
-        category: type,
+        category: '',
       });
     }
 
@@ -182,7 +182,7 @@ function parseBBFormat2(text) {
         description: desc || "Sem descrição",
         value,
         type,
-        category: type,
+        category: '',
       });
     }
 
@@ -288,7 +288,7 @@ function parseSicoobPDF(text) {
       const type = side === "D" ? "Despesa" : "Receita";
 
       if (value > 0) {
-        transactions.push({ date, description, value, type, category: type });
+        transactions.push({ date, description, value, type, category: '' });
       }
       i++;
       continue;
@@ -312,7 +312,7 @@ function parseSicoobPDF(text) {
 
       if (marker && marker !== "*" && value > 0) {
         const type = marker === "D" ? "Despesa" : "Receita";
-        transactions.push({ date, description, value, type, category: type });
+        transactions.push({ date, description, value, type, category: '' });
       }
       // Se marker === "*" → bloqueado, ignora
       i++;
@@ -424,7 +424,7 @@ function parseC6PDF(text) {
       if (!description) description = withoutValue.trim();
 
       if (value > 0) {
-        transactions.push({ date, description, value, type, category: type });
+        transactions.push({ date, description, value, type, category: '' });
       }
       i++;
       continue;
@@ -443,7 +443,7 @@ function parseC6PDF(text) {
       const description = descPart1 ? `${descPart1} ${descPart2}`.trim() : descPart2;
 
       if (value > 0) {
-        transactions.push({ date, description, value, type, category: type });
+        transactions.push({ date, description, value, type, category: '' });
       }
       i += 2;
       continue;
@@ -540,7 +540,7 @@ function parseFaturaBBPDF(text) {
       description,
       value,
       type: "Despesa",
-      category: "Despesa",
+      category: "",
     });
   }
 
@@ -643,7 +643,7 @@ function parseFaturaC6PDF(text) {
       description,
       value,
       type: "Despesa",
-      category: "Despesa",
+      category: "",
     });
   }
 
@@ -777,7 +777,7 @@ function parseInfinityPayPDF(text) {
       description: desc || "InfinityPay",
       value,
       type,
-      category: type,
+      category: '',
     });
   }
 
@@ -895,7 +895,7 @@ function parseMercadoPagoPDF(text) {
       description: t.descParts.join(" ").replace(/\s+/g, " ").trim() || "Mercado Pago",
       value:       Math.abs(t.value),
       type:        t.type,
-      category:    t.type,
+      category:    '',
     }));
 }
 
