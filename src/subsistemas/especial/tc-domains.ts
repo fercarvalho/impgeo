@@ -1,27 +1,27 @@
-// Detecção de hostname para roteamento por subdomínio do TerraControl.
+// Detecção de hostname para roteamento do TerraControl.
 //
-// Em produção há 2 subdomínios dedicados ao TerraControl, além do principal
-// do impgeo:
+// Desde a unificação de domínio há UM só host dedicado ao TerraControl:
 //
-//   - terracontrol.viverdepj.com.br        → entry público dos tc_users
-//   - admin.terracontrol.viverdepj.com.br  → atalho de login impgeo → módulo TerraControl
+//   - terracontrol.com.br  → entry ÚNICO (login unificado: cliente tc_user +
+//                            equipe impgeo no mesmo formulário)
+//
+// Não há mais subdomínio admin.terracontrol — a equipe entra pelo mesmo host,
+// com credenciais impgeo, e o backend (POST /api/tc-entry/login) roteia.
 //
 // O App.tsx checa o hostname antes de decidir o que renderizar — se cair em
-// tc-public ou tc-admin, NÃO entra no fluxo do SubsystemPicker do impgeo.
+// 'tc', NÃO entra no fluxo do SubsystemPicker do impgeo.
 
-export const TC_PUBLIC_HOSTS = ['terracontrol.viverdepj.com.br', 'terracontrol.local']
-export const TC_ADMIN_HOSTS  = ['admin.terracontrol.viverdepj.com.br', 'admin.terracontrol.local']
+export const TC_PUBLIC_HOSTS = ['terracontrol.com.br', 'terracontrol.local']
 
-export type TcEntryMode = 'tc-public' | 'tc-admin' | 'impgeo'
+export type TcEntryMode = 'tc' | 'impgeo'
 
 export function detectTcEntryMode(hostname: string = ''): TcEntryMode {
   const h = (hostname || '').toLowerCase()
-  if (TC_PUBLIC_HOSTS.includes(h)) return 'tc-public'
-  if (TC_ADMIN_HOSTS.includes(h))  return 'tc-admin'
+  if (TC_PUBLIC_HOSTS.includes(h)) return 'tc'
   return 'impgeo'
 }
 
-// Helper para descobrir a URL pública absoluta do tc-public (usado nos
+// Helper para descobrir a URL pública absoluta do TerraControl (usado nos
 // redirects de /v/<legacy>). Em dev pode estar undefined; backend monta.
 export function getTcPublicBaseUrl(): string | null {
   if (typeof window === 'undefined') return null

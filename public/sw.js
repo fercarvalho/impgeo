@@ -18,14 +18,12 @@
 
 const VERSION = '__BUILD_HASH__';
 
-const TC_PUBLIC_HOSTS = ['terracontrol.viverdepj.com.br', 'terracontrol.local'];
-const TC_ADMIN_HOSTS  = ['admin.terracontrol.viverdepj.com.br', 'admin.terracontrol.local'];
+const TC_PUBLIC_HOSTS = ['terracontrol.com.br', 'terracontrol.local'];
 
 function detectAppIdFromScope(scope) {
   try {
     const h = new URL(scope).hostname.toLowerCase();
     if (TC_PUBLIC_HOSTS.includes(h)) return 'tc-public';
-    if (TC_ADMIN_HOSTS.includes(h))  return 'tc-admin';
     return 'impgeo';
   } catch {
     return 'impgeo';
@@ -69,15 +67,8 @@ const TC_GET_ALLOWLIST = [
   /^\/api\/tc-auth\/notifications(\?.*)?$/,
 ];
 
-const TC_ADMIN_GET_ALLOWLIST = [
-  /^\/api\/auth\/me$/,
-  /^\/api\/terracontrol(\?.*)?$/,
-  /^\/api\/terracontrol\/share-links(\?.*)?$/,
-];
-
 function getAllowlist(appId) {
   if (appId === 'tc-public') return TC_GET_ALLOWLIST;
-  if (appId === 'tc-admin')  return TC_ADMIN_GET_ALLOWLIST;
   return [];
 }
 
@@ -295,7 +286,6 @@ self.addEventListener('message', (event) => {
 const ICON_DIR_BY_APP = {
   'impgeo':    'impgeo',
   'tc-public': 'tc',
-  'tc-admin':  'tc-admin',
 };
 const ICON_DIR = ICON_DIR_BY_APP[APP_ID] || 'impgeo';
 const NOTIF_ICON  = `/icons/${ICON_DIR}/icon-192.png`;

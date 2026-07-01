@@ -20,10 +20,10 @@ import { getCurrentAppId } from './pwa/appId'
   // tc-public é gated internamente em installPrompt.ts (só dispara pós-login).
   setupInstallPrompt()
   injectIosMeta()
-  // PR #3/#4/#5: SW ativo em todos os 3 origins. Cada um usa estratégia
-  // diferente (shell+aviso pro impgeo; read-only pra tc-public e tc-admin)
-  // — selecionada dentro do sw.js pelo dispatcher baseado em APP_ID.
-  if (appId === 'impgeo' || appId === 'tc-public' || appId === 'tc-admin') {
+  // SW ativo nos 2 origins (impgeo, tc-public=terracontrol.com.br). Cada um usa
+  // estratégia diferente (shell+aviso pro impgeo; read-only pra tc-public) —
+  // selecionada dentro do sw.js pelo dispatcher baseado em APP_ID.
+  if (appId === 'impgeo' || appId === 'tc-public') {
     registerSW().catch((err) => console.error('[pwa] registerSW falhou:', err))
   }
 }

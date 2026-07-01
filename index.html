@@ -48,14 +48,13 @@
         try {
           var h = location.hostname.toLowerCase();
           var app = 'impgeo';
-          if (h === 'terracontrol.viverdepj.com.br' || h === 'terracontrol.local') app = 'tc-public';
-          else if (h === 'admin.terracontrol.viverdepj.com.br' || h === 'admin.terracontrol.local') app = 'tc-admin';
+          if (h === 'terracontrol.com.br' || h === 'terracontrol.local') app = 'tc-public';
           window.__APP_ID__ = app;
           var manifestLink = document.createElement('link');
           manifestLink.rel = 'manifest';
           manifestLink.href = '/manifests/' + app + '.webmanifest';
           document.head.appendChild(manifestLink);
-          var themeColor = app === 'impgeo' ? '#1d4ed8' : (app === 'tc-public' ? '#48A326' : '#0041B1');
+          var themeColor = app === 'tc-public' ? '#48A326' : '#1d4ed8';
           var themeMeta = document.createElement('meta');
           themeMeta.name = 'theme-color';
           themeMeta.content = themeColor;

@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import Footer from '@/components/Footer'
 import { useTcAuth } from '@/contexts/TcAuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import TcEsqueciSenhaModal from './TcEsqueciSenhaModal'
 
 interface LoginScreenProps {
@@ -22,7 +23,13 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePasswordChange }) => {
-  const { login } = useTcAuth()
+  // Login UNIFICADO (terracontrol.com.br): o mesmo formulário aceita cliente
+  // (tc_user) e equipe (impgeo com acesso ao módulo). Chama /api/tc-entry/login,
+  // que decide a tabela e devolve `kind`. Hidratamos o contexto certo:
+  //   kind='tc_user' → applyLoginPayload (TcAuthContext)
+  //   kind='impgeo'  → updateUser (AuthContext), igual ao antigo admin login
+  const { applyLoginPayload } = useTcAuth()
+  const { updateUser } = useAuth()
   const [username, setUsername] = useState(initialUsername || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -108,16 +115,34 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
     }
     setIsSubmitting(true)
     try {
-      const result = await login(username.trim(), password)
-      if (!result.success) {
-        setError(result.error || 'Falha ao autenticar')
-        // F2.2: detectamos casos especiais para oferecer "reenviar convite"
-        if (result.code === 'invite_expired' || result.code === 'invite_pending') {
-          setInviteIssue({ code: result.code, email: result.email ?? null })
+      const res = await fetch('/api/tc-entry/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username: username.trim(), password }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.success) {
+        setError(data?.error || 'Falha ao autenticar')
+        // F2.2: convite expirado/pendente → oferece reenvio
+        if (data?.code === 'invite_expired' || data?.code === 'invite_pending') {
+          setInviteIssue({ code: data.code, email: data.email ?? null })
         }
         return
       }
-      if (result.forcePasswordChange && onForcePasswordChange) {
+
+      if (data.kind === 'impgeo') {
+        // Equipe: hidrata AuthContext do impgeo (mesmo padrão do antigo
+        // TerraControlAdminLogin). O pai detecta `user` e renderiza o shell.
+        if (data.token) sessionStorage.setItem('authToken', data.token)
+        if (data.refreshToken) sessionStorage.setItem('refreshToken', data.refreshToken)
+        updateUser(data.user, data.token)
+        return
+      }
+
+      // kind === 'tc_user' (default): hidrata TcAuthContext
+      applyLoginPayload(data.token ?? null, data.tcUser ?? null, !!data.forcePasswordChange)
+      if (data.forcePasswordChange && onForcePasswordChange) {
         onForcePasswordChange()
       }
       // Senão o pai detecta tcUser via TcAuthContext e re-renderiza.

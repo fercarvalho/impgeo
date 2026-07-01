@@ -24,14 +24,10 @@ import { promptInstall, useCanInstall, useWasJustInstalled, useIsAppInstalled, i
 import { getCurrentAppId } from '@/pwa/appId'
 import PwaInstallHowToModal from './PwaInstallHowToModal'
 
-// Nome humano-amigável usado no banner e no modal de instruções. tc-admin
-// vira "TerraControl" (não "TC Admin") porque é a marca que o usuário
-// reconhece ao decidir instalar — o "TC Admin" continua sendo só o
-// short_name do manifest pra diferenciar o ícone no launcher.
+// Nome humano-amigável usado no banner e no modal de instruções.
 const APP_HUMAN_NAME: Record<ReturnType<typeof getCurrentAppId>, string> = {
   'impgeo':    'IMPGEO',
   'tc-public': 'TerraControl',
-  'tc-admin':  'TerraControl',
 }
 
 const DISMISS_KEY = 'pwa-install-banner-dismissed-at'

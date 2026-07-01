@@ -9,15 +9,22 @@
 import React, { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTcAuth } from '@/contexts/TcAuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import LoginScreen from './LoginScreen'
 import TcAlterarSenhaModal from './TcAlterarSenhaModal'
 import TcResetarSenhaModal from './TcResetarSenhaModal'
 import TcLoggedView from './TcLoggedView'
 import TcAcceptInviteScreen from './TcAcceptInviteScreen'
+import TerraControlAdminShell from './TerraControlAdminShell'
 import OfflineBanner from '@/components/OfflineBanner'
 
+// Entry ÚNICO do terracontrol.com.br (login unificado). Decide entre:
+//   - equipe impgeo logada  → TerraControlAdminShell (via useAuth)
+//   - cliente tc_user logado → TcLoggedView (via useTcAuth)
+//   - ninguém logado         → LoginScreen (o form chama /api/tc-entry/login)
 const TcPublicEntry: React.FC = () => {
   const { tcUser, isLoading, forcePasswordChange } = useTcAuth()
+  const { user: impgeoUser, isLoading: impgeoLoading } = useAuth()
   const [resetToken, setResetToken] = useState<string | null>(null)
   const [inviteToken, setInviteToken] = useState<string | null>(null)
   const [initialUsername, setInitialUsername] = useState<string | undefined>(undefined)
@@ -50,7 +57,9 @@ const TcPublicEntry: React.FC = () => {
     )
   }
 
-  if (isLoading) {
+  // Espera AS DUAS auths resolverem antes de decidir — senão pisca o login
+  // enquanto o cookie de sessão (cliente OU equipe) ainda está sendo validado.
+  if (isLoading || impgeoLoading) {
     return (
       <>
         <OfflineBanner />
@@ -64,24 +73,32 @@ const TcPublicEntry: React.FC = () => {
     )
   }
 
-  if (!tcUser) {
+  // Cliente tc_user tem prioridade (público majoritário). Na prática cliente e
+  // equipe não coexistem: cada login seta só um conjunto de cookies.
+  if (tcUser) {
     return (
       <>
         <OfflineBanner />
-        <LoginScreen initialUsername={initialUsername} />
-        {resetToken && (
-          <TcResetarSenhaModal isOpen onClose={() => setResetToken(null)} token={resetToken} />
+        <TcLoggedView />
+        {forcePasswordChange && (
+          <TcAlterarSenhaModal isOpen mode="forced" />
         )}
       </>
     )
   }
 
+  // Equipe impgeo logada → shell do módulo TerraControl.
+  if (impgeoUser) {
+    return <TerraControlAdminShell />
+  }
+
+  // Ninguém logado → login unificado.
   return (
     <>
       <OfflineBanner />
-      <TcLoggedView />
-      {forcePasswordChange && (
-        <TcAlterarSenhaModal isOpen mode="forced" />
+      <LoginScreen initialUsername={initialUsername} />
+      {resetToken && (
+        <TcResetarSenhaModal isOpen onClose={() => setResetToken(null)} token={resetToken} />
       )}
     </>
   )

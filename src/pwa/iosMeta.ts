@@ -20,7 +20,6 @@ const SPLASH_SIZES: Array<{ w: number; h: number; ratio: number }> = [
 
 function appIconDir(appId: AppId): string {
   if (appId === 'tc-public') return '/icons/tc'
-  if (appId === 'tc-admin')  return '/icons/tc-admin'
   return '/icons/impgeo'
 }
 

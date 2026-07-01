@@ -84,6 +84,8 @@ interface TcAuthContextType {
   refreshTcUser: () => Promise<boolean>
   updateTcUser: (data: Partial<TcUser>) => void
   setForcePasswordChange: (v: boolean) => void
+  // Hidrata sessão a partir de payload já obtido (login unificado tc-entry)
+  applyLoginPayload: (token: string | null, tcUser: TcUser | null, forcePasswordChange?: boolean) => void
 }
 
 const TcAuthContext = createContext<TcAuthContextType | null>(null)
@@ -295,10 +297,22 @@ export const TcAuthProvider: React.FC<TcAuthProviderProps> = ({ children }) => {
     })
   }, [persistUserCache])
 
+  // Hidrata a sessão a partir de um payload de login JÁ obtido (não faz fetch).
+  // Usado pelo login unificado do terracontrol.com.br (POST /api/tc-entry/login),
+  // que decide entre cliente e equipe e devolve o payload do tc_user pronto.
+  const applyLoginPayload = useCallback(
+    (token: string | null, user: TcUser | null, force?: boolean) => {
+      applyAuth(token, user)
+      setForcePasswordChange(!!force)
+      setIsLoading(false)
+    },
+    [applyAuth]
+  )
+
   const value = useMemo<TcAuthContextType>(() => ({
     tcUser, tcToken, isLoading, forcePasswordChange,
-    login, logout, refreshTcUser, updateTcUser, setForcePasswordChange,
-  }), [tcUser, tcToken, isLoading, forcePasswordChange, login, logout, refreshTcUser, updateTcUser])
+    login, logout, refreshTcUser, updateTcUser, setForcePasswordChange, applyLoginPayload,
+  }), [tcUser, tcToken, isLoading, forcePasswordChange, login, logout, refreshTcUser, updateTcUser, applyLoginPayload])
 
   return <TcAuthContext.Provider value={value}>{children}</TcAuthContext.Provider>
 }
