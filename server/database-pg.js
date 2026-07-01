@@ -2427,6 +2427,28 @@ class Database {
     return r.rows.length > 0;
   }
 
+  // Unicidade GLOBAL de username entre `users` (equipe impgeo) e `tc_users`
+  // (clientes). Pré-requisito do login unificado em terracontrol.com.br: como
+  // o mesmo formulário aceita as duas credenciais, um username não pode existir
+  // nas duas tabelas ao mesmo tempo (senão o roteamento por tipo fica ambíguo).
+  // Comparação case-insensitive porque impgeo permite maiúsculas e tc_users é
+  // sempre lowercased. Retorna 'impgeo' | 'tc_user' | null.
+  async findUsernameOwnerTable(username, { excludeUserId = null, excludeTcUserId = null } = {}) {
+    const u = String(username || '').trim().toLowerCase();
+    if (!u) return null;
+    const imp = await this.queryWithRetry(
+      'SELECT 1 FROM users WHERE LOWER(username) = $1 AND ($2::text IS NULL OR id <> $2) LIMIT 1',
+      [u, excludeUserId]
+    );
+    if (imp.rows.length > 0) return 'impgeo';
+    const tc = await this.queryWithRetry(
+      'SELECT 1 FROM tc_users WHERE LOWER(username) = $1 AND ($2::text IS NULL OR id <> $2) LIMIT 1',
+      [u, excludeTcUserId]
+    );
+    if (tc.rows.length > 0) return 'tc_user';
+    return null;
+  }
+
   // =========================================================================
   // tc_user_record_access — permissão granular por registro
   // =========================================================================
@@ -2781,12 +2803,18 @@ class Database {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      // Verifica colisão de username (que não seja o próprio stub do convite)
-      const collision = await client.query(
-        'SELECT id FROM tc_users WHERE username = $1 AND id <> $2 LIMIT 1',
+      // Verifica colisão de username (que não seja o próprio stub do convite).
+      // Checa as DUAS tabelas (tc_users + users) porque username é global no
+      // login unificado do terracontrol.com.br. Case-insensitive.
+      const collisionTc = await client.query(
+        'SELECT 1 FROM tc_users WHERE LOWER(username) = $1 AND id <> $2 LIMIT 1',
         [normalizedUsername, invite.tc_user_id]
       );
-      if (collision.rows.length > 0) {
+      const collisionImpgeo = await client.query(
+        'SELECT 1 FROM users WHERE LOWER(username) = $1 LIMIT 1',
+        [normalizedUsername]
+      );
+      if (collisionTc.rows.length > 0 || collisionImpgeo.rows.length > 0) {
         throw new Error('Este nome de usuário já existe');
       }
       const hash = await bcrypt.hash(String(password), 10);

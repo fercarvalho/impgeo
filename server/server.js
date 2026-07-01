@@ -4708,7 +4708,8 @@ app.put('/api/tc-auth/me/username', tcAuth.authenticateTcUser, async (req, res) 
     if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     const ok = await bcrypt.compare(String(password), user.password);
     if (!ok) return res.status(401).json({ success: false, error: 'Senha incorreta' });
-    if (await db.usernameTcUserExists(normalized) && normalized !== user.username) {
+    // Unicidade global (tc_users + users), excluindo o próprio tc_user.
+    if (await db.findUsernameOwnerTable(normalized, { excludeTcUserId: req.tcUser.id })) {
       return res.status(409).json({ success: false, error: 'Este usuário já está em uso' });
     }
     const updated = await db.updateTcUser(req.tcUser.id, { username: normalized });
@@ -6275,6 +6276,117 @@ app.post('/api/auth/login-terracontrol-admin', loginLimiter, async (req, res) =>
   }
 });
 
+// POST /api/tc-entry/login — LOGIN UNIFICADO do terracontrol.com.br.
+// Um único formulário aceita credenciais de cliente (tc_users) E de equipe
+// (users com acesso ao módulo terracontrol). Como username é globalmente único
+// (garantido na criação — ver findUsernameOwnerTable), decidimos a tabela de
+// forma determinística e roteamos. A resposta traz `kind: 'tc_user' | 'impgeo'`
+// pro frontend escolher a experiência (TcLoggedView vs TerraControlAdminShell).
+// Falha em qualquer ramo devolve 401 genérico (não vaza em qual tabela existe).
+app.post('/api/tc-entry/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Usuário e senha são obrigatórios' });
+    }
+
+    const owner = await db.findUsernameOwnerTable(username);
+
+    // ── Caminho CLIENTE (tc_user) ──────────────────────────────────────────
+    if (owner === 'tc_user') {
+      const ctx = tcRequestContext(req);
+      const result = await tcAuth.loginTcUser(db, { username, password, ...ctx });
+      if (!result.ok) {
+        // Encaminha 'code'/'email' (convite expirado/pendente) igual ao /tc-auth/login
+        const payload = { success: false, error: result.error };
+        if (result.code) payload.code = result.code;
+        if (result.email) payload.email = result.email;
+        return res.status(result.status).json(payload);
+      }
+      setTcAuthCookies(req, res, result.accessToken, result.refreshToken);
+      return res.json({
+        success: true,
+        kind: 'tc_user',
+        token: result.accessToken,
+        refreshToken: result.refreshToken,
+        tcUser: result.tcUser,
+        forcePasswordChange: result.forcePasswordChange,
+        legacyTokenInBody: true,
+      });
+    }
+
+    // ── Caminho EQUIPE (impgeo com acesso ao módulo terracontrol) ───────────
+    if (owner === 'impgeo') {
+      const user = await db.getUserByUsername(username);
+      if (!user || user.is_active === false) {
+        return res.status(401).json({ success: false, error: 'Credenciais inválidas' });
+      }
+      // Primeiro acesso (senha placeholder) NÃO é suportado aqui — o membro da
+      // equipe faz o 1º login pelo sistema impgeo. Aqui só senha real.
+      const isValidPassword = await bcrypt.compare(String(password), user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ success: false, error: 'Credenciais inválidas' });
+      }
+
+      // Gate de módulo: só entra no terracontrol.com.br quem tem TerraControl.
+      let hasTerracontrolAccess = false;
+      if (user.role === 'superadmin' || user.role === 'admin') {
+        hasTerracontrolAccess = true;
+      } else if (user.role === 'user') {
+        const perms = await db.getUserModulePermissions(user.id);
+        hasTerracontrolAccess = Array.isArray(perms) && perms.some(p => p.moduleKey === 'terracontrol');
+      }
+      if (!hasTerracontrolAccess) {
+        return res.status(403).json({ success: false, error: 'Você não tem acesso ao módulo TerraControl. Contate o administrador.' });
+      }
+
+      const nowISO = new Date().toISOString();
+      await db.updateUser(user.id, { lastLogin: nowISO });
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role, permissoes_legais: user.permissoes_legais || {} },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      const updatedUserProfile = await db.getUserProfileById(user.id);
+      await db.createActivityLog({
+        userId: user.id,
+        username: user.username,
+        action: 'login',
+        moduleKey: 'auth',
+        entityType: 'user',
+        entityId: user.id,
+        details: { role: user.role, via: 'tc-entry' },
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || null,
+      });
+
+      let refreshTokenValue = null;
+      try {
+        const { token: rt, tokenId } = await createRefreshToken({
+          userId: user.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        });
+        refreshTokenValue = rt;
+        await createSession(user.id, tokenId, req);
+      } catch (sessionError) {
+        console.warn('[tc-entry] Falha ao criar refresh token/sessão:', sessionError.message);
+      }
+
+      setAuthCookies(req, res, token, refreshTokenValue);
+      setTcAdminAuthCookies(req, res, token, refreshTokenValue);
+      const response = { success: true, kind: 'impgeo', token, user: mapUserToClient(updatedUserProfile || user) };
+      if (refreshTokenValue) response.refreshToken = refreshTokenValue;
+      return res.json(response);
+    }
+
+    // ── Username não existe em nenhuma tabela → genérico ────────────────────
+    return res.status(401).json({ success: false, error: 'Credenciais inválidas' });
+  } catch (error) {
+    console.error('Erro em /api/tc-entry/login:', error);
+    res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
 app.post('/api/auth/verify', authenticateToken, async (req, res) => {
   try {
     const currentUser = await db.getUserById(req.user.id);
@@ -6702,8 +6814,8 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'O novo username deve ser diferente do atual' });
     }
 
-    const existingUser = await db.getUserByUsername(normalizedUsername);
-    if (existingUser && existingUser.id !== currentUser.id) {
+    // Unicidade global (users + tc_users), excluindo o próprio user.
+    if (await db.findUsernameOwnerTable(normalizedUsername, { excludeUserId: currentUser.id })) {
       return res.status(400).json({ success: false, error: 'Username já está em uso' });
     }
 
@@ -6861,7 +6973,9 @@ app.post('/api/admin/tc-users', authenticateToken, requireTcUsersManagement, asy
     if (!/^[a-z0-9][a-z0-9\-_]{2,}$/.test(String(username).trim().toLowerCase())) {
       return res.status(400).json({ success: false, error: 'Username inválido' });
     }
-    if (await db.usernameTcUserExists(String(username).trim().toLowerCase())) {
+    // Unicidade global: username não pode existir nem em tc_users nem em users
+    // (equipe impgeo) — requisito do login unificado do terracontrol.com.br.
+    if (await db.findUsernameOwnerTable(String(username).trim().toLowerCase())) {
       return res.status(409).json({ success: false, error: 'Este usuário já existe' });
     }
     if (email && await db.getTcUserByEmail(email)) {
@@ -7517,9 +7631,9 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'permissions deve ser um array de {moduleKey, accessLevel}' });
     }
 
-    // Verificar se o usuário já existe
-    const existingUser = await db.getUserByUsername(username);
-    if (existingUser) {
+    // Verificar se o usuário já existe — nas DUAS tabelas (users + tc_users).
+    // Username é global no login unificado do terracontrol.com.br.
+    if (await db.findUsernameOwnerTable(username)) {
       return res.status(400).json({ error: 'Usuário já existe' });
     }
 
