@@ -105,9 +105,10 @@ const corsOrigins = process.env.CORS_ORIGINS
 
 // Após a fase 1.3 (subsistemas) o frontend é acessado por múltiplos subdomínios:
 //   *.impgeo.local em dev, *.impgeo.sistemas.viverdepj.com.br em prod.
-// Com o update tc_users (migration 025/026) entraram 2 hosts novos:
-//   terracontrol.viverdepj.com.br (login público tc_user)
-//   admin.terracontrol.viverdepj.com.br (atalho impgeo admin → módulo TerraControl)
+// Com o update tc_users (migration 025/026) entrou o host do TerraControl.
+// Desde a unificação de domínio, é UM só host — terracontrol.com.br — com
+// login unificado (cliente tc_user + equipe impgeo no mesmo formulário, ver
+// POST /api/tc-entry/login). Não há mais subdomínio admin.terracontrol.
 // Origem precisa ser permitida dinamicamente.
 const isAllowedSubsystemOrigin = (origin) => {
   if (!origin) return false;
@@ -115,10 +116,10 @@ const isAllowedSubsystemOrigin = (origin) => {
   if (/^https?:\/\/([a-z0-9-]+\.)?impgeo\.local(?::\d+)?$/.test(origin)) return true;
   // prod: https://(qualquer-coisa.)impgeo.sistemas.viverdepj.com.br
   if (/^https:\/\/([a-z0-9-]+\.)?impgeo\.sistemas\.viverdepj\.com\.br$/.test(origin)) return true;
-  // dev: http(s)://(admin.)?terracontrol.local(:port)
-  if (/^https?:\/\/(admin\.)?terracontrol\.local(?::\d+)?$/.test(origin)) return true;
-  // prod: https://(admin.)?terracontrol.viverdepj.com.br
-  if (/^https:\/\/(admin\.)?terracontrol\.viverdepj\.com\.br$/.test(origin)) return true;
+  // dev: http(s)://terracontrol.local(:port)
+  if (/^https?:\/\/terracontrol\.local(?::\d+)?$/.test(origin)) return true;
+  // prod: https://terracontrol.com.br (login unificado — sem subdomínio admin)
+  if (/^https:\/\/terracontrol\.com\.br$/.test(origin)) return true;
   return false;
 };
 
@@ -194,8 +195,8 @@ const resolveTcCookieDomain = (req) => {
   if (hostname === 'terracontrol.local' || hostname.endsWith('.terracontrol.local')) {
     return '.terracontrol.local';
   }
-  if (hostname === 'terracontrol.viverdepj.com.br' || hostname.endsWith('.terracontrol.viverdepj.com.br')) {
-    return '.terracontrol.viverdepj.com.br';
+  if (hostname === 'terracontrol.com.br' || hostname.endsWith('.terracontrol.com.br')) {
+    return '.terracontrol.com.br';
   }
   return undefined;
 };
@@ -231,13 +232,15 @@ const clearTcAuthCookies = (req, res) => {
 // extractAccessToken (middleware impgeo) lê este cookie como fallback do
 // accessToken principal, então o admin shell continua autenticado normalmente.
 const resolveTcAdminCookieDomain = (req) => {
-  if (process.env.TC_ADMIN_COOKIE_DOMAIN) return process.env.TC_ADMIN_COOKIE_DOMAIN;
+  if (process.env.TC_ADMIN_COOKIE_DOMAIN || process.env.TC_COOKIE_DOMAIN) {
+    return process.env.TC_ADMIN_COOKIE_DOMAIN || process.env.TC_COOKIE_DOMAIN;
+  }
   const hostname = (req.hostname || '').toLowerCase();
   if (hostname === 'terracontrol.local' || hostname.endsWith('.terracontrol.local')) {
     return '.terracontrol.local';
   }
-  if (hostname === 'terracontrol.viverdepj.com.br' || hostname.endsWith('.terracontrol.viverdepj.com.br')) {
-    return '.terracontrol.viverdepj.com.br';
+  if (hostname === 'terracontrol.com.br' || hostname.endsWith('.terracontrol.com.br')) {
+    return '.terracontrol.com.br';
   }
   return undefined;
 };
@@ -3549,7 +3552,7 @@ async function dispatchTcRecordEventToOwner(record, event, { editedByName } = {}
   // NÃO afeta emails transacionais críticos (reset de senha, convite).
   if (!tcUser.email) return;
   if (tcUser.email_notifications === false) return;
-  const loginUrl = process.env.TC_PUBLIC_URL || 'https://terracontrol.viverdepj.com.br';
+  const loginUrl = process.env.TC_PUBLIC_URL || 'https://terracontrol.com.br';
   try {
     if (event === 'approved') {
       await enviarEmailTcRegistroAprovado({
@@ -4543,7 +4546,7 @@ app.post('/api/tc-auth/recuperar-senha', passwordRecoveryLimiter, async (req, re
 
     const { token: resetToken } = await db.createTcPasswordResetToken({ tcUserId: user.id, ttlMinutes: 60 });
     const tcPublicBase = process.env.TC_PUBLIC_BASE_URL
-      || (process.env.NODE_ENV === 'production' ? 'https://terracontrol.viverdepj.com.br' : `${req.protocol}://${req.get('host')}`);
+      || (process.env.NODE_ENV === 'production' ? 'https://terracontrol.com.br' : `${req.protocol}://${req.get('host')}`);
     const resetUrl = `${tcPublicBase.replace(/\/$/, '')}/?reset=${encodeURIComponent(resetToken)}`;
 
     try {

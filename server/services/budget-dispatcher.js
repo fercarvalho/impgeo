@@ -28,7 +28,7 @@ function makeDispatcher(deps) {
   } = deps;
 
   // URLs públicas pra deep-link nas notif/e-mails.
-  const tcPublicUrl = publicUrls.tcPublic || process.env.TC_PUBLIC_URL || 'https://terracontrol.viverdepj.com.br';
+  const tcPublicUrl = publicUrls.tcPublic || process.env.TC_PUBLIC_URL || 'https://terracontrol.com.br';
   const impgeoPublicUrl = publicUrls.impgeoPublic || process.env.IMPGEO_PUBLIC_URL || '';
 
   function buildTcBudgetViewUrl(budgetId) {
