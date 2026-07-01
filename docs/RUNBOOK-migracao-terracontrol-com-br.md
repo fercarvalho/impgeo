@@ -187,19 +187,19 @@ Aplique:
 + TC_COOKIE_DOMAIN=.terracontrol.com.br
 + TC_PUBLIC_BASE_URL=https://terracontrol.com.br
 
-- SENDGRID_FROM_EMAIL=naoresponder@impgeo.sistemas.viverdepj.com.br
-+ SENDGRID_FROM_EMAIL=naoresponder@terracontrol.com.br
+# Remetente DEDICADO dos emails do TerraControl (não mexe no do impgeo)
++ SENDGRID_FROM_EMAIL_TC=naoresponder@terracontrol.com.br
 ```
 
 Notas:
 - `TC_COOKIE_DOMAIN` também passa a valer pro cookie da equipe (o resolver de
   cookie admin agora herda `TC_COOKIE_DOMAIN` quando `TC_ADMIN_COOKIE_DOMAIN`
   não está setado). Pode remover `TC_ADMIN_COOKIE_DOMAIN` se existir.
-- `SENDGRID_FROM_EMAIL` só troque depois do domínio estar **verified** no
-  SendGrid (passo 1). Se o `impgeo` usa esse MESMO `SENDGRID_FROM_EMAIL` para
-  emails do sistema interno, avalie usar `SENDGRID_FROM_EMAIL_TC` dedicado — mas
-  hoje os templates TC usam o mesmo `SENDGRID_FROM_EMAIL`; trocá-lo muda o
-  remetente também dos emails do impgeo. **Confirmar antes de trocar.**
+- `SENDGRID_FROM_EMAIL_TC` é o remetente **só dos emails do TerraControl**
+  (reset/convite/aprovação/edição/orçamento). Os emails internos do impgeo
+  continuam saindo de `SENDGRID_FROM_EMAIL` — **não mexa nele**. Só ative o
+  `_TC` depois do domínio estar **verified** no SendGrid (passo 1); se não
+  setar, o TC cai no fallback (`SENDGRID_FROM_EMAIL`) sem quebrar.
 - `IMPGEO_PUBLIC_URL` continua `https://impgeo.sistemas.viverdepj.com.br`
   (usado no deep-link do email opt-in pra equipe).
 
@@ -333,7 +333,7 @@ psql "$DATABASE_URL_IMPGEO" -c "
 - [ ] SendGrid: `terracontrol.com.br` **verified**
 - [ ] DNS: `terracontrol.com.br` → IP da VPS (propagado)
 - [ ] Nginx: server block novo + certbot + 301 dos antigos + `nginx -t` ok
-- [ ] `.env`: `TC_PUBLIC_URL`, `TC_COOKIE_DOMAIN`, `TC_PUBLIC_BASE_URL`, `SENDGRID_FROM_EMAIL`
+- [ ] `.env`: `TC_PUBLIC_URL`, `TC_COOKIE_DOMAIN`, `TC_PUBLIC_BASE_URL`, `SENDGRID_FROM_EMAIL_TC`
 - [ ] Pré-flight: 0 usernames duplicados entre `users` e `tc_users`
 - [ ] Deploy: `git pull` + build + migrations + `pm2 restart`
 - [ ] Verificação: curl (kind tc_user/impgeo), cookie domain, redirect, browser, email real

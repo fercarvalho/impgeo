@@ -380,6 +380,10 @@ CORS_ORIGINS=https://impgeo.sistemas.viverdepj.com.br
 SENDGRID_API_KEY=SG.sua_api_key
 SENDGRID_FROM_EMAIL=naoresponder@impgeo.sistemas.viverdepj.com.br
 SENDGRID_FROM_NAME=IMPGEO
+# Remetente dedicado dos emails do TerraControl (domínio próprio). Se ausente,
+# os emails do TC caem no SENDGRID_FROM_EMAIL acima (fallback).
+SENDGRID_FROM_EMAIL_TC=naoresponder@terracontrol.com.br
+SENDGRID_FROM_NAME_TC=TerraControl
 
 # Recuperação de senha
 PASSWORD_RESET_TOKEN_TTL_MINUTES=60

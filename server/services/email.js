@@ -14,6 +14,18 @@ function ensureSendGridConfigured() {
   sendGridConfigured = true;
 }
 
+// Remetente dos emails do TerraControl. Domínio próprio: usa
+// SENDGRID_FROM_EMAIL_TC (ex.: naoresponder@terracontrol.com.br) e só cai pro
+// SENDGRID_FROM_EMAIL do impgeo se o dedicado não estiver setado. Assim os
+// emails do TerraControl saem de @terracontrol.com.br sem afetar os emails
+// internos do impgeo (que continuam usando SENDGRID_FROM_EMAIL).
+function resolveTcSender() {
+  const email = process.env.SENDGRID_FROM_EMAIL_TC || process.env.SENDGRID_FROM_EMAIL;
+  const name = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
+  if (!email) throw new Error('SENDGRID_FROM_EMAIL_TC/SENDGRID_FROM_EMAIL não configurado');
+  return { email, name };
+}
+
 function buildResetEmailTemplate({ resetUrl, username, expiresMinutes }) {
   const safeUsername = username || 'usuário';
   const safeExpiresMinutes = Number(expiresMinutes) || 60;
@@ -216,9 +228,7 @@ function buildTcResetEmailTemplate({ resetUrl, username, expiresMinutes }) {
 
 async function enviarEmailTcResetSenha({ toEmail, username, resetUrl, expiresMinutes = 60 }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   if (!resetUrl) throw new Error('URL de recuperação não informada');
   const { subject, html, text } = buildTcResetEmailTemplate({ resetUrl, username, expiresMinutes });
@@ -274,9 +284,7 @@ function buildTcConviteEmailTemplate({ acceptUrl, invitedByName, expiresDays }) 
 
 async function enviarEmailTcConvite({ toEmail, acceptUrl, invitedByName, expiresDays = 7 }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   if (!acceptUrl) throw new Error('URL de aceite do convite não informada');
   const { subject, html, text } = buildTcConviteEmailTemplate({ acceptUrl, invitedByName, expiresDays });
@@ -345,9 +353,7 @@ function buildTcRegistroAprovadoTemplate({ username, imovel, municipio, codImove
 
 async function enviarEmailTcRegistroAprovado({ toEmail, username, imovel, municipio, codImovel, loginUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcRegistroAprovadoTemplate({ username, imovel, municipio, codImovel, loginUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -396,9 +402,7 @@ function buildTcRegistroEditadoTemplate({ username, imovel, municipio, codImovel
 
 async function enviarEmailTcRegistroEditado({ toEmail, username, imovel, municipio, codImovel, editedByName, loginUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcRegistroEditadoTemplate({ username, imovel, municipio, codImovel, editedByName, loginUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -453,9 +457,7 @@ function buildImpgeoTcRecordCriadoTemplate({ recipientName, tcUserName, imovel, 
 
 async function enviarEmailImpgeoTcRecordCriado({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, adminUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildImpgeoTcRecordCriadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, adminUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -522,9 +524,7 @@ function buildImpgeoTcRecordEditadoTemplate({ recipientName, tcUserName, imovel,
 
 async function enviarEmailImpgeoTcRecordEditado({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, fieldLabels, adminUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildImpgeoTcRecordEditadoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, fieldLabels, adminUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -625,9 +625,7 @@ function buildTcOrcamentoEnviadoTemplate({ username, imovel, municipio, codImove
 
 async function enviarEmailTcOrcamentoEnviado({ toEmail, username, imovel, municipio, codImovel, totalCents, viewUrl, pdfBuffer, pdfFilename }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcOrcamentoEnviadoTemplate({ username, imovel, municipio, codImovel, totalCents, viewUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -671,9 +669,7 @@ function buildTcOrcamentoRevisadoTemplate({ username, imovel, municipio, codImov
 
 async function enviarEmailTcOrcamentoRevisado({ toEmail, username, imovel, municipio, codImovel, totalCents, revisionNumber, viewUrl, pdfBuffer, pdfFilename }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcOrcamentoRevisadoTemplate({ username, imovel, municipio, codImovel, totalCents, revisionNumber, viewUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -721,9 +717,7 @@ function buildTcPagamentoConfirmadoTemplate({ username, imovel, municipio, codIm
 
 async function enviarEmailTcPagamentoConfirmado({ toEmail, username, imovel, municipio, codImovel, totalCents, paidAt, loginUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcPagamentoConfirmadoTemplate({ username, imovel, municipio, codImovel, totalCents, paidAt, loginUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -770,9 +764,7 @@ function buildImpgeoRevisaoSolicitadaTemplate({ recipientName, tcUserName, imove
 
 async function enviarEmailImpgeoRevisaoSolicitada({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, totalCents, revisionNumber, comment, source, adminUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildImpgeoRevisaoSolicitadaTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, revisionNumber, comment, source, adminUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -817,9 +809,7 @@ function buildImpgeoPagamentoRecebidoTemplate({ recipientName, tcUserName, imove
 
 async function enviarEmailImpgeoPagamentoRecebido({ toEmail, recipientName, tcUserName, imovel, municipio, codImovel, totalCents, paidAt, adminUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildImpgeoPagamentoRecebidoTemplate({ recipientName, tcUserName, imovel, municipio, codImovel, totalCents, paidAt, adminUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
@@ -873,9 +863,7 @@ ${escapeHtml(reason)}</div>
 
 async function enviarEmailTcRevisaoDescartada({ toEmail, username, imovel, municipio, codImovel, totalCents, reason, viewUrl }) {
   ensureSendGridConfigured();
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName = process.env.SENDGRID_FROM_NAME_TC || 'TerraControl';
-  if (!fromEmail) throw new Error('SENDGRID_FROM_EMAIL não configurado');
+  const { email: fromEmail, name: fromName } = resolveTcSender();
   if (!toEmail) throw new Error('Email de destino não informado');
   const { subject, html, text } = buildTcRevisaoDescartadaTemplate({ username, imovel, municipio, codImovel, totalCents, reason, viewUrl });
   const msg = { to: toEmail, from: { email: fromEmail, name: fromName }, subject, html, text };
