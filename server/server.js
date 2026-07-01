@@ -578,6 +578,7 @@ const publicApiRoutes = [
   '/auth/login',
   '/auth/recuperar-senha',
   '/auth/resetar-senha',
+  '/tc-entry/login',            // login unificado do terracontrol.com.br (cliente + equipe)
   '/faq',
   '/cookie-banner-config',
   '/cookie-categorias',
