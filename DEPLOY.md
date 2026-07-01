@@ -409,7 +409,9 @@ ABACATEPAY_WEBHOOK_SECRET=
 # ABACATEPAY_BASE_URL=https://api.abacatepay.com   (opcional, default)
 
 # URLs públicas usadas em links dentro de notificações/e-mails de orçamento
-TC_PUBLIC_URL=https://terracontrol.viverdepj.com.br
+TC_PUBLIC_URL=https://terracontrol.com.br
+TC_COOKIE_DOMAIN=.terracontrol.com.br
+TC_PUBLIC_BASE_URL=https://terracontrol.com.br
 IMPGEO_PUBLIC_URL=https://impgeo.sistemas.viverdepj.com.br
 ```
 
@@ -532,9 +534,10 @@ server {
 }
 ```
 
-> **Importante:** repita o mesmo bloco PWA nos `server { ... }` dos subdomínios
-> `terracontrol.viverdepj.com.br` e `admin.terracontrol.viverdepj.com.br` —
-> cada origin precisa dos headers próprios pra que SW/manifest/cache funcionem.
+> **Importante:** repita o mesmo bloco PWA no `server { ... }` do
+> `terracontrol.com.br` — cada origin precisa dos headers próprios pra que
+> SW/manifest/cache funcionem. Ver o passo-a-passo completo da migração de
+> domínio em [docs/RUNBOOK-migracao-terracontrol-com-br.md](docs/RUNBOOK-migracao-terracontrol-com-br.md).
 
 ### Kill switch do Service Worker (emergência)
 
