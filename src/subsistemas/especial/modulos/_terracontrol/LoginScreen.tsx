@@ -212,7 +212,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ initialUsername, onForcePassw
               TerraControl
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium tracking-wide">
-              Plataforma de gestão territorial
+              Plataforma de Gestão Territorial
             </p>
           </div>
 
