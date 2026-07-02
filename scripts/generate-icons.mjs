@@ -131,6 +131,13 @@ async function generateAppIcons(app, sourcePath) {
   if (app === 'tc-admin') apple = await addAdminBadge(apple, APPLE_TOUCH_SIZE)
   await fs.writeFile(path.join(outDir, `apple-touch-icon-180.png`), apple)
 
+  // Favicon (aba do navegador) — logo em 64px, fundo transparente.
+  const favicon = await sharp(srcBuffer)
+    .resize(64, 64, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer()
+  await fs.writeFile(path.join(outDir, 'favicon.png'), favicon)
+
   for (const { w, h } of SPLASH_SIZES) {
     const splash = await renderSplash({ srcBuffer, w, h, bg })
     await fs.writeFile(path.join(outDir, `splash-${w}x${h}.png`), splash)

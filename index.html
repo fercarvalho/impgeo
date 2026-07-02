@@ -59,6 +59,14 @@
           themeMeta.name = 'theme-color';
           themeMeta.content = themeColor;
           document.head.appendChild(themeMeta);
+          // Favicon por app: TerraControl usa a logo própria (gerada de
+          // logo_terracontrol.png). impgeo mantém o /imp_favicon.ico estático.
+          if (app === 'tc-public') {
+            var fav = document.querySelector('link[rel="icon"]');
+            if (!fav) { fav = document.createElement('link'); fav.rel = 'icon'; document.head.appendChild(fav); }
+            fav.type = 'image/png';
+            fav.href = '/icons/tc/favicon.png';
+          }
         } catch (_) { /* sem PWA — segue como web normal */ }
       })();
     </script>
