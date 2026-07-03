@@ -69,18 +69,18 @@ const Tarefas: React.FC = () => {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
-    try { setTasks(await fetchMyTasks()) }
+    try { setTasks((await fetchMyTasks()).data) }
     catch (e: any) { setError(e.message || 'Falha ao carregar tarefas') }
     finally { setLoading(false) }
     // Tarefas disponíveis para pegar (sem responsável).
-    fetchAvailableTasks().then(setAvailable).catch(() => setAvailable([]))
+    fetchAvailableTasks().then(r => setAvailable(r.data)).catch(() => setAvailable([]))
     // Revisões pendentes (gestor): 403 → não-gestor, esconde a seção.
-    fetchPendingReviews().then(setPendingReviews).catch(() => setPendingReviews(null))
+    fetchPendingReviews().then(r => setPendingReviews(r.data)).catch(() => setPendingReviews(null))
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
-    fetchPendingDueRequests().then(setDueReqs).catch(() => setDueReqs(null))
+    fetchPendingDueRequests().then(r => setDueReqs(r.data)).catch(() => setDueReqs(null))
     fetchMyDueProposals().then(setDueProps).catch(() => setDueProps([]))
-    fetchPendingUncompleteRequests().then(setUncReqs).catch(() => setUncReqs([]))
-    fetchPendingDelegations().then(setDelReqs).catch(() => setDelReqs([]))
+    fetchPendingUncompleteRequests().then(r => setUncReqs(r.data)).catch(() => setUncReqs([]))
+    fetchPendingDelegations().then(r => setDelReqs(r.data)).catch(() => setDelReqs([]))
   }, [])
 
   useEffect(() => {

@@ -49,16 +49,39 @@ async function parse(r: Response) {
   return j.data
 }
 
-export async function fetchMyTasks(statuses?: string[]): Promise<PmTask[]> {
-  const q = statuses?.length ? `?status=${encodeURIComponent(statuses.join(','))}` : ''
-  const r = await fetch(`${API}/me/tasks${q}`)
-  return parse(r)
+// ─── Paginação (melhoria #12) ─────────────────────────────────────────────────
+// Opt-in: sem `limit`, o backend devolve tudo (data continua array). O envelope
+// `pagination` é lido só pelas funções de listagem via parsePaged.
+export interface PageOpts { limit?: number; offset?: number }
+export interface PageInfo { total: number; limit: number | null; offset: number; page: number; totalPages: number }
+export interface Paginated<T> { data: T[]; pagination?: PageInfo }
+
+async function parsePaged<T>(r: Response): Promise<Paginated<T>> {
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok || !j.success) {
+    const e: any = new Error(j.error || `Erro (HTTP ${r.status})`); e.code = j.code; throw e
+  }
+  return { data: j.data, pagination: j.pagination }
+}
+
+// Monta a URL com os params de paginação (só inclui se `limit` estiver definido)
+// mais quaisquer params extras não-vazios.
+function urlWithPage(path: string, page?: PageOpts, extra?: Record<string, string | undefined>): string {
+  const p = new URLSearchParams()
+  if (extra) for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v)
+  if (page?.limit != null) { p.set('limit', String(page.limit)); if (page.offset) p.set('offset', String(page.offset)) }
+  const s = p.toString()
+  return `${API}${path}${s ? `?${s}` : ''}`
+}
+
+export function fetchMyTasks(statuses?: string[], page?: PageOpts): Promise<Paginated<PmTask>> {
+  const url = urlWithPage('/me/tasks', page, { status: statuses?.length ? statuses.join(',') : undefined })
+  return fetch(url).then(parsePaged<PmTask>)
 }
 
 // Tarefas disponíveis para "pegar" (sem responsável).
-export async function fetchAvailableTasks(): Promise<PmTask[]> {
-  const r = await fetch(`${API}/me/available-tasks`)
-  return parse(r)
+export function fetchAvailableTasks(page?: PageOpts): Promise<Paginated<PmTask>> {
+  return fetch(urlWithPage('/me/available-tasks', page)).then(parsePaged<PmTask>)
 }
 
 // Altera o prazo. Admin/superadmin aplica direto → { applied, task };
@@ -71,7 +94,8 @@ export interface DueDateRequest {
   requested_due_date: string | null; current_due_date: string | null; justification: string | null; decision_note?: string | null
   task_name?: string; project_name?: string; requester_name?: string; decided_by_name?: string
 }
-export const fetchPendingDueRequests = (): Promise<DueDateRequest[]> => fetch(`${API}/pm/due-date-requests/pending`).then(parse)
+export const fetchPendingDueRequests = (page?: PageOpts): Promise<Paginated<DueDateRequest>> =>
+  fetch(urlWithPage('/pm/due-date-requests/pending', page)).then(parsePaged<DueDateRequest>)
 // Decisor: action = 'approve' | 'reject' | 'force' | 'propose'.
 export const decideDueRequest = (id: string, body: { action: 'approve' | 'reject' | 'force' | 'propose'; newDueDate?: string | null; note?: string | null }) =>
   fetch(`${API}/pm/due-date-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(parse)
@@ -103,7 +127,8 @@ export interface UncompleteRequest {
   id: string; task_id: string; project_id: string; reason: string; target: 'self' | 'original' | 'pool'
   task_name?: string; project_name?: string; requester_name?: string
 }
-export const fetchPendingUncompleteRequests = (): Promise<UncompleteRequest[]> => fetch(`${API}/pm/uncomplete-requests`).then(parse)
+export const fetchPendingUncompleteRequests = (page?: PageOpts): Promise<Paginated<UncompleteRequest>> =>
+  fetch(urlWithPage('/pm/uncomplete-requests', page)).then(parsePaged<UncompleteRequest>)
 export const decideUncompleteRequest = (id: string, approve: boolean) =>
   fetch(`${API}/pm/uncomplete-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approve }) }).then(parse)
 
@@ -111,7 +136,8 @@ export interface DelegationRequest {
   id: string; task_id: string; project_id: string; due_date: string | null
   task_name?: string; project_name?: string; requester_name?: string; to_name?: string
 }
-export const fetchPendingDelegations = (): Promise<DelegationRequest[]> => fetch(`${API}/pm/delegation-requests`).then(parse)
+export const fetchPendingDelegations = (page?: PageOpts): Promise<Paginated<DelegationRequest>> =>
+  fetch(urlWithPage('/pm/delegation-requests', page)).then(parsePaged<DelegationRequest>)
 export const decideDelegation = (id: string, approved: boolean) =>
   fetch(`${API}/pm/delegation-requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved }) }).then(parse)
 
@@ -140,7 +166,8 @@ export const fetchPmUsers = (): Promise<PmUser[]> => fetch(`${API}/pm/users`).th
 // Usuários a quem o ator pode atribuir a tarefa (filtrado por escopo no backend).
 export const fetchAssignableUsers = (taskId?: string): Promise<PmUser[]> =>
   fetch(`${API}/pm/assignable-users${taskId ? `?taskId=${encodeURIComponent(taskId)}` : ''}`).then(parse)
-export const fetchPendingReviews = (): Promise<PmTask[]> => fetch(`${API}/pm/pending-reviews`).then(parse)
+export const fetchPendingReviews = (page?: PageOpts): Promise<Paginated<PmTask>> =>
+  fetch(urlWithPage('/pm/pending-reviews', page)).then(parsePaged<PmTask>)
 export const reviewApprove = (taskId: string) =>
   fetch(`${API}/tasks/${taskId}/review/approve`, { method: 'POST' }).then(parse)
 export const reviewReject = (taskId: string, adjustmentNotes: string) =>

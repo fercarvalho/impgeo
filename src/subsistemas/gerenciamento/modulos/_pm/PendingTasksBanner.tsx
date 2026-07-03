@@ -9,7 +9,7 @@ export function usePendingAcceptanceTasks() {
   const [loading, setLoading] = useState(true)
   const refetch = useCallback(async () => {
     try {
-      const data = await fetchMyTasks(['pending_acceptance'])
+      const { data } = await fetchMyTasks(['pending_acceptance'])
       setTasks(data)
     } catch { /* silencioso no banner */ }
     finally { setLoading(false) }
