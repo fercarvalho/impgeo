@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "node migrations/migrate-data.js",
-    "recover:terracontrol": "node migrations/recover-terracontrol.js",
     "sync:terracontrol:remote": "node migrations/sync-terracontrol-from-remote.js",
+    "db:migrate:status": "node migrations/runner.js status",
+    "db:migrate:up": "node migrations/runner.js up",
+    "db:migrate:baseline": "node migrations/runner.js baseline",
+    "db:migrate:down": "node migrations/runner.js down",
     "test": "vitest run --config vitest.config.mjs",
     "test:watch": "vitest --config vitest.config.mjs"
   },

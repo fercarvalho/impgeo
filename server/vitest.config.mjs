@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     root: __dirname,
     environment: 'node',
-    include: ['services/**/__tests__/**/*.test.js', 'services/**/*.test.js'],
+    include: ['**/__tests__/**/*.test.js', '**/*.test.js'],
     globals: false,
   },
 })

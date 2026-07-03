@@ -59,11 +59,13 @@ server/backup-json-data.js
 **/*-test.*
 **/*-spec.*
 
-# Exceção: testes do subsistema PM são versionados (rede de segurança — melhoria #1)
+# Exceção: testes do backend versionados (rede de segurança — melhorias #1/#2)
 # Precisa re-incluir primeiro o diretório (desfaz **/__tests__/) e depois o
 # conteúdo (desfaz **/*.test.*).
 !/server/services/pm/__tests__/
 !/server/services/pm/__tests__/**
+!/server/migrations/__tests__/
+!/server/migrations/__tests__/**
 
 # Cobertura de testes (gerada localmente / no CI)
 coverage/
