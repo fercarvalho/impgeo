@@ -62,6 +62,7 @@ const pmReportService = require('./services/pm/report-service');
 const pmCostService = require('./services/pm/cost-service');
 const pmDashboardService = require('./services/pm/dashboard-service');
 const pmGoalsService = require('./services/pm/goals-service');
+const pmReconcileService = require('./services/pm/reconcile-service');
 const { parsePagination } = require('./services/pm/pagination');
 // Envelope de paginação aditivo (melhoria #12): `data` continua array; este
 // objeto vai como irmão `pagination`. Sem `limit` (não paginado) → page/totalPages 1.
@@ -2883,6 +2884,26 @@ app.get('/api/pm/reports/export-pdf', requireModulePermission(REL, 'view'), asyn
     if (!rows.length) doc.fillColor('#6b7280').text('Sem dados no período.', 40, y + 4);
 
     doc.end();
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Reconciliação de totais (#10/#14): projetos cujos expenses_cents/progress_pct
+// divergem da soma real (view pm_totals_drift_v). Read-only.
+app.get('/api/pm/reports/reconciliation', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const drifts = await pmReconcileService.checkTotals(db);
+    res.json({ success: true, data: { drifts, count: drifts.length } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Conserta os totais divergentes recomputando via as funções da 052 (admin).
+app.post('/api/pm/reports/reconciliation/heal', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Apenas admin corrige totais.' });
+    }
+    const result = await pmReconcileService.healTotals(db, { projectId: req.body?.projectId || null });
+    res.json({ success: true, data: result });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -9682,6 +9703,22 @@ app.listen(port, async () => {
     } catch (error) { console.log('[pm-report] erro no tick de relatórios:', error.message); }
   }, 5 * 60 * 1000);
   if (typeof pmReportTimer.unref === 'function') pmReportTimer.unref();
+
+  // Reconciliação de totais (#10/#14) — diária. Detecta projetos com
+  // expenses_cents/progress_pct divergentes (view pm_totals_drift_v), loga a
+  // divergência e auto-corrige via as funções de recalc da 052 (nunca silencioso).
+  const pmReconcileTimer = setInterval(async () => {
+    try {
+      const drifts = await pmReconcileService.checkTotals(db);
+      if (drifts.length > 0) {
+        console.warn(`[pm-reconcile] ${drifts.length} projeto(s) com totais divergentes:`,
+          drifts.map(d => d.project_id).join(', '));
+        const { fixed } = await pmReconcileService.healTotals(db);
+        console.warn(`[pm-reconcile] ${fixed} projeto(s) corrigido(s) via recalc.`);
+      }
+    } catch (error) { console.log('[pm-reconcile] erro na reconciliação:', error.message); }
+  }, 24 * 60 * 60 * 1000);
+  if (typeof pmReconcileTimer.unref === 'function') pmReconcileTimer.unref();
 
   // Sync automático Asaas a cada hora
   if (process.env.ASAAS_API_KEY) {
