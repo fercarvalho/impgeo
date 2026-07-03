@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Suspense, lazy } from 'react';
 import * as LucideIcons from 'lucide-react';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,10 @@ import NotificationBell from '@/components/NotificationBell';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import Footer from '@/components/Footer';
 import FeedbackButton from '@/components/FeedbackButton';
+import PwaInstallBanner from '@/components/PwaInstallBanner';
+// Mesmo do app principal: a tela de escolha também é o mesmo PWA e o mesmo
+// sistema de notificações, então também convida a instalar/ativar.
+const PushPermissionBanner = lazy(() => import('@/components/PushPermissionBanner'));
 import {
   SUBSYSTEMS,
   buildSubsystemUrl,
@@ -97,6 +101,16 @@ export default function SubsystemPicker() {
       </nav>
 
       <main className="flex-1 min-h-screen max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+        {/* Banners de ativar notificações / instalar PWA — mesmos do app
+            principal. Somem sozinhos quando já instalado / notificações ativas
+            / dispensados. É o mesmo PWA e sistema de notificações do sistema. */}
+        <Suspense fallback={null}>
+          <div className="mb-6">
+            <PushPermissionBanner />
+          </div>
+        </Suspense>
+        <PwaInstallBanner />
+
         <header className="mb-8 sm:mb-10">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight mb-2">
             Escolha um Módulo
