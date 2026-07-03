@@ -59,6 +59,15 @@ server/backup-json-data.js
 **/*-test.*
 **/*-spec.*
 
+# Exceção: testes do subsistema PM são versionados (rede de segurança — melhoria #1)
+# Precisa re-incluir primeiro o diretório (desfaz **/__tests__/) e depois o
+# conteúdo (desfaz **/*.test.*).
+!/server/services/pm/__tests__/
+!/server/services/pm/__tests__/**
+
+# Cobertura de testes (gerada localmente / no CI)
+coverage/
+
 # Scripts de migracao, cleanup e validacao (versionados para uso na VPS)
 # **/migrate*.js
 # **/cleanup*.js

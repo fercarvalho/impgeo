@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "migrate": "node migrations/migrate-data.js",
     "recover:terracontrol": "node migrations/recover-terracontrol.js",
-    "sync:terracontrol:remote": "node migrations/sync-terracontrol-from-remote.js"
+    "sync:terracontrol:remote": "node migrations/sync-terracontrol-from-remote.js",
+    "test": "vitest run --config vitest.config.mjs",
+    "test:watch": "vitest --config vitest.config.mjs"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
@@ -38,7 +40,9 @@
   },
   "devDependencies": {
     "@types/sanitize-html": "^2.16.1",
-    "nodemon": "^3.0.1"
+    "@vitest/coverage-v8": "^4.1.8",
+    "nodemon": "^3.0.1",
+    "vitest": "^4.1.8"
   },
   "keywords": [],
   "author": "",
