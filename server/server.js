@@ -62,6 +62,18 @@ const pmReportService = require('./services/pm/report-service');
 const pmCostService = require('./services/pm/cost-service');
 const pmDashboardService = require('./services/pm/dashboard-service');
 const pmGoalsService = require('./services/pm/goals-service');
+const { parsePagination } = require('./services/pm/pagination');
+// Envelope de paginação aditivo (melhoria #12): `data` continua array; este
+// objeto vai como irmão `pagination`. Sem `limit` (não paginado) → page/totalPages 1.
+function pageEnvelope(pg, total) {
+  return {
+    total,
+    limit: pg.limit,
+    offset: pg.offset,
+    page: pg.limit ? Math.floor(pg.offset / pg.limit) + 1 : 1,
+    totalPages: pg.limit ? Math.max(1, Math.ceil(total / pg.limit)) : 1,
+  };
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'impgeo_7b3c1f4e9a2d_!Q9t$L0p@Z7x#F3k';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9000';
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Math.min(
@@ -2582,7 +2594,9 @@ app.post('/api/tasks/:taskId/due-date', requireModulePermission('tarefas_gerenci
 app.get('/api/pm/due-date-requests/pending', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores.' });
-    res.json({ success: true, data: await pmTaskService.listPendingDueDateRequests(db, req.user) });
+    const pg = parsePagination(req.query);
+    const { items, total } = await pmTaskService.listPendingDueDateRequests(db, req.user, pg);
+    res.json({ success: true, data: items, pagination: pageEnvelope(pg, total) });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -2617,7 +2631,9 @@ app.post('/api/pm/due-date-requests/:id/respond', requireModulePermission('taref
 // Delegação com aprovação (manager fora do projeto → admin aprova).
 app.get('/api/pm/delegation-requests', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
-    res.json({ success: true, data: await pmTaskService.listPendingDelegations(db, req.user) });
+    const pg = parsePagination(req.query);
+    const { items, total } = await pmTaskService.listPendingDelegations(db, req.user, pg);
+    res.json({ success: true, data: items, pagination: pageEnvelope(pg, total) });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 app.post('/api/pm/delegation-requests/:id/decide', requireModulePermission('tarefas_gerenciamento', 'edit'), async (req, res) => {
@@ -2680,11 +2696,12 @@ app.post('/api/tasks/claim-bulk', requireModulePermission('tarefas_gerenciamento
 app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
     const statuses = req.query.status ? String(req.query.status).split(',').map(s => s.trim()).filter(Boolean) : null;
-    const tasks = await pmTaskService.listMyTasks(db, req.user.id, { statuses });
+    const pg = parsePagination(req.query);
+    const { items: tasks, total } = await pmTaskService.listMyTasks(db, req.user.id, { statuses }, pg);
     // São tarefas do próprio usuário: admin/superadmin alteram prazo direto; demais pedem.
     const dueAction = (req.user?.role === 'admin' || req.user?.role === 'superadmin') ? 'edit' : 'request';
     tasks.forEach(t => { t.due_action = dueAction; });
-    res.json({ success: true, data: tasks });
+    res.json({ success: true, data: tasks, pagination: pageEnvelope(pg, total) });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -2693,7 +2710,8 @@ app.get('/api/me/tasks', requireModulePermission('tarefas_gerenciamento', 'view'
 // Tarefas disponíveis para "pegar" (sem responsável, status available).
 app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
-    const tasks = await pmTaskService.listAvailableUnassignedTasks(db);
+    const pg = parsePagination(req.query);
+    const { items: tasks, total } = await pmTaskService.listAvailableUnassignedTasks(db, pg);
     // can_assign: pode atribuir a OUTRA pessoa (gestor, no escopo). Usuário comum só "pega".
     const role = req.user?.role;
     if (role === 'superadmin' || role === 'admin') {
@@ -2711,7 +2729,7 @@ app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciament
       try { t.completion_prereqs = await pmTaskService.completionPrereqs(db, t, req.user); }
       catch { t.completion_prereqs = []; }
     }
-    res.json({ success: true, data: tasks });
+    res.json({ success: true, data: tasks, pagination: pageEnvelope(pg, total) });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -2720,8 +2738,9 @@ app.get('/api/me/available-tasks', requireModulePermission('tarefas_gerenciament
 // Tarefas de um projeto (gestores).
 app.get('/api/projects/:id/tasks', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
-    const tasks = await pmTaskService.listProjectTasks(db, req.params.id);
-    res.json({ success: true, data: tasks });
+    const pg = parsePagination(req.query);
+    const { items: tasks, total } = await pmTaskService.listProjectTasks(db, req.params.id, pg);
+    res.json({ success: true, data: tasks, pagination: pageEnvelope(pg, total) });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -3013,7 +3032,9 @@ app.post('/api/tasks/:taskId/uncomplete', requireModulePermission('tarefas_geren
 // Pedidos de reabertura pendentes (só admin/superadmin decide).
 app.get('/api/pm/uncomplete-requests', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
-    res.json({ success: true, data: await pmTaskService.listPendingUncompleteRequests(db, req.user) });
+    const pg = parsePagination(req.query);
+    const { items, total } = await pmTaskService.listPendingUncompleteRequests(db, req.user, pg);
+    res.json({ success: true, data: items, pagination: pageEnvelope(pg, total) });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -3028,7 +3049,9 @@ app.post('/api/pm/uncomplete-requests/:id/decide', requireModulePermission('tare
 app.get('/api/pm/pending-reviews', requireModulePermission('tarefas_gerenciamento', 'view'), async (req, res) => {
   try {
     if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas admin/gerente.' });
-    res.json({ success: true, data: await pmTaskService.listPendingReviews(db, req.user) });
+    const pg = parsePagination(req.query);
+    const { items, total } = await pmTaskService.listPendingReviews(db, req.user, pg);
+    res.json({ success: true, data: items, pagination: pageEnvelope(pg, total) });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 

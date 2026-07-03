@@ -47,6 +47,21 @@ function err(message, code, status = 400, extra = {}) {
   const e = new Error(message); e.code = code; e.status = status; Object.assign(e, extra); return e;
 }
 
+// Paginação opt-in das listagens (melhoria #12). `base` é o SELECT … WHERE …
+// (sem ORDER BY); `order` é a cláusula ORDER BY. Quando `page.limit` é null,
+// devolve tudo (retrocompat). Quando pagina, o COUNT reusa `base` como subquery
+// — WHERE/JOINs idênticos, sem duplicação — e a página ganha LIMIT/OFFSET.
+async function _runPaginated(db, base, order, params, page) {
+  if (!page || page.limit == null) {
+    const r = await db.pool.query(`${base} ${order}`, params);
+    return { rows: r.rows, total: r.rows.length };
+  }
+  const c = await db.pool.query(`SELECT COUNT(*)::int AS n FROM (${base}) _sub`, params);
+  const p = [...params, page.limit, page.offset];
+  const r = await db.pool.query(`${base} ${order} LIMIT $${p.length - 1} OFFSET $${p.length}`, p);
+  return { rows: r.rows, total: c.rows[0].n };
+}
+
 async function getTask(exec, taskId) {
   const r = await exec.query('SELECT * FROM project_tasks WHERE id = $1 LIMIT 1', [taskId]);
   return r.rows[0] || null;
@@ -497,12 +512,12 @@ async function listMyDueProposals(db, userId) {
 }
 
 /** Fila de pedidos de alteração de prazo (escopo do gestor). */
-async function listPendingDueDateRequests(db, reviewer) {
+async function listPendingDueDateRequests(db, reviewer, page = null) {
   let where, params;
   if (_isAdminRole(reviewer?.role)) { where = `o.status='pending'`; params = []; }
   else if (reviewer?.role === 'manager') { where = `o.status='pending' AND o.requester_role='user' AND p.manager_user_id=$1`; params = [reviewer.id]; }
-  else return [];
-  const r = await db.pool.query(
+  else return { items: [], total: 0 };
+  const base =
     `SELECT o.id, o.task_id, o.project_id, o.requester_role,
             o.requested_due_date::text AS requested_due_date, o.current_due_date::text AS current_due_date,
             o.justification, t.name AS task_name, p.name AS project_name,
@@ -511,10 +526,9 @@ async function listPendingDueDateRequests(db, reviewer) {
        JOIN project_tasks t ON t.id=o.task_id
        LEFT JOIN projects p ON p.id=o.project_id
        LEFT JOIN users u ON u.id=o.requested_by_user_id
-      WHERE ${where}
-      ORDER BY o.created_at ASC`, params
-  );
-  return r.rows;
+      WHERE ${where}`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY o.created_at ASC`, params, page);
+  return { items: rows, total };
 }
 
 // ─── Delegação com aprovação (manager fora do projeto → admin aprova) ─────────
@@ -584,10 +598,10 @@ async function decideDelegation(db, requestId, reviewer, { approved }) {
 }
 
 /** Fila de pedidos de delegação pendentes (só admin/superadmin). */
-async function listPendingDelegations(db, viewer) {
-  if (!_isAdminRole(viewer?.role)) return [];
+async function listPendingDelegations(db, viewer, page = null) {
+  if (!_isAdminRole(viewer?.role)) return { items: [], total: 0 };
   const NAME = (a) => `COALESCE(NULLIF(TRIM(COALESCE(${a}.first_name,'')||' '||COALESCE(${a}.last_name,'')),''), ${a}.username)`;
-  const r = await db.pool.query(
+  const base =
     `SELECT o.id, o.task_id, o.project_id, o.due_date::text AS due_date,
             t.name AS task_name, p.name AS project_name,
             ${NAME('mu')} AS requester_name, ${NAME('tu')} AS to_name
@@ -596,10 +610,9 @@ async function listPendingDelegations(db, viewer) {
        LEFT JOIN projects p ON p.id=o.project_id
        LEFT JOIN users mu ON mu.id=o.requested_by_user_id
        LEFT JOIN users tu ON tu.id=o.to_user_id
-      WHERE o.status='pending'
-      ORDER BY o.created_at ASC`
-  );
-  return r.rows;
+      WHERE o.status='pending'`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY o.created_at ASC`, [], page);
+  return { items: rows, total };
 }
 
 /** Aceita tarefa (pending_acceptance → available). */
@@ -1072,23 +1085,22 @@ async function uncompleteTask(db, taskId, { actor, reason, target = 'original' }
 }
 
 /** Lista pedidos de reabertura pendentes (só admin/superadmin decide). */
-async function listPendingUncompleteRequests(db, viewer = null) {
+async function listPendingUncompleteRequests(db, viewer = null, page = null) {
   // admin/superadmin → todos; manager → só pedidos de USUÁRIO nos projetos dele.
   let where, params;
   if (_isAdminRole(viewer?.role)) { where = `ur.status='pending'`; params = []; }
   else if (viewer?.role === 'manager') { where = `ur.status='pending' AND ur.requester_role='user' AND p.manager_user_id=$1`; params = [viewer.id]; }
-  else return [];
-  const r = await db.pool.query(
+  else return { items: [], total: 0 };
+  const base =
     `SELECT ur.*, t.name AS task_name, p.name AS project_name,
             COALESCE(NULLIF(TRIM(COALESCE(ru.first_name,'')||' '||COALESCE(ru.last_name,'')),''), ru.username) AS requester_name
        FROM task_uncomplete_requests ur
        JOIN project_tasks t ON t.id = ur.task_id
        LEFT JOIN projects p ON p.id = ur.project_id
        LEFT JOIN users ru ON ru.id = ur.requested_by_user_id
-      WHERE ${where}
-      ORDER BY ur.created_at ASC`, params
-  );
-  return r.rows;
+      WHERE ${where}`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY ur.created_at ASC`, params, page);
+  return { items: rows, total };
 }
 
 /** Decide um pedido de reabertura (admin). approve=true reabre; senão rejeita. */
@@ -1133,40 +1145,37 @@ async function decideUncomplete(db, reqId, { reviewer, approve }) {
 /** Lista tarefas aguardando revisão (fila do gestor).
  *  Anota `can_review` por tarefa conforme o papel do `viewer` e de quem enviou
  *  (item 1): manager não revisa tarefa enviada por outro manager. */
-async function listPendingReviews(db, viewer = null) {
-  const r = await db.pool.query(
+async function listPendingReviews(db, viewer = null, page = null) {
+  const base =
     `SELECT t.*, p.name AS project_name, s.name AS stage_name, su.role AS submitter_role
        FROM project_tasks t
        JOIN projects p ON p.id = t.project_id
        LEFT JOIN project_stages s ON s.id = t.project_stage_id
        LEFT JOIN users su ON su.id = t.submitted_for_review_by_user_id
-      WHERE t.status = 'pending_review'
-      ORDER BY t.submitted_for_review_at ASC NULLS LAST`
-  );
+      WHERE t.status = 'pending_review'`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY t.submitted_for_review_at ASC NULLS LAST`, [], page);
   const role = viewer?.role || null;
-  return r.rows.map(t => ({ ...t, can_review: _canReview(t.submitter_role, t, role) }));
+  return { items: rows.map(t => ({ ...t, can_review: _canReview(t.submitter_role, t, role) })), total };
 }
 
 // ─── Leituras p/ dashboard ────────────────────────────────────────────────────
 
 /** Tarefas do usuário (responsável OU capturador), filtráveis por status. */
-async function listMyTasks(db, userId, { statuses } = {}) {
+async function listMyTasks(db, userId, { statuses } = {}, page = null) {
   const params = [userId];
   let statusClause = '';
   if (Array.isArray(statuses) && statuses.length) {
     params.push(statuses);
     statusClause = `AND t.status = ANY($2::varchar[])`;
   }
-  const r = await db.pool.query(
+  const base =
     `SELECT t.*, p.name AS project_name, s.name AS stage_name
        FROM project_tasks t
        JOIN projects p ON p.id = t.project_id
        LEFT JOIN project_stages s ON s.id = t.project_stage_id
-      WHERE (t.assignee_user_id = $1 OR t.captured_by_user_id = $1) ${statusClause}
-      ORDER BY t.due_date NULLS LAST, t.updated_at DESC`,
-    params
-  );
-  return r.rows;
+      WHERE (t.assignee_user_id = $1 OR t.captured_by_user_id = $1) ${statusClause}`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY t.due_date NULLS LAST, t.updated_at DESC`, params, page);
+  return { items: rows, total };
 }
 
 /**
@@ -1174,8 +1183,8 @@ async function listMyTasks(db, userId, { statuses } = {}) {
  * de projetos que não estão concluídos/cancelados. Qualquer usuário do módulo vê
  * para poder se auto-atribuir.
  */
-async function listAvailableUnassignedTasks(db) {
-  const r = await db.pool.query(
+async function listAvailableUnassignedTasks(db, page = null) {
+  const base =
     `SELECT t.*, p.name AS project_name, s.name AS stage_name
        FROM project_tasks t
        JOIN projects p ON p.id = t.project_id
@@ -1183,21 +1192,19 @@ async function listAvailableUnassignedTasks(db) {
       WHERE t.assignee_user_id IS NULL
         AND t.status = 'available'
         AND p.status NOT IN ('concluido', 'cancelado', 'inativo')
-        AND NOT EXISTS (SELECT 1 FROM task_delegation_requests dr WHERE dr.task_id = t.id AND dr.status = 'pending')
-      ORDER BY t.due_date ASC NULLS LAST, t.updated_at DESC`
-  );
-  return r.rows;
+        AND NOT EXISTS (SELECT 1 FROM task_delegation_requests dr WHERE dr.task_id = t.id AND dr.status = 'pending')`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY t.due_date ASC NULLS LAST, t.updated_at DESC`, [], page);
+  return { items: rows, total };
 }
 
 /** Tarefas de um projeto (admin/manager). */
-async function listProjectTasks(db, projectId) {
-  const r = await db.pool.query(
+async function listProjectTasks(db, projectId, page = null) {
+  const base =
     `SELECT t.*, s.name AS stage_name FROM project_tasks t
        LEFT JOIN project_stages s ON s.id = t.project_stage_id
-      WHERE t.project_id = $1 ORDER BY t.sort_order ASC`,
-    [projectId]
-  );
-  return r.rows;
+      WHERE t.project_id = $1`;
+  const { rows, total } = await _runPaginated(db, base, `ORDER BY t.sort_order ASC`, [projectId], page);
+  return { items: rows, total };
 }
 
 module.exports = {
