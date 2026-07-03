@@ -12,6 +12,8 @@ import {
   fetchPendingUncompleteRequests, decideUncompleteRequest, UncompleteRequest,
   fetchPendingDelegations, decideDelegation, DelegationRequest,
 } from './_pm/taskApi'
+import Pagination from './_pm/Pagination'
+import { usePaginatedList } from './_pm/usePaginatedList'
 import DueProposalModal from './_pm/DueProposalModal'
 import { useActiveSession, markTaskAreaOpened, getActive } from './_pm/pomodoroApi'
 import PomodoroStartModal from './_pm/PomodoroStartModal'
@@ -45,7 +47,6 @@ const Tarefas: React.FC = () => {
   const { prompt, alert } = useDialogs()
   const { session } = useActiveSession()
   const [tasks, setTasks] = useState<PmTask[]>([])
-  const [available, setAvailable] = useState<PmTask[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -58,29 +59,45 @@ const Tarefas: React.FC = () => {
   const [uncompleteFor, setUncompleteFor] = useState<PmTask | null>(null) // abre UncompleteTaskModal
   const [showIdle, setShowIdle] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Fase 6: revisões (gestor) e ajudas recebidas.
-  const [pendingReviews, setPendingReviews] = useState<PmTask[] | null>(null) // null = não-gestor
+  // Fase 6: ajudas recebidas + contrapropostas de prazo (não paginadas — volume baixo).
   const [incomingHelp, setIncomingHelp] = useState<HelpRequest[]>([])
-  const [dueReqs, setDueReqs] = useState<DueDateRequest[] | null>(null) // null = não-gestor
   const [dueProps, setDueProps] = useState<DueDateRequest[]>([]) // contrapropostas de prazo p/ mim
   const [dueModal, setDueModal] = useState<{ mode: 'decider' | 'requester'; request: DueDateRequest } | null>(null)
-  const [uncReqs, setUncReqs] = useState<UncompleteRequest[]>([]) // pedidos de reabertura (admin)
-  const [delReqs, setDelReqs] = useState<DelegationRequest[]>([]) // pedidos de delegação (admin)
+
+  // Listas planas que crescem com volume → paginadas (melhoria #12). Seção some
+  // quando total=0 (inclui não-gestor: 403 → erro → total 0). page é 1-based.
+  const PAGE = 25
+  const availableList = usePaginatedList<PmTask>(fetchAvailableTasks, PAGE)
+  const reviewsList = usePaginatedList<PmTask>(fetchPendingReviews, PAGE)
+  const dueList = usePaginatedList<DueDateRequest>(fetchPendingDueRequests, PAGE)
+  const uncList = usePaginatedList<UncompleteRequest>(fetchPendingUncompleteRequests, PAGE)
+  const delList = usePaginatedList<DelegationRequest>(fetchPendingDelegations, PAGE)
+  // Aliases p/ o JSX existente (.map sobre a página atual).
+  const available = availableList.items
+  const pendingReviews = reviewsList.items
+  const dueReqs = dueList.items
+  const uncReqs = uncList.items
+  const delReqs = delList.items
+
+  // Recarrega as 5 listas paginadas via ref, para o `load` (deps estáveis) poder
+  // dispará-las sem se recriar e sem re-armar os efeitos.
+  const reloadPagedRef = useRef<() => void>(() => {})
+  reloadPagedRef.current = () => {
+    availableList.reload(); reviewsList.reload(); dueList.reload(); uncList.reload(); delList.reload()
+  }
+  // No 1º load (mount) os hooks já buscam sozinhos; só refresca-los nos loads
+  // seguintes (ações/eventos), evitando duplo-fetch inicial.
+  const firstLoadRef = useRef(true)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { setTasks((await fetchMyTasks()).data) }
     catch (e: any) { setError(e.message || 'Falha ao carregar tarefas') }
     finally { setLoading(false) }
-    // Tarefas disponíveis para pegar (sem responsável).
-    fetchAvailableTasks().then(r => setAvailable(r.data)).catch(() => setAvailable([]))
-    // Revisões pendentes (gestor): 403 → não-gestor, esconde a seção.
-    fetchPendingReviews().then(r => setPendingReviews(r.data)).catch(() => setPendingReviews(null))
     fetchIncomingHelp().then(setIncomingHelp).catch(() => setIncomingHelp([]))
-    fetchPendingDueRequests().then(r => setDueReqs(r.data)).catch(() => setDueReqs(null))
     fetchMyDueProposals().then(setDueProps).catch(() => setDueProps([]))
-    fetchPendingUncompleteRequests().then(r => setUncReqs(r.data)).catch(() => setUncReqs([]))
-    fetchPendingDelegations().then(r => setDelReqs(r.data)).catch(() => setDelReqs([]))
+    if (firstLoadRef.current) firstLoadRef.current = false
+    else reloadPagedRef.current()  // refresca as 5 filas paginadas (página corrente)
   }, [])
 
   useEffect(() => {
@@ -165,10 +182,10 @@ const Tarefas: React.FC = () => {
       <PendingTasksBanner onChanged={load} />
 
       {/* Solicitações de alteração de prazo (gestor) */}
-      {dueReqs && dueReqs.length > 0 && (
+      {dueList.total > 0 && (
         <section className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10 p-4">
           <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1 flex items-center gap-2">
-            <CalendarClock className="w-4 h-4" /> Solicitações de prazo ({dueReqs.length})
+            <CalendarClock className="w-4 h-4" /> Solicitações de prazo ({dueList.total})
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Aprove para aplicar o prazo pedido, recuse (mantém o atual), ou proponha/force outra data.</p>
           <div className="space-y-2">
@@ -190,6 +207,7 @@ const Tarefas: React.FC = () => {
               </div>
             ))}
           </div>
+          <Pagination page={dueList.page} totalPages={dueList.totalPages} total={dueList.total} onPage={dueList.setPage} disabled={dueList.loading} />
         </section>
       )}
 
@@ -223,10 +241,10 @@ const Tarefas: React.FC = () => {
       )}
 
       {/* Solicitações de reabertura (admin aprova manager) */}
-      {uncReqs.length > 0 && (
+      {uncList.total > 0 && (
         <section className="rounded-xl border border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10 p-4">
           <h2 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-1 flex items-center gap-2">
-            <Undo2 className="w-4 h-4" /> Solicitações de reabertura ({uncReqs.length})
+            <Undo2 className="w-4 h-4" /> Solicitações de reabertura ({uncList.total})
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente ou usuário pediu para reabrir uma tarefa concluída. Aprove para a tarefa voltar a ficar disponível.</p>
           <div className="space-y-2">
@@ -245,13 +263,14 @@ const Tarefas: React.FC = () => {
               </div>
             ))}
           </div>
+          <Pagination page={uncList.page} totalPages={uncList.totalPages} total={uncList.total} onPage={uncList.setPage} disabled={uncList.loading} />
         </section>
       )}
 
-      {delReqs.length > 0 && (
+      {delList.total > 0 && (
         <section className="rounded-xl border border-sky-200 dark:border-sky-900 bg-sky-50/50 dark:bg-sky-900/10 p-4">
           <h2 className="text-sm font-semibold text-sky-700 dark:text-sky-300 mb-1 flex items-center gap-2">
-            <UserPlus className="w-4 h-4" /> Solicitações de delegação ({delReqs.length})
+            <UserPlus className="w-4 h-4" /> Solicitações de delegação ({delList.total})
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Um gerente quer delegar uma tarefa de um projeto que não é dele. Aprove para a tarefa ir ao usuário.</p>
           <div className="space-y-2">
@@ -268,14 +287,15 @@ const Tarefas: React.FC = () => {
               </div>
             ))}
           </div>
+          <Pagination page={delList.page} totalPages={delList.totalPages} total={delList.total} onPage={delList.setPage} disabled={delList.loading} />
         </section>
       )}
 
       {/* Revisões pendentes (admin/manager) */}
-      {pendingReviews && pendingReviews.length > 0 && (
+      {reviewsList.total > 0 && (
         <section className="rounded-xl border border-violet-200 dark:border-violet-900 bg-violet-50/50 dark:bg-violet-900/10 p-4">
           <h2 className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-2 flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4" /> Revisões pendentes ({pendingReviews.length})
+            <ClipboardCheck className="w-4 h-4" /> Revisões pendentes ({reviewsList.total})
           </h2>
           <div className="space-y-2">
             {pendingReviews.map(t => (
@@ -293,6 +313,7 @@ const Tarefas: React.FC = () => {
               </div>
             ))}
           </div>
+          <Pagination page={reviewsList.page} totalPages={reviewsList.totalPages} total={reviewsList.total} onPage={reviewsList.setPage} disabled={reviewsList.loading} />
         </section>
       )}
 
@@ -335,11 +356,11 @@ const Tarefas: React.FC = () => {
       )}
 
       {/* Tarefas disponíveis para pegar (sem responsável) */}
-      {available.length > 0 && (
+      {availableList.total > 0 && (
         <section className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-900/10 p-4">
           <h2 className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1 flex items-center gap-2">
             <Inbox className="w-4 h-4" /> Tarefas disponíveis para pegar
-            <span className="text-xs text-emerald-600/70 dark:text-emerald-400/70">({available.length})</span>
+            <span className="text-xs text-emerald-600/70 dark:text-emerald-400/70">({availableList.total})</span>
           </h2>
           <p className="text-xs text-emerald-700/70 dark:text-emerald-400/60 mb-2">Tarefas de projetos ainda sem responsável. Clique no <UserPlus className="w-3 h-3 inline" /> para assumir.</p>
           <div className="space-y-2">
@@ -369,11 +390,12 @@ const Tarefas: React.FC = () => {
               </div>
             ))}
           </div>
+          <Pagination page={availableList.page} totalPages={availableList.totalPages} total={availableList.total} onPage={availableList.setPage} disabled={availableList.loading} />
         </section>
       )}
 
       {/* Minhas tarefas */}
-      {available.length > 0 && !loading && tasks.length > 0 && (
+      {availableList.total > 0 && !loading && tasks.length > 0 && (
         <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Minhas tarefas</h2>
       )}
 
