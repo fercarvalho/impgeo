@@ -320,6 +320,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   const [transactions, setTransactions] = useState<NewTransaction[]>([])
   const [metas, setMetas] = useState<Meta[]>([])
   const [projectionData, setProjectionData] = useState<any>(null)
+  const [approvalsCount, setApprovalsCount] = useState(0) // badge da Central de Aprovações (#11)
   const [mktData, setMktData] = useState<any>(null)
   const [investmentsData, setInvestmentsData] = useState<any>(null)
   const [budgetData, setBudgetData] = useState<any>(null)
@@ -373,6 +374,31 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
   );
 
   const hasModuleAccess = (moduleKey: string) => availableModuleKeys.has(moduleKey);
+
+  // Badge da Central de Aprovações (#11): polling do contador de pendências,
+  // só para quem vê o módulo (gestor). Molde do NotificationBell.
+  const canSeeApprovals = availableModuleKeys.has('aprovacoes_gerenciamento');
+  useEffect(() => {
+    if (!canSeeApprovals) { setApprovalsCount(0); return; }
+    let stop = false;
+    const fetchCount = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/pm/approvals/count`);
+        const j = await r.json();
+        if (!stop && j?.success) setApprovalsCount(j.data?.total || 0);
+      } catch { /* silencioso */ }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 60000);
+    const onPing = () => fetchCount();
+    window.addEventListener('focus', onPing);
+    window.addEventListener('pm-tasks-changed', onPing);
+    return () => {
+      stop = true; clearInterval(id);
+      window.removeEventListener('focus', onPing);
+      window.removeEventListener('pm-tasks-changed', onPing);
+    };
+  }, [canSeeApprovals]);
 
   // Os useEffects que carregavam commits-pendentes (superadmin) e
   // notificacao-versao (demais roles) e os respectivos modais foram movidos
@@ -1166,13 +1192,21 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
               .map(m => {
                 const Icon = iconMap[m.moduleKey] ?? Shield;
                 const key = m.moduleKey as TabType;
+                const badge = key === 'aprovacoes_gerenciamento' && approvalsCount > 0 ? approvalsCount : 0;
                 return (
                   <button
                     key={key}
                     onClick={() => { setActiveTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}
                     className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors flex flex-col items-center justify-start whitespace-nowrap ${activeTab === key ? 'bg-blue-700 text-white' : 'text-blue-200 hover:text-white hover:bg-blue-700'}`}
                   >
-                    <Icon className="h-4 w-4 mb-2" />
+                    <span className="relative">
+                      <Icon className="h-4 w-4 mb-2" />
+                      {badge > 0 && (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 flex items-center justify-center text-[10px] font-bold bg-red-500 text-white rounded-full leading-none">
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      )}
+                    </span>
                     {m.moduleName}
                   </button>
                 );
@@ -1181,7 +1215,7 @@ const AppMain: React.FC<{ user: any; logout: () => void; subsystem: SubsystemDef
         </div>
       </div>
     </nav>
-  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab, subsystem])
+  ), [logout, catalogModules, hasModuleAccess, activeTab, setActiveTab, subsystem, approvalsCount])
 
   // Função para renderizar um mês completo (stub para manter referências)
   const renderMonth = (monthName: string, monthIndex: number) => {
