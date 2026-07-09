@@ -16,6 +16,7 @@ const jwt = require('jsonwebtoken');
 module.exports = function createSessionsRoutes({
   db, authenticateToken, JWT_SECRET, requireAdmin, requireSuperAdmin,
   setAuthCookies, setTcAdminAuthCookies, clearAuthCookies, clearTcAdminAuthCookies,
+  setImpersonationCookie, clearImpersonationCookie,
 }) {
   const router = express.Router();
 
@@ -229,6 +230,10 @@ router.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmi
       status: AUDIT_STATUS.SUCCESS,
     });
 
+    // #9: token entregue como cookie httpOnly (cruza subdomínios, JS não lê).
+    // Segue no body também como fallback dev cross-port (sessionStorage → header).
+    setImpersonationCookie(req, res, impersonationToken);
+
     return res.json({
       success: true,
       token: impersonationToken,
@@ -246,33 +251,30 @@ router.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmi
 
 router.post('/api/auth/impersonate/stop', authenticateToken, async (req, res) => {
   try {
-    const { originalToken } = req.body;
-    if (!originalToken) {
-      return res.status(400).json({ success: false, error: 'originalToken é obrigatório' });
+    // #9: encerramento agora é server-side — limpa o cookie httpOnly de
+    // impersonation; o accessToken do superadmin (intacto) volta a valer na
+    // próxima requisição. Não depende mais de `originalToken` vindo do body
+    // (o que exigia manter o JWT do superadmin em JS).
+    clearImpersonationCookie(req, res);
+
+    // `req.user` vem do token de impersonation (cookie httpOnly, ou header no
+    // fallback dev): traz quem iniciou a impersonation.
+    const originalId = req.user.impersonatedBy || null;
+    const originalUsername = req.user.impersonatedByUsername || null;
+
+    if (originalId) {
+      await logAudit({
+        operation: AUDIT_OPERATIONS.IMPERSONATION_STOP,
+        userId: originalId,
+        username: originalUsername,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        details: { stoppedImpersonating: req.user.username },
+        status: AUDIT_STATUS.SUCCESS,
+      });
     }
 
-    let originalUser;
-    try {
-      originalUser = jwt.verify(originalToken, JWT_SECRET);
-    } catch {
-      return res.status(401).json({ success: false, error: 'Token original inválido' });
-    }
-
-    if (originalUser.role !== 'superadmin') {
-      return res.status(403).json({ success: false, error: 'Token original não pertence a um superadmin' });
-    }
-
-    await logAudit({
-      operation: AUDIT_OPERATIONS.IMPERSONATION_STOP,
-      userId: originalUser.id,
-      username: originalUser.username,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      details: { stoppedImpersonating: req.user.username },
-      status: AUDIT_STATUS.SUCCESS,
-    });
-
-    return res.json({ success: true, token: originalToken, user: originalUser });
+    return res.json({ success: true });
   } catch (error) {
     console.error('Erro ao encerrar impersonation:', error);
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });

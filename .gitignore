@@ -66,6 +66,8 @@ server/backup-json-data.js
 !/server/services/pm/__tests__/**
 !/server/migrations/__tests__/
 !/server/migrations/__tests__/**
+!/server/utils/__tests__/
+!/server/utils/__tests__/**
 
 # Cobertura de testes (gerada localmente / no CI)
 coverage/

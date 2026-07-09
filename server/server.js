@@ -212,6 +212,18 @@ const clearAuthCookies = (req, res) => {
   res.clearCookie('refreshToken', opts);
 };
 
+// #9: impersonation via cookie httpOnly server-set (substitui o cookie-pai
+// JS-legível que era exfiltrável por XSS). Mesmo Domain=.impgeo.* do accessToken
+// → cruza subdomínios nativamente; httpOnly → JS não lê. TTL casa com o JWT (2h).
+// `extractAccessToken` dá prioridade a este cookie sobre header/accessToken.
+const IMPERSONATION_TOKEN_MAX_AGE = 2 * 60 * 60 * 1000; // 2h (igual ao expiresIn do JWT)
+const setImpersonationCookie = (req, res, token) => {
+  res.cookie('impersonationToken', token, { ...getAuthCookieOptions(req), maxAge: IMPERSONATION_TOKEN_MAX_AGE });
+};
+const clearImpersonationCookie = (req, res) => {
+  res.clearCookie('impersonationToken', getAuthCookieOptions(req));
+};
+
 // === TC AUTH COOKIES =========================================================
 // Cookies do TerraControl ficam em domínio separado (.terracontrol.*) e com
 // NOMES diferentes (tcAccessToken, tcRefreshToken) — assim coexistem com os
@@ -555,23 +567,10 @@ function buildPasswordResetUrl(token) {
 // header. Em fluxo normal, o frontend recém-logado tem ambos com o mesmo token,
 // e após F5 (sem state em memória) o header vai como "Bearer null"/"Bearer undefined"
 // e cai para o cookie automaticamente.
-const extractAccessToken = (req) => {
-  const authHeader = req.headers['authorization'];
-  const headerToken = authHeader && authHeader.split(' ')[1];
-  const isValidHeaderToken =
-    headerToken &&
-    headerToken !== 'null' &&
-    headerToken !== 'undefined' &&
-    headerToken.length > 10;
-  if (isValidHeaderToken) return headerToken;
-  if (req.cookies) {
-    // PR #5 (PWA): tcAdminAccessToken existe em admin.terracontrol.* e contém
-    // o mesmo JWT do impgeo (emitido por login-terracontrol-admin). Tratado
-    // como fallback do accessToken padrão.
-    return req.cookies.accessToken || req.cookies.tcAdminAccessToken;
-  }
-  return undefined;
-};
+// #9: extração movida para utils/token-extraction.js (pura, testada). A ordem de
+// prioridade agora é: cookie httpOnly `impersonationToken` > header Bearer >
+// cookie `accessToken`/`tcAdminAccessToken`.
+const { extractAccessToken } = require('./utils/token-extraction');
 
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
@@ -984,6 +983,7 @@ app.use((error, req, res, next) => {
 app.use(createSessionsRoutes({
   db, authenticateToken, JWT_SECRET, requireAdmin, requireSuperAdmin,
   setAuthCookies, setTcAdminAuthCookies, clearAuthCookies, clearTcAdminAuthCookies,
+  setImpersonationCookie, clearImpersonationCookie,
 }));
 
 // Integração Asaas (sync manual + webhook) — extraídas para routes/asaas.js (#3)

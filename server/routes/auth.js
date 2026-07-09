@@ -366,9 +366,15 @@ router.post('/api/auth/verify', authenticateToken, async (req, res) => {
       entityId: currentUser.id
     });
 
+    // #9: expõe o contexto de impersonation derivado das claims do token
+    // (o cookie httpOnly cruza subdomínios, mas o sessionStorage é per-origin —
+    // então a UI aprende "estou impersonando e o original é X" pela verify).
     return res.json({
       success: true,
-      user: mapUserToClient(refreshedUser || { ...currentUser, last_login: nowISO })
+      user: mapUserToClient(refreshedUser || { ...currentUser, last_login: nowISO }),
+      impersonation: req.user.impersonatedBy
+        ? { active: true, originalUsername: req.user.impersonatedByUsername || null }
+        : { active: false },
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
