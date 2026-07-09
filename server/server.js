@@ -63,6 +63,7 @@ const pmCostService = require('./services/pm/cost-service');
 const pmDashboardService = require('./services/pm/dashboard-service');
 const pmGoalsService = require('./services/pm/goals-service');
 const pmReconcileService = require('./services/pm/reconcile-service');
+const pmApprovalsService = require('./services/pm/approvals-service');
 const { parsePagination } = require('./services/pm/pagination');
 // Envelope de paginação aditivo (melhoria #12): `data` continua array; este
 // objeto vai como irmão `pagination`. Sem `limit` (não paginado) → page/totalPages 1.
@@ -2884,6 +2885,15 @@ app.get('/api/pm/reports/export-pdf', requireModulePermission(REL, 'view'), asyn
     if (!rows.length) doc.fillColor('#6b7280').text('Sem dados no período.', 40, y + 4);
 
     doc.end();
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Central de Aprovações (#11): contador agregado das filas de gestor, p/ o badge do menu.
+app.get('/api/pm/approvals/count', async (req, res) => {
+  try {
+    if (!_isManagerRole(req.user)) return res.status(403).json({ success: false, error: 'Apenas gestores.' });
+    const data = await pmApprovalsService.getApprovalCounts(db, req.user);
+    res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
