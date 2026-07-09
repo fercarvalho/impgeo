@@ -28,6 +28,7 @@ const pushDispatcher = require('../services/push-dispatcher');
 module.exports = function createTerraControlRoutes({
   db, authenticateToken, optionalAuth, budgetService, budgetDispatcher,
   documentsDir, BASE_URL, slugify, sharePasswordLimiter, sharePublicLimiter,
+  uploadDocument,
 }) {
   const router = express.Router();
 
@@ -1036,6 +1037,40 @@ router.get('/api/terracontrol/public/:token', sharePublicLimiter, async (req, re
       success: false,
       error: error.message || 'Erro ao carregar dados'
     });
+  }
+});
+
+// POST /api/terracontrol/upload-car — upload do PDF do CAR (valida magic bytes %PDF)
+router.post('/api/terracontrol/upload-car', authenticateToken, uploadDocument.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+    }
+
+    // G2.4 — validar magic bytes %PDF antes de aceitar.
+    // multer só checa mimetype/extensão (cabeçalhos controlados pelo cliente).
+    // Para impedir upload de HTML/JS renomeado para .pdf, lemos os primeiros
+    // 4 bytes e verificamos a assinatura real. Se inválido, removemos o arquivo.
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const header = Buffer.alloc(4);
+      fs.readSync(fd, header, 0, 4, 0);
+      fs.closeSync(fd);
+      if (header.toString('ascii') !== '%PDF') {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        return res.status(400).json({ success: false, error: 'Arquivo enviado não é um PDF válido' });
+      }
+    } catch (sigErr) {
+      console.error('Erro ao validar assinatura PDF:', sigErr);
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(500).json({ success: false, error: 'Falha ao validar o arquivo enviado' });
+    }
+
+    const fileUrl = `/api/documents/${req.file.filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error) {
+    console.error('Erro no upload de documento do CAR:', error);
+    res.status(500).json({ success: false, error: 'Erro ao fazer upload do documento' });
   }
 });
 

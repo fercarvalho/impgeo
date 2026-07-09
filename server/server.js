@@ -79,6 +79,7 @@ const createAuthRoutes = require('./routes/auth'); // #3: autenticação (login/
 const createImportExportRoutes = require('./routes/import-export'); // #3: import/export de dados (XLSX) extraído
 const createSessionsRoutes = require('./routes/sessions'); // #3: sessão/segurança (refresh/logout/sessions/impersonation) extraído
 const createAsaasRoutes = require('./routes/asaas'); // #3: integração Asaas (sync + webhook) extraída
+const createMiscRoutes = require('./routes/misc'); // #3: rotas avulsas (resets/healthcheck/limpeza) extraídas
 // Envelope de paginação aditivo (melhoria #12): `data` continua array; este
 // objeto vai como irmão `pagination`. Sem `limit` (não paginado) → page/totalPages 1.
 function pageEnvelope(pg, total) {
@@ -753,40 +754,6 @@ const uploadPmAttachment = multer({ storage: pmAttachmentStorage, limits: { file
 // Importação/exportação de dados (XLSX): modelos, import, export, extrato — extraídas para routes/import-export.js (#3)
 app.use(createImportExportRoutes({ db, authenticateToken, applyRulesAndPersist, logActivity, upload, uploadMemory }));
 
-app.post('/api/terracontrol/upload-car', authenticateToken, uploadDocument.single('file'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
-    }
-
-    // G2.4 — validar magic bytes %PDF antes de aceitar.
-    // multer só checa mimetype/extensão (cabeçalhos controlados pelo cliente).
-    // Para impedir upload de HTML/JS renomeado para .pdf, lemos os primeiros
-    // 4 bytes e verificamos a assinatura real. Se inválido, removemos o arquivo.
-    try {
-      const fd = fs.openSync(req.file.path, 'r');
-      const header = Buffer.alloc(4);
-      fs.readSync(fd, header, 0, 4, 0);
-      fs.closeSync(fd);
-      if (header.toString('ascii') !== '%PDF') {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-        return res.status(400).json({ success: false, error: 'Arquivo enviado não é um PDF válido' });
-      }
-    } catch (sigErr) {
-      console.error('Erro ao validar assinatura PDF:', sigErr);
-      try { fs.unlinkSync(req.file.path); } catch (_) {}
-      return res.status(500).json({ success: false, error: 'Falha ao validar o arquivo enviado' });
-    }
-
-    const fileUrl = `/api/documents/${req.file.filename}`;
-    res.json({ success: true, url: fileUrl });
-  } catch (error) {
-    console.error('Erro no upload de documento do CAR:', error);
-    res.status(500).json({ success: false, error: 'Erro ao fazer upload do documento' });
-  }
-});
-
-
 // ═══════════════════════════════════════════════════════════════════════════
 // REGRAS AUTOMÁTICAS DE TRANSAÇÕES (migration 018)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -880,6 +847,7 @@ app.use(createPmRoutes({ db, requireModulePermission, pageEnvelope, uploadPmAtta
 app.use(createTerraControlRoutes({
   db, authenticateToken, optionalAuth, budgetService, budgetDispatcher,
   documentsDir, BASE_URL, slugify, sharePasswordLimiter, sharePublicLimiter,
+  uploadDocument,
 }));
 
 // =============================================================================
@@ -985,60 +953,8 @@ const requireSuperAdmin = (req, res, next) => {
 // Admin do impgeo gerenciando tc_users + convites tc-auth — extraídas para routes/tc-users.js (#3)
 app.use(createTcUsersRoutes({ db, authenticateToken, requireTcUsersManagement, passwordRecoveryLimiter }));
 
-app.post('/api/auth/reset-first-login', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { username } = req.body;
-    if (!username) {
-      return res.status(400).json({ error: 'Username é obrigatório' });
-    }
-
-    const user = await db.getUserByUsername(username);
-    if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
-    }
-
-    await db.updateUser(user.id, { lastLogin: null });
-    await logActivity(req, {
-      action: 'reset_password',
-      moduleKey: 'admin',
-      entityType: 'user',
-      entityId: user.id
-    });
-
-    return res.json({
-      success: true,
-      message: `Primeiro login resetado para o usuário ${username}. Agora você pode fazer login com qualquer senha novamente.`
-    });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-app.post('/api/auth/reset-all-passwords', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const allUsers = await db.getAllUsers();
-    let resetCount = 0;
-
-    for (const user of allUsers) {
-      await db.updateUser(user.id, { lastLogin: null });
-      resetCount += 1;
-    }
-
-    await logActivity(req, {
-      action: 'reset_all_passwords',
-      moduleKey: 'admin',
-      entityType: 'system'
-    });
-
-    return res.json({
-      success: true,
-      message: `Senhas resetadas para ${resetCount} usuário(s). Todos os usuários precisarão fazer primeiro login novamente.`,
-      resetCount
-    });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
+// Rotas avulsas (resets de senha, healthcheck, limpeza de projeção) — extraídas para routes/misc.js (#3)
+app.use(createMiscRoutes({ db, authenticateToken, requireAdmin, logActivity }));
 
 // APIs de gestão administrativa (módulos, roles, permissões, statistics, users) — extraídas para routes/admin.js (#3)
 app.use(createAdminRoutes({
@@ -1046,56 +962,6 @@ app.use(createAdminRoutes({
   normalizeModuleKey, parseAddress,
 }));
 
-// Rota de teste
-app.get('/api/test', async (req, res) => {
-  res.json({
-    message: 'API funcionando!',
-    timestamp: new Date().toISOString(),
-    endpoints: [
-      'POST /api/auth/login - Fazer login',
-      'POST /api/auth/verify - Verificar token',
-      'GET /api/transactions - Listar transações',
-      'POST /api/transactions - Criar transação',
-      'PUT /api/transactions/:id - Atualizar transação',
-      'DELETE /api/transactions/:id - Deletar transação',
-      'DELETE /api/transactions - Deletar múltiplas transações',
-      'GET /api/products - Listar produtos',
-      'POST /api/products - Criar produto',
-      'PUT /api/products/:id - Atualizar produto',
-      'DELETE /api/products/:id - Deletar produto',
-      'DELETE /api/products - Deletar múltiplos produtos',
-      'POST /api/import - Importar arquivos Excel',
-      'POST /api/export - Exportar dados para Excel',
-      'GET /api/projection - Obter dados de projeção',
-      'PUT /api/projection - Atualizar dados de projeção',
-      'GET /api/fixed-expenses - Obter dados de despesas fixas',
-      'PUT /api/fixed-expenses - Atualizar dados de despesas fixas',
-      'GET /api/variable-expenses - Obter dados de despesas variáveis',
-      'PUT /api/variable-expenses - Atualizar dados de despesas variáveis',
-      'GET /api/mkt - Obter dados de MKT',
-      'PUT /api/mkt - Atualizar dados de MKT',
-      'GET /api/budget - Obter dados de orçamento',
-      'PUT /api/budget - Atualizar dados de orçamento',
-      'GET /api/investments - Obter dados de investimentos',
-      'PUT /api/investments - Atualizar dados de investimentos',
-      'GET /api/faturamento-reurb - Obter dados de faturamento REURB',
-      'PUT /api/faturamento-reurb - Atualizar dados de faturamento REURB',
-      'GET /api/faturamento-geo - Obter dados de faturamento GEO',
-      'PUT /api/faturamento-geo - Atualizar dados de faturamento GEO',
-      'GET /api/faturamento-plan - Obter dados de faturamento PLAN',
-      'PUT /api/faturamento-plan - Atualizar dados de faturamento PLAN',
-      'GET /api/faturamento-reg - Obter dados de faturamento REG',
-      'PUT /api/faturamento-reg - Atualizar dados de faturamento REG',
-      'GET /api/faturamento-nn - Obter dados de faturamento NN',
-      'PUT /api/faturamento-nn - Atualizar dados de faturamento NN',
-      'GET /api/faturamento-total - Obter dados de faturamento total',
-      'PUT /api/faturamento-total - Atualizar dados de faturamento total',
-      'GET /api/resultado - Obter dados de resultado',
-      'PUT /api/resultado - Atualizar dados de resultado',
-      'GET /api/test - Testar API'
-    ]
-  });
-});
 
 // Middleware de tratamento de erros
 app.use((error, req, res, next) => {
@@ -1113,31 +979,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, error: 'Erro interno do servidor' });
 });
 
-// Limpar todos os dados de projeção
-app.delete('/api/clear-all-projection-data', authenticateToken, async (req, res) => {
-  try {
-    console.log('Endpoint de limpeza de dados chamado')
-    const result = await db.clearAllProjectionData()
-
-    if (result.success) {
-      res.json({
-        success: true,
-        message: 'Todos os dados de projeção foram limpos com sucesso!'
-      })
-    } else {
-      res.status(500).json({
-        success: false,
-        message: result.message
-      })
-    }
-  } catch (error) {
-    console.error('Erro no endpoint de limpeza:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor ao limpar dados'
-    })
-  }
-})
 
 // Sessão e segurança (refresh/logout/sessions/anomalies/security-alerts/impersonation) — extraídas para routes/sessions.js (#3)
 app.use(createSessionsRoutes({
