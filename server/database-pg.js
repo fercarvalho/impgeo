@@ -9,6 +9,14 @@ const {
   getDefaultLevelForRoleAndSubsystem,
   getDefaultOverridesForRole,
 } = require('./permissions/defaults');
+const {
+  FACTORY_DEFAULTS: NOTIFICATION_FACTORY_DEFAULTS,
+  CHANNELS: NOTIFICATION_CHANNELS,
+  cacheKey: notifCacheKey,
+  resolveDefault: resolveNotificationDefault,
+  knownTypes: knownNotificationTypes,
+  buildDefaultsGrid: buildNotificationDefaultsGrid,
+} = require('./services/pm/notification-defaults');
 
 function toCamelCase(obj) {
   if (Array.isArray(obj)) return obj.map(toCamelCase);
@@ -518,6 +526,10 @@ class Database {
         )
       `);
       // ────────────────────────────────────────────────────────────
+
+      // Defaults de notificação (#7): semeia a tabela com o factory e carrega
+      // o cache (defensivo — no-op se a migration 071 ainda não rodou).
+      await this._seedNotificationDefaults();
 
       this.profileSchemaEnsured = true;
     })().finally(() => {
@@ -3006,58 +3018,61 @@ class Database {
   // Migration 039 popula a tabela a partir das flags 033/034 antigas; o
   // código aqui não consulta 033/034 — depende da migração estar aplicada.
 
-  static NOTIFICATION_DEFAULTS = Object.freeze({
-    impgeo: {
-      transaction_confirm_needed:     { push: true,  email: false },
-      tc_record_created:              { push: true,  email: false },
-      // G9 (migration 040) — orçamentos: push on por default, email opt-in
-      // (mesmo padrão de tc_record_created — evita spam em times grandes).
-      tc_budget_revision_requested:   { push: true,  email: false },
-      tc_budget_payment_completed:    { push: true,  email: false },
-      // PM Fase 7 — projetos/tarefas. Push on por default; email opt-in (evita
-      // spam em times grandes). Eventos endereçados ao próprio executor podem
-      // ligar email manualmente nas preferências.
-      pm_task_assigned:               { push: true,  email: false },
-      pm_task_accepted:               { push: true,  email: false },
-      pm_task_refused:                { push: true,  email: false },
-      pm_task_overdue:                { push: true,  email: false },
-      pm_review_requested:            { push: true,  email: false },
-      pm_review_decided:              { push: true,  email: false },
-      pm_help_requested:              { push: true,  email: false },
-      pm_help_accepted:               { push: true,  email: false },
-      pm_help_refused:                { push: true,  email: true },
-      pm_project_paid:                { push: true,  email: false },
-      pm_project_completed:           { push: true,  email: false },
-      // Excedente de tempo diário (Pomodoro) — pedido/decisão: email ON por
-      // default (precisa de ação do gestor; o executor quer saber a decisão).
-      pm_pomodoro_overage_requested:  { push: true,  email: true },
-      pm_pomodoro_overage_decided:    { push: true,  email: true },
-      // Alteração de prazo de tarefa (pedido/decisão) — email ON por default.
-      pm_due_date_requested:          { push: true,  email: true },
-      pm_due_date_proposed:           { push: true,  email: true },
-      pm_due_date_decided:            { push: true,  email: true },
-      // Reabertura de tarefa concluída (desconcluir) — afeta o responsável e o
-      // gestor que pediu; email ON por default.
-      pm_task_uncompleted:            { push: true,  email: true },
-      pm_uncomplete_requested:        { push: true,  email: true },
-      pm_uncomplete_decided:          { push: true,  email: true },
-      pm_uncomplete_self_notice:      { push: true,  email: true },
-      pm_review_followup:             { push: true,  email: true },
-      pm_delegation_requested:        { push: true,  email: true },
-      pm_delegation_decided:          { push: true,  email: true },
-      '_meta:foreground':             { push: false, email: false },
-    },
-    tc: {
-      tc_record_approved:             { push: true, email: true },
-      tc_record_edited:               { push: true, email: true },
-      // G9 — pro tc_user, todos os eventos de orçamento ligados por default
-      // (cliente está esperando o orçamento ou o status do pagamento).
-      tc_budget_sent:                 { push: true, email: true },
-      tc_budget_revised:              { push: true, email: true },
-      tc_budget_payment_confirmed:    { push: true, email: true },
-      '_meta:foreground':             { push: false, email: false },
-    },
-  });
+  // Defaults de notificação (melhoria #7): agora vivem na tabela
+  // notification_defaults (editáveis sem deploy). NOTIFICATION_DEFAULTS segue
+  // como alias do FACTORY (fallback + seed); os defaults EFETIVOS ficam no cache
+  // _notifDefaults, carregado no boot por _seedNotificationDefaults().
+  static NOTIFICATION_DEFAULTS = NOTIFICATION_FACTORY_DEFAULTS;
+  _notifDefaults = null; // Map scope:type:channel→bool (null = usar factory)
+
+  // Carrega os defaults efetivos da tabela p/ o cache. Defensivo: se a tabela
+  // ainda não existe (migration 071 não aplicada), mantém null → usa o factory.
+  async _loadNotificationDefaults() {
+    try {
+      const r = await this.queryWithRetry('SELECT scope, notification_type, channel, enabled FROM notification_defaults');
+      const map = new Map();
+      for (const row of r.rows) map.set(notifCacheKey(row.scope, row.notification_type, row.channel), row.enabled);
+      this._notifDefaults = map;
+    } catch { this._notifDefaults = null; }
+  }
+
+  // Semeia a tabela com o FACTORY (ON CONFLICT DO NOTHING — preserva edições do
+  // admin e cobre tipos novos que surjam no código) e recarrega o cache. Boot.
+  async _seedNotificationDefaults() {
+    try {
+      for (const scope of Object.keys(NOTIFICATION_FACTORY_DEFAULTS)) {
+        for (const [type, byChannel] of Object.entries(NOTIFICATION_FACTORY_DEFAULTS[scope])) {
+          for (const channel of NOTIFICATION_CHANNELS) {
+            if (typeof byChannel[channel] !== 'boolean') continue;
+            await this.queryWithRetry(
+              `INSERT INTO notification_defaults (scope, notification_type, channel, enabled)
+               VALUES ($1,$2,$3,$4) ON CONFLICT (scope, notification_type, channel) DO NOTHING`,
+              [scope, type, channel, byChannel[channel]]
+            );
+          }
+        }
+      }
+    } catch { /* tabela ausente ainda — factory cobre */ }
+    await this._loadNotificationDefaults();
+  }
+
+  // Admin: grid de defaults efetivos de um escopo (cache → factory).
+  async listNotificationDefaults(scope) {
+    if (!this._notifDefaults) await this._loadNotificationDefaults();
+    return buildNotificationDefaultsGrid(this._notifDefaults, scope);
+  }
+
+  // Admin: altera um default (upsert) e recarrega o cache.
+  async setNotificationDefault(scope, notificationType, channel, enabled) {
+    await this.queryWithRetry(
+      `INSERT INTO notification_defaults (scope, notification_type, channel, enabled, updated_at)
+       VALUES ($1,$2,$3,$4, NOW())
+       ON CONFLICT (scope, notification_type, channel) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`,
+      [scope, notificationType, channel, !!enabled]
+    );
+    await this._loadNotificationDefaults();
+    return { scope, notification_type: notificationType, channel, enabled: !!enabled };
+  }
 
   _pushSubsTable(scope) {
     return scope === 'tc' ? 'tc_push_subscriptions' : 'push_subscriptions';
@@ -3179,10 +3194,8 @@ class Database {
       [userId, notificationType, channel]
     );
     if (result.rows.length > 0) return result.rows[0].enabled;
-    const map = Database.NOTIFICATION_DEFAULTS[scope] || {};
-    const forType = map[notificationType];
-    if (forType && typeof forType[channel] === 'boolean') return forType[channel];
-    return false;
+    // Fallback: default efetivo (cache da tabela) → factory → false.
+    return resolveNotificationDefault(this._notifDefaults, scope, notificationType, channel);
   }
 
   async setNotificationPreference(scope, userId, notificationType, channel, enabled) {
@@ -3217,18 +3230,17 @@ class Database {
       stored.set(`${row.notification_type}:${row.channel}`, row);
     }
     const grid = [];
-    const map = Database.NOTIFICATION_DEFAULTS[scope] || {};
+    // Tipos = defaults efetivos do escopo (cache→factory) ∪ tipos já salvos pelo user.
+    if (!this._notifDefaults) await this._loadNotificationDefaults();
     const types = new Set([
-      ...Object.keys(map),
+      ...knownNotificationTypes(this._notifDefaults, scope),
       ...result.rows.map(r => r.notification_type),
     ]);
     for (const type of types) {
       for (const channel of ['push', 'email']) {
         const key = `${type}:${channel}`;
         const row = stored.get(key);
-        const def = (map[type] && typeof map[type][channel] === 'boolean')
-          ? map[type][channel]
-          : false;
+        const def = resolveNotificationDefault(this._notifDefaults, scope, type, channel);
         grid.push({
           notification_type: type,
           channel,

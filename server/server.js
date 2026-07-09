@@ -1984,6 +1984,46 @@ app.put('/api/notification-preferences', async (req, res) => {
   }
 });
 
+// ─── Defaults de notificação do sistema (#7) — admin/superadmin ────────────
+// Editam o padrão aplicado a quem NÃO personalizou (fallback global por escopo).
+app.get('/api/admin/notification-defaults', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Apenas administradores.' });
+    }
+    const scope = req.query.scope === 'tc' ? 'tc' : 'impgeo';
+    const grid = await db.listNotificationDefaults(scope);
+    res.json({ success: true, data: grid });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/notification-defaults', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Apenas administradores.' });
+    }
+    const { scope, notification_type, channel, enabled } = req.body || {};
+    if (scope !== 'impgeo' && scope !== 'tc') {
+      return res.status(400).json({ success: false, error: 'scope deve ser "impgeo" ou "tc"' });
+    }
+    if (!notification_type || typeof notification_type !== 'string' || notification_type.length > 64) {
+      return res.status(400).json({ success: false, error: 'notification_type inválido' });
+    }
+    if (channel !== 'push' && channel !== 'email') {
+      return res.status(400).json({ success: false, error: 'channel deve ser "push" ou "email"' });
+    }
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled deve ser boolean' });
+    }
+    const def = await db.setNotificationDefault(scope, notification_type, channel, enabled);
+    res.json({ success: true, data: def });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ─── Permissões granulares para regras ────────────────────────────────────
 app.get('/api/user-rule-permissions/me', async (req, res) => {
   try {
