@@ -54,11 +54,21 @@ quadrantChart
   `schema_migrations`; manter os pares `-rollback.sql`.
 - **Esforço**: médio · **Risco**: médio (precisa baseline dos ambientes existentes).
 
-### 3. Modularizar `server.js` / `database-pg.js`
+### 3. Modularizar `server.js` / `database-pg.js` — ✅ CONCLUÍDO (server.js) · 2026-07-09
 - **Problema**: arquivos gigantes (`server.js` ~9k linhas; `database-pg.js` enorme).
 - **Impacto**: navegação difícil, conflitos de merge, acoplamento.
 - **Proposta**: extrair routers por domínio (ex.: `routes/pm.js`) e separar o data-layer; sem mudar comportamento.
 - **Esforço**: alto · **Risco**: médio (mudança ampla — fazer incremental, com testes).
+- **Resultado**: `server.js` **9798 → 1112 linhas (−89%)** em 15 rodadas incrementais, extraindo **15 routers por
+  domínio** em `server/routes/`: `pm`, `financeiro`, `content`, `terracontrol`, `tc-auth`, `admin`, `notifications`,
+  `transactions`, `user-profile`, `tc-users`, `auth`, `import-export`, `sessions`, `asaas`, `misc`. Cada router é um
+  factory `({deps}) => express.Router()` com dependências injetadas; rotas movidas verbatim, **comportamento idêntico**
+  (refactor puro — sem migration, sem mudança de frontend). O `server.js` não registra mais nenhuma rota diretamente —
+  ficou só com o kernel (bootstrap, middlewares globais, multer, guards/helpers/cookies compartilhados injetados nos
+  routers, error handler, `app.listen` + timers) + os 15 mounts. Verificação por rodada: `node -c` + boot real +
+  enumeração de rotas + **152 testes verdes**; blocos sensíveis (auth/sessions) com cross-check de símbolos.
+- **Pendente (fora do escopo desta entrega)**: modularizar `database-pg.js` (classe gigante com `this` compartilhado) —
+  esforço à parte, mais arriscado; deixado para um trabalho futuro dedicado.
 
 ### 4. `_canManageTask` dual-use
 - **Problema**: a mesma função decide "pode agir na tarefa" e "pode atribuir ao alvo", com `targetUserId`
@@ -136,7 +146,7 @@ quadrantChart
 3. **Paginação** (#12) + **Reconciliação de totais** (#10/#14) — riscos de produção baratos de mitigar.
 4. **Centro de aprovações** (#11) — alto valor de produto.
 5. **Defaults de notificação em tabela** (#7) + **sync points gerados** (#6).
-6. **Modularizar `server.js`** (#3) — grande, fazer incremental sobre a rede de testes do #1.
+6. **Modularizar `server.js`** (#3) — ✅ concluído (server.js 9798→1112 linhas, 15 routers); `database-pg.js` fica para depois.
 
 > Para o Alya, considerar implementar **#2, #6, #7, #12** já no port (custo marginal baixo enquanto se
 > escreve o código novo). Ver [13-ROADMAP-ALYA.md](13-ROADMAP-ALYA.md).
