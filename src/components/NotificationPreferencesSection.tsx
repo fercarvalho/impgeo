@@ -40,7 +40,7 @@ interface Props {
 
 // Labels em pt-BR pros tipos de notificação que o sistema emite hoje.
 // Tipos desconhecidos caem num fallback que mostra o type literal.
-const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
+export const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
   transaction_confirm_needed: {
     title: 'Transação pendente de confirmação',
     description: 'Quando uma transação dá match em mais de uma regra automática.',
@@ -95,7 +95,7 @@ const TYPE_LABELS: Record<string, { title: string; description?: string }> = {
   pm_due_date_decided:           { title: 'Prazo decidido', description: 'Quando seu pedido de alteração de prazo é aprovado ou recusado.' },
 }
 
-function labelFor(type: string): { title: string; description?: string } {
+export function labelFor(type: string): { title: string; description?: string } {
   return TYPE_LABELS[type] || { title: type }
 }
 
