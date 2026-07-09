@@ -35,10 +35,10 @@ import { getCurrentAppId } from './pwa/appId'
 //   2. Injete o Authorization Bearer do sessionStorage como fallback. Em dev
 //      cross-port (localhost:9000 → localhost:9001) a cookie pode não viajar
 //      por restrições de SameSite/secure no Chrome moderno; o header torna
-//      a auth confiável independente da cookie. O backend aceita ambos e
-//      o header tem prioridade — durante impersonation o impersonationToken
-//      já é gravado em `authToken` pelo persistToken(), então a prioridade
-//      fica correta automaticamente.
+//      a auth confiável independente da cookie. Ordem no backend (#9):
+//      cookie httpOnly `impersonationToken` > header Bearer > cookie `accessToken`.
+//      Em prod a impersonation é dirigida pelo cookie httpOnly; este header é só
+//      fallback dev (o sessionStorage guarda o token impersonado por-origem).
 //
 // Cobre 3 casos de "URL é o backend":
 //   1. URL relativa (`/api/...`) — passa pelo Vite proxy, mesma origin

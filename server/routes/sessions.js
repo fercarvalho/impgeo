@@ -79,6 +79,7 @@ router.post('/api/auth/logout', authenticateToken, async (req, res) => {
     // Limpa cookies independentemente de termos achado o refresh token
     clearAuthCookies(req, res);
     clearTcAdminAuthCookies(req, res);
+    clearImpersonationCookie(req, res); // #9: encerra qualquer impersonation ativa junto do logout
     await logAudit({
       operation: AUDIT_OPERATIONS.LOGOUT,
       userId: req.user.id,
