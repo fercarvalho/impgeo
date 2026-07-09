@@ -31,6 +31,10 @@ const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('./utils/audit');
 const { createRefreshToken, verifyRefreshToken, rotateRefreshToken, revokeAllUserTokens, cleanupExpiredTokens } = require('./utils/refresh-tokens');
 const { createSession, revokeSession, revokeAllUserSessions, getAllSessions, revokeSessionByRefreshTokenId, cleanupExpiredSessions } = require('./utils/session-manager');
 const { startAnomalyMonitoring } = require('./utils/anomaly-detection');
+// #3 (fix pós-rodada-14): o auto-sync do Asaas (asaasSyncTimer, no app.listen)
+// usa estas funções — o require voltou pro server.js quando as ROTAS do Asaas
+// saíram para routes/asaas.js (que também importa do mesmo módulo, cacheado).
+const { fetchReceivedPayments, fetchDoneTransfers } = require('./utils/asaas-client');
 const requireTerraControlAccess = require('./auth/require-terracontrol-access');
 const emailService = require('./services/email');
 
