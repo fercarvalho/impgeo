@@ -26,6 +26,7 @@ quadrantChart
     "Defaults notif. em tabela": [0.50, 0.55]
     "Auditoria central": [0.55, 0.58]
     "Modularizar server.js": [0.85, 0.75]
+    "Modularizar database-pg": [0.88, 0.55]
     "_canManageTask dual-use": [0.45, 0.48]
     "Progresso de metas em lote": [0.40, 0.45]
     "Sync points gerados": [0.62, 0.60]
@@ -54,10 +55,11 @@ quadrantChart
   `schema_migrations`; manter os pares `-rollback.sql`.
 - **Esforço**: médio · **Risco**: médio (precisa baseline dos ambientes existentes).
 
-### 3. Modularizar `server.js` / `database-pg.js` — ✅ CONCLUÍDO (server.js) · 2026-07-09
-- **Problema**: arquivos gigantes (`server.js` ~9k linhas; `database-pg.js` enorme).
+### 3. Modularizar `server.js` — ✅ CONCLUÍDO · 2026-07-09
+> A parte do data-layer (`database-pg.js`) foi promovida para o **item #15** (esforço à parte, mais arriscado).
+- **Problema**: arquivo gigante (`server.js` ~9k linhas).
 - **Impacto**: navegação difícil, conflitos de merge, acoplamento.
-- **Proposta**: extrair routers por domínio (ex.: `routes/pm.js`) e separar o data-layer; sem mudar comportamento.
+- **Proposta**: extrair routers por domínio (ex.: `routes/pm.js`); sem mudar comportamento.
 - **Esforço**: alto · **Risco**: médio (mudança ampla — fazer incremental, com testes).
 - **Resultado**: `server.js` **9798 → 1112 linhas (−89%)** em 15 rodadas incrementais, extraindo **15 routers por
   domínio** em `server/routes/`: `pm`, `financeiro`, `content`, `terracontrol`, `tc-auth`, `admin`, `notifications`,
@@ -67,8 +69,6 @@ quadrantChart
   ficou só com o kernel (bootstrap, middlewares globais, multer, guards/helpers/cookies compartilhados injetados nos
   routers, error handler, `app.listen` + timers) + os 15 mounts. Verificação por rodada: `node -c` + boot real +
   enumeração de rotas + **152 testes verdes**; blocos sensíveis (auth/sessions) com cross-check de símbolos.
-- **Pendente (fora do escopo desta entrega)**: modularizar `database-pg.js` (classe gigante com `this` compartilhado) —
-  esforço à parte, mais arriscado; deixado para um trabalho futuro dedicado.
 
 ### 4. `_canManageTask` dual-use
 - **Problema**: a mesma função decide "pode agir na tarefa" e "pode atribuir ao alvo", com `targetUserId`
@@ -137,6 +137,31 @@ quadrantChart
 - **Proposta**: endpoint/job de health que recomputa e compara, alertando divergências.
 - **Esforço**: baixo · **Risco**: baixo.
 
+### 15. Modularizar o data-layer (`database-pg.js`)
+> Desmembrado do #3 (que cobriu só o `server.js`). O #3 fechou com o `server.js` em 1112 linhas / 15 routers;
+> falta o data-layer, que é um esforço à parte e mais arriscado.
+- **Problema**: `database-pg.js` é **uma classe `Database` de ~7,5k linhas** com **~339 métodos** e **~770 usos de
+  `this.`** (métodos chamam uns aos outros e compartilham `this.pool`/caches). Instanciada uma vez em `server.js`
+  (`const db = new Database()`) e injetada inteira nos 15 routers como `db`. Distribuição aproximada: terracontrol ~82 ·
+  financeiro ~51 · auth/users/roles/modules ~49 · notificações ~29 · infra/genéricos ~116 · pm ~9 · audit ~3.
+- **Impacto**: navegação difícil e conflitos de merge (menor que o do `server.js` — só 1 consumidor e métodos estáveis);
+  acoplamento interno alto pelo `this`.
+- **Referência do "certo"**: o PM já segue o padrão desejado — a lógica vive em `services/pm/*` (services **stateless**
+  que recebem `db` por parâmetro), por isso só restam ~9 métodos de PM na classe. É o molde de decoplamento a mirar.
+- **Opções de abordagem**:
+  - **A · Split por mixin** — manter 1 instância `db`, mover grupos de métodos p/ arquivos (`db/terracontrol.js` etc.) e
+    reagregar via `Object.assign(Database.prototype, …)`. `db.foo()` segue igual, **routers intocados**. *Risco baixo,
+    mas ganho só de navegação — o acoplamento `this` permanece (cosmético).*
+  - **B · Repositories** — extrair grupos em repos que recebem o pool (`new TerraControlRepo(pool)`) e injetar os repos
+    nos routers no lugar do `db` monolítico. *Decoplamento real, mas toca **todos os 15 routers** (reescrever call-sites)
+    + resolver os `this.` cross-domínio → refactor de várias sessões. Risco alto.*
+  - **C · Não mexer agora** — deixar como está; no máximo migrar os `CREATE TABLE IF NOT EXISTS` inline do
+    `ensureProfileSchema()` para migrations versionadas (o runner do #2 já suporta), tirando efeito colateral do boot e
+    centralizando o schema **sem tocar nos 339 métodos**. *Risco mínimo, ganho concreto e isolado.*
+- **Recomendação**: **C por ora** (o `database-pg.js` não é gargalo hoje; A é cosmético; B só compensa se virar dor real
+  de merge/manutenção). O passo barato de valor concreto é migrar o schema inline do `ensureProfileSchema` para migrations.
+- **Esforço**: alto (B) / baixo (A, C) · **Risco**: alto (B) / baixo (A, C).
+
 ---
 
 ## Sugestão de ordem (alto impacto / baixo-médio esforço primeiro)
@@ -146,7 +171,10 @@ quadrantChart
 3. **Paginação** (#12) + **Reconciliação de totais** (#10/#14) — riscos de produção baratos de mitigar.
 4. **Centro de aprovações** (#11) — alto valor de produto.
 5. **Defaults de notificação em tabela** (#7) + **sync points gerados** (#6).
-6. **Modularizar `server.js`** (#3) — ✅ concluído (server.js 9798→1112 linhas, 15 routers); `database-pg.js` fica para depois.
+6. **Modularizar `server.js`** (#3) — ✅ concluído (9798→1112 linhas, 15 routers).
+
+Fora da ordem original (menor prioridade / sem sequenciamento): **#4, #5, #8, #9, #13** e **#15** (data-layer
+`database-pg.js`, desmembrado do #3 — ver opções A/B/C; recomendação: C por ora).
 
 > Para o Alya, considerar implementar **#2, #6, #7, #12** já no port (custo marginal baixo enquanto se
 > escreve o código novo). Ver [13-ROADMAP-ALYA.md](13-ROADMAP-ALYA.md).
