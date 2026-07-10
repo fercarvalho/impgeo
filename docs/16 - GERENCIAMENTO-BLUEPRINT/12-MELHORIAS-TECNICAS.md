@@ -39,7 +39,8 @@ quadrantChart
 
 ## Backlog
 
-### 1. Testes versionados + CI **[ambos]**
+### 1. Testes versionados + CI **[ambos]** — ✅ CONCLUÍDO
+> Suíte vitest versionada (exceção no `.gitignore`) + GitHub Actions rodando `npm test` no backend a cada push/PR.
 - **Problema**: os ~9 arquivos de teste do PM (`server/services/pm/__tests__/`) são **gitignored**
   (regra `*.md`/`*-spec`/`__tests__`), rodam só local; não há CI.
 - **Impacto**: regressões silenciosas em fluxos críticos (negociação de prazo, delegação, reabertura,
@@ -47,7 +48,8 @@ quadrantChart
 - **Proposta**: versionar os testes, ampliar cobertura desses fluxos, GitHub Actions (lint + vitest no PR).
 - **Esforço**: médio · **Risco**: baixo.
 
-### 2. Runner de migrations + `schema_migrations` **[ambos]**
+### 2. Runner de migrations + `schema_migrations` **[ambos]** — ✅ CONCLUÍDO
+> `migrations/runner.js` (status/up/baseline/down) + tabela `schema_migrations`; ambientes baselinados. `scripts/migrate.sh` no deploy.
 - **Problema**: migrations aplicadas **à mão via psql**; nenhum dos dois projetos rastreia o que já foi
   aplicado (o `npm run migrate` do Alya é só migração de dados JSON→PG).
 - **Impacto**: risco de drift entre ambientes; ordem/idempotência por convenção, não por ferramenta.
@@ -70,32 +72,40 @@ quadrantChart
   routers, error handler, `app.listen` + timers) + os 15 mounts. Verificação por rodada: `node -c` + boot real +
   enumeração de rotas + **152 testes verdes**; blocos sensíveis (auth/sessions) com cross-check de símbolos.
 
-### 4. `_canManageTask` dual-use
+### 4. `_canManageTask` dual-use — ✅ CONCLUÍDO · 2026-07-09
+> Lógica de escopo extraída p/ `services/pm/task-authz.js` (`scopeCheck` verbatim → behavior-preserving) e
+> separada por intenção: `canActOnTask(task)` / `canAssignTo(task, alvo)`. 16 testes travam a matriz de autorização.
 - **Problema**: a mesma função decide "pode agir na tarefa" e "pode atribuir ao alvo", com `targetUserId`
   ora sendo o assignee, ora o alvo da ação.
 - **Impacto**: difícil de raciocinar; efeitos colaterais sutis.
 - **Proposta**: separar em `canActOnTask(task)` e `canAssignTo(actor, targetUser)`.
 - **Esforço**: médio · **Risco**: médio (tocar autorização — cobrir com testes antes).
 
-### 5. Progresso de metas calculado por listagem
+### 5. Progresso de metas calculado por listagem — ✅ CONCLUÍDO · 2026-07-09
+> `_withProgress` deixou de fazer 1 query/meta; `_metricValuesBatch` agrupa por forma (tasks/projects/focus)
+> e computa cada grupo em 1 query (`unnest`+`LATERAL`) → ≤3 queries. Equivalência batch==per-goal provada.
 - **Problema**: `goals-service` recomputa o progresso **ao vivo** por meta (N queries) a cada listagem.
 - **Impacto**: custo cresce com nº de metas/usuários.
 - **Proposta**: cálculo em lote (1 query por métrica) ou cache/materialização com invalidação.
 - **Esforço**: médio · **Risco**: baixo.
 
-### 6. 3 pontos de sincronização frágeis **[ambos]**
+### 6. 3 pontos de sincronização frágeis **[ambos]** — ✅ CONCLUÍDO
+> `modules-catalog.js` extraído + teste de consistência manifest↔catálogo no CI + boot-warn catálogo↔tabela `subsystems`.
 - **Problema**: manifest TS + tabela `subsystems` + seed `getDefaultModulesCatalog` precisam concordar à mão.
 - **Impacto**: divergência → módulo some do menu / sem permissão.
 - **Proposta**: gerar de uma fonte única (ex.: manifest → seed) ou validar consistência no boot/CI.
 - **Esforço**: médio · **Risco**: baixo.
 
-### 7. Notificações: defaults hardcoded + i18n **[ambos]**
+### 7. Notificações: defaults hardcoded + i18n **[ambos]** — ✅ CONCLUÍDO (defaults; i18n adiado)
+> Defaults movidos p/ tabela `notification_defaults` (mig 071) com cache + seção admin de gestão. i18n adiado (só pt-BR, payoff baixo).
 - **Problema**: `NOTIFICATION_DEFAULTS` vive no código; `notification-strings` é "i18n-ready" mas só pt-BR.
 - **Impacto**: mudar default exige deploy; sem UI de gestão; sem multi-idioma.
 - **Proposta**: tabela de defaults + UI; estrutura de i18n para os textos.
 - **Esforço**: médio · **Risco**: baixo.
 
-### 8. Auditoria central do PM **[ambos]**
+### 8. Auditoria central do PM **[ambos]** — ✅ CONCLUÍDO · 2026-07-09
+> View read-only `pm_audit_v` (migration 072) unifica task_events + project_events + pomodoro_events;
+> `GET /api/pm/audit` (gestor-only, filtros+paginação) + aba "Auditoria" nos Relatórios. Nenhum write path mudou.
 - **Problema**: há `project_events`/`task_events` por entidade, mas não um audit-log transversal do PM.
 - **Impacto**: investigação cross-entidade trabalhosa.
 - **Proposta**: padronizar num audit-log central (o Alya tem `audit_logs`/`activity_logs` reusáveis).
@@ -117,31 +127,37 @@ quadrantChart
   degradado, impersonation/logout/etc. quebrados) e a ordem `/impersonate/:userId` antes de `/stop` (403 no
   encerramento); ambos corrigidos com testes-guarda (`router-imports`, `route-ordering`).
 
-### 10. Denormalização frágil (totais por trigger)
+### 10. Denormalização frágil (totais por trigger) — ✅ CONCLUÍDO (junto do #14)
+> View `pm_totals_drift_v` (mig 069) + `reconcile-service` (check/heal) + job diário auto-heal. Ver #14.
 - **Problema**: `expenses_cents`/`progress_pct` mantidos por trigger — se um trigger falhar/for desabilitado, dessincroniza.
 - **Impacto**: números errados em dashboards/relatórios.
 - **Proposta**: documentar invariantes + job de reconciliação periódico + testes de trigger.
 - **Esforço**: baixo · **Risco**: baixo.
 
-### 11. Centro unificado de pendências/aprovações
+### 11. Centro unificado de pendências/aprovações — ✅ CONCLUÍDO
+> Módulo "Central de Aprovações" (`aprovacoes_gerenciamento`, mig 070) agrega as 5 filas de gestor + badge de contador no menu.
 - **Problema**: prazo, reabertura, delegação, revisão e overage vivem em seções separadas no front.
 - **Impacto**: gestor precisa caçar pendências em vários lugares.
 - **Proposta**: uma "caixa de aprovações" única que agrega todas as filas.
 - **Esforço**: médio · **Risco**: baixo.
 
-### 12. Paginação/limites **[ambos]**
+### 12. Paginação/limites **[ambos]** — ✅ CONCLUÍDO
+> Paginação opt-in (`parsePagination`, env-configurável) nas 7 listas do PM (tarefas + filas) — backend + infra front (`<Pagination>`/`usePaginatedList`) + navegação.
 - **Problema**: `available-tasks`, dashboards e reports não paginam (alguns têm `LIMIT` fixo).
 - **Impacto**: degradação com volume.
 - **Proposta**: paginação cursor/offset + limites configuráveis; sinalizar truncamento na UI.
 - **Esforço**: baixo · **Risco**: baixo.
 
-### 13. Timezone hardcoded
+### 13. Timezone hardcoded — ✅ CONCLUÍDO · 2026-07-09
+> `APP_TIMEZONE` (env, default `America/Sao_Paulo`, validado IANA) em `server/utils/timezone.js` substitui o
+> hardcode no cálculo de "dia" do Pomodoro/relatórios/due_date. Trocável sem deploy (env + restart).
 - **Problema**: `America/Sao_Paulo` fixo no cálculo de "dia" do Pomodoro/relatórios.
 - **Impacto**: incorreto para usuários/empresas em outro fuso.
 - **Proposta**: timezone por usuário/organização (config), default BRT.
 - **Esforço**: baixo · **Risco**: baixo.
 
-### 14. Reconciliação de totais / health checks
+### 14. Reconciliação de totais / health checks — ✅ CONCLUÍDO (com o #10)
+> `GET /api/pm/reports/reconciliation` (drift) + `POST …/heal` (admin) + job diário. View/service compartilhados com o #10.
 - **Problema**: sem verificação de que `expenses_cents` bate com a soma real das despesas.
 - **Impacto**: drift silencioso (relacionado ao #10).
 - **Proposta**: endpoint/job de health que recomputa e compara, alertando divergências.
