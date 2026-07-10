@@ -12,6 +12,7 @@
 'use strict';
 
 const { canTransitionTask, TASK_STATUSES } = require('./state-machine');
+const { APP_TIMEZONE } = require('../../utils/timezone'); // #13: timezone configurável por env
 const dependencyResolver = require('./dependency-resolver');
 const triggerRunner = require('./trigger-runner');
 const projectFinalizer = require('./project-finalizer');
@@ -721,7 +722,7 @@ async function startTask(db, taskId, { userId }) {
             paused_at = NULL,
             -- liga o relógio do prazo no PRIMEIRO play (hoje BRT + duração), se ainda não houver
             due_date = CASE WHEN due_date IS NULL AND default_days IS NOT NULL
-                            THEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + default_days ELSE due_date END,
+                            THEN (NOW() AT TIME ZONE '${APP_TIMEZONE}')::date + default_days ELSE due_date END,
             updated_at = NOW()
       WHERE id = $2`,
     [userId || null, taskId]

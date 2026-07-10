@@ -22,9 +22,10 @@ const BREAK_BY_MINUTES = { 25: 5, 50: 10, 100: 20 };
 const VALID_MINUTES    = [25, 50, 100];
 const STALE_AFTER_MIN  = 30;
 
-// O "dia" do Pomodoro é em horário de Brasília (não UTC) — senão o contador diário
+// O "dia" do Pomodoro é em horário local (não UTC) — senão o contador diário
 // reseta às 21h BRT (meia-noite UTC), no meio do expediente da noite.
-const TZ = 'America/Sao_Paulo';
+// #13: configurável por env (APP_TIMEZONE), default America/Sao_Paulo.
+const { APP_TIMEZONE: TZ } = require('../../utils/timezone');
 const TODAY_LOCAL = `(NOW() AT TIME ZONE '${TZ}')::date`;            // "hoje" local
 const STARTED_LOCAL_DATE = (col) => `(${col} AT TIME ZONE '${TZ}')::date`; // data local de started_at
 

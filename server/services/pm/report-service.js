@@ -6,7 +6,7 @@
 //
 // Período de referência = período ANTERIOR já fechado (ex.: relatório diário
 // cobre ONTEM). Idempotência via pm_report_jobs UNIQUE(user, frequency,
-// period_start). Datas em America/Sao_Paulo.
+// period_start). Datas no timezone da app (APP_TIMEZONE, default America/Sao_Paulo — #13).
 // ═══════════════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -14,7 +14,7 @@
 const emailService = require('../email');
 const notificationService = require('./notification-service');
 
-const TZ = 'America/Sao_Paulo';
+const { APP_TIMEZONE: TZ } = require('../../utils/timezone'); // #13: configurável por env, default BRT
 
 // ─── Overdue ──────────────────────────────────────────────────────────────────
 

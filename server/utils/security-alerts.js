@@ -5,6 +5,7 @@
 
 const sgMail = require('@sendgrid/mail');
 const { Pool } = require('pg');
+const { APP_TIMEZONE } = require('./timezone'); // #13: timezone configurável por env
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -88,7 +89,7 @@ function generateEmailHTML(title, message, severity, fields = []) {
       </table>
       ` : ''}
       <p style="color: #999; font-size: 12px; margin-top: 20px;">
-        <strong>Data/Hora:</strong> ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+        <strong>Data/Hora:</strong> ${new Date().toLocaleString('pt-BR', { timeZone: APP_TIMEZONE })}
       </p>
     </div>
     <div style="background-color: #f8f9fa; padding: 15px; text-align: center; border-top: 1px solid #dee2e6;">
