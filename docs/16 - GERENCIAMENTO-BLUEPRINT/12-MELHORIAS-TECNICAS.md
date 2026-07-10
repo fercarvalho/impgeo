@@ -163,9 +163,26 @@ quadrantChart
 - **Proposta**: endpoint/job de health que recomputa e compara, alertando divergências.
 - **Esforço**: baixo · **Risco**: baixo.
 
-### 15. Modularizar o data-layer (`database-pg.js`)
+### 15. Modularizar o data-layer (`database-pg.js`) — ✅ CONCLUÍDO (via **A**) · 2026-07-10
 > Desmembrado do #3 (que cobriu só o `server.js`). O #3 fechou com o `server.js` em 1112 linhas / 15 routers;
 > falta o data-layer, que é um esforço à parte e mais arriscado.
+>
+> **Resolução:** feito pela **abordagem A (split por mixin)** em 14 rodadas incrementais. `database-pg.js` caiu de
+> **7518 → 610 linhas (−92%)**; os métodos foram movidos verbatim para **14 arquivos-domínio** em `server/db/`
+> (`feedback`, `notifications`, `cms`, `roadmap`, `rodape`, `financeiro`, `transactions`, `cadastros`, `budget`,
+> `subcategorias`, `usuarios`, `permissoes`, `terracontrol`, `push-prefs`) + `db/_shared.js` (helpers/constantes
+> compartilhadas: `toCamelCase`, `TC_USER_PUBLIC_FIELDS`), reagregados via `Object.assign(Database.prototype, …)`.
+> O core virou o "esqueleto" da classe: pool, `queryWithRetry`, `ensureProfileSchema` (bootstrap de schema),
+> defaults de role, o estático `NOTIFICATION_DEFAULTS` e o campo `_notifDefaults`. **Comportamento inalterado** —
+> mesma instância `db`, `this` preservado, todos os call-sites `db.foo()`/`this.foo()` intactos. Cada rodada
+> validada por: guarda de inventário (336 métodos, 0 faltando / 0 extra), check de colisão entre domínios, boot
+> limpo e 213 testes verdes.
+>
+> **B (repositories)** — não feito; **deferido** como opção condicional. O A entregou a dor prática (navegação/merge)
+> a custo baixo; o decoplamento real do `this` que o B traria só compensa "se virar dor real" (condição original) —
+> não virou. **C (migrar schema inline p/ migrations)** — **descartado**: numa base limpa exigiria uma *genesis
+> migration* de ~104 tabelas com ordenação de FK (bloqueou no teste fresh-env), desproporcional; `ensureProfileSchema`
+> segue no core.
 - **Problema**: `database-pg.js` é **uma classe `Database` de ~7,5k linhas** com **~339 métodos** e **~770 usos de
   `this.`** (métodos chamam uns aos outros e compartilham `this.pool`/caches). Instanciada uma vez em `server.js`
   (`const db = new Database()`) e injetada inteira nos 15 routers como `db`. Distribuição aproximada: terracontrol ~82 ·
@@ -184,8 +201,8 @@ quadrantChart
   - **C · Não mexer agora** — deixar como está; no máximo migrar os `CREATE TABLE IF NOT EXISTS` inline do
     `ensureProfileSchema()` para migrations versionadas (o runner do #2 já suporta), tirando efeito colateral do boot e
     centralizando o schema **sem tocar nos 339 métodos**. *Risco mínimo, ganho concreto e isolado.*
-- **Recomendação**: **C por ora** (o `database-pg.js` não é gargalo hoje; A é cosmético; B só compensa se virar dor real
-  de merge/manutenção). O passo barato de valor concreto é migrar o schema inline do `ensureProfileSchema` para migrations.
+- **Recomendação (histórica)**: à época, **C por ora**. **Desfecho:** optou-se por **A** (ver *Resolução* acima) — o
+  ganho de navegação valeu a pena e o risco se mostrou baixo nas 14 rodadas; C descartado, B deferido.
 - **Esforço**: alto (B) / baixo (A, C) · **Risco**: alto (B) / baixo (A, C).
 
 ---
@@ -200,7 +217,7 @@ quadrantChart
 6. **Modularizar `server.js`** (#3) — ✅ concluído (9798→1112 linhas, 15 routers).
 
 Fora da ordem original (menor prioridade / sem sequenciamento): **#4, #5, #8, #9, #13** e **#15** (data-layer
-`database-pg.js`, desmembrado do #3 — ver opções A/B/C; recomendação: C por ora).
+`database-pg.js`, desmembrado do #3 — ✅ concluído via A: 7518→610 linhas, 14 domínios em `server/db/`).
 
 > Para o Alya, considerar implementar **#2, #6, #7, #12** já no port (custo marginal baixo enquanto se
 > escreve o código novo). Ver [13-ROADMAP-ALYA.md](13-ROADMAP-ALYA.md).
