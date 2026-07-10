@@ -204,6 +204,42 @@ router.get('/api/security-alerts', authenticateToken, requireAdmin, async (req, 
 // IMPERSONATION (REPRESENTAÇÃO DE USUÁRIO)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ⚠️ ORDEM IMPORTA: `/stop` (literal) tem que ser registrada ANTES de
+// `/:userId` (param) — senão o Express casa POST /impersonate/stop com
+// :userId="stop", cai no start, e o requireSuperAdmin devolve 403 (o usuário
+// impersonado não é superadmin). Foi exatamente o bug do #9 no encerramento.
+router.post('/api/auth/impersonate/stop', authenticateToken, async (req, res) => {
+  try {
+    // #9: encerramento agora é server-side — limpa o cookie httpOnly de
+    // impersonation; o accessToken do superadmin (intacto) volta a valer na
+    // próxima requisição. Não depende mais de `originalToken` vindo do body
+    // (o que exigia manter o JWT do superadmin em JS).
+    clearImpersonationCookie(req, res);
+
+    // `req.user` vem do token de impersonation (cookie httpOnly, ou header no
+    // fallback dev): traz quem iniciou a impersonation.
+    const originalId = req.user.impersonatedBy || null;
+    const originalUsername = req.user.impersonatedByUsername || null;
+
+    if (originalId) {
+      await logAudit({
+        operation: AUDIT_OPERATIONS.IMPERSONATION_STOP,
+        userId: originalId,
+        username: originalUsername,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        details: { stoppedImpersonating: req.user.username },
+        status: AUDIT_STATUS.SUCCESS,
+      });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao encerrar impersonation:', error);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
 router.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const targetUser = await db.getUserById(req.params.userId);
@@ -251,38 +287,6 @@ router.post('/api/auth/impersonate/:userId', authenticateToken, requireSuperAdmi
     });
   } catch (error) {
     console.error('Erro ao iniciar impersonation:', error);
-    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
-  }
-});
-
-router.post('/api/auth/impersonate/stop', authenticateToken, async (req, res) => {
-  try {
-    // #9: encerramento agora é server-side — limpa o cookie httpOnly de
-    // impersonation; o accessToken do superadmin (intacto) volta a valer na
-    // próxima requisição. Não depende mais de `originalToken` vindo do body
-    // (o que exigia manter o JWT do superadmin em JS).
-    clearImpersonationCookie(req, res);
-
-    // `req.user` vem do token de impersonation (cookie httpOnly, ou header no
-    // fallback dev): traz quem iniciou a impersonation.
-    const originalId = req.user.impersonatedBy || null;
-    const originalUsername = req.user.impersonatedByUsername || null;
-
-    if (originalId) {
-      await logAudit({
-        operation: AUDIT_OPERATIONS.IMPERSONATION_STOP,
-        userId: originalId,
-        username: originalUsername,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        details: { stoppedImpersonating: req.user.username },
-        status: AUDIT_STATUS.SUCCESS,
-      });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    console.error('Erro ao encerrar impersonation:', error);
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
   }
 });
