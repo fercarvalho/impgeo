@@ -101,11 +101,21 @@ quadrantChart
 - **Proposta**: padronizar num audit-log central (o Alya tem `audit_logs`/`activity_logs` reusáveis).
 - **Esforço**: médio · **Risco**: baixo.
 
-### 9. Impersonation via cookie JS-legível
+### 9. Impersonation via cookie JS-legível — ✅ CONCLUÍDO · 2026-07-09
 - **Problema**: o JWT de impersonation é guardado em cookie legível por JS para cruzar subdomínios.
 - **Impacto**: superfície de risco (XSS lê o token).
 - **Proposta**: impersonation com cookie httpOnly server-set por subdomínio, ou troca por token de curta duração.
 - **Esforço**: médio · **Risco**: médio. *(Não afeta o Alya — lá não há impersonation.)*
+- **Resultado**: token de impersonation migrado para **cookie httpOnly server-set** (`impersonationToken`,
+  `Domain=.impgeo.*`, 2h) — cruza subdomínios nativamente, JS não lê. Removidos os cookies JS-legíveis
+  `imp_on/imp_tok/imp_orig` do frontend. `extractAccessToken` (extraído para `utils/token-extraction.js`,
+  testado) prioriza o cookie de impersonation > header > accessToken; `/auth/verify` expõe
+  `impersonation:{active,originalUsername}` para a UI detectar o estado ao cruzar subdomínio; `/impersonate/stop`
+  reescrito server-side (limpa o cookie, sem depender de token em JS); `/logout` também limpa. Fallback dev
+  cross-port mantido via `sessionStorage` (per-origem, não é o cookie-pai). **Nota de rollout**: o deploy
+  expôs bugs latentes da modularização (#3) — imports órfãos de require-desestruturado em 6 routers (login
+  degradado, impersonation/logout/etc. quebrados) e a ordem `/impersonate/:userId` antes de `/stop` (403 no
+  encerramento); ambos corrigidos com testes-guarda (`router-imports`, `route-ordering`).
 
 ### 10. Denormalização frágil (totais por trigger)
 - **Problema**: `expenses_cents`/`progress_pct` mantidos por trigger — se um trigger falhar/for desabilitado, dessincroniza.
