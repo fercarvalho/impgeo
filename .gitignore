@@ -96,3 +96,5 @@ coverage/
 
 # Claude Code — config/estado local, nunca versionar (worktrees, launch.json, etc.)
 .claude/
+!/server/db/__tests__/
+!/server/db/__tests__/**

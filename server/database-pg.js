@@ -18,18 +18,8 @@ const {
   buildDefaultsGrid: buildNotificationDefaultsGrid,
 } = require('./services/pm/notification-defaults');
 const { MODULES_CATALOG } = require('./modules-catalog');
-
-function toCamelCase(obj) {
-  if (Array.isArray(obj)) return obj.map(toCamelCase);
-  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
-    return Object.keys(obj).reduce((acc, key) => {
-      const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-      acc[camel] = toCamelCase(obj[key]);
-      return acc;
-    }, {});
-  }
-  return obj;
-}
+// #15 A: toCamelCase movido para db/_shared.js (compartilhado com os arquivos-domínio).
+const { toCamelCase } = require('./db/_shared');
 
 class Database {
   constructor() {
@@ -5782,71 +5772,7 @@ class Database {
     console.log(`Restaurando backup ${backupId} para tabela: ${tableName}`);
   }
 
-  // ========== FEEDBACK ==========
-
-  async criarFeedback({ usuarioId, categoria, descricao, imagemBase64, linkVideo, pagina }) {
-    const id = this.generateId();
-    const now = new Date().toISOString();
-    const r = await this.pool.query(
-      `INSERT INTO feedbacks (id, usuario_id, categoria, descricao, imagem_base64, link_video, pagina, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendente', $8, $8) RETURNING *`,
-      [id, usuarioId, categoria, descricao, imagemBase64 || null, linkVideo || null, pagina || null, now]
-    );
-    return toCamelCase(r.rows[0]);
-  }
-
-  async obterFeedbacks() {
-    const r = await this.pool.query(
-      `SELECT f.*,
-              u.first_name, u.last_name, u.username, u.email AS usuario_email
-       FROM feedbacks f
-       LEFT JOIN users u ON u.id = f.usuario_id
-       ORDER BY f.created_at DESC`
-    );
-    return r.rows.map(row => {
-      const fb = toCamelCase(row);
-      fb.usuarioNome = [row.first_name, row.last_name].filter(Boolean).join(' ') || row.username || 'Usuário';
-      fb.usuarioEmail = row.usuario_email || '';
-      return fb;
-    });
-  }
-
-  async obterFeedbackPorId(id) {
-    const r = await this.pool.query(
-      `SELECT f.*,
-              u.first_name, u.last_name, u.username, u.email AS usuario_email
-       FROM feedbacks f
-       LEFT JOIN users u ON u.id = f.usuario_id
-       WHERE f.id = $1`,
-      [id]
-    );
-    if (r.rows.length === 0) throw new Error('Feedback não encontrado');
-    const row = r.rows[0];
-    const fb = toCamelCase(row);
-    fb.usuarioNome = [row.first_name, row.last_name].filter(Boolean).join(' ') || row.username || 'Usuário';
-    fb.usuarioEmail = row.usuario_email || '';
-    return fb;
-  }
-
-  async responderFeedback(id, { resposta }) {
-    const now = new Date().toISOString();
-    const r = await this.pool.query(
-      `UPDATE feedbacks SET resposta = $1, status = 'respondido', updated_at = $2 WHERE id = $3 RETURNING *`,
-      [resposta, now, id]
-    );
-    if (r.rows.length === 0) throw new Error('Feedback não encontrado');
-    return toCamelCase(r.rows[0]);
-  }
-
-  async aceitarFeedback(id, { resposta }) {
-    const now = new Date().toISOString();
-    const r = await this.pool.query(
-      `UPDATE feedbacks SET resposta = $1, status = 'aceito', updated_at = $2 WHERE id = $3 RETURNING *`,
-      [resposta, now, id]
-    );
-    if (r.rows.length === 0) throw new Error('Feedback não encontrado');
-    return toCamelCase(r.rows[0]);
-  }
+  // FEEDBACK — métodos movidos para db/feedback.js (#15 A); anexados via Object.assign no fim do arquivo.
   // ========== FAQ ==========
 
   async obterFAQ(userRole = 'guest') {
@@ -7524,5 +7450,14 @@ class Database {
     return result.rowCount > 0;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// #15 A — Split do data-layer por domínio. Os métodos migrados vivem em
+// db/<dominio>.js e são colados no prototype aqui (mesma instância `db`, `this`
+// preservado → 587 call-sites `db.metodo()` e 631 `this.metodo()` intactos).
+// ═══════════════════════════════════════════════════════════════════════════
+Object.assign(Database.prototype,
+  require('./db/feedback'),
+);
 
 module.exports = Database;
