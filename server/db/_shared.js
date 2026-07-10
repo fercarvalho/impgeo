@@ -20,4 +20,15 @@ function toCamelCase(obj) {
   return obj;
 }
 
-module.exports = { toCamelCase };
+// Colunas públicas de tc_users (sem hash de senha etc.). Antes era o estático
+// `Database.TC_USER_PUBLIC_FIELDS`; virou constante compartilhada para os
+// arquivos-domínio (db/terracontrol.js, db/push-prefs.js) e o core referenciarem.
+const TC_USER_PUBLIC_FIELDS = [
+  'id', 'username', 'first_name', 'last_name', 'email', 'email_verified_at',
+  'phone', 'cpf', 'birth_date', 'gender', 'address', 'photo_url',
+  'force_password_change', 'is_active', 'can_share',
+  'edit_records_permission', 'delete_records_permission',
+  'created_via', 'last_login', 'created_at', 'updated_at'
+].join(', ');
+
+module.exports = { toCamelCase, TC_USER_PUBLIC_FIELDS };
