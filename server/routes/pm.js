@@ -24,6 +24,7 @@ const pmDashboardService = require('../services/pm/dashboard-service');
 const pmGoalsService = require('../services/pm/goals-service');
 const pmReconcileService = require('../services/pm/reconcile-service');
 const pmApprovalsService = require('../services/pm/approvals-service');
+const pmAuditService = require('../services/pm/audit-service');
 const { parsePagination } = require('../services/pm/pagination');
 
 module.exports = function createPmRoutes({ db, requireModulePermission, pageEnvelope, uploadPmAttachment, pmAttachmentsDir }) {
@@ -681,6 +682,20 @@ router.get('/api/pm/reports/reconciliation', requireModulePermission(REL, 'view'
   try {
     const drifts = await pmReconcileService.checkTotals(db);
     res.json({ success: true, data: { drifts, count: drifts.length } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// #8: auditoria central do PM — view unificada (task/project/pomodoro events),
+// filtrável e paginada. Gestor-only (mesma permissão dos relatórios).
+// Filtros: source, entityId, actorId, eventType, from, to (+ limit/offset/page).
+router.get('/api/pm/audit', requireModulePermission(REL, 'view'), async (req, res) => {
+  try {
+    const pg = parsePagination(req.query);
+    const { source, entityId, actorId, eventType, from, to } = req.query;
+    const { items, total } = await pmAuditService.queryPmAudit(db, {
+      source, entityId, actorId, eventType, from, to, limit: pg.limit, offset: pg.offset,
+    });
+    res.json({ success: true, data: items, pagination: pageEnvelope(pg, total) });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
