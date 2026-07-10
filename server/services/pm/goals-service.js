@@ -92,14 +92,111 @@ function _status(current, target, period_start, period_end) {
   return { pct, status: 'on_track' };
 }
 
+// ─── Batch (#5) ─────────────────────────────────────────────────────────────
+// As 4 métricas caem em 3 FORMAS de query (tasks / projects / focus). Em vez de
+// 1 query por meta (N sequenciais — pesado p/ admin, que vê todas), agrupamos as
+// metas por forma e computamos cada grupo numa query só, via `unnest` de arrays
+// tipados + `LATERAL` correlacionado por meta. Cada bloco SQL ESPELHA 1:1 o
+// `_metricValue` acima (mesma condição de escopo, mesmo FILTER de período/status).
+// unnest com arrays tipados evita a inferência frágil de tipos do VALUES.
+
+const _SHAPE = (metric) =>
+  (metric === 'tasks_completed' || metric === 'on_time_pct') ? 'tasks'
+  : metric === 'projects_completed' ? 'projects'
+  : 'focus';
+
+// Colunas comuns do unnest: goal_id, scope, target_user_id, period_start, period_end.
+const _UNNEST = `unnest($1::text[], $2::text[], $3::text[], $4::date[], $5::date[])
+                   AS gv(goal_id, scope, target_user_id, period_start, period_end)`;
+
+const _SQL = {
+  tasks: `
+    SELECT gv.goal_id, COALESCE(agg.completed, 0) AS completed, COALESCE(agg.on_time, 0) AS on_time
+      FROM ${_UNNEST}
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE tk.status='completed'
+                             AND tk.completed_at::date BETWEEN gv.period_start AND gv.period_end) AS completed,
+          COUNT(*) FILTER (WHERE tk.status='completed'
+                             AND tk.completed_at::date BETWEEN gv.period_start AND gv.period_end
+                             AND (tk.due_date IS NULL OR tk.completed_at::date <= tk.due_date))   AS on_time
+          FROM project_tasks tk JOIN projects p ON p.id = tk.project_id
+         WHERE ((gv.scope='self' OR gv.scope='user') AND tk.assignee_user_id = gv.target_user_id)
+            OR (gv.scope='team'   AND p.manager_user_id = gv.target_user_id)
+            OR (gv.scope='global')
+      ) agg ON true`,
+  projects: `
+    SELECT gv.goal_id, COALESCE(agg.n, 0) AS n
+      FROM ${_UNNEST}
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS n FROM projects p
+         WHERE p.status='concluido'
+           AND p.completed_at::date BETWEEN gv.period_start AND gv.period_end
+           AND (gv.scope='global' OR p.manager_user_id = gv.target_user_id)
+      ) agg ON true`,
+  focus: `
+    SELECT gv.goal_id, COALESCE(agg.m, 0) AS m
+      FROM ${_UNNEST}
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(s.total_minutes_worked),0) AS m FROM pomodoro_daily_stats s
+         WHERE s.day BETWEEN gv.period_start AND gv.period_end
+           AND ( ((gv.scope='self' OR gv.scope='user') AND s.user_id = gv.target_user_id)
+              OR (gv.scope='team' AND s.user_id IN (
+                    SELECT DISTINCT tk.assignee_user_id FROM project_tasks tk JOIN projects p ON p.id=tk.project_id
+                     WHERE p.manager_user_id = gv.target_user_id AND tk.assignee_user_id IS NOT NULL))
+              OR (gv.scope='global') )
+      ) agg ON true`,
+};
+
+// Arrays paralelos p/ o unnest, a partir de um grupo de metas.
+function _unnestParams(goals) {
+  return [
+    goals.map(g => g.id),
+    goals.map(g => g.scope),
+    goals.map(g => g.target_user_id ?? null),
+    goals.map(g => String(g.period_start).slice(0, 10)),
+    goals.map(g => String(g.period_end).slice(0, 10)),
+  ];
+}
+
+// Calcula o valor atual de TODAS as metas em ≤3 queries (uma por forma presente).
+// Retorna Map goalId → current.
+async function _metricValuesBatch(db, rows) {
+  const byShape = { tasks: [], projects: [], focus: [] };
+  for (const g of rows) byShape[_SHAPE(g.metric)].push(g);
+
+  const values = new Map();
+
+  await Promise.all(Object.entries(byShape).map(async ([shape, goals]) => {
+    if (!goals.length) return;
+    const r = await db.pool.query(_SQL[shape], _unnestParams(goals));
+    const byId = new Map(r.rows.map(x => [x.goal_id, x]));
+    for (const g of goals) {
+      const row = byId.get(g.id);
+      if (shape === 'tasks') {
+        const completed = Number(row?.completed || 0), onTime = Number(row?.on_time || 0);
+        values.set(g.id, g.metric === 'tasks_completed'
+          ? completed
+          : (completed ? Math.round((onTime / completed) * 100) : 0));
+      } else if (shape === 'projects') {
+        values.set(g.id, Number(row?.n || 0));
+      } else {
+        values.set(g.id, Number(row?.m || 0));
+      }
+    }
+  }));
+
+  return values;
+}
+
 async function _withProgress(db, rows) {
-  const out = [];
-  for (const g of rows) {
-    const current = await _metricValue(db, g);
+  if (!rows.length) return [];
+  const values = await _metricValuesBatch(db, rows);
+  return rows.map(g => {
+    const current = values.get(g.id) ?? 0;
     const { pct, status } = _status(current, g.target, g.period_start, g.period_end);
-    out.push({ ...g, target: Number(g.target), current, pct, status });
-  }
-  return out;
+    return { ...g, target: Number(g.target), current, pct, status };
+  });
 }
 
 // Metas que o usuário pode VER: admin/superadmin veem todas; demais veem as que
@@ -205,4 +302,9 @@ async function deleteGoal(db, actor, goalId) {
   return true;
 }
 
-module.exports = { listGoals, createGoal, updateGoal, deleteGoal, METRICS, PERIODS, SCOPES };
+module.exports = {
+  listGoals, createGoal, updateGoal, deleteGoal, METRICS, PERIODS, SCOPES,
+  // exportados p/ teste + prova de equivalência (#5): _metricValue é a referência
+  // per-meta; _metricValuesBatch é o cálculo em lote que deve produzir o mesmo valor.
+  _metricValue, _metricValuesBatch, _SHAPE,
+};
