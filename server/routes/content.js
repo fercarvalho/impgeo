@@ -10,6 +10,9 @@
 
 const express = require('express');
 const sanitizeHtml = require('sanitize-html');
+// #3 (fix): require desestruturado do server.js que passou batido na extração
+// (rodada 3) — usado nas rotas legais (consentimento/termos/política/cookies).
+const { logAudit, AUDIT_OPERATIONS } = require('../utils/audit');
 
 module.exports = function createContentRoutes({ db, authenticateToken, requireAdmin, requireSuperAdmin, optionalAuth, logActivity }) {
   const router = express.Router();

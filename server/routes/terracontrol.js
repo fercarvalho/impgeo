@@ -24,6 +24,9 @@ const requireTerraControlAccess = require('../auth/require-terracontrol-access')
 const tcAuth = require('../auth/tc-auth');
 const push = require('../services/push');
 const pushDispatcher = require('../services/push-dispatcher');
+// #3 (fix): require desestruturado do server.js que passou batido na extração
+// (rodada 4) — emails de registro TC aprovado/editado ao dono.
+const { enviarEmailTcRegistroAprovado, enviarEmailTcRegistroEditado } = require('../services/email');
 
 module.exports = function createTerraControlRoutes({
   db, authenticateToken, optionalAuth, budgetService, budgetDispatcher,

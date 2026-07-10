@@ -20,6 +20,9 @@ const tcAuth = require('../auth/tc-auth');
 const abacatepay = require('../services/abacatepay');
 const push = require('../services/push');
 const pushDispatcher = require('../services/push-dispatcher');
+// #3 (fix): require desestruturado do server.js que passou batido na extração
+// (rodada 5) — notificações por email ao dono do registro TC (criado/editado).
+const { enviarEmailImpgeoTcRecordCriado, enviarEmailImpgeoTcRecordEditado } = require('../services/email');
 
 module.exports = function createTcAuthRoutes({
   db, budgetService, budgetDispatcher,

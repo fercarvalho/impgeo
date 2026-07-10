@@ -17,6 +17,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const push = require('../services/push');
+// #3 (fix): require desestruturado do server.js que passou batido na extração
+// (rodada 12) — usado na importação de extrato bancário.
+const { parseExtrato } = require('../services/extratoParser');
 
 module.exports = function createImportExportRoutes({
   db, authenticateToken, applyRulesAndPersist, logActivity, upload, uploadMemory,

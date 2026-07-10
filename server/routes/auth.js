@@ -16,6 +16,11 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const tcAuth = require('../auth/tc-auth');
+// #3 (fix): estes vinham de require desestruturado no server.js e passaram batido
+// na extração (rodada 11) — usados no login/recuperação de senha.
+const { createRefreshToken } = require('../utils/refresh-tokens');
+const { createSession } = require('../utils/session-manager');
+const { enviarEmailRecuperacao } = require('../services/email');
 
 module.exports = function createAuthRoutes({
   db, authenticateToken, JWT_SECRET, PASSWORD_RESET_TOKEN_TTL_MINUTES,

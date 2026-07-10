@@ -12,6 +12,11 @@
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
+// #3 (fix): vinham de require desestruturado no server.js e passaram batido na
+// extração (rodada 13) — usados em refresh/logout/sessions/impersonation.
+const { logAudit, AUDIT_OPERATIONS, AUDIT_STATUS } = require('../utils/audit');
+const { getAllSessions, revokeSession, revokeAllUserSessions, revokeSessionByRefreshTokenId } = require('../utils/session-manager');
+const { verifyRefreshToken, rotateRefreshToken } = require('../utils/refresh-tokens');
 
 module.exports = function createSessionsRoutes({
   db, authenticateToken, JWT_SECRET, requireAdmin, requireSuperAdmin,
