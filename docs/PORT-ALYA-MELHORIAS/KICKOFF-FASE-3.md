@@ -57,6 +57,12 @@ e aprovação.
 - [ ] IMPGEO presente em `/Users/fernandocarvalho/impgeo` (para os `git show`).
 - [ ] `docs/PORT-ALYA-MELHORIAS/` copiado pra dentro do Alya (recomendado — nasce versionado junto):
       `cp -R /Users/fernandocarvalho/impgeo/docs/PORT-ALYA-MELHORIAS /Users/fernandocarvalho/alya/docs/`
+- [ ] ⚠️ **O `.gitignore` do Alya ignora `*.md`** (exceção só pro `README.md`) — o doc-set copiado
+      seria IGNORADO. Adicionar exceção antes de versionar (append no `.gitignore` do Alya):
+      `!/docs/PORT-ALYA-MELHORIAS/` e `!/docs/PORT-ALYA-MELHORIAS/**`. (Confirmar com
+      `git -C /Users/fernandocarvalho/alya check-ignore docs/PORT-ALYA-MELHORIAS/00-MAPA.md` → não deve retornar nada.)
+- [ ] Lembrete p/ o #1: o Alya também ignora `**/__tests__/` e `**/*.test.*` — a ficha #1 já
+      prevê as exceções (`!/server/**/__tests__/` etc.), como foi no IMPGEO.
 - [ ] Confirmar o processo PM2 e o comando de deploy do Alya (ver `server/ecosystem.config.js`) e
       atualizar `_DELTAS-ALYA.md §1` se necessário.
 
