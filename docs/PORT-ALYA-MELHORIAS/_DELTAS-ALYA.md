@@ -23,6 +23,7 @@
 ## 2. Migrations (diferença crítica)
 - **Nome COM espaço:** Alya usa `NNN - NOME.sql` (ex.: `042 - PAGINACAO.sql`), IMPGEO usa `NNN-NOME.sql`. Rollback: `NNN - NOME-rollback.sql`.
 - **Próximo número no Alya = `042`** (máx. atual = 041). *(Reconferir com `ls server/migrations` antes de criar.)*
+- ⚠️ **Numeração é sequencial e global — `042` é de quem chegar primeiro.** Três itens que criam migration (#11, #8, #10·14) trazem `042` no frontmatter como "próximo disponível na época". Ao implementar em ordem (00-MAPA: #11 → #8 → … → #10·14), **cada um pega o próximo número livre** (#11=042, #8=043, #10·14=044, etc.). **Sempre rodar `ls server/migrations | tail` antes de criar** e usar o número real — não confie no `042` literal da ficha.
 - **Runner:** Alya tem `server/run-migrations.js` com scripts `migrate:up` / `migrate:status` / `migrate:baseline`. **NÃO** existe `db:migrate:*` nem `server/migrations/runner.js`. Regex do runner: `^(\d+)\s*-\s*(.+)\.sql$` (entende o espaço).
 - ⚠️ **Não** copiar o `runner.js` do IMPGEO verbatim: a regex `^\d{3}-` dele **não casaria** os nomes-com-espaço do Alya. Ver ficha `02-runner-migrations.md` (delta).
 

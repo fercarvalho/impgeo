@@ -76,19 +76,19 @@ O #9 (impersonation httpOnly) **já está feito** no Alya (Fase 1.9). Porém a i
 
 **Verificar:** logar como superadmin, impersonar, clicar em "voltar" → deve retornar 200 e restaurar. Se falhar, o fix é **reordenar** (registrar `/impersonate/stop` antes de `/impersonate/:userId`) — 1 linha. No IMPGEO isso virou inclusive um teste-guarda (`route-ordering.test.js`); vale portar junto com o #1.
 
-## Índice das fichas
-| Ficha | Item | Status doc |
+## Índice das fichas (todas escritas)
+| Ficha | Item | Nota da inspeção (Fase 2) |
 |---|---|---|
-| [12-paginacao.md](12-paginacao.md) | #12 Paginação | ✅ escrita (piloto) |
-| 01-testes-ci.md | #1 | ⏳ |
-| 02-runner-migrations.md | #2 (delta) | ⏳ |
-| 03-modularizar-server.md | #3 | ⏳ |
-| 04-task-authz.md | #4 | ⏳ |
-| 05-metas-batch.md | #5 | ⏳ |
-| 06-sync-points.md | #6 | ⏳ |
-| 07-notif-defaults.md | #7 | ⏳ |
-| 08-auditoria-pm.md | #8 | ⏳ |
-| 10-14-reconciliacao.md | #10·14 | ⏳ |
-| 11-central-aprovacoes.md | #11 | ⏳ |
-| 13-timezone.md | #13 | ⏳ |
-| 15-split-database-pg.md | #15 | ⏳ |
+| [01-testes-ci.md](01-testes-ci.md) | #1 Testes + CI | fundação; services a testar já existem |
+| [02-runner-migrations.md](02-runner-migrations.md) | #2 Runner (delta) | Alya já tem `run-migrations.js` ~70%; falta down + drift |
+| [03-modularizar-server.md](03-modularizar-server.md) | #3 Modularizar server | mais densa (pegadinhas); sem routers TC |
+| [04-task-authz.md](04-task-authz.md) | #4 task-authz | `_canManageTask` em `server.js:7498`, 3 call-sites |
+| [05-metas-batch.md](05-metas-batch.md) | #5 Metas em lote | loop N-queries confirmado; SQLs batem 1:1 |
+| [06-sync-points.md](06-sync-points.md) | #6 Sync points | Alya **não tem** `getDefaultModulesCatalog` → autoria, não extração |
+| [07-notif-defaults.md](07-notif-defaults.md) | #7 Notif defaults | **metade já feita** (migration 036 + cache); só falta write/UI |
+| [08-auditoria-pm.md](08-auditoria-pm.md) | #8 Auditoria PM | view sobre `task/project/pomodoro_events` (não `audit_logs`) |
+| [10-14-reconciliacao.md](10-14-reconciliacao.md) | #10·14 Reconciliação | recalc já existe (migration 034) → view 1:1 |
+| [11-central-aprovacoes.md](11-central-aprovacoes.md) | #11 Central Aprovações | `depends_on:[12]` duro; 5 pontos de registro (sem catálogo) |
+| [12-paginacao.md](12-paginacao.md) | #12 Paginação | ✅ piloto |
+| [13-timezone.md](13-timezone.md) | #13 Timezone | `utils/` já existe; 4 usos hardcoded |
+| [15-split-database-pg.md](15-split-database-pg.md) | #15 Split database-pg | `extends FileDatabase`, ~215 métodos (guarda "215-like") |
