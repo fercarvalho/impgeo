@@ -1,0 +1,22 @@
+{
+  "_comment": "Estado machine-readable do port IMPGEO -> Alya. Um agente orquestrador escolhe o proximo item ELEGIVEL = status 'pending' com todos os depends_on em 'done', menor 'order'. Ao concluir um item no Alya, atualiza status->'done' e ported_commit. status: pending | in_progress | done | na.",
+  "target": "alya",
+  "source": "impgeo",
+  "updated_at": null,
+  "items": {
+    "1":  {"titulo": "Testes versionados + CI",          "categoria": "infra",     "portabilidade": "replicar", "order": 1,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "2":  {"titulo": "Runner de migrations (delta)",       "categoria": "infra",     "portabilidade": "delta",    "order": 2,  "depends_on": [],   "status": "pending", "ported_commit": null, "nota": "Alya ja tem run-migrations.js (~70%); falta down + drift/checksum"},
+    "13": {"titulo": "Timezone configuravel",              "categoria": "infra",     "portabilidade": "replicar", "order": 3,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "6":  {"titulo": "3 sync points (manifest<->catalogo)","categoria": "infra",     "portabilidade": "replicar", "order": 4,  "depends_on": [1],  "status": "pending", "ported_commit": null},
+    "7":  {"titulo": "Defaults de notificacao em tabela",  "categoria": "infra",     "portabilidade": "replicar", "order": 5,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "12": {"titulo": "Paginacao nas listas de tarefas/filas","categoria": "pm",      "portabilidade": "replicar", "order": 6,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "11": {"titulo": "Central de Aprovacoes",             "categoria": "pm",        "portabilidade": "replicar", "order": 7,  "depends_on": [12], "status": "pending", "ported_commit": null},
+    "8":  {"titulo": "Auditoria central do PM",           "categoria": "pm",        "portabilidade": "replicar", "order": 8,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "4":  {"titulo": "task-authz (canActOnTask/canAssignTo)","categoria": "pm",      "portabilidade": "replicar", "order": 9,  "depends_on": [],   "status": "pending", "ported_commit": null},
+    "5":  {"titulo": "Progresso de metas em lote",        "categoria": "pm",        "portabilidade": "replicar", "order": 10, "depends_on": [],   "status": "pending", "ported_commit": null},
+    "10-14": {"titulo": "Reconciliacao de totais + health","categoria": "pm",       "portabilidade": "replicar", "order": 11, "depends_on": [2],  "status": "pending", "ported_commit": null},
+    "3":  {"titulo": "Modularizar server.js (routers)",   "categoria": "infra",     "portabilidade": "replicar", "order": 12, "depends_on": [],   "status": "pending", "ported_commit": null, "nota": "Depois das features p/ nao conflitar em server.js; SEM routers TC"},
+    "15": {"titulo": "Split database-pg.js (mixin)",      "categoria": "infra",     "portabilidade": "replicar", "order": 13, "depends_on": [1],  "status": "pending", "ported_commit": null, "nota": "Por ultimo; SEM dominios TC (terracontrol/budget/tc-users/push-prefs)"},
+    "9":  {"titulo": "Impersonation httpOnly",            "categoria": "seguranca", "portabilidade": "na",       "order": 0,  "depends_on": [],   "status": "na",      "ported_commit": null, "reason": "Ja feito no Alya (Fase 1.9). Ver 00-MAPA: verificar so a ordem de rotas /impersonate/:userId vs /stop"}
+  }
+}
