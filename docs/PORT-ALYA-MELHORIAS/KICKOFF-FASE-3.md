@@ -3,68 +3,80 @@
 > **Como usar:** abra uma sessão nova **com o diretório de trabalho no repo do Alya**
 > (`/Users/fernandocarvalho/alya`), garanta que o repo do IMPGEO
 > (`/Users/fernandocarvalho/impgeo`) também está no disco (as fichas fazem `git show`
-> nele), e **cole o bloco abaixo como primeira mensagem**. Faça **um item por vez**
-> — o `port-state.json` permite retomar entre sessões.
+> nele), e **cole o bloco "Prompt" abaixo como primeira mensagem**. O próprio prompt faz
+> o setup (copiar o doc-set + corrigir o `.gitignore`). Trabalhe **um item por vez** — o
+> `port-state.json` permite retomar entre sessões.
+>
+> Este arquivo é a **fonte única** do prompt de kickoff. Se ajustar o nível de autonomia,
+> edite o bloco abaixo.
 
 ---
 
-## Prompt para colar (primeira mensagem da sessão do Alya)
+## Prompt (cole como primeira mensagem da sessão do Alya)
 
 ```
-Contexto: este repo (Alya) vai receber, uma a uma, as melhorias técnicas já feitas
-no IMPGEO. A documentação de port está em docs/PORT-ALYA-MELHORIAS/ (copie de
-/Users/fernandocarvalho/impgeo/docs/PORT-ALYA-MELHORIAS/ se ainda não estiver aqui).
-O repo do IMPGEO está em /Users/fernandocarvalho/impgeo e é a fonte de referência
-(as fichas apontam commits reais via `git -C /Users/fernandocarvalho/impgeo show <sha>`).
+Você vai implementar, NESTE repo (Alya), as melhorias técnicas já feitas no IMPGEO,
+guiado por um doc-set de port. Trabalhe UM ITEM POR VEZ, com plano e minha aprovação
+antes de cada implementação.
 
-Como trabalhar (NÃO leia as 13 fichas de uma vez):
-1. Leia a tríade de orientação: docs/PORT-ALYA-MELHORIAS/00-MAPA.md,
-   _DELTAS-ALYA.md e port-state.json.
-2. Escolha o próximo item ELEGÍVEL no port-state.json: status "pending" com todos
-   os depends_on em "done", menor "order". (Comece pelo #1 — testes+CI, a fundação.)
-3. Abra SÓ a ficha daquele item (NN-<slug>.md). Rode o bloco "Pré-condições no Alya"
-   — se falhar, pare e me reporte (não porte às cegas).
-4. Antes de implementar, entre em PLANO e me mostre o plano do item. Só depois de eu
-   aprovar, implemente lendo os diffs reais do IMPGEO + aplicando os deltas do Alya.
-5. Verifique com o portão da ficha (node -c, boot, testes/smoke). Só siga se passar.
-6. Ao concluir: atualize o item para "done" + ported_commit no port-state.json, e me
-   entregue o commit. Depois seguimos pro próximo item.
+CONTEXTO E FONTES
+- Repo de referência (só leitura): IMPGEO em /Users/fernandocarvalho/impgeo. As fichas
+  apontam commits reais dele via `git -C /Users/fernandocarvalho/impgeo show <sha>`.
+- Doc-set de port: docs/PORT-ALYA-MELHORIAS/ (13 fichas + 00-MAPA + _DELTAS-ALYA +
+  port-state.json). É o mapa da implementação.
 
-Regras de processo (valem em TODAS as entregas — o Alya não herda as memórias do IMPGEO):
-- COMMITS: devolva SEMPRE em DOIS blocos shell separados — um `git add` e um
-  `git commit` — PRONTOS, mas NUNCA execute o commit (eu executo). Lista de arquivos
-  EXPLÍCITA no add (nunca diretório). Mensagem via HEREDOC. SEM rodapé
-  "Co-Authored-By". NUNCA faça `git add` de .claude/.
-- Um commit por GRUPO testável (ou por item), ao fim de cada grupo.
-- BANCO: backup antes de qualquer operação de DB (pg_dump do banco `alya`).
-- PROD/VPS: qualquer mudança em produção vem com passo-a-passo executável, na ordem
-  certa, backup antes e rollback junto. Migrations rodam via `node run-migrations.js`
-  (o runner do Alya; nomes COM espaço, ex.: "042 - NOME.sql").
-- Antes de implementar cada item, PLANO primeiro (me mostre e aguarde aprovação).
+PASSO 0 — SETUP (faça e me reporte antes de seguir)
+1. Se docs/PORT-ALYA-MELHORIAS/ ainda não existir aqui, copie de
+   /Users/fernandocarvalho/impgeo/docs/PORT-ALYA-MELHORIAS e ADICIONE no .gitignore do
+   Alya as exceções `!/docs/PORT-ALYA-MELHORIAS/` e `!/docs/PORT-ALYA-MELHORIAS/**`
+   (senão o *.md é ignorado). Confirme com `git check-ignore docs/PORT-ALYA-MELHORIAS/00-MAPA.md`
+   (não deve retornar nada).
+2. Confirme que o repo do IMPGEO está acessível no disco.
+3. Leia suas memórias de projeto e estude rapidamente a estrutura do Alya (server.js,
+   database-pg.js, services/pm/, src/subsistemas/, manifest.ts) para se situar.
+4. Leia a TRÍADE de orientação: docs/PORT-ALYA-MELHORIAS/00-MAPA.md, _DELTAS-ALYA.md e
+   port-state.json. NÃO leia as 13 fichas de uma vez.
+
+COMO TRABALHAR CADA ITEM (loop)
+a. No port-state.json, escolha o próximo item ELEGÍVEL: status "pending" com todos os
+   depends_on em "done", menor "order". (O primeiro é o #1 — testes+CI.)
+b. Abra SÓ a ficha daquele item e rode o bloco "Pré-condições no Alya". Se falhar, pare
+   e me reporte — não porte às cegas.
+c. Entre em PLANO e me mostre o plano do item. AGUARDE minha aprovação.
+d. Só após aprovado, implemente lendo os diffs reais do IMPGEO + aplicando os deltas do
+   Alya (do _DELTAS-ALYA.md e da §5 da ficha).
+e. Rode o PORTÃO de verificação da ficha (node -c, boot, testes/smoke). Só siga se passar.
+f. Atualize o item para "done" + ported_commit no port-state.json e me entregue o commit.
+   Depois seguimos pro próximo item.
+
+REGRAS DE PROCESSO (valem SEMPRE — o Alya não herda as memórias do IMPGEO)
+- COMMITS: devolva em DOIS blocos shell separados (um `git add`, um `git commit`),
+  PRONTOS mas NUNCA execute o commit (eu executo). Lista de arquivos EXPLÍCITA no add
+  (nunca diretório). Mensagem via HEREDOC. SEM rodapé "Co-Authored-By". NUNCA `git add`
+  de .claude/.
+- Um commit por grupo testável (ou por item).
+- BANCO: backup (pg_dump do banco `alya`) ANTES de qualquer operação de DB. Migrations
+  rodam via `node run-migrations.js` (nomes COM espaço, ex.: "042 - NOME.sql"); confira
+  o próximo número real com `ls server/migrations` antes de criar (não confie no "042"
+  literal das fichas — é sequencial).
+- PROD/VPS: qualquer mudança em produção vem com passo-a-passo executável, ordem certa,
+  backup antes e rollback junto.
+- Antes de implementar cada item: PLANO primeiro, e aguarde minha aprovação.
+- Frontend: reusar componentes-padrão do Alya (Modal etc.) e a paleta amber/orange (NÃO
+  a azul/índigo do IMPGEO).
 - pt-BR, tom técnico e direto, sem resumos finais não solicitados.
-- Frontend: reusar os componentes-padrão do Alya (Modal, etc.) e a paleta amber/orange
-  (não a azul/índigo do IMPGEO).
 
-Comece agora pelo passo 1 (ler a tríade) e me diga qual é o próximo item elegível e o
-que as pré-condições dele acusam. Ainda NÃO implemente — vamos item a item, com plano
-e aprovação.
+COMECE AGORA pelo PASSO 0 (setup + tríade) e me diga: qual é o próximo item elegível e o
+que as pré-condições dele acusam. NÃO implemente ainda — vamos item a item, com plano e
+aprovação.
 ```
 
 ---
 
-## Checklist de abertura (você, humano, antes de colar)
+## Pré-flight (você, humano, antes de colar)
 - [ ] Sessão nova com cwd = `/Users/fernandocarvalho/alya`.
 - [ ] IMPGEO presente em `/Users/fernandocarvalho/impgeo` (para os `git show`).
-- [ ] `docs/PORT-ALYA-MELHORIAS/` copiado pra dentro do Alya (recomendado — nasce versionado junto):
-      `cp -R /Users/fernandocarvalho/impgeo/docs/PORT-ALYA-MELHORIAS /Users/fernandocarvalho/alya/docs/`
-- [ ] ⚠️ **O `.gitignore` do Alya ignora `*.md`** (exceção só pro `README.md`) — o doc-set copiado
-      seria IGNORADO. Adicionar exceção antes de versionar (append no `.gitignore` do Alya):
-      `!/docs/PORT-ALYA-MELHORIAS/` e `!/docs/PORT-ALYA-MELHORIAS/**`. (Confirmar com
-      `git -C /Users/fernandocarvalho/alya check-ignore docs/PORT-ALYA-MELHORIAS/00-MAPA.md` → não deve retornar nada.)
-- [ ] Lembrete p/ o #1: o Alya também ignora `**/__tests__/` e `**/*.test.*` — a ficha #1 já
-      prevê as exceções (`!/server/**/__tests__/` etc.), como foi no IMPGEO.
-- [ ] Confirmar o processo PM2 e o comando de deploy do Alya (ver `server/ecosystem.config.js`) e
-      atualizar `_DELTAS-ALYA.md §1` se necessário.
+- [ ] (O PASSO 0 do prompt já cuida de copiar o doc-set e do `.gitignore` — não precisa fazer à mão.)
 
 ## Ordem sugerida (do 00-MAPA)
 `1 → 2 → 13 → 6 → 7 → 12 → 11 → 8 → 4 → 5 → 10·14 → 3 → 15`
