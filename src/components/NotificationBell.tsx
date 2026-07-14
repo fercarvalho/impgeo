@@ -9,6 +9,7 @@ import {
   getActiveSubscriptionEndpoint,
   getDeniedHelpText,
   type PermissionState,
+  type PushScope,
 } from '@/pwa/push'
 import { usePushBridge } from '@/hooks/usePushBridge'
 
@@ -40,9 +41,16 @@ interface NotificationBellProps {
    * visualmente; ações em massa são genéricas pra evitar N round-trips.
    */
   typeFilter?: (n: Notification) => boolean
+  /**
+   * Qual sessão está ativa — decide o par de endpoints do Web Push.
+   * Em terracontrol.com.br o appId é 'tc-public', mas este sino é usado pela
+   * EQUIPE impgeo (TerraControlAdminShell) → precisa de scope="impgeo", senão
+   * o push cai em /api/tc-auth/push/* e dá 401. Omitido → infere pelo appId.
+   */
+  pushScope?: PushScope
 }
 
-const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
+const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter, pushScope }) => {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -80,7 +88,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
   const handleEnablePush = async () => {
     if (pushBusy) return
     setPushBusy(true); setPushMessage(null)
-    const r = await requestPermissionAndSubscribe()
+    const r = await requestPermissionAndSubscribe({ scope: pushScope })
     if (r.ok) {
       setPushMessage('Notificações ativadas neste dispositivo.')
     } else {
@@ -93,7 +101,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ typeFilter }) => {
   const handleDisablePush = async () => {
     if (pushBusy) return
     setPushBusy(true); setPushMessage(null)
-    const r = await unsubscribePush()
+    const r = await unsubscribePush({ scope: pushScope })
     if (r.ok) {
       setPushMessage('Notificações desativadas neste dispositivo.')
     } else {

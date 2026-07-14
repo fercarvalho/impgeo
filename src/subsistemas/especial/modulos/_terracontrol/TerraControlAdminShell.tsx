@@ -66,7 +66,7 @@ const TerraControlAdminShell: React.FC = () => {
                   TerraControl (tc_*) aparecem aqui. Em admin.terracontrol.*
                   o user impgeo só está olhando contexto TC, não faz sentido
                   ver notif de transação/financeiro nesta tela. */}
-              <NotificationBell typeFilter={n => n.notification_type.startsWith('tc_')} />
+              <NotificationBell pushScope="impgeo" typeFilter={n => n.notification_type.startsWith('tc_')} />
 
               <div ref={menuRef} className="relative">
               <button
@@ -125,7 +125,10 @@ const TerraControlAdminShell: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         <Suspense fallback={null}>
           <div className="mb-6">
-            <PushPermissionBanner />
+            {/* scope="impgeo": aqui é a EQUIPE logada em terracontrol.com.br.
+                O appId do origin é 'tc-public', mas a sessão é impgeo — sem
+                isso o push cai em /api/tc-auth/push/* e dá 401. */}
+            <PushPermissionBanner scope="impgeo" />
           </div>
         </Suspense>
 

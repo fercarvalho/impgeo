@@ -31,7 +31,23 @@ type UnsubscribeResult = UnsubscribeOk | UnsubscribeErr
 // (mesma convenção do TcAuthContext.refreshTcUser).
 export interface PushAuthOpts {
   authHeaders?: Record<string, string>
+  /**
+   * Qual par de endpoints usar — decidido por QUEM está logado, não pelo origin.
+   *
+   * Necessário desde a unificação de domínio: em `terracontrol.com.br` o appId é
+   * sempre 'tc-public', mas o host atende DOIS tipos de sessão (login unificado):
+   *   - cliente (tc_user)      → 'tc'     → /api/tc-auth/push/*  (authenticateTcUser)
+   *   - equipe (user impgeo)   → 'impgeo' → /api/push/*          (cookie accessToken)
+   *
+   * Sem isso, a equipe impgeo no TerraControl caía em /api/tc-auth/push/* e
+   * levava 401 ("Falha ao buscar chave VAPID").
+   *
+   * Omitido → infere pelo appId (comportamento antigo, correto no impgeo).
+   */
+  scope?: PushScope
 }
+
+export type PushScope = 'impgeo' | 'tc'
 
 const IS_IOS = typeof navigator !== 'undefined'
   && /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -67,9 +83,12 @@ export function getCurrentPermissionState(): PermissionState {
 
 // Cada origin tem seu próprio par de endpoints. Centralizar aqui pra evitar
 // strings espalhadas no código de UI.
-function endpointsForCurrentApp() {
+function endpointsForCurrentApp(scope?: PushScope) {
   const appId = getCurrentAppId()
-  const isTc = appId === 'tc-public' // (tc-admin usa auth impgeo, não tc-auth)
+  // `scope` (quem está logado) tem prioridade sobre o appId (qual origin).
+  // Em terracontrol.com.br o appId é sempre 'tc-public', mas a equipe impgeo
+  // que entra pelo login unificado precisa dos endpoints impgeo — ver PushScope.
+  const isTc = scope ? scope === 'tc' : appId === 'tc-public'
   return {
     appId,
     isTc,
@@ -120,7 +139,7 @@ export async function requestPermissionAndSubscribe(opts: PushAuthOpts = {}): Pr
 
     // Busca VAPID public key do backend. credentials:'include' = manda cookies.
     // authHeaders adiciona o Bearer pro tc (TcAuthContext o passa explicitamente).
-    const { vapidKeyUrl, subscribeUrl, appId } = endpointsForCurrentApp()
+    const { vapidKeyUrl, subscribeUrl, appId } = endpointsForCurrentApp(opts.scope)
     const extra = opts.authHeaders || {}
     const vapidResp = await fetch(vapidKeyUrl, { credentials: 'include', headers: extra })
     if (!vapidResp.ok) {
@@ -178,7 +197,7 @@ export async function unsubscribe(opts: PushAuthOpts = {}): Promise<UnsubscribeR
     const subscription = await reg.pushManager.getSubscription()
     if (!subscription) return { ok: true }
 
-    const { subscribeUrl } = endpointsForCurrentApp()
+    const { subscribeUrl } = endpointsForCurrentApp(opts.scope)
     const extra = opts.authHeaders || {}
     // Tenta avisar o backend primeiro — mas se falhar, ainda assim faz
     // unsubscribe local pra não deixar o user travado.

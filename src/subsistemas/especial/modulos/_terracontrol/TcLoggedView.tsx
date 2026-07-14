@@ -404,7 +404,9 @@ const TcLoggedView: React.FC = () => {
                     margem interna; sem este wrapper os 2 ficam grudados). */}
                 <Suspense fallback={null}>
                   <div className="mb-6">
-                    <PushPermissionBanner />
+                    {/* scope="tc": aqui é o CLIENTE (tc_user). Explícito porque
+                        terracontrol.com.br atende os 2 tipos de sessão. */}
+                    <PushPermissionBanner scope="tc" />
                   </div>
                 </Suspense>
                 {/* Banner convidando a instalar o TerraControl como PWA.
