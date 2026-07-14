@@ -328,4 +328,38 @@ top      # CPU
 
 ---
 
+## TerraControl
+
+### Download de arquivo não abre / não baixa (401)
+
+**Sintoma:** dentro do TerraControl (`terracontrol.com.br`), clicar num documento
+(matrícula, ITR, CCIR, CAR, PDF de orçamento) não abre nem baixa o arquivo.
+
+**Causa raiz:** navegação de `<a href>` **não envia header `Authorization`**. O
+wrapper global de `fetch` (`src/main.tsx`) injeta `Bearer` só em chamadas
+`fetch('/api/*')` — um clique em link é navegação, não passa por ali.
+
+Como a sessão do tc_user migrou para o **cookie httpOnly `tcAccessToken`**
+(PR #2 / PWA), o `tcToken` no frontend virou apenas **cache em memória** (vem do
+`/refresh`). Links montados como `href={`${url}?tcAuth=${tcToken}`}` saem com a
+query **vazia** enquanto o refresh não resolve (reload, cold start de PWA) → a
+rota não acha token → **401**.
+
+**Correção aplicada:** `GET /api/documents/:filename`
+(`server/routes/terracontrol.js`) passou a usar `tcAuth.extractTcAccessToken(req)`
+— o mesmo extractor do `authenticateTcUser`, que lê **header Bearer → cookie
+`tcAccessToken`** — mantendo `?tcAuth=` só como fallback legado. Assim o cookie
+que o browser já manda na navegação same-origin resolve a auth.
+
+**Se um download novo der 401, cheque nesta ordem:**
+1. A rota lê o **cookie** (e não só header/query)?
+2. `resolveTcCookieDomain` cobre o host? (deve devolver `.terracontrol.com.br`)
+3. O `<a href>` está dependendo de token que só existe **em memória**?
+
+> Regra geral: **toda rota servida via `<a href>`/iframe precisa aceitar cookie.**
+> Os 3 caminhos de auth de `/api/documents/:filename` são: `req.user` (sessão
+> impgeo) → JWT do tc_user (header/cookie/query + ACL) → share token público.
+
+---
+
 *Última atualização: 2026-03-22*

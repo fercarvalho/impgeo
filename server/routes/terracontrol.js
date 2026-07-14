@@ -803,24 +803,29 @@ router.get('/api/documents/:filename', optionalAuth, async (req, res) => {
   // registro que contém esse arquivo. Cache curto (5 min) — se admin revogar
   // o acesso, o PDF para de aparecer rapidamente.
   //
-  // Aceita o JWT em DUAS fontes (header pra fetch() programático, query string
-  // pra <a href> / iframe — sem header não dá pra usar Bearer em <a>):
-  //   - Header: Authorization: Bearer <jwt>
-  //   - Query:  ?tcAuth=<jwt>
-  // Header tem precedência sobre query. O JWT na URL é considerado aceitável
-  // porque (a) o access token tem vida curta (15 min) e (b) HTTPS encripta a
-  // URL no transit. Logs de proxy podem capturar, mas o cost-benefit favorece
-  // a UX de downloads diretos via <a>.
-  let tcTokenStr = '';
-  const tcAuthHeader = req.headers['authorization'];
-  if (tcAuthHeader && tcAuthHeader.startsWith('Bearer ')) {
-    tcTokenStr = tcAuthHeader.split(' ')[1] || '';
-  } else if (req.query.tcAuth) {
+  // Aceita o JWT em TRÊS fontes, nesta ordem:
+  //   1. Header: Authorization: Bearer <jwt>   (fetch() programático)
+  //   2. Cookie httpOnly `tcAccessToken`       (navegação <a href> / iframe)
+  //   3. Query:  ?tcAuth=<jwt>                 (legado / links já emitidos)
+  //
+  // (1) e (2) vêm de extractTcAccessToken — o MESMO extractor usado pelo
+  // authenticateTcUser, então esta rota passa a seguir a mesma fonte de verdade
+  // da sessão tc_user (que migrou pra cookie httpOnly no PR #2 / PWA).
+  //
+  // Por que o cookie é essencial aqui: <a href> NÃO manda header Authorization.
+  // Com o token vivendo só em memória no client (cache do /refresh), o link
+  // `?tcAuth=${tcToken}` saía vazio em reload/PWA e o download dava 401 — o
+  // cookie, que o browser já manda na navegação same-origin, resolve isso.
+  //
+  // A query segue aceita por compatibilidade (links antigos). O JWT na URL é
+  // tolerável porque o access token expira em 15 min e HTTPS encripta a URL,
+  // mas o caminho preferido agora é o cookie.
+  let tcTokenStr = tcAuth.extractTcAccessToken(req) || '';
+  if (!tcTokenStr && req.query.tcAuth) {
     tcTokenStr = String(req.query.tcAuth).trim();
   }
   if (tcTokenStr && tcTokenStr.length > 10) {
     try {
-      const tcAuth = require('../auth/tc-auth');
       const payload = tcAuth.verifyAccessToken(tcTokenStr);
       if (payload && payload.aud === tcAuth.JWT_AUDIENCE) {
         // PDFs de orçamento (migration 040): nome `budget-<id>-v<N>.pdf`.
