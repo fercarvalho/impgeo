@@ -137,37 +137,45 @@ const PwaInstallBanner: React.FC = () => {
 
   return (
     <>
+      {/* Mobile (tela estreita/vertical): empilha — texto em cima, ações embaixo.
+          sm+: tudo numa linha só. Mesmo tratamento do PushPermissionBanner: numa
+          linha única o botão não encolhe e espreme o texto em telas de celular.
+          Com o botão em linha própria, cabe o rótulo COMPLETO no mobile (antes
+          era truncado pra "Instalar"). */}
       <div
-        className="mb-6 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 px-4 py-3 sm:px-5 sm:py-4 flex items-start gap-3 sm:gap-4 shadow-sm"
+        className="mb-6 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 px-4 py-3 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shadow-sm"
         role="region"
         aria-label="Convite para instalar o aplicativo"
       >
-        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center">
-          <Download className="w-5 h-5" />
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center">
+            <Download className="w-5 h-5" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
+              Instale o {appName} como aplicativo
+            </p>
+            <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              Acesso rápido pela tela inicial, abre em janela própria e funciona melhor offline.
+            </p>
+          </div>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
-            Instale o {appName} como aplicativo
-          </p>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-            Acesso rápido pela tela inicial, abre em janela própria e funciona melhor offline.
-          </p>
-        </div>
-
-        <div className="flex-shrink-0 flex items-center gap-2">
+        {/* Ações: no mobile viram uma linha própria (botão ocupa a largura);
+            no sm+ ficam à direita do texto. */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={handleClick}
             disabled={!programmaticReady}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium shadow-sm transition-colors"
+            className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium shadow-sm transition-colors whitespace-nowrap"
           >
             {button.icon}
-            <span className="hidden sm:inline">{programmaticReady ? button.label : 'Preparando…'}</span>
-            <span className="sm:hidden">{programmaticReady ? 'Instalar' : '…'}</span>
+            <span>{programmaticReady ? button.label : 'Preparando…'}</span>
           </button>
           <button
             onClick={handleDismiss}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-white/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/60"
+            className="flex-shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-white/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/60"
             aria-label="Dispensar por 7 dias"
             title="Dispensar por 7 dias"
           >
