@@ -865,22 +865,32 @@ const TerraControlView: React.FC<Props> = (props) => {
               placeholder="Buscar por imóvel, município ou código..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
+              className="w-full pl-9 pr-3 sm:pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
+            <span className="hidden sm:block absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
               bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
               Mostrando {sortedRecords.length}/{records.length} Resultados
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+
+          {/* Contador no mobile: dentro do input o texto é mais largo que o
+              padding reservado (pr-44) e cobria o placeholder. Aqui vira linha
+              própria; no sm+ volta pra dentro do input. */}
+          <span className="sm:hidden self-start text-xs font-semibold tabular-nums whitespace-nowrap px-1.5 py-0.5 rounded-lg bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
+            {sortedRecords.length}/{records.length} resultados
+          </span>
+
+          {/* No mobile Ordenar estica e o botão de direção fica ao lado; antes
+              era shrink-0 em tudo e o botão vazava pra fora do card. */}
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:shrink-0">
             <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-600" />
-            <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+            <div className="flex flex-1 min-w-0 sm:flex-none items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
               <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
               <select
                 id="sort-select"
                 value={sortField}
                 onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
-                className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+                className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
               >
                 <option value="codImovel">Código</option>
                 <option value="imovel">Imóvel</option>
@@ -897,7 +907,7 @@ const TerraControlView: React.FC<Props> = (props) => {
             <button
               onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
               aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
             </button>

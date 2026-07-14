@@ -1652,52 +1652,63 @@ const TerraControl: React.FC = () => {
 
       {/* Busca + Ordenação + Seleção */}
       <div className="flex flex-col sm:flex-row gap-2 bg-white dark:!bg-[#243040] rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2 shrink-0">
-          <input
-            type="checkbox"
-            onChange={handleSelectAll}
-            checked={sortedRecords.length > 0 && sortedRecords.every(a => selectedItems.has(a.id))}
-            // G5.3 — quando busca está ativa, o checkbox opera apenas sobre o
-            // filtrado visível. Antes só dizia "Selecionar todos" e confundia
-            // o usuário (parecia selecionar todos os 100, marcava só os 10 visíveis).
-            title={
-              searchTerm
-                ? `Selecionar/desmarcar os ${sortedRecords.length} registros visíveis (do filtro "${searchTerm}")`
-                : `Selecionar/desmarcar todos os ${sortedRecords.length} registros`
-            }
-            className="rounded border-gray-300 dark:border-gray-600"
-          />
-          {selectedItems.size > 0 && (
-            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
-              {selectedItems.size} selecionado{selectedItems.size !== 1 ? 's' : ''}
-              {searchTerm && selectedItems.size < records.length && (
-                <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
-                  (de {records.length})
-                </span>
-              )}
-            </span>
-          )}
-          {/* G6.3 — botão textual ao lado do checkbox torna a ação óbvia.
-              Antes só havia o checkbox e o tooltip; muitos usuários nem
-              percebiam que dava pra selecionar tudo. */}
-          {selectedItems.size === 0 ? (
-            <button
-              type="button"
-              onClick={() => setSelectedItems(new Set(sortedRecords.map(r => r.id)))}
-              disabled={sortedRecords.length === 0}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap disabled:text-gray-400 dark:disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-            >
-              {searchTerm ? `Selecionar visíveis (${sortedRecords.length})` : 'Selecionar todos'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setSelectedItems(new Set())}
-              className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:underline whitespace-nowrap"
-            >
-              Limpar seleção
-            </button>
-          )}
+        {/* No mobile esta linha também abriga o contador de resultados (que não
+            cabe dentro do input) e pode quebrar em duas se a seleção estiver ativa. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 sm:flex-nowrap sm:justify-start sm:shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <input
+              type="checkbox"
+              onChange={handleSelectAll}
+              checked={sortedRecords.length > 0 && sortedRecords.every(a => selectedItems.has(a.id))}
+              // G5.3 — quando busca está ativa, o checkbox opera apenas sobre o
+              // filtrado visível. Antes só dizia "Selecionar todos" e confundia
+              // o usuário (parecia selecionar todos os 100, marcava só os 10 visíveis).
+              title={
+                searchTerm
+                  ? `Selecionar/desmarcar os ${sortedRecords.length} registros visíveis (do filtro "${searchTerm}")`
+                  : `Selecionar/desmarcar todos os ${sortedRecords.length} registros`
+              }
+              className="rounded border-gray-300 dark:border-gray-600 shrink-0"
+            />
+            {selectedItems.size > 0 && (
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                {selectedItems.size} selecionado{selectedItems.size !== 1 ? 's' : ''}
+                {searchTerm && selectedItems.size < records.length && (
+                  <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
+                    (de {records.length})
+                  </span>
+                )}
+              </span>
+            )}
+            {/* G6.3 — botão textual ao lado do checkbox torna a ação óbvia.
+                Antes só havia o checkbox e o tooltip; muitos usuários nem
+                percebiam que dava pra selecionar tudo. */}
+            {selectedItems.size === 0 ? (
+              <button
+                type="button"
+                onClick={() => setSelectedItems(new Set(sortedRecords.map(r => r.id)))}
+                disabled={sortedRecords.length === 0}
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap disabled:text-gray-400 dark:disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+              >
+                {searchTerm ? `Selecionar visíveis (${sortedRecords.length})` : 'Selecionar todos'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSelectedItems(new Set())}
+                className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:underline whitespace-nowrap"
+              >
+                Limpar seleção
+              </button>
+            )}
+          </div>
+
+          {/* Contador no mobile: o texto é mais largo que o padding reservado no
+              input (pr-44) e acabava cobrindo o placeholder. Aqui ele ocupa o
+              espaço livre desta linha; no sm+ volta pra dentro do input. */}
+          <span className="sm:hidden shrink-0 text-xs font-semibold tabular-nums whitespace-nowrap px-1.5 py-0.5 rounded-lg bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
+            {sortedRecords.length}/{records.length} resultados
+          </span>
         </div>
         <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4" />
@@ -1706,35 +1717,38 @@ const TerraControl: React.FC = () => {
             placeholder="Buscar por imóvel, município ou código..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
+            className="w-full pl-9 pr-3 sm:pr-44 py-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-gray-100 dark:placeholder-gray-400 transition-all"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
+          <span className="hidden sm:block absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums pointer-events-none select-none whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors
             bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
             Mostrando {sortedRecords.length}/{records.length} Resultados
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        {/* No mobile: Status e Ordenar dividem uma linha e o botão de direção
+            cai numa própria. Antes era uma linha só com shrink-0 em tudo — não
+            cabia em 390px e o botão vazava pra fora do card. */}
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:shrink-0">
           <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-600" />
           {/* F: filtro por status de aprovação */}
-          <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+          <div className="flex flex-1 min-w-0 sm:flex-none items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
             <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Status</span>
             <select
               value={approvalFilter}
               onChange={e => setApprovalFilter(e.target.value as any)}
-              className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+              className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
             >
               <option value="all">Todos</option>
               <option value="pendentes">Pendentes</option>
               <option value="aprovados">Aprovados</option>
             </select>
           </div>
-          <div className="flex items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+          <div className="flex flex-1 min-w-0 sm:flex-none items-center gap-1.5 bg-gray-50 dark:!bg-[#1e2d3e] border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
             <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap uppercase tracking-wide">Ordenar</span>
             <select
               id="sort-select-record"
               value={sortField}
               onChange={e => { setSortField(e.target.value as SortField); setSortDirection('asc') }}
-              className="text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
+              className="flex-1 min-w-0 text-sm bg-transparent border-0 text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer font-medium"
             >
               <option value="codImovel">Código</option>
               <option value="imovel">Imóvel</option>
@@ -1751,7 +1765,7 @@ const TerraControl: React.FC = () => {
           <button
             onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
             aria-label={sortDirection === 'asc' ? 'Ordem crescente — clique para decrescente' : 'Ordem decrescente — clique para crescente'}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+            className="w-full justify-center sm:w-auto flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
           >
             {sortDirection === 'asc' ? '↑ Cresc.' : '↓ Decresc.'}
           </button>
