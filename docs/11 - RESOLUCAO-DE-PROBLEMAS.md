@@ -330,10 +330,40 @@ top      # CPU
 
 ## TerraControl
 
-### Download de arquivo não abre / não baixa (401)
+### Download de arquivo não abre / não baixa
 
 **Sintoma:** dentro do TerraControl (`terracontrol.com.br`), clicar num documento
 (matrícula, ITR, CCIR, CAR, PDF de orçamento) não abre nem baixa o arquivo.
+
+Foram **duas causas independentes**, empilhadas. A do Service Worker é a que
+mantinha o bug vivo depois do fix de cookie — comece por ela.
+
+#### Causa 1 (a que quebrava de fato): o Service Worker devolvia o app shell
+
+`public/sw.js` checa `request.mode === 'navigate'` **antes** de filtrar `/api/`, e
+`handleNavigation` devolve o `/index.html` pré-cacheado **sem olhar a URL**
+(app-shell cache-first, introduzido no fix do "abrir duas vezes"). Clicar num
+`<a href="/api/documents/x.pdf">` é navegação → o SW respondia com **o app**
+(HTML, status 200) → a SPA renderizava numa rota inexistente → nada acontecia.
+
+⚠️ **Não era 401 — era 200 com `Content-Type: text/html`.** Testar com `curl`
+**engana**: curl não passa por Service Worker e mostra o backend respondendo certo.
+Diagnóstico correto: DevTools → Network → o request aparece servido *from
+ServiceWorker* com Content-Type de HTML.
+
+**Correção aplicada:** bypass explícito antes do handler de navegação —
+
+```js
+if (request.mode === 'navigate' && url.pathname.startsWith('/api/')) {
+  return; // sem respondWith → browser faz o request nativo, com cookies
+}
+```
+
+Como `API_BASE_URL = '/api'`, **tudo que o backend serve está sob `/api/`**
+(inclusive `/api/modelo/*` e `/api/avatars`), então o prefixo único cobre todos os
+casos. Mesmo fix aplicado no alya (tinha a regressão latente).
+
+#### Causa 2 (real, mas insuficiente sozinha): auth via cookie na rota
 
 **Causa raiz:** navegação de `<a href>` **não envia header `Authorization`**. O
 wrapper global de `fetch` (`src/main.tsx`) injeta `Bearer` só em chamadas
@@ -351,10 +381,12 @@ rota não acha token → **401**.
 `tcAccessToken`** — mantendo `?tcAuth=` só como fallback legado. Assim o cookie
 que o browser já manda na navegação same-origin resolve a auth.
 
-**Se um download novo der 401, cheque nesta ordem:**
-1. A rota lê o **cookie** (e não só header/query)?
-2. `resolveTcCookieDomain` cobre o host? (deve devolver `.terracontrol.com.br`)
-3. O `<a href>` está dependendo de token que só existe **em memória**?
+**Se um download novo não abrir, cheque nesta ordem:**
+1. O **Service Worker** está interceptando? (Network → *from ServiceWorker* +
+   `Content-Type: text/html` → é o app shell, não o arquivo)
+2. A rota lê o **cookie** (e não só header/query)?
+3. `resolveTcCookieDomain` cobre o host? (deve devolver `.terracontrol.com.br`)
+4. O `<a href>` está dependendo de token que só existe **em memória**?
 
 > Regra geral: **toda rota servida via `<a href>`/iframe precisa aceitar cookie.**
 > Os 3 caminhos de auth de `/api/documents/:filename` são: `req.user` (sessão

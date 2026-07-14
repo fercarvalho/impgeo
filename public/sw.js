@@ -128,6 +128,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // cross-origin: deixa passar
 
+  // /api/* alcançado por NAVEGAÇÃO (não por fetch) não é rota da SPA — é
+  // conteúdo servido pelo backend que o usuário abre navegando: <a href> de
+  // PDF em /api/documents/*, window.open do modelo em /api/modelo/*. Como
+  // handleNavigation devolve o app shell pré-cacheado SEM olhar a URL, cair
+  // lá faz o browser renderizar o app no lugar do arquivo — sintoma "o PDF
+  // não abre / não baixa". Sem respondWith o browser faz o request normal,
+  // com os cookies que a rota espera.
+  if (request.mode === 'navigate' && url.pathname.startsWith('/api/')) {
+    return;
+  }
+
   // Navigation (HTML do app shell).
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigation(request));
