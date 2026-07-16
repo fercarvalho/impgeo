@@ -15,6 +15,7 @@
 
 import React, { useCallback, useRef, useState } from 'react'
 import { CheckCircle2, AlertTriangle, Info, X, XCircle } from 'lucide-react'
+import Modal from '@/components/Modal'
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -161,7 +162,13 @@ interface ConfirmDialogViewProps {
 const ConfirmDialogView: React.FC<ConfirmDialogViewProps> = ({ state, onResult }) => {
   const isDanger = state.variant === 'danger'
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
+    // Usa o <Modal> compartilhado: portal pra document.body (o antigo
+    // `fixed inset-0` renderizava DENTRO do stacking context do modal-pai —
+    // ex.: o painel de usuários — e o backdrop-blur saía cortado numa faixa
+    // no topo) + z-[10060], acima de qualquer <Modal> (z-[10050]) já aberto,
+    // então o confirm sempre fica NA FRENTE de quem o abriu. ESC/click-outside
+    // = cancelar (resolve false).
+    <Modal isOpen onClose={() => onResult(false)} zIndexClass="z-[10060]">
       <div className="bg-white dark:bg-[#243040] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
         <div className="p-6">
           <div className="flex items-start gap-3 mb-3">
@@ -199,6 +206,6 @@ const ConfirmDialogView: React.FC<ConfirmDialogViewProps> = ({ state, onResult }
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
