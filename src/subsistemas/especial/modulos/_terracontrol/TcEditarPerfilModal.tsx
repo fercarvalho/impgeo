@@ -205,11 +205,17 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
     // F2.3: em modo obrigatório, valida os campos antes de chamar a API
     // pra não bater no backend só pra ouvir "ainda falta preencher"
     if (required) {
-      const addrCity = (payload.address?.city || '').trim()
-      if (!payload.phone)     { notify('Informe seu telefone', { type: 'warning' }); return }
-      if (!payload.cpf)       { notify('Informe seu CPF', { type: 'warning' }); return }
-      if (!payload.birthDate) { notify('Informe sua data de nascimento', { type: 'warning' }); return }
-      if (!addrCity)          { notify('Preencha pelo menos cidade no endereço', { type: 'warning' }); return }
+      const addr = payload.address || {}
+      if (!payload.phone)               { notify('Informe seu telefone', { type: 'warning' }); return }
+      if (!payload.cpf)                 { notify('Informe seu CPF', { type: 'warning' }); return }
+      if (!payload.birthDate)           { notify('Informe sua data de nascimento', { type: 'warning' }); return }
+      // Endereço completo obrigatório — só o complemento é opcional.
+      if (!(addr.cep || '').trim())          { notify('Informe o CEP', { type: 'warning' }); return }
+      if (!(addr.street || '').trim())       { notify('Informe a rua', { type: 'warning' }); return }
+      if (!(addr.number || '').trim())       { notify('Informe o número', { type: 'warning' }); return }
+      if (!(addr.neighborhood || '').trim()) { notify('Informe o bairro', { type: 'warning' }); return }
+      if (!(addr.city || '').trim())         { notify('Informe a cidade', { type: 'warning' }); return }
+      if (!(addr.state || '').trim())        { notify('Informe a UF', { type: 'warning' }); return }
     }
 
     setSubmitting(true)
@@ -286,8 +292,8 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
                 Como você acessou o TerraControl via convite por email, precisamos que você preencha algumas informações
-                obrigatórias antes de continuar: <strong>telefone, CPF, data de nascimento e cidade do endereço</strong>.
-                Os outros campos são opcionais.
+                obrigatórias antes de continuar: <strong>telefone, CPF, data de nascimento e o endereço completo
+                (só o complemento é opcional)</strong>. Os demais campos são opcionais.
               </p>
             </div>
           </div>
@@ -362,7 +368,7 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
             <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  CEP {cepLoading && <Loader2 className="inline w-3 h-3 animate-spin ml-1" />}
+                  CEP{required && <span className="text-red-500 ml-0.5">*</span>} {cepLoading && <Loader2 className="inline w-3 h-3 animate-spin ml-1" />}
                 </label>
                 <input type="text" value={address.cep || ''} onChange={(e) => handleCepChange(e.target.value)}
                   placeholder="00000-000" maxLength={9}
@@ -370,12 +376,12 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
                 {cepError && <p className="text-[11px] text-red-600 mt-1">{cepError}</p>}
               </div>
               <div className="sm:col-span-3">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Rua</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Rua{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={address.street || ''} onChange={(e) => setAddress(p => ({ ...p, street: e.target.value }))}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Número</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Número{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={address.number || ''} onChange={(e) => setAddress(p => ({ ...p, number: e.target.value }))}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
@@ -385,7 +391,7 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Bairro</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Bairro{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={address.neighborhood || ''} onChange={(e) => setAddress(p => ({ ...p, neighborhood: e.target.value }))}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
@@ -395,7 +401,7 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div className="sm:col-span-2 sm:max-w-[140px]">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">UF</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">UF{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={address.state || ''} maxLength={2}
                   onChange={(e) => setAddress(p => ({ ...p, state: e.target.value.toUpperCase().slice(0, 2) }))}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 uppercase" />
