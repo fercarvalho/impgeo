@@ -327,17 +327,17 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">CPF</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">CPF{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de nascimento</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de nascimento{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="date" value={birthDate || ''} onChange={(e) => setBirthDate(e.target.value)}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
@@ -390,7 +390,7 @@ const TcEditarPerfilModal: React.FC<Props> = ({ isOpen, onClose, notify, require
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Cidade</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Cidade{required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input type="text" value={address.city || ''} onChange={(e) => setAddress(p => ({ ...p, city: e.target.value }))}
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100" />
               </div>
