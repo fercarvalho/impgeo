@@ -178,6 +178,13 @@ const AppContent: React.FC = () => {
 
   // Verificar se há token de visualização pública na URL
   useEffect(() => {
+    // /aceitar-convite?token= é do fluxo do TerraControl (TcPublicEntry cuida).
+    // O token do convite é 64 hex (randomBytes(32)), IGUAL ao regex de reset de
+    // senha do impgeo abaixo — sem este guard, este effect o trata como reset,
+    // faz replaceState e COME o ?token= da URL antes do TcPublicEntry (lazy)
+    // montar, jogando o convidado no login em vez da tela de cadastro.
+    if (window.location.pathname.startsWith('/aceitar-convite')) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash.substring(1);
     const urlToken = urlParams.get('token') || (hash.startsWith('view_') ? hash : null);
