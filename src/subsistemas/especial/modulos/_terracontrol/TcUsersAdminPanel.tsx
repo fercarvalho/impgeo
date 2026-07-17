@@ -259,19 +259,19 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
       <Modal isOpen={isOpen} onClose={onClose}>
         <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-tc-green/5 to-tc-blue/5">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-tc-green to-tc-blue shadow-md">
+          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-tc-green/5 to-tc-blue/5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-tc-green to-tc-blue shadow-md shrink-0">
                 <Users className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Usuários TerraControl</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">Usuários TerraControl</h2>
+                <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
                   Crie, edite e gerencie permissões dos acessos externos
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <button
                 onClick={fetchList}
                 disabled={loading}
@@ -282,9 +282,10 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
               </button>
               <button
                 onClick={() => setCreateOpen(true)}
-                className="h-9 flex items-center gap-2 px-3 py-1.5 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-lg hover:from-tc-green-dark hover:to-tc-blue-dark shadow"
+                title="Novo usuário"
+                className="h-9 flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-lg hover:from-tc-green-dark hover:to-tc-blue-dark shadow shrink-0"
               >
-                <Plus className="w-4 h-4" /> Novo usuário
+                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo usuário</span>
               </button>
               <button
                 onClick={onClose}
@@ -296,8 +297,8 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
           </div>
 
           {/* Toolbar */}
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-[#243040]">
-            <div className="relative flex-1 min-w-[220px]">
+          <div className="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-[#243040]">
+            <div className="relative w-full sm:flex-1 sm:w-auto sm:min-w-[220px] order-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -310,7 +311,7 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="h-9 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#1a2332] text-gray-800 dark:text-gray-100 px-2"
+              className="order-2 flex-1 sm:flex-none min-w-0 h-9 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#1a2332] text-gray-800 dark:text-gray-100 px-2"
             >
               <option value="all">Todos status</option>
               <option value="active">Ativos</option>
@@ -319,14 +320,14 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
             <select
               value={viaFilter}
               onChange={(e) => setViaFilter(e.target.value as any)}
-              className="h-9 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#1a2332] text-gray-800 dark:text-gray-100 px-2"
+              className="order-3 flex-1 sm:flex-none min-w-0 h-9 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:!bg-[#1a2332] text-gray-800 dark:text-gray-100 px-2"
             >
               <option value="all">Toda origem</option>
               <option value="direct">Cadastro direto</option>
               <option value="invite">Convite</option>
               <option value="migrated">Migrado de link</option>
             </select>
-            <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+            <span className="order-4 w-full sm:w-auto text-xs text-gray-500 dark:text-gray-400 sm:ml-auto">
               {filtered.length} de {list.length}
             </span>
           </div>
@@ -350,7 +351,86 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
                 )}
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <>
+              {/* Mobile: cards (a tabela de 7 colunas estoura em telas de
+                  celular). No sm+ mostramos a tabela completa. */}
+              <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
+                {filtered.map(u => (
+                  <div key={u.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{fullName(u)}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">@{u.username}</div>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1 shrink-0">
+                        {u.is_active ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                            <ShieldCheck className="w-3 h-3" /> Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                            Inativo
+                          </span>
+                        )}
+                        {u.force_password_change && u.is_active && (
+                          <span title="Será forçado a trocar a senha no próximo login"
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                            Senha temp.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                      {u.email ? (
+                        <>
+                          <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="truncate">{u.email}</span>
+                        </>
+                      ) : <span className="text-gray-400 italic text-xs">sem email</span>}
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-tc-blue/10 text-tc-blue dark:bg-tc-blue/20">
+                          {String(u.records_count)}
+                        </span>
+                        registros
+                      </span>
+                      <span>{createdViaLabel(u.created_via)}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
+                        {fmtDate(u.last_login)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setEditingUser(u)}
+                        className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      >
+                        <Edit3 className="w-4 h-4" /> Editar
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(u)}
+                        className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                      >
+                        <Key className="w-4 h-4" /> Senha
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(u)}
+                        className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold ${u.is_active
+                          ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                          : 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'}`}
+                      >
+                        {u.is_active ? <><PowerOff className="w-4 h-4" /> Desativar</> : <><Power className="w-4 h-4" /> Reativar</>}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <table className="hidden sm:table w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-[#243040] sticky top-0 z-10">
                   <tr className="text-left text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     <th className="px-4 py-2.5 font-semibold">Usuário</th>
@@ -441,11 +521,12 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
                   ))}
                 </tbody>
               </table>
+              </>
             )}
           </div>
 
           {/* Footer info */}
-          <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#243040] text-xs text-gray-500 dark:text-gray-400">
+          <div className="px-4 sm:px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#243040] text-xs text-gray-500 dark:text-gray-400">
             URLs antigas <code className="text-tc-blue">/v/&lt;token&gt;</code> continuam funcionando — são redirecionadas para a tela de login do usuário migrado.
           </div>
         </div>
