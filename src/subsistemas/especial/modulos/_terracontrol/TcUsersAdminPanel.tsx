@@ -259,41 +259,52 @@ const TcUsersAdminPanel: React.FC<Props> = ({ isOpen, onClose, token, records, n
       <Modal isOpen={isOpen} onClose={onClose}>
         <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-tc-green/5 to-tc-blue/5">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-tc-green to-tc-blue shadow-md shrink-0">
-                <Users className="w-5 h-5 text-white" />
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-tc-green/5 to-tc-blue/5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-tc-green to-tc-blue shadow-md shrink-0">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">Usuários TerraControl</h2>
+                  <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
+                    Crie, edite e gerencie permissões dos acessos externos
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">Usuários TerraControl</h2>
-                <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
-                  Crie, edite e gerencie permissões dos acessos externos
-                </p>
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <button
+                  onClick={fetchList}
+                  disabled={loading}
+                  title="Recarregar lista"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+                {/* No sm+ o botão fica aqui na linha do título; no mobile ele
+                    desce pra uma linha própria (abaixo) em largura cheia. */}
+                <button
+                  onClick={() => setCreateOpen(true)}
+                  className="hidden sm:flex h-9 items-center gap-2 px-3 py-1.5 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-lg hover:from-tc-green-dark hover:to-tc-blue-dark shadow shrink-0"
+                >
+                  <Plus className="w-4 h-4" /> Novo usuário
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <button
-                onClick={fetchList}
-                disabled={loading}
-                title="Recarregar lista"
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                onClick={() => setCreateOpen(true)}
-                title="Novo usuário"
-                className="h-9 flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-lg hover:from-tc-green-dark hover:to-tc-blue-dark shadow shrink-0"
-              >
-                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo usuário</span>
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+
+            {/* Novo usuário no mobile: linha própria, largura cheia, abaixo do título. */}
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="sm:hidden mt-3 w-full h-10 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-tc-green to-tc-blue text-white font-semibold rounded-lg hover:from-tc-green-dark hover:to-tc-blue-dark shadow"
+            >
+              <Plus className="w-4 h-4" /> Novo usuário
+            </button>
           </div>
 
           {/* Toolbar */}
