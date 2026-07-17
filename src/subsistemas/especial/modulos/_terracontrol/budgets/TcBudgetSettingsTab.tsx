@@ -130,10 +130,10 @@ const TcBudgetSettingsTab: React.FC<Props> = ({ notify }) => {
   return (
     <div className="space-y-4">
       <div className="bg-white dark:!bg-[#243040] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <SettingsIcon className="w-4 h-4" />
+              <SettingsIcon className="w-4 h-4 shrink-0" />
               Template padrão do orçamento
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -144,7 +144,7 @@ const TcBudgetSettingsTab: React.FC<Props> = ({ notify }) => {
             type="button"
             onClick={handleSave}
             disabled={saving || loading}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-tc-green to-tc-blue text-white hover:from-tc-green-dark hover:to-tc-blue-dark disabled:opacity-50 shrink-0"
+            className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-tc-green to-tc-blue text-white hover:from-tc-green-dark hover:to-tc-blue-dark disabled:opacity-50 shrink-0"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar template
@@ -208,33 +208,37 @@ const TcBudgetSettingsTab: React.FC<Props> = ({ notify }) => {
               Nenhum item padrão. Adicione se quiser que apareçam pré-preenchidos.
             </div>
           ) : items.map(it => (
-            <div key={it.id} className="flex gap-2 items-center bg-gray-50 dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+            <div key={it.id} className="flex flex-col sm:flex-row gap-2 sm:items-center bg-gray-50 dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 rounded-lg p-2">
               <input
                 type="text"
                 value={it.description}
                 onChange={e => updateItem(it.id, { description: e.target.value })}
                 placeholder="Descrição do serviço"
-                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
+                className="w-full sm:flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100"
               />
-              <div className="relative w-40">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">R$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={it.amountStr}
-                  onChange={e => updateItem(it.id, { amountStr: e.target.value })}
-                  placeholder="0,00"
-                  className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 text-right tabular-nums"
-                />
+              {/* No mobile: valor (cresce) + lixeira dividem uma segunda linha.
+                  No sm+: valor com largura fixa ao lado da descrição. */}
+              <div className="flex gap-2 items-center">
+                <div className="relative flex-1 sm:w-40">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={it.amountStr}
+                    onChange={e => updateItem(it.id, { amountStr: e.target.value })}
+                    placeholder="0,00"
+                    className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:!bg-[#243040] text-gray-900 dark:text-gray-100 text-right tabular-nums"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(it.id)}
+                  className="px-2 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded border border-red-200 dark:border-red-800/50 shrink-0"
+                  title="Remover item"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => removeItem(it.id)}
-                className="px-2 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded border border-red-200 dark:border-red-800/50"
-                title="Remover item"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
             </div>
           ))}
         </div>

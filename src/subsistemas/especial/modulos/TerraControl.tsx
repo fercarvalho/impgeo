@@ -3673,16 +3673,16 @@ const TerraControl: React.FC = () => {
       {isBudgetSettingsOpen && (
         <Modal isOpen={true} onClose={() => setIsBudgetSettingsOpen(false)}>
           <div className="bg-white dark:!bg-[#1a2332] rounded-2xl shadow-2xl w-[96vw] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="bg-gradient-to-r from-tc-green to-tc-blue px-6 py-4 text-white flex items-center justify-between">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Configurações de orçamento
+            <div className="bg-gradient-to-r from-tc-green to-tc-blue px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2 min-w-0">
+                <Settings className="w-4 h-4 shrink-0" />
+                <span className="truncate">Configurações de orçamento</span>
               </h2>
-              <button type="button" onClick={() => setIsBudgetSettingsOpen(false)} className="text-white/80 hover:text-white">
+              <button type="button" onClick={() => setIsBudgetSettingsOpen(false)} className="text-white/80 hover:text-white shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 overflow-auto p-4 sm:p-6">
               <TcBudgetSettingsTab notify={notify} />
             </div>
           </div>
