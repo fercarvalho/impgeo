@@ -523,6 +523,53 @@ router.delete('/api/transactions', async (req, res) => {
   }
 });
 
+// Edição em lote: aplica propriedades em comum (tipo/categoria/subcategoria) às
+// transações selecionadas. Só os campos presentes em `updates` são alterados.
+// Se o tipo resultante não usa categoria (transferência/caixa), categoria e
+// subcategoria são zeradas. Edição manual "solta" da regra (como o PUT único).
+router.post('/api/transactions/bulk-update', async (req, res) => {
+  try {
+    const { ids, updates } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'Nenhuma transação informada.' });
+    }
+    const setType = updates && Object.prototype.hasOwnProperty.call(updates, 'type');
+    const setCategory = updates && Object.prototype.hasOwnProperty.call(updates, 'category');
+    const setSubcategory = updates && Object.prototype.hasOwnProperty.call(updates, 'subcategory');
+    if (!setType && !setCategory && !setSubcategory) {
+      return res.status(400).json({ success: false, error: 'Nenhuma propriedade para alterar.' });
+    }
+    const TYPES_WITHOUT_CATEGORY = ['Transferência entre contas', 'Reforço de caixa', 'Retirada de caixa'];
+    const data = [];
+    for (const id of ids) {
+      try {
+        const tx = (await db.queryWithRetry('SELECT * FROM transactions WHERE id = $1', [id])).rows[0];
+        if (!tx) continue;
+        const newType = setType ? updates.type : tx.type;
+        const typeUsesCategory = !TYPES_WITHOUT_CATEGORY.includes(newType);
+        const newCategory = !typeUsesCategory ? null : (setCategory ? (updates.category || null) : tx.category);
+        const newSubcategory = !typeUsesCategory ? null : (setSubcategory ? (updates.subcategory || null) : tx.subcategory);
+        await db.queryWithRetry(
+          `UPDATE transactions SET
+             type = $1, category = $2, subcategory = $3,
+             applied_rule_id = NULL, original_type = NULL, original_category = NULL,
+             original_subcategory = NULL, needs_confirmation = FALSE, updated_at = NOW()
+           WHERE id = $4`,
+          [newType, newCategory, newSubcategory, id]
+        );
+        const fresh = (await db.queryWithRetry('SELECT * FROM transactions WHERE id = $1', [id])).rows[0];
+        if (fresh) data.push(fresh);
+      } catch (err) {
+        console.error(`Erro ao editar transação ${id} em lote:`, err);
+      }
+    }
+    res.json({ success: true, updated: data.length, data });
+    await logActivity(req, { action: 'financial_edit', moduleKey: 'transactions', entityType: 'transaction', details: { bulkUpdate: { count: data.length, updates } } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // APIs para Subcategorias
 router.get('/api/subcategories', async (req, res) => {
   try {

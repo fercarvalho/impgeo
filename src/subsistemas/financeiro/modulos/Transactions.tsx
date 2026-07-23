@@ -4,6 +4,7 @@ import ProjectPickerModal from '@/components/ProjectPickerModal'
 import { usePermissions } from '@/hooks/usePermissions'
 import TransactionRulesModal from '@/components/modals/TransactionRulesModal'
 import ResolveTransactionModal from '@/components/modals/ResolveTransactionModal'
+import BulkEditTransactionsModal from '@/components/modals/BulkEditTransactionsModal'
 import PendingTransactionsBanner from '@/components/PendingTransactionsBanner'
 import Modal from '@/components/Modal'
 import { CATEGORIES_BY_TYPE } from '@/config/categorias'
@@ -152,6 +153,7 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
   const projPerms = usePermissions('projects');
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false)
   // Vínculo a projeto: mapa id→nome + alvo do seletor ('bulk' = selecionadas; ou um txId)
   const [projectsMap, setProjectsMap] = useState<Record<string, string>>({})
   const [linkPickerFor, setLinkPickerFor] = useState<null | 'bulk' | string>(null)
@@ -792,6 +794,27 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
     } catch {}
   }
 
+  // Edição das selecionadas: aplica tipo/categoria/subcategoria em comum.
+  const handleBulkEdit = async (updates: { type?: string; category?: string; subcategory?: string }) => {
+    const ids = Array.from(selectedTransactions)
+    if (ids.length === 0) return
+    try {
+      const r = await fetch(`${API_BASE_URL}/transactions/bulk-update`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, updates }),
+      })
+      const j = await r.json()
+      if (!j.success) { alert(j.error || 'Falha ao salvar as alterações.'); return }
+      const byId: Record<string, Transaction> = {}
+      for (const t of (j.data || []) as Transaction[]) byId[t.id] = t
+      setTransactions(prev => prev.map(t => byId[t.id] || t))
+      setSelectedTransactions(new Set())
+      setIsBulkEditOpen(false)
+    } catch {
+      alert('Erro ao salvar as alterações.')
+    }
+  }
+
   // Import/Export
   const downloadModel = () => {
     window.open(`${API_BASE_URL}/modelo/transactions`, '_blank')
@@ -1227,6 +1250,11 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
               <div className="flex flex-wrap justify-between items-center gap-2 p-4 bg-gray-50 dark:bg-[#2d3f52] border-t border-gray-200 dark:border-gray-700">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{selectedTransactions.size} selecionada{selectedTransactions.size > 1 ? 's' : ''}</span>
                 <div className="flex flex-wrap gap-2">
+                  {permissions.canEdit && (
+                    <button onClick={() => setIsBulkEditOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:-translate-y-0.5 transition-all duration-200 shadow-lg">
+                      <Edit className="h-4 w-4" /> Editar selecionadas ({selectedTransactions.size})
+                    </button>
+                  )}
                   {projPerms.canEdit && (
                     <button onClick={() => setLinkPickerFor('bulk')} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold rounded-xl hover:-translate-y-0.5 transition-all duration-200 shadow-lg">
                       <Link2 className="h-4 w-4" /> Vincular a projeto ({selectedTransactions.size})
@@ -1482,6 +1510,14 @@ const Transactions: React.FC<TransactionsProps> = ({ showModal, onCloseModal }) 
           onClose={() => setLinkPickerFor(null)}
         />
       )}
+
+      <BulkEditTransactionsModal
+        isOpen={isBulkEditOpen}
+        count={selectedTransactions.size}
+        subcategories={subcategories}
+        onClose={() => setIsBulkEditOpen(false)}
+        onApply={handleBulkEdit}
+      />
 
       {/* Modal Importar/Exportar */}
       <Modal isOpen={isImportExportOpen} onClose={() => setIsImportExportOpen(false)}>
